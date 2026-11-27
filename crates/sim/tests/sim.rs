@@ -131,6 +131,8 @@ mod placement;
 mod playtest_map;
 #[path = "popup/main.rs"]
 mod popup;
+#[path = "prayer_mobile/main.rs"]
+mod prayer_mobile;
 #[path = "prerequisites/main.rs"]
 mod prerequisites;
 #[path = "production/main.rs"]

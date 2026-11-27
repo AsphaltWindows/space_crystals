@@ -81,7 +81,7 @@ pub struct FacingTick(pub ObjectId);
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RiotShieldVisual(pub ObjectId);
 
-pub use flight::{FLIGHT_LIFT_LEVELS, FlightShadow, body_height, flies, flight_lift};
+pub use flight::{FLIGHT_LIFT_LEVELS, FlightShadow, LIFT_OFF_SU, body_height, flies, flight_lift, object_lift};
 pub use load::{LoadMarker, carries};
 pub use look::{Look, UnitShape};
 pub use remembered::{RememberedVisual, RememberedVisuals};

@@ -881,7 +881,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`). Each passes the gate against
    the state the commands before it left, so a cost is paid from the bank as they left it and a Place is checked
    with the footprints they placed (see *Economy > Construction*). (M5-N5) A `Command::Cast` pays its energy and gives
-   its buffs here, to the units where the last tick left them (plan decision T76; *Combat > Buffs*).
+   its buffs here, to the units where the last tick left them (plan decision T76; *Combat > Buffs*); (M5-N11) a
+   Prayer-mobile's Inspire and Suppress too, round it and ahead of it as the last tick left it (*Combat > Inspire and
+   Suppress*).
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
    - Modes, `Sim::step_modes` (`sim/modes.rs`, beside `Sim::use_ability`, which applies the ability commands and
      switches a toggled unit's type at the press): each unit's form goes a step toward its type (*Object model >
@@ -972,7 +974,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      object's buffs, on the map and then held, in id order: a Health regeneration adds its HP, up to the unit's MaxHP
      with its Augmentations, and each buff whose last tick this was ends. After 5e's removals, so that the dead never
      heal and a hit's tick ends with the heal on top of it; an object created in the tick (`first_new` on) has its
-     effects from the next.
+     effects from the next. (M5-N11) Inspire and Suppress do nothing here but end: what they change is read where it
+     counts, the speed by the movement step and the attack cycle by phase 5e, and Suppress by phase 5e's start of an
+     attack (`suppress::holds_fire`), in every tick of the buff, its cast's included (*Combat > Inspire and
+     Suppress*); Suppress has no step of its own.
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
@@ -1186,6 +1191,28 @@ ticks spent in it. Hashed and serialized like all state.
   and the buff stays when its caster is gone (a Placeholder). Hashed (tag 9) and saved only while a unit has one.
   F1 (*Movement and collision > Invariants*) checks them. The client marks each buff a seen unit has beside its HP
   bar's place (`combat_effects/buffs.rs`, *Client architecture*).
+- **Inspire and Suppress** (`buffs.rs`, `suppress.rs`, `defs/cults/units/prayer_mobile.rs`; slice M5-N11,
+  `factions/cults/units/prayer_mobile.md`, design changes 0364 and 0365): the Prayer-mobile's two casts are area
+  abilities too, which a unit casts at once from where it stands (`UnitDef::spells`, `SpellDef::Cast`: R and F,
+  "instant, no target"; `buffs::casts`), its area taken from the caster as the last tick left it
+  (`AbilityDef::area`: the Shrine's `AtPoint`, Inspire's `AroundCaster`, a circle of 4 grid units round it, and
+  Suppress's `Ahead { arc }`, 90° ahead of its facing and 5 grid units long, `suppress::in_arc`, its bounds and edge
+  inside: a Placeholder). The caster isn't in its own area. `Affects::Own(kinds)` takes in its owner's units of those
+  kinds, Inspire's the four infantry kinds; `Affects::EveryUnit`, Suppress's, every unit of any owner, air units too,
+  but no structure. **Inspire** (`BuffEffect::Inspire`) adds 1.5 su a tick to the unit's MaxSpeed on top of its
+  Augmentations' (`buffs::max_speed_bonus`, in `Object::movement`), and gives a Recruit's own weapon its attack cycle
+  × 0.75, to the nearest tick, the ticks saved taken off its FiringDuration (`buffs::inspired`, after
+  `augmentation::augmented`: 12 → 9, a Firing of 8 → 5; an Improved Metabolism Recruit's 10 → 8): **Placeholder (not
+  in the design: which phases)**, Firing being its longest phase, the one Improved Metabolism shortens too.
+  **Suppress** (`BuffEffect::HoldFire`) is the status "can't attack" for 4 s: a unit that holds fire
+  (`suppress::holds_fire`) starts no attack sequence in phase 5e, on the map or from inside a building, but moves,
+  takes its orders, channels Shroud and builds as ever; a Rocketman's Target Lock goes on counting and stays locked,
+  and its first missile's sequence starts after the status. **Placeholder (not in the design)**, an attack under way as
+  it lands: its aim is cancelled, and a Firing, a Cooldown or a reload under way runs on, the Firing's hit landing (a
+  Recruit's punch up to 7 ticks after the cast). A recast restarts either (one buff of an ability at most). Both are
+  `Buff`s, hashed and saved only while set; their ends are the Buffs step's. Tests: `crates/sim/tests/prayer_mobile/`
+  (`energy.rs`, `inspire.rs`, `suppress.rs`, `production.rs`, `saves.rs`), `suppress.rs`'s and `buffs/tests.rs`'s unit
+  tests, and the golden `cults_prayer_mobile` (*Replays and golden hashes*).
 - **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units/weapon_conversion.md`, plan
   decision T26, design change 0198): `Ability::Convert` flips the target form of each Legionnaire it goes to, a
   Sabre's to the Rifle Legionnaire and a Rifle's to the Sabre (`conversion::converts_to`): its type switches at the
@@ -2290,7 +2317,8 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   (**M3-D2**: `EnergyDoorway::margin` at least −1e-3, `ARC_TOLERANCE`), and never comes to be in a doorway by
   moving (`tests/production/portal_stalls.rs` has the energy doorway's negative tests for I1 and I2); I3 a unit moves at most its speed per tick; I4 every float
   is finite (I3's speed is the model's maximum for a unit with momentum: a mode that slows it only weakens its thrust;
-  (M5-N3) in a tick a research level completes, after the movement step, the larger of its MaxSpeeds before and after);
+  (M5-N3) in a tick a research level completes, after the movement step, the larger of its MaxSpeeds before and after;
+  (M5-N11) so too in a tick that changed what its buffs add to it, an Inspire cast or ended);
   I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
   than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order or a move of its behaviour, and a
   unit without a goal is at rest. A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase,
@@ -2847,7 +2875,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Control; `combat.rs`: a Militant killed on the move, the DirectionalArmor's three sides, Rugged terrain;
   `destruction.rs`; `normal_game.rs`: an Armory, a Chop Shop and a Seeker from the Cults' start, the Machine Shop and
   the Airstrip no longer greyed; `saves.rs`) and `tests/repair/vehicles.rs` (the Seeker repaired by the real recipe),
-  each tick under the invariants.
+  each tick under the invariants. (M5-N11) **Its second recipe**, the Prayer-mobile (125 Space Crystals, 400 frames,
+  `requires: &[Temple]`, design change 0444), trains the same way, 2 Recruits of the kind, refused
+  `Reject::Requires(Temple)` without a Temple; it comes out with its type's 50 energy (`crates/sim/tests/prayer_mobile/
+  production.rs`). The client puts it in the KindMenus' E (`PanelTemplate::trains`), W left to the Hand of Heaven.
 - **Research** (slice M5-N3, plan decisions T70 and T74 as design changes 0335 to 0338 amend them;
   `core/tech_and_research.md > Research`, `factions/cults/structures/temple.md`; `defs/cults/research.rs`,
   `defs/structures/research.rs`, `sim/producers/research.rs`): the technologies are data (`Tech`, its `TechDef`: name,
@@ -3166,7 +3197,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   and on a tile Visible to the player now, as the last tick left their vision (`OutOfSight`: "anywhere the player
   currently has vision"; `Sim::sees_point`, which the client's cast cursor and its click use too). `Sim::can_cast` is
   the checks but the point's, what the panel greys Q and W by. "No cooldowns": the Shrine casts again as soon as it
-  has the energy. `SimEvent::Cast` says where it went.
+  has the energy. `SimEvent::Cast` says where it went. (M5-N11) A cast round its caster or ahead of it (the
+  Prayer-mobile's Inspire and Suppress, *Combat > Inspire and Suppress*) has no point to check: `at` names nothing (the
+  client sends the caster's position), the area is the caster's as the last tick left it, and `SimEvent::Cast` carries
+  the caster's position and its `facing`, which the client draws Suppress's arc along.
 - **Default orders** (`orders/resolution.rs`; `systems/controls/interface.md > RightClickResolution`, design
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
@@ -3885,7 +3919,11 @@ these.
   `pos`, past the map's edge too, where the sim counts the unit as at the edge (`Object::map_pos`). **Whatever is drawn
   on a unit asks `object_render::body_height`**, the ground's height plus the flight's: its picking box and selection
   ring (`Selectable::of`, so a click picks the raised body, in front of a ground unit there, and not the shadow), its
-  HP bar, an order's marker on it (`indicators::targets::object_box`) and its shots' ends (`Tracer::lift`).
+  HP bar, an order's marker on it (`indicators::targets::object_box`) and its shots' ends (`Tracer::lift`). (M5-N11)
+  **On its takeoff run** (`Mover::takeoff`, a Sparrow out of the Airstrip; design change 0428: "it appears on the
+  runway's B end and rolls into the air toward C") its lift is `object_lift`'s: none until `LIFT_OFF_SU` (128 su, a
+  placeholder) before the run's end, then rising evenly to the whole flight at the end, the shadow following
+  (`place_shadows`); its shots' ends and a burst on it stay at the flight's height (`flight_lift`, a placeholder).
 - **Terrain** (`map_render.rs`): one mesh. A flat tile is a quad, a sloped one four triangles around its center (at
   the corners' mean height), each shaded by Lambert's law towards `LIGHT_TOWARDS` (a placeholder: from the north-west,
   45° up), so flat ground keeps its colour. A non-Traversible tile at least `CLIFF_MIN_SLOPE` levels steep reads as a
@@ -3983,7 +4021,10 @@ these.
   (slice M5-N5) a mark of each buff a unit the local player sees has, a cross in a dark rim right of its HP bar's
   place, whether the bar shows or not, green for Health regeneration and violet for Energy regeneration, in
   `AreaAbility::ALL`'s order (`combat_effects/buffs.rs`, `buff_marks`; who sees a buff and its look are
-  Placeholders, Q0001), and a fading marker for each
+  Placeholders, Q0001; (M5-N11) Inspire's a gold chevron, Suppress's a red X), (slice M5-N11) where a cast round its
+  caster or ahead of it was seen, for `CAST_TICKS` (16), Inspire's gold ring of its radius over a faint disc and
+  Suppress's red wedge along `SimEvent::Cast::facing`, fading (`combat_effects/casts.rs`, `CastFlash`; a placeholder
+  look; under the blasts, as each shows only while its point's tile is Visible), and a fading marker for each
   `SimEvent::Died` and (slice M5-V4) `SimEvent::Crushed` (`DEATH_MARKER_TICKS`; a crush has no look of its own:
   Placeholder (not in the design: no look of its own)), never for an object that was hidden from the local player
   (`shows_death`, the `Hiding` its death carries; plan decision T52: "nothing is drawn for a hidden victim", as a
@@ -4777,6 +4818,18 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   cursor while it is awaited (`indicators/cast.rs`: a faint disc and a ring of its radius on the terrain's surface,
   in the Cast colour over a point in vision, grey out of it; a placeholder look). The Recruit's Advanced Construct V
   is its Build, greyed "Requires a Temple" until one stands.
+- **The Prayer-mobile's panel** (slice M5-N11; `factions/cults/units/prayer_mobile.md > Placeholder stats`:
+  "ObjectInterfaceState: BasicCombatUnitInterfaceState without attack commands, plus **R: Inspire** and **F:
+  Suppress**"): the BasicCombatUnit grid with no D (`PanelTemplate::without_attacks`; its A the selection's, absent
+  alone as an unarmed unit's), W Reverse as the Seeker's, and its spells' casts in R and F (`templates::grid`,
+  `cast_slot`), labelled "Insp." and "Suppr.". A cast round its caster or ahead of it needs no target
+  (`PanelCommand::needs_target` is the ability's `AbilityArea::AtPoint` alone): its press is `SlotPress::Cast`, sent
+  at once as one `Command::Cast` from the one Prayer-mobile Tabbed to (Ungroupable, an instance command), its point
+  the vehicle's position; greyed by `Sim::can_cast` ("Not enough energy"). The Chop Shop's KindMenus put its training
+  in E (`PanelTemplate::trains`, which `cults::armory::kind_menu` honours as `production_grid` does), greyed "Requires
+  a Temple"; a pool building's training names its recipe's price in its hint (`Conditions::price`, "E: Build
+  Prayer-mobile (125 Space Crystals)"). Its look is `UnitShape::Megaphone` (`object_render/units.rs`: the turned
+  Silhouette on four wheels, a megaphone over its front; a placeholder).
 - **The Recruit's panel** (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design
   changes 0322, 0327, 0347 and 0398): `templates/cults/recruit.rs` (`InterfaceTemplate::Recruit`) is Q Move, W and E
   `PanelCommand::BuildMenu` (named "Basic Construct" and "Advanced Construct", `PanelTemplate::names`), A Attack, S
@@ -5124,8 +5177,8 @@ unchecked.
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
-  `hand_of_heaven.rs` and `main.rs`, the recording and the comparison in `harness.rs`): twenty-two games, a 3v3
-  duel, a 40-unit
+  `hand_of_heaven.rs`, `prayer_mobile.rs` and `main.rs`, the recording and the comparison in `harness.rs`):
+  twenty-three games, a 3v3 duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
   fire and lower them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1
@@ -5135,8 +5188,8 @@ unchecked.
   M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
   M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below), `cults_shroud` (slice
   M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
-  M5-K, below), `cults_vehicles` (slice M5-N6, below) and `hand_of_heaven` (slice M5-N10, below), are blessed as
-  replays
+  M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below) and
+  `cults_prayer_mobile` (slice M5-N11, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5227,7 +5280,13 @@ unchecked.
   beside it sees: two missiles 150 ticks apart, each of 592.9 (600 less FullArmor 16 times the 0.44 of the footprint
   the circle covers), which player 2 sees nothing of until the first lands (the reveal); in the tick after the second
   launch it is sent back to the rally point and drives off while the missile flies, which then brings the
-  Deployment Center down; every hit of the game is the Hand of Heaven's on it. The
+  Deployment Center down; every hit of the game is the Hand of Heaven's on it.
+  In `cults_prayer_mobile` (to 1:54, on an open test map) a Prayer-mobile
+  casts Inspire at tick 801, its 75 energy reached, by four Recruits as they set off for player 2's Temple: they walk
+  5.5 su a tick for its 10 s and 4.0 after, and punch it every 9 ticks while it lasts, every 12 after; another casts
+  Suppress at tick 1601 over a fight between three of player 1's Militants and six of player 2's Recruits charging
+  them: the Militants and the Recruits in its arc, of both players, land no hit from 8 ticks after the cast (a punch
+  already under way, `BLOW`) to the end of its 4 s, and fight on after. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -5659,7 +5718,10 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
     `AbilityDef` (`defs/cults/abilities.rs`), listed in its caster's `StructureDef::abilities`; `Command::Cast` and
     its gate (`sim/casts.rs`), `Object::buffs` in `Phase::Buffs` (`buffs.rs`), and F1 bounds them; the client's
     `PanelCommand::Cast` in the caster's template, the cast's circle (`indicators/cast.rs`) and the buffs' marks
-    (`combat_effects/buffs.rs`).
+    (`combat_effects/buffs.rs`). (M5-N11) A unit casts one as a spell, `SpellDef::Cast` in its `UnitDef::spells`,
+    with the area its `AbilityDef::area` says (round it or ahead of it); its effect, a `BuffEffect`, is read where it
+    counts (`buffs::max_speed_bonus`, `buffs::inspired`, `suppress::holds_fire`); the client's `templates::cast_slot`
+    puts its key, and `combat_effects/casts.rs` draws the cast.
 12. **Workers** (M3-H, M3-H2, M3-H3, M3-K2a): a `WorkerDef` (its carry capacity, mining and drop-off times and
     reaches, search radius and `pass_through`), the Gather and Drop Off orders (`orders/gather.rs`, the gate in
     `sim/workers.rs`), the timed work and the bank credit (`economy/gathering.rs`, `SimEvent::ResourcesDelivered`),

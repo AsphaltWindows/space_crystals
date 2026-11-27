@@ -97,6 +97,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::augmentation::{self, Research};
+use crate::buffs;
 use crate::conversion;
 use crate::defs::{AttackAttrs, AttackType, ObjectKind, TargetDomain};
 use crate::ids::ObjectId;
@@ -177,16 +178,17 @@ pub fn weapon(o: &Object, research: Research) -> Option<AttackAttrs> {
     weapon_ref(o, research, &mut None).copied()
 }
 
-/// (M5-N1a) [`weapon`] by reference: the weapon in hand without an Augmentation, else made in `slot`. The read of the
-/// behaviours' and phase 5e's loops over every unit, with nothing copied for a unit without one (inlined into them, as
-/// the other accessors are: `augmentation/stats.rs`).
+/// (M5-N1a) [`weapon`] by reference: the weapon in hand without an Augmentation (nor, M5-N11, a buff), else made in
+/// `slot`. The read of the behaviours' and phase 5e's loops over every unit, with nothing copied for a unit without one
+/// (inlined into them, as the other accessors are: `augmentation/stats.rs`). (M5-N11) An Inspire's faster attack
+/// after the Augmentations' effects (`buffs::inspired`: "different sources add up").
 #[inline]
 pub fn weapon_ref<'a>(o: &Object, research: Research, slot: &'a mut Option<AttackAttrs>) -> Option<&'a AttackAttrs> {
     let attrs = weapon_in_hand(o)?;
-    if o.augmentation.is_none() {
+    if o.augmentation.is_none() && o.buffs.is_empty() {
         return Some(attrs);
     }
-    Some(slot.insert(augmentation::augmented(o, attrs, research)))
+    Some(slot.insert(buffs::inspired(o, attrs, augmentation::augmented(o, attrs, research))))
 }
 
 /// The weapon `o` holds as its form's type has it, before its Augmentations ([`weapon`]): for what they leave as it is,

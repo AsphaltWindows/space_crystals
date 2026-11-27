@@ -95,6 +95,9 @@ struct Seen {
     momentum: Vec2,
     /// (M5-N3) Its MaxSpeed at its owner's research levels (`Object::max_speed`), for I3 in a tick that changes them.
     max_speed: f32,
+    /// (M5-N11) What its buffs add to its MaxSpeed (`crate::buffs::max_speed_bonus`), for I3 in a tick whose end takes an
+    /// Inspire.
+    speed_bonus: f32,
 }
 
 /// Checks the invariants between ticks (module docs). It remembers each unit's state, and each player's banks, of the
@@ -121,6 +124,7 @@ fn seen(o: &Object, mover: &Mover, research: Research) -> Seen {
         gathering: gather::on_gather_job(o),
         momentum: mover.momentum,
         max_speed: o.max_speed(research),
+        speed_bonus: crate::buffs::max_speed_bonus(o),
     }
 }
 
@@ -287,14 +291,19 @@ impl Invariants {
             // ForwardMaxSpeed: a mode that slows the unit only weakens its thrust or lowers its top speed, and the
             // speed it has decays. (M5-N3) In a tick that changed the
             // research levels after the movement step, the larger of its MaxSpeeds before and after: it moved at the
-            // one before, and moves at the one after from the next tick (`Sim::complete_research`). (M5-H1) An air unit
-            // that keeps apart from others may be pushed by at most `SEPARATION_PUSH_SU` on top (`gliders`), (M5-H2)
-            // its base's share of it (a Glider's a third, design change 0412; a quarter from design change 0405).
+            // one before, and moves at the one after from the next tick (`Sim::complete_research`). (M5-N11) So too in
+            // a tick that changed what its buffs add to it: an Inspire cast in the commands phase, which it moved with,
+            // or one whose last tick this was, which it moved with too and which the tick's end took (`crate::buffs`).
+            // (M5-H1) An air unit that keeps apart from others may be pushed by at most `SEPARATION_PUSH_SU` on top
+            // (`gliders`), (M5-H2) its base's share of it (a Glider's a third, design change 0412; a quarter from
+            // design change 0405).
             let drag = momentum::carries(&unit.movement);
             let glides = gliders::glides(o);
             let max_speed = o.max_speed(sim.research());
             let max_speed = match before {
-                Some(b) if levels_changed => b.max_speed.max(max_speed),
+                Some(b) if levels_changed || b.speed_bonus != crate::buffs::max_speed_bonus(o) => {
+                    b.max_speed.max(max_speed)
+                }
                 _ => max_speed,
             };
             let step = max_speed * if drag { 1.0 } else { mover.speed_factor } + gliders::push_allowance(o);

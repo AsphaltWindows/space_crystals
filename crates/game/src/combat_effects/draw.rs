@@ -1,18 +1,19 @@
 //! The effects' mesh: one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while
-//! anything shows, with the death markers at the back, then the blasts on the ground, the tracers, the projectiles in
-//! the air, the HP bars, (slice M5-N5) the buffs' marks and (slice M5-K) the Target Locks' reticles (placeholders until
-//! the art direction, Q0001).
+//! anything shows, with the death markers at the back, then (slice M5-N11) the casts and the blasts on the ground, the
+//! tracers, the projectiles in the air, the HP bars, (slice M5-N5) the buffs' marks and (slice M5-K) the Target Locks'
+//! reticles (placeholders until the art direction, Q0001).
 
 use bevy::prelude::*;
 use sc_sim::Map;
 
 use super::blasts::blast_shape;
 use super::buffs::{buff_marks, mark_shape};
+use super::casts::cast_shape;
 use super::locks::{lock_marks, lock_shape};
 use super::projectiles::{homing_missiles, missile_shape, projectile_shape};
 use super::{
     BAR_HEIGHT, CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, ShotStyle, TRACER_TICKS,
-    Tracer, age, hp_bars, shot_spans, shows_blast, shows_death, shows_flight,
+    Tracer, age, hp_bars, shot_spans, shows_blast, shows_cast, shows_death, shows_flight,
 };
 use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
 use crate::fog::LocalSight;
@@ -55,7 +56,7 @@ pub(super) fn spawn_effects_mesh(
     ));
 }
 
-/// Rebuilds the effects mesh: death markers at the back, then blasts, tracers, projectiles (the homing missiles too),
+/// Rebuilds the effects mesh: death markers at the back, then casts, blasts, tracers, projectiles (the homing missiles too),
 /// HP bars, the buffs' marks and the Target Locks' reticles (alpha blending draws a mesh's triangles in order), each
 /// only where the local player sees it. Hidden while nothing shows.
 pub(super) fn draw_effects(
@@ -76,6 +77,9 @@ pub(super) fn draw_effects(
     for death in effects.deaths.iter().filter(|d| shows_death(&sight, d)) {
         let fade = 1.0 - age(&sim, alpha.0, death.tick) / DEATH_MARKER_TICKS as f32;
         death_marker(&mut mesh, sim.map(), death, fade, z);
+    }
+    for cast in effects.casts.iter().filter(|c| shows_cast(&sim, &sight, c)) {
+        cast_shape(&mut mesh, sim.map(), cast, age(&sim, alpha.0, cast.tick), z);
     }
     for blast in effects.blasts.iter().filter(|b| shows_blast(&sim, &sight, b)) {
         blast_shape(&mut mesh, sim.map(), blast, age(&sim, alpha.0, blast.tick), z);

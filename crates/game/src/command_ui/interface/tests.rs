@@ -9,6 +9,7 @@ mod cults;
 mod expansions;
 mod gathering;
 mod place_buttons;
+mod prayer_mobile;
 mod recruit;
 mod rocketman;
 mod shrine;

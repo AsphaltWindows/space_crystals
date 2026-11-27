@@ -27,6 +27,10 @@
 //! `factions/gdo/units/rocketman.md > Target Lock`) aims at its target as a FullyConnected one does, and at the end of
 //! its Firing launches a projectile that homes in on it (`super::projectiles::Homing`), instead of hitting it there and
 //! then: "The unit enters Cooldown and Reloading while the projectile is in flight".
+//!
+//! (M5-N11) A suppressed unit holds its fire (`crate::suppress`; `factions/cults/units/prayer_mobile.md > Abilities`:
+//! "Affected units **temporarily can't attack**"): its shooter starts no sequence, and an aim under way is cancelled,
+//! as a new command cancels one, while a Firing, a Cooldown and a Reloading under way run on to their ends.
 
 use glam::Vec2;
 
@@ -44,6 +48,7 @@ use crate::math;
 use crate::movement;
 use crate::object::Object;
 use crate::shape::Shape;
+use crate::suppress;
 use crate::tuning::combat::FACING_TOLERANCE;
 use crate::units::Tick;
 use crate::vision::PlayerVision;
@@ -98,11 +103,14 @@ pub(super) struct Shooter<'a> {
     /// (M5-N2) It is a unit firing from inside a building (`super::occupants`): its shots leave from the footprint's
     /// edge ([`Shooter::muzzle`]).
     inside: bool,
+    /// (M5-N11) It holds its fire, suppressed (`crate::suppress::holds_fire`): it starts no sequence ([`run`]).
+    holds_fire: bool,
 }
 
 impl<'a> Shooter<'a> {
     /// The object `o`, attacking with `attrs` (`super::weapon`), its owner's vision `sight`, after phase 5d turned it
-    /// by `turned` this tick (plan decision T49: the attack and the object, a unit's or a structure's).
+    /// by `turned` this tick (plan decision T49: the attack and the object, a unit's or a structure's), holding its fire
+    /// while it is suppressed (`crate::suppress`).
     pub(super) fn new(
         map: &'a Map,
         o: &Object,
@@ -126,6 +134,7 @@ impl<'a> Shooter<'a> {
             source: Source::of(unit),
             sight,
             inside: false,
+            holds_fire: suppress::holds_fire(o),
         }
     }
 
@@ -152,6 +161,16 @@ impl<'a> Shooter<'a> {
             source: Source::Structure,
             sight,
             inside: true,
+            holds_fire: false,
+        }
+    }
+
+    /// (M5-N11) The same shooter, holding its fire if `holds`: a unit inside a building that is suppressed
+    /// (`crate::suppress::holds_fire`, `super::occupants`).
+    pub(super) fn holding_fire(self, holds: bool) -> Self {
+        Self {
+            holds_fire: holds,
+            ..self
         }
     }
 
@@ -293,7 +312,8 @@ fn duration(attrs: &AttackAttrs, phase: AttackPhase) -> u32 {
 
 /// One tick of a unit's attack sequence (module docs): drop a target it can't attack, start a sequence if the
 /// weapon is ready and the target in range, then spend the tick in the current phase, ending the phases that have
-/// run their course. `facing` is the unit's; hits and projectiles go to `volley`.
+/// run their course. `facing` is the unit's; hits and projectiles go to `volley`. (M5-N11) A shooter that holds its
+/// fire (`crate::suppress`) starts none, and cancels an aim under way.
 pub(super) fn run(
     state: &mut AttackState,
     facing: &mut f32,
@@ -319,11 +339,22 @@ pub(super) fn run(
     if let Source::Turret(attrs) = &shooter.source {
         turret::step(state, attrs, *facing, shooter, targets);
     }
+    // (M5-N11) A unit that holds its fire, suppressed, starts no sequence, and an aim under way is cancelled; a shot, a
+    // cooldown or a reload under way runs on to its end (`crate::suppress`: **Placeholder (not in the design)**). It
+    // keeps what it engages.
+    if shooter.holds_fire
+        && matches!(
+            state.phase,
+            Some(AttackPhase::Aiming { .. } | AttackPhase::AimingAt { .. })
+        )
+    {
+        state.cancel();
+    }
     // `systems/controls/command_behaviors.md > AttackingObject` 3: a sequence begins once the target is in range (and
     // within a turret's arc) and no sequence runs, and only at a target the unit's owner sees (`systems/combat.md >
     // ValidTarget` 2). `systems/controls/command_behaviors.md > AttackingLocation`: the same at a location in range,
     // which no one needs to see.
-    if state.phase.is_none() {
+    if state.phase.is_none() && !shooter.holds_fire {
         if let Some(target) = shooter.aimed(state)
             && targets
                 .get(target)

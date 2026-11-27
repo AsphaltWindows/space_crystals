@@ -28,8 +28,9 @@ mod site;
 mod state;
 pub mod syndicate;
 
-use sc_sim::ObjectKind;
 use sc_sim::conversion;
+use sc_sim::defs::SpellDef;
+use sc_sim::{AreaAbility, ObjectKind};
 
 pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
@@ -177,6 +178,14 @@ pub struct PanelTemplate {
     /// The commands the design names after the object whose panel shows them, with their names
     /// (`PanelCommand::name_on`).
     pub names: &'static [(PanelCommand, &'static str)],
+    /// (M5-N11) Whether its design leaves its template's attack commands out: the Prayer-mobile's,
+    /// "BasicCombatUnitInterfaceState without attack commands" (`factions/cults/units/prayer_mobile.md > Placeholder
+    /// stats`), which shows no D Attack Ground, not even unavailable as the Disciple's is
+    /// ([`basic_combat_unit_grid`]). Its A is the selection's, as every unit's ([`attack_slot`], design change 0399: "A
+    /// is shown whenever at least one selected group can attack"): not shown while no selected unit can attack, and
+    /// beside one that can, the whole selection's Attack, which sends it along as a move (**reading**: the newer rule
+    /// names every unit).
+    pub without_attacks: bool,
 }
 
 impl PanelTemplate {
@@ -186,6 +195,7 @@ impl PanelTemplate {
         planned: &[],
         trains: &[],
         names: &[],
+        without_attacks: false,
     };
 
     /// The panel of `interface`, with nothing of its own.
@@ -219,6 +229,10 @@ const RIOT_SHIELD_SLOT: usize = 3;
 /// **A**"), which the panel fills as the selection has it ([`attack_slot`]).
 const ATTACK_SLOT: usize = 4;
 
+/// (M5-N11) `systems/controls/interface.md > BasicCombatUnitInterfaceState > DefaultState commands`: "[D]
+/// AttackGround*", which a panel without attack commands leaves empty ([`PanelTemplate::without_attacks`]).
+const ATTACK_GROUND_SLOT: usize = 6;
+
 /// `factions/colonists/units/sabre_legionnaire.md > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus:
 /// R: Convert to Rifle Legionnaire", and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire".
 const CONVERT_SLOT: usize = 3;
@@ -231,6 +245,18 @@ const SHROUD_SLOT: usize = 3;
 /// (M5-K) `factions/gdo/units/rocketman.md > Placeholder stats`: "Panel: BasicCombatUnitInterfaceState, plus **R:
 /// Target Lock** (targeted: left-click an enemy unit or structure)".
 const TARGET_LOCK_SLOT: usize = 3;
+
+/// (M5-N11) The slot of a unit's cast of `ability` (`sc_sim::defs::SpellDef::Cast`):
+/// `factions/cults/units/prayer_mobile.md > Placeholder stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState
+/// without attack commands, plus **R: Inspire** and **F: Suppress**". None for the Shrine's, a structure's, in its
+/// own grid (`cults::shrine::GRID`).
+fn cast_slot(ability: AreaAbility) -> Option<usize> {
+    match ability {
+        AreaAbility::Inspire => Some(3),
+        AreaAbility::Suppress => Some(7),
+        AreaAbility::HealthRegeneration | AreaAbility::EnergyRegeneration => None,
+    }
+}
 
 impl InterfaceTemplate {
     /// The template of `kind`'s ObjectInterfaceState, its module's (`crate::kinds`); none for types without commands:
@@ -270,11 +296,17 @@ impl InterfaceTemplate {
 }
 
 /// A `kind` unit's BasicCombatUnit DefaultState ([`BASIC_COMBAT_UNIT_GRID`]), with its commands not in the game yet in
-/// their slots ([`PanelTemplate::planned`]), none now (the Disciple's Shroud held R in slice M5-N4a).
+/// their slots ([`PanelTemplate::planned`]), none now (the Disciple's Shroud held R in slice M5-N4a); (M5-N11) without
+/// its D, Attack Ground, for a type whose design leaves its attack commands out ([`PanelTemplate::without_attacks`]:
+/// the Prayer-mobile).
 fn basic_combat_unit_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let mut grid = BASIC_COMBAT_UNIT_GRID;
-    for &(slot, planned) in kinds::of(kind).template.planned {
+    let template = kinds::of(kind).template;
+    for &(slot, planned) in template.planned {
         grid[slot] = grid[slot].or(Some(PanelCommand::Planned(planned)));
+    }
+    if template.without_attacks {
+        grid[ATTACK_GROUND_SLOT] = None;
     }
     grid
 }
@@ -291,8 +323,9 @@ pub use sc_sim::combat::can_target_ground;
 /// ([`PanelCommand::Convert`]: "R: Convert to Rifle Legionnaire" on the Sabre's panel); (M5-N4b) a unit that casts
 /// Shroud, the Disciple, the spell in R ([`PanelCommand::Shroud`], `sc_sim::defs::UnitDef::shroud`); (M5-K) a unit
 /// with a Target Lock, the Rocketman, its Target Lock in R ([`PanelCommand::TargetLock`],
-/// `sc_sim::defs::UnitDef::target_lock`). These are the commands the type offers ([`offers`]); its panel's A is the
-/// selection's ([`attack_slot`]), and a constructor's panel follows its state ([`state_grid`]).
+/// `sc_sim::defs::UnitDef::target_lock`); (M5-N11) a unit that casts area abilities, the Prayer-mobile, Inspire in R and
+/// Suppress in F ([`PanelCommand::Cast`], [`cast_slot`]). These are the commands the type offers ([`offers`]); its
+/// panel's A is the selection's ([`attack_slot`]), and a constructor's panel follows its state ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let Some(template) = InterfaceTemplate::of(kind) else {
         return [None; 12];
@@ -312,6 +345,12 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     }
     if kind.def().unit.as_ref().and_then(|unit| unit.target_lock).is_some() {
         grid[TARGET_LOCK_SLOT] = Some(PanelCommand::TargetLock);
+    }
+    let spells = kind.def().unit.as_ref().map_or(&[][..], |unit| unit.spells);
+    for ability in spells.iter().filter_map(SpellDef::cast) {
+        if let Some(slot) = cast_slot(ability) {
+            grid[slot] = Some(PanelCommand::Cast(ability));
+        }
     }
     grid
 }

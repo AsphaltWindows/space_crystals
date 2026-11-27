@@ -121,6 +121,7 @@ pub(crate) fn cults_shrine() -> Game {
                 caster: SHRINE,
                 ability,
                 at: point(at.0, at.1),
+                facing: 0.0,
             };
             match tick {
                 HEAL => assert_eq!(casts, [&cast_event(AreaAbility::HealthRegeneration, HEAL_AT)]),

@@ -168,3 +168,42 @@ fn a_queued_shroud_that_starts_below_10_energy_ends_at_once() {
     assert_eq!(energy(t.sim()), 14_336 + A_TICK);
     assert!(t.sim().clouds().is_empty());
 }
+
+/// Design change 0438's Verification: "A Disciple channelling Shroud, Shift+Move: it keeps channelling until out of
+/// energy, then moves. A plain right-click ends the channel at once" (`systems/controls/commands.md > Unit Command`: a
+/// Shift-queued command is appended to the queue and never replaces the current one). From its 50 the Disciple
+/// channels from tick 1; a Move Shift-queued in tick 20 waits behind the channel, which runs dry in tick 178 as it does
+/// without one (the test above), the Disciple standing where it was; then the Move starts and takes it to its point.
+/// The same game with the Move given without Shift ends the channel in its tick, 20, and the Disciple walks off at once.
+#[test]
+fn a_shift_queued_move_waits_behind_the_channel_and_a_plain_one_ends_it_at_once() {
+    let (from, to) = (Vec2::new(300.0, 300.0), Vec2::new(300.0, 500.0));
+    let game = |queue: bool| {
+        let mut t = flat(20, 10).spawn(DISCIPLE, Some(P1), point(from.x, from.y)).start();
+        order(&mut t, 1, P1, &[1], OrderKind::Shroud);
+        t.order_at(20, P1, &[ObjectId(1)], OrderKind::Move(Target::Point(to)), queue);
+        t
+    };
+    let ended = |t: &TestSim| {
+        (t.events().iter())
+            .find(|(_, e)| matches!(e, SimEvent::ShroudEnded { .. }))
+            .map(|e| e.0)
+    };
+
+    let mut t = game(true);
+    t.run_until(20);
+    let orders = t.sim().object(ObjectId(1)).unwrap().orders.clone().unwrap();
+    assert_eq!(orders.queue.len(), 1, "queued behind the channel: {orders:?}");
+    t.run_until(177);
+    assert_eq!((ended(&t), clouds(&t)), (None, vec![vec![1]]), "it channels on");
+    assert_eq!(t.pos(1), from, "standing");
+    step_until(&mut t, 10, "it runs dry", |t| ended(t).is_some());
+    assert_eq!(ended(&t), Some(178), "out of energy, as without the Move");
+    step_until(&mut t, 200, "then it moves there", |t| t.pos(1).distance(to) < 1.0);
+
+    let mut t = game(false);
+    t.run_until(20);
+    assert_eq!((ended(&t), clouds(&t)), (Some(20), vec![]), "the Move ended it at once");
+    t.run_until(30);
+    assert!(t.pos(1).y > from.y + 20.0, "walking off: {}", t.pos(1));
+}

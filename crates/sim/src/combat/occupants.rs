@@ -43,6 +43,7 @@ use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::network::{Held, Place};
 use crate::object::Object;
+use crate::suppress;
 use crate::units::Tick;
 use crate::vision::Vision;
 
@@ -207,12 +208,14 @@ pub(super) fn step(
         let Some(attrs) = weapon(fire, &held.object, research) else {
             continue;
         };
+        // (M5-N11) One suppressed before it went in holds its fire in here too (`crate::suppress`).
+        let holds_fire = suppress::holds_fire(&held.object);
         // A unit whose type has no attack (the Disciple) fires its stand-in's with a sequence of its own while inside,
         // which it loses as it leaves (`Sim::put_on_map`).
         let Object { attack, facing, .. } = &mut held.object;
         let state = attack.get_or_insert_with(AttackState::default);
         let sight = building.owner.and_then(|owner| vision.player(owner));
-        let shooter = Shooter::occupant(map, building, unit, &attrs, sight);
+        let shooter = Shooter::occupant(map, building, unit, &attrs, sight).holding_fire(holds_fire);
         structures::pick(state, &shooter, targets, auto_targeting);
         // A structure fires in any direction: the unit's facing, which nothing reads while it is inside, stays.
         phases::run(state, facing, &shooter, targets, volley, events);

@@ -229,7 +229,8 @@ impl OrderOutbox<'_> {
     }
 
     /// (M5-N5) `player`'s Shrine among `casters` casts `ability` at `at` (`Command::Cast`), at once: the one Shrine of
-    /// the ActiveGroup (the Shrine is Ungroupable: "each press casts from one Shrine"). Nothing when none of them is the
+    /// the ActiveGroup (the Shrine is Ungroupable: "each press casts from one Shrine"); (M5-N11) or the one
+    /// Prayer-mobile, Ungroupable too, round it or ahead of it, `at` where it stands. Nothing when none of them is the
     /// player's, for a point that isn't finite (`ARCHITECTURE.md > Commands, events and replays`), or when the sim
     /// would reject it (`Sim::validate`: a point out of vision, too little energy).
     pub(super) fn cast(&mut self, player: PlayerId, casters: Vec<ObjectId>, ability: AreaAbility, at: Vec2) -> bool {

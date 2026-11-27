@@ -140,8 +140,11 @@ mod tests {
             .filter(|kind| (kind.def().unit.as_ref()).is_some_and(|unit| !unit.spells.is_empty()));
         assert_eq!(
             casters.collect::<Vec<_>>(),
-            [&ObjectKind::Disciple],
-            "the one caster so far"
+            [&ObjectKind::Disciple, &ObjectKind::PrayerMobile],
+            "the casters so far: (M5-N11) the Prayer-mobile's are casts (`SpellDef::Cast`)"
         );
+        let channels =
+            (ObjectKind::ALL.iter()).filter(|kind| kind.def().unit.as_ref().and_then(|u| u.shroud()).is_some());
+        assert_eq!(channels.collect::<Vec<_>>(), [&ObjectKind::Disciple], "the one Shroud");
     }
 }

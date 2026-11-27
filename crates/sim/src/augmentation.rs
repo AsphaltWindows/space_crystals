@@ -35,7 +35,7 @@ use crate::hash::{StateHash, StateHasher};
 pub use levels::{Level, Levels, Research};
 pub use orders::AugmentOrder;
 pub use stats::{Increments, follow_max, is_augmentable};
-pub(crate) use stats::{augmented, max_hp_of, movement_of, set};
+pub(crate) use stats::{augmented, max_hp_of, set};
 
 /// `factions/cults/augmentation.md > AugmentationState (per unit instance)`: which of the two Augmentations a unit has
 /// ("A unit may have neither, either, or both Augmentations"). The default, neither, is every unit's but a Cults

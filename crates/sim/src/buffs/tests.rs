@@ -14,6 +14,8 @@ const HEALTH: AreaAbility = AreaAbility::HealthRegeneration;
 const ENERGY: AreaAbility = AreaAbility::EnergyRegeneration;
 /// The circle's radius, space units: 4 grid units.
 const RADIUS: f32 = 256.0;
+/// The Shrine that casts, which none of the objects is.
+const SHRINE: ObjectId = ObjectId(99);
 /// Where the tests cast.
 const AT: Vec2 = Vec2::new(640.0, 640.0);
 
@@ -66,7 +68,7 @@ fn a_cast_reaches_its_owner_s_units_of_its_types_in_the_circle_and_a_recast_rest
         (ObjectKind::Seeker, P1, Vec2::new(0.0, -100.0)),        // 5: no infantry
         (ObjectKind::Gunner, P1, Vec2::new(RADIUS + 40.0, 0.0)), // 6: outside
     ]);
-    assert_eq!(give(&mut objects, P1, HEALTH, AT, 10), 3);
+    assert_eq!(give(&mut objects, SHRINE, P1, HEALTH, (AT, 0.0), 10), 3);
     let health = |until| vec![Buff { ability: HEALTH, until }];
     assert_eq!(
         [1, 2, 3].map(|id| buffs(&objects, id)),
@@ -74,7 +76,7 @@ fn a_cast_reaches_its_owner_s_units_of_its_types_in_the_circle_and_a_recast_rest
     );
     assert!([4, 5, 6].iter().all(|&id| buffs(&objects, id).is_empty()));
     // Energy regeneration reaches the Disciple alone, and its buffs keep the abilities' order.
-    assert_eq!(give(&mut objects, P1, ENERGY, AT, 20), 1);
+    assert_eq!(give(&mut objects, SHRINE, P1, ENERGY, (AT, 0.0), 20), 1);
     let both = vec![
         Buff {
             ability: HEALTH,
@@ -88,7 +90,7 @@ fn a_cast_reaches_its_owner_s_units_of_its_types_in_the_circle_and_a_recast_rest
     assert_eq!(buffs(&objects, 3), both);
     assert_eq!(buffs(&objects, 1), health(250));
     // A recast restarts it, one buff still.
-    assert_eq!(give(&mut objects, P1, HEALTH, AT, 100), 3);
+    assert_eq!(give(&mut objects, SHRINE, P1, HEALTH, (AT, 0.0), 100), 3);
     assert_eq!(buffs(&objects, 1), health(340));
     assert_eq!(
         buffs(&objects, 3)[0],
@@ -98,7 +100,7 @@ fn a_cast_reaches_its_owner_s_units_of_its_types_in_the_circle_and_a_recast_rest
         }
     );
     // Player 2's cast reaches theirs alone.
-    assert_eq!(give(&mut objects, P2, HEALTH, AT, 100), 1);
+    assert_eq!(give(&mut objects, SHRINE, P2, HEALTH, (AT, 0.0), 100), 1);
     assert_eq!(buffs(&objects, 4), health(340));
 }
 
@@ -111,8 +113,8 @@ fn a_buff_works_every_tick_before_its_end() {
         (ObjectKind::Recruit, P1, Vec2::ZERO),
         (ObjectKind::Disciple, P1, Vec2::new(0.0, 60.0)),
     ]);
-    give(&mut objects, P1, HEALTH, AT, 10);
-    give(&mut objects, P1, ENERGY, AT, 10);
+    give(&mut objects, SHRINE, P1, HEALTH, (AT, 0.0), 10);
+    give(&mut objects, SHRINE, P1, ENERGY, (AT, 0.0), 10);
     let recruit = objects.get_mut(&ObjectId(1)).unwrap();
     recruit.hp = Some(10.0);
     for tick in 10..250 {

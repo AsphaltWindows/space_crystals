@@ -46,12 +46,6 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
         "the TurnRate, which no Augmentation changes",
     ),
     (
-        "crates/sim/src/orders/world.rs",
-        MOVEMENT,
-        1,
-        "a behaviour's unit's, with its increments (`Unit::max_speed`)",
-    ),
-    (
         "crates/sim/src/repair.rs",
         MOVEMENT,
         1,

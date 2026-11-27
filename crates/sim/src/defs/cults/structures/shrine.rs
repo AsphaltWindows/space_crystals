@@ -65,7 +65,7 @@ pub(crate) static SHRINE: ObjectDef = ObjectDef {
         research: None,
         // `> Abilities`, the two of its table in the order of its keys: "**Health regeneration** (hotkey Q)",
         // "**Energy regeneration** (hotkey W)".
-        abilities: Some(&AreaAbility::ALL),
+        abilities: Some(&[AreaAbility::HealthRegeneration, AreaAbility::EnergyRegeneration]),
     }),
     default_settings: None,
     // `> Energy`: "**MaxEnergy**: 200"; `> Placeholder stats`: "MaxEnergy 200; starts at 0; regeneration **0.25
@@ -126,7 +126,8 @@ mod tests {
                 &[ObjectKind::Recruit][..]
             )
         );
-        assert_eq!(structure.abilities, Some(&AreaAbility::ALL[..]));
+        let abilities = [AreaAbility::HealthRegeneration, AreaAbility::EnergyRegeneration];
+        assert_eq!(structure.abilities, Some(&abilities[..]));
         let energy = ObjectKind::Shrine.def().energy.expect("its pool");
         assert_eq!(
             (energy.max, energy.start, energy.regen),

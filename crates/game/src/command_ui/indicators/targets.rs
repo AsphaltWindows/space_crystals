@@ -33,7 +33,7 @@ pub(super) fn object_box(sim: &Sim, sight: &Sight, id: ObjectId, alpha: f32) -> 
         TargetView::Visible => {
             let o = sim.object(id)?;
             let pos = o.prev_pos.lerp(o.pos, alpha);
-            let height = body_height(sim.map(), o.kind, pos, o.placement.as_ref());
+            let height = body_height(sim.map(), o, pos);
             let (center, half) = match &o.placement {
                 Some(footprint) => footprint_box(footprint),
                 None => (pos, o.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0))),

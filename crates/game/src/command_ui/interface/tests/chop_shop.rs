@@ -1,26 +1,29 @@
 //! (M5-N6) The Chop Shop's panel as plain data: the pool buildings', as the Airstrip's is
 //! (`factions/cults/structures/chop_shop.md > Placeholder stats`: "Panel like the Armory's (choose a kind with Q/W/E/R
 //! first, then; README > Choosing Recruits, Release and Eject All): **Q: Build Seeker**, **W: Build Hand of Heaven**,
-//! **E: Build Prayer-mobile** [...], **A: Release** in the kind menu; **A: Eject All**, **C: Set Rally Point**, **X:
-//! Cancel Production**", design change 0444; (M5-N10) W, the Hand of Heaven's). In a game:
-//! `crates/game/tests/commands/chop_shop.rs`.
+//! **E: Build Prayer-mobile** (greyed "Requires a Temple" until one stands [...]), **A: Release** in the kind menu;
+//! **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production**", design change 0444; (M5-N10) W, the Hand of
+//! Heaven's; (M5-N11) E, the Prayer-mobile's). In a game: `crates/game/tests/commands/chop_shop.rs`.
 
 use sc_sim::RecruitKind;
 
 use super::cults::counted;
 use super::*;
+use crate::command_ui::feedback::unavailable_text;
 
 const CHOP_SHOP: ObjectKind = ObjectKind::ChopShop;
 const SEEKER: ObjectKind = ObjectKind::Seeker;
 const HAND: ObjectKind = ObjectKind::HandOfHeaven;
+const PRAYER_MOBILE: ObjectKind = ObjectKind::PrayerMobile;
 
 /// The Chop Shop's DefaultState is a pool building's: the four kinds with their counts of free Recruits inside, A Eject
 /// All, X Cancel Production and C Set Rally Point. KindMenu\[kind\] holds its recipes' trainings in their order,
-/// "**Q: Build Seeker**" and (M5-N10) "**W: Build Hand of Heaven**" (so named on its panel, `PanelCommand::name_on`,
-/// Trains elsewhere), labelled with the units' "SKR" and "HOH", and "**A: Release**", each issued at once; Z goes back.
-/// Ungroupable (design change 0348 point 5: "the Chop Shop is Groupable false"), a command goes to the one Chop Shop
-/// Tabbed to. The Seeker's panel is the BasicCombatUnit's, its W Reverse available (slice M5-V2: it CanReverse), as
-/// the Guard's isn't.
+/// "**Q: Build Seeker**", (M5-N10) "**W: Build Hand of Heaven**" and (M5-N11) "**E: Build Prayer-mobile**"
+/// ([`e_builds_a_prayer_mobile_once_a_temple_stands`]), so named on its panel (`PanelCommand::name_on`, Trains
+/// elsewhere) and labelled with the units' "SKR", "HOH" and "PM", and "**A: Release**", each issued at once; Z goes
+/// back. Ungroupable (design change 0348 point 5: "the Chop Shop is Groupable false"), a command goes to the one Chop
+/// Shop Tabbed to. The Seeker's panel is the BasicCombatUnit's, its W Reverse available (slice M5-V2: it CanReverse),
+/// as the Guard's isn't.
 #[test]
 fn the_chop_shop_builds_seekers_from_its_kind_menus() {
     use ButtonLook::{Back, Common, Disabled};
@@ -61,13 +64,14 @@ fn the_chop_shop_builds_seekers_from_its_kind_menus() {
         [
             (slot(0, 0), command(TrainFrom(SEEKER, Metabolism)), Common),
             (slot(0, 1), command(TrainFrom(HAND, Metabolism)), Common),
+            (slot(0, 2), command(TrainFrom(PRAYER_MOBILE, Metabolism)), Common),
             (slot(1, 0), command(Release(Metabolism)), Common),
             (CommandSlot::BACK, PanelButton::Back, Back),
         ]
     );
-    let labels = [slot(0, 0), slot(0, 1), slot(1, 0)].map(|slot| shown_menu.get(slot).unwrap().label());
-    assert_eq!(labels, ["SKR", "HOH", "Rel."]);
-    for (at, kind) in [(slot(0, 0), SEEKER), (slot(0, 1), HAND)] {
+    let labels = [slot(0, 0), slot(0, 1), slot(0, 2), slot(1, 0)].map(|slot| shown_menu.get(slot).unwrap().label());
+    assert_eq!(labels, ["SKR", "HOH", "PM", "Rel."]);
+    for (at, kind) in [(slot(0, 0), SEEKER), (slot(0, 1), HAND), (slot(0, 2), PRAYER_MOBILE)] {
         assert_eq!(
             press(&shown_menu, at),
             SlotPress::Produce(
@@ -94,6 +98,70 @@ fn the_chop_shop_builds_seekers_from_its_kind_menus() {
         press(&shown_seeker, slot(0, 1)),
         SlotPress::AwaitTarget(PanelCommand::Reverse)
     );
+}
+
+/// (M5-N11) Design change 0444's Verification: "Chop Shop kind menu with 3+ Recruits inside: Q Seeker, W Hand of
+/// Heaven, E Prayer-mobile greyed until a Temple exists" (`factions/cults/structures/chop_shop.md > Production`:
+/// "**Prayer-mobile** (wheeled caster; 2 Recruits; requires a Temple)"). With three Plain Recruits free inside and no
+/// Temple, KindMenu\[kind\]'s Q is the Seeker's training and W the Hand of Heaven's (slice M5-N10), both lit, and E the
+/// Prayer-mobile's, named "Build Prayer-mobile" in every kind's menu and labelled with its "PM", greyed as the gate
+/// refuses it (`Reject::Requires`), saying "Requires a Temple" and pressing nothing; Q builds a Seeker meanwhile. Once
+/// a Temple stands, E is lit and builds a Prayer-mobile of a Recruit of the kind at once.
+#[test]
+fn e_builds_a_prayer_mobile_once_a_temple_stands() {
+    use ButtonLook::{Common, Disabled};
+    use PanelCommand::TrainFrom;
+    use RecruitKind::Plain;
+    let chop_shop = Selection::new([(id(1), CHOP_SHOP)]);
+    let e = slot(0, 2);
+    let pool = Conditions::default().with_pool([3, 0, 0, 0]);
+    let no_temple = pool
+        .clone()
+        .refusing(TrainFrom(PRAYER_MOBILE, Plain), Reject::Requires(ObjectKind::Temple));
+    let menu = panel(&chop_shop, InterfaceState::KindMenu(Plain), &no_temple);
+    let command = PanelButton::Command;
+    let look = |panel: &Panel, at| panel.get(at).map(|shown| (shown.button, shown.look));
+    assert_eq!(
+        look(&menu, slot(0, 0)),
+        Some((command(TrainFrom(SEEKER, Plain)), Common))
+    );
+    assert_eq!(
+        look(&menu, e),
+        Some((command(TrainFrom(PRAYER_MOBILE, Plain)), Disabled))
+    );
+    assert_eq!(
+        look(&menu, slot(0, 1)),
+        Some((command(TrainFrom(HAND, Plain)), Common)),
+        "W: the Hand of Heaven's, of three Recruits"
+    );
+    assert_eq!(menu.get(e).unwrap().label(), "PM");
+    for from in RecruitKind::ALL {
+        let menu = panel(&chop_shop, InterfaceState::KindMenu(from), &pool);
+        assert_eq!(menu.name(e).as_deref(), Some("Build Prayer-mobile"), "{from:?}");
+    }
+    let why = menu.get(e).and_then(|shown| shown.why);
+    assert_eq!(why, Some(WhyUnavailable::Refused(Reject::Requires(ObjectKind::Temple))));
+    assert_eq!(why.map(unavailable_text), Some("Requires a Temple"));
+    assert_eq!(press(&menu, e), SlotPress::Nothing);
+    assert!(matches!(press(&menu, slot(0, 0)), SlotPress::Produce(..)));
+
+    let with_temple = panel(&chop_shop, InterfaceState::KindMenu(Plain), &pool);
+    assert_eq!(
+        look(&with_temple, e),
+        Some((command(TrainFrom(PRAYER_MOBILE, Plain)), Common))
+    );
+    assert_eq!(
+        press(&with_temple, e),
+        SlotPress::Produce(
+            TrainFrom(PRAYER_MOBILE, Plain),
+            ProductionCommand::TrainFrom {
+                kind: PRAYER_MOBILE,
+                from: Plain
+            }
+        )
+    );
+    assert!(offers(CHOP_SHOP, TrainFrom(PRAYER_MOBILE, Plain)));
+    assert_eq!(TrainFrom(PRAYER_MOBILE, Plain).name(), "Train Prayer-mobile");
 }
 
 /// (M5-N10) The Hand of Heaven's panel is the BasicCombatUnit's (`factions/cults/units/hand_of_heaven.md > Placeholder

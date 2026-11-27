@@ -297,7 +297,9 @@ fn buff(ability: AreaAbility, until: Tick) -> Vec<Buff> {
 fn casts(t: &TestSim) -> Vec<(Tick, ObjectId, AreaAbility, Vec2)> {
     (t.events().iter())
         .filter_map(|(tick, e)| match *e {
-            SimEvent::Cast { caster, ability, at } => Some((*tick, caster, ability, at)),
+            SimEvent::Cast {
+                caster, ability, at, ..
+            } => Some((*tick, caster, ability, at)),
             _ => None,
         })
         .collect()

@@ -27,7 +27,7 @@ use KeyCode::{KeyA, KeyQ, KeyV, KeyW};
 
 const P1: PlayerId = PlayerId(1);
 /// One energy point, in the sim's units (`sc_sim::energy::ONE`).
-const ONE: u32 = 65_536;
+pub(super) const ONE: u32 = 65_536;
 
 /// The objects of [`shrine_game`], by id, and where they are drawn (the map is flat). The Shrine, unturned, has its
 /// entrance, side B, to the east and its exit, side C, to the west (`factions/cults/structures/shrine.md > Placeholder
@@ -75,7 +75,7 @@ fn shrine_game(energy: u32, hp: f32) -> App {
 }
 
 /// Sets object `id`'s energy to `points`, in a copy of the game's state that replaces it, as [`set_hp`] does.
-fn set_energy(app: &mut App, id: u32, points: u32) {
+pub(super) fn set_energy(app: &mut App, id: u32, points: u32) {
     let mut state = serde_json::to_value(app.world().resource::<SimRes>().sim()).unwrap();
     let objects = state["objects"].as_array_mut().unwrap();
     let object = objects.iter_mut().find(|o| o["id"] == id).expect("on the map");
@@ -86,20 +86,20 @@ fn set_energy(app: &mut App, id: u32, points: u32) {
 }
 
 /// Object `id`'s energy now, in the sim's units.
-fn energy(app: &App, id: u32) -> u32 {
+pub(super) fn energy(app: &App, id: u32) -> u32 {
     let sim = app.world().resource::<SimRes>();
     sim.object(ObjectId(id)).and_then(|o| o.energy).expect("an energy pool")
 }
 
 /// The abilities of the buffs object `id` has now.
-fn buffs(app: &App, id: u32) -> Vec<AreaAbility> {
+pub(super) fn buffs(app: &App, id: u32) -> Vec<AreaAbility> {
     let sim = app.world().resource::<SimRes>();
     let o = sim.object(ObjectId(id)).expect("on the map");
     o.buffs.iter().map(|buff| buff.ability).collect()
 }
 
 /// The buffs' marks drawn now, by the units they are beside: those of the abilities of each unit's buffs.
-fn marks(app: &App) -> Vec<(u32, AreaAbility)> {
+pub(super) fn marks(app: &App) -> Vec<(u32, AreaAbility)> {
     let world = app.world();
     let sim = world.resource::<SimRes>();
     let sight = Sight::new(sim, P1, false);
@@ -115,7 +115,7 @@ fn marks(app: &App) -> Vec<(u32, AreaAbility)> {
 }
 
 /// Every cast sent so far, as the sim received them (like [`orders`]): player, casters, ability, point.
-fn casts(app: &App) -> Vec<(PlayerId, Vec<u32>, AreaAbility, Vec2)> {
+pub(super) fn casts(app: &App) -> Vec<(PlayerId, Vec<u32>, AreaAbility, Vec2)> {
     let recorded = app.world().resource::<RecordedInputs>();
     let pending = app.world().resource::<PendingCommands>();
     let commands = recorded.ticks.iter().flat_map(|t| t.commands.iter()).chain(&pending.0);

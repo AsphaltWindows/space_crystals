@@ -8,8 +8,8 @@ What to try in each milestone is in its own notes:
 - [M4](m4.md): the Syndicate from the UI.
 - [M5](m5.md): the Cults, with how to start a playtest of all four factions, what M5 leaves out, and what to try
   with each slice's work (so far the Airstrip and the Sparrow, the Minimap and its alerts, full screen, the playtest
-  menu and the map explored from the start, the Arsenal and the Rocketman, the Chop Shop and the Seeker, and
-  crushing).
+  menu and the map explored from the start, the Arsenal and the Rocketman, the Chop Shop and the Seeker, crushing,
+  the Hand of Heaven, and the Prayer-mobile).
 
 Two lists are generated from the code: [the controls](controls.md), every key and every faction's command panels,
 which a test keeps current; and [the placeholders](placeholders.md), every number and rule the code marks as a

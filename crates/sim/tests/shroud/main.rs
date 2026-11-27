@@ -9,7 +9,8 @@
 //!   of a joined pair releases the shared buffer at once over both circles;
 //! - `channel`: what ends a channel and what starts one: damage doesn't, a new order does, and running dry does, 711
 //!   ticks after it started from full; below 10 energy the gate refuses it, and a queued one that starts below 10 ends
-//!   at once;
+//!   at once; (M5-N11) a Shift-queued Move waits behind the channel and a plain one ends it at once (design change
+//!   0438's Verification);
 //! - `state`: a replay with clouds splitting and merging reproduces the hash; the clouds saved and loaded, and hashed
 //!   only while there are any;
 //! - `reveals` (design change 0386): an absorbed shot or blast reveals its unseen attacker to the owner of the object

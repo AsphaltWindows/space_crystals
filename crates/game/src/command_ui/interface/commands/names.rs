@@ -29,7 +29,8 @@ impl PanelCommand {
     /// their counts (slice M5-N3). A Disciple's spell is its name, "Shroud", whole (6 letters, as "AtkGnd"; slice
     /// M5-N4b). A Shrine's casts are their names' first words, "Health" and "Energy" (slice M5-N5; the names are TBD,
     /// `factions/cults/structures/shrine.md > Abilities`). A Rocketman's Target Lock is "Lock", its name's second word,
-    /// which says what it does (slice M5-K).
+    /// which says what it does (slice M5-K). A Prayer-mobile's casts shorten their names, "Insp." and "Suppr." (slice
+    /// M5-N11).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -80,6 +81,8 @@ impl PanelCommand {
             PanelCommand::Shroud => "Shroud",
             PanelCommand::Cast(AreaAbility::HealthRegeneration) => "Health",
             PanelCommand::Cast(AreaAbility::EnergyRegeneration) => "Energy",
+            PanelCommand::Cast(AreaAbility::Inspire) => "Insp.",
+            PanelCommand::Cast(AreaAbility::Suppress) => "Suppr.",
             PanelCommand::TargetLock => "Lock",
         }
     }

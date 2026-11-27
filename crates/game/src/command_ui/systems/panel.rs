@@ -69,7 +69,8 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// (`factions/syndicate/tunnel_menus.md > ExpandMenu`, slice M4-F). A pool building's Q, W, E and R open their
 /// KindMenus, whose entries train or release at once, the menu staying open, and its A ejects (slice M5-F2); an
 /// Altar's tiles open its AugmentMenus, whose entries augment or release at once, the menu staying open (slice
-/// M5-N1b). Back (Z) returns to the previous state. While a target
+/// M5-N1b). (M5-N11) A Prayer-mobile's R and F cast at once, from where it stands. Back (Z) returns to the previous
+/// state. While a target
 /// is awaited or a building placed the other commands are unavailable (design change 0066), and so is a production or
 /// construction command the gate would refuse (design change 0081; never for the army cap, 0143): [`press`] finds
 /// nothing to do for them, and a greyed-out button says why it is ([`CommandRefused`], design change 0162: "nothing is
@@ -120,6 +121,15 @@ pub(in crate::command_ui) fn press_command_slots(
                 let units = recipients(&state.selection, command);
                 if outbox.use_ability(player, units.clone(), ability) {
                     control.update(|state| state.toggle(&units, ability));
+                }
+            }
+            SlotPress::Cast(command, ability) => {
+                // (M5-N11) From where the one Prayer-mobile of the ActiveGroup (Ungroupable) stands: the sim takes the
+                // area from it, the point names nothing (`sc_sim::Sim::check_cast`).
+                let casters = recipients(&state.selection, command);
+                let at = casters.first().and_then(|&id| control.sim().object(id)).map(|o| o.pos);
+                if let Some(at) = at {
+                    outbox.cast(player, casters, ability, at);
                 }
             }
             SlotPress::Produce(command, production) => {

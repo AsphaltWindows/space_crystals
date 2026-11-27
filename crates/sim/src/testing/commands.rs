@@ -281,7 +281,11 @@ pub fn every_command() -> Vec<Command> {
                 ..
             } => {}
             Command::Cast {
-                ability: AreaAbility::HealthRegeneration | AreaAbility::EnergyRegeneration,
+                ability:
+                    AreaAbility::HealthRegeneration
+                    | AreaAbility::EnergyRegeneration
+                    | AreaAbility::Inspire
+                    | AreaAbility::Suppress,
                 ..
             } => {}
             Command::Debug(

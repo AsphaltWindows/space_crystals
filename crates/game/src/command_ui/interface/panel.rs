@@ -3,7 +3,7 @@
 
 use sc_sim::construction::site::BuildPrice;
 use sc_sim::{
-    Ability, ConstructionCommand, Constructor, HoldCommand, ObjectId, ObjectKind, OrderKind, PlayerId,
+    Ability, AreaAbility, ConstructionCommand, Constructor, HoldCommand, ObjectId, ObjectKind, OrderKind, PlayerId,
     ProductionCommand, Progress, RecruitKind, Sim, TunnelCommand, construction, holding,
 };
 
@@ -68,8 +68,8 @@ pub struct PanelSlot {
     pub count: Option<u32>,
     /// What a Build costs now, in its resource ([`Conditions::price`], design change 0233: "the price shown on the
     /// Build button is the next Tunnel's"; a Cults building's Space Crystals, slice M5-J1), and a Tunnel's Upgrade,
-    /// in Supplies (slice M4-G), which the InfoPanel's hint for the button shows (`crate::hud::info_panel::hint`); none
-    /// on the other buttons.
+    /// in Supplies (slice M4-G), (M5-N11) and a pool building's training, in Space Crystals, which the InfoPanel's hint
+    /// for the button shows (`crate::hud::info_panel::hint`); none on the other buttons.
     pub price: Option<BuildPrice>,
     /// The progress a Place button shows on its bar while its building is constructed ([`progress`]; design changes
     /// 0388 and 0392: "a running progress bar on the button showing the construction's progress"), the sim's; none on
@@ -312,6 +312,9 @@ pub enum SlotPress {
     Issue(PanelCommand, OrderKind),
     /// A CommandIssuingTransition: the command's ability, at once (`sc_sim::Command::Ability`).
     UseAbility(PanelCommand, Ability),
+    /// (M5-N11) A CommandIssuingTransition: a cast round its caster or ahead of it, at once (`sc_sim::Command::Cast`): a
+    /// Prayer-mobile's R and F, "instant, no target" (`factions/cults/units/prayer_mobile.md > Placeholder stats`).
+    Cast(PanelCommand, AreaAbility),
     /// A CommandIssuingTransition: the command's production command, at once (`sc_sim::Command::Production`).
     Produce(PanelCommand, ProductionCommand),
     /// A CommandIssuingTransition: the command's construction command, at once (`sc_sim::Command::Construction`),
@@ -380,6 +383,8 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::Issue(command, kind)
             } else if let Some(ability) = command.ability() {
                 SlotPress::UseAbility(command, ability)
+            } else if let PanelCommand::Cast(ability) = command {
+                SlotPress::Cast(command, ability)
             } else if let Some(production) = command.production() {
                 SlotPress::Produce(command, production)
             } else if let Some(construction) = command.construction() {

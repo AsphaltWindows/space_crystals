@@ -49,8 +49,10 @@ const TRAIN_SLOTS: [usize; 7] = [0, 1, 2, 3, 5, 6, 7];
 const RELEASE_SLOT: usize = 4;
 
 /// The KindMenu\[`from`\] of a `kind` pool building, slot by slot (`CommandSlot::all` order): a training of each unit
-/// of its `ProductionDef`, of Recruits of kind `from`, in the design's order from Q on; its units not in the game yet in
-/// their slots ([`PanelTemplate::planned`]); A: Release. Z is Back (`super::super::super::panel`), to DefaultState.
+/// of its `ProductionDef`, of Recruits of kind `from`, in the design's order from Q on, but (M5-N11) for a unit the
+/// design puts in a slot of its own, which takes that slot first ([`PanelTemplate::trains`]: the Chop Shop's
+/// Prayer-mobile in E, design change 0444, its W the Hand of Heaven's); its units not in the game yet in their slots
+/// ([`PanelTemplate::planned`]); A: Release. Z is Back (`super::super::super::panel`), to DefaultState.
 pub fn kind_menu(kind: ObjectKind, from: RecruitKind) -> [Option<PanelCommand>; 12] {
     let mut grid = [None; 12];
     let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
@@ -59,10 +61,19 @@ pub fn kind_menu(kind: ObjectKind, from: RecruitKind) -> [Option<PanelCommand>; 
         recipes.len() <= TRAIN_SLOTS.len(),
         "{kind:?} trains more units than its KindMenu has slots"
     );
-    for (&slot, recipe) in TRAIN_SLOTS.iter().zip(recipes) {
-        grid[slot] = Some(PanelCommand::TrainFrom(recipe.kind, from));
+    let template = kinds::of(kind).template;
+    let slot_of = |unit| (template.trains.iter()).find_map(|&(slot, placed)| (placed == unit).then_some(slot));
+    for recipe in recipes {
+        if let Some(slot) = slot_of(recipe.kind) {
+            grid[slot] = Some(PanelCommand::TrainFrom(recipe.kind, from));
+        }
     }
-    for &(slot, planned) in kinds::of(kind).template.planned {
+    for recipe in recipes.iter().filter(|recipe| slot_of(recipe.kind).is_none()) {
+        if let Some(&slot) = TRAIN_SLOTS.iter().find(|&&slot| grid[slot].is_none()) {
+            grid[slot] = Some(PanelCommand::TrainFrom(recipe.kind, from));
+        }
+    }
+    for &(slot, planned) in template.planned {
         grid[slot] = grid[slot].or(Some(PanelCommand::Planned(planned)));
     }
     grid[RELEASE_SLOT] = Some(PanelCommand::Release(from));

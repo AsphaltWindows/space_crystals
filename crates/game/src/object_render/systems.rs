@@ -71,7 +71,7 @@ pub(super) fn sync_object_visuals(
             .entry(key)
             .or_insert_with(|| meshes.add(visual_mesh(key)))
             .clone();
-        let height = body_height(sim.map(), drawn, object.pos, object.placement.as_ref());
+        let height = body_height(sim.map(), object, object.pos);
         let facing = if body_turns(drawn) { object.facing } else { 0.0 };
         let body = if key.underground() { &blended } else { &material };
         let entity = commands
@@ -115,7 +115,7 @@ pub(super) fn sync_object_visuals(
                 FlightShadow(object.id),
                 Mesh2d(shadow),
                 MeshMaterial2d(blended.clone()),
-                flight::shadow_transform(facing_to_rotation(facing)),
+                flight::shadow_transform(facing_to_rotation(facing), flight::object_lift(object, object.pos)),
                 ChildOf(entity),
             ));
         }
@@ -205,7 +205,7 @@ pub(super) fn place_object_visuals(
         let drawn = drawn_kind(object);
         let pos = object.prev_pos.lerp(object.pos, alpha.0);
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
-        let height = body_height(sim.map(), drawn, pos, object.placement.as_ref());
+        let height = body_height(sim.map(), object, pos);
         let facing = if body_turns(drawn) { facing } else { 0.0 };
         transform.set_if_neq(object_transform(drawn, pos, height, facing));
     }

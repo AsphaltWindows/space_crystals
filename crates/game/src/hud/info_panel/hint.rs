@@ -8,7 +8,7 @@
 //! Tunnel's"; `crate::command_ui::PanelSlot::price`), the placeholder for its tooltip, as a Recruit's does in its
 //! resource, "W: Build Storage (100 Space Crystals)" (slice M5-J1), and so does a Tunnel's Upgrade, "Q: Upgrade Tunnel
 //! (2 Supplies)" (slice M4-G), and (slice M5-N10) a pool building's training, "W: Build Hand of Heaven (150 Space
-//! Crystals)".
+//! Crystals)" or (M5-N11) "E: Build Prayer-mobile (125 Space Crystals)" on the Chop Shop's.
 
 use bevy::prelude::*;
 use sc_sim::construction::site::BuildPrice;

@@ -103,7 +103,7 @@ pub(super) fn unit_mesh(kind: ObjectKind, color: Color, with_tick: bool) -> Mesh
                     Vec2::new(h.x * a.cos(), h.y * a.sin())
                 })
                 .collect(),
-            UnitShape::Square | UnitShape::Tracked => vec![
+            UnitShape::Square | UnitShape::Megaphone | UnitShape::Tracked => vec![
                 Vec2::new(-h.x, -h.y),
                 Vec2::new(h.x, -h.y),
                 Vec2::new(h.x, h.y),
@@ -126,6 +126,9 @@ pub(super) fn unit_mesh(kind: ObjectKind, color: Color, with_tick: bool) -> Mesh
     };
     let srgba = color.to_srgba();
     let mut mesh = ColorMesh::triangles();
+    if shape(kind) == UnitShape::Megaphone {
+        wheels(&mut mesh, half);
+    }
     mesh.polygon(&outline(0.0), 0.0, darken(srgba, 0.45).into());
     mesh.polygon(&outline(2.5), 0.001, color);
     if shape(kind) == UnitShape::Tracked {
@@ -134,7 +137,22 @@ pub(super) fn unit_mesh(kind: ObjectKind, color: Color, with_tick: bool) -> Mesh
     if with_tick {
         facing_tick(&mut mesh, kind, half);
     }
+    if shape(kind) == UnitShape::Megaphone {
+        megaphone(&mut mesh, half);
+    }
     mesh.into_mesh()
+}
+
+/// (M5-N11) A Prayer-mobile's four wheels ([`UnitShape::Megaphone`]): dark tyres under the hull's corners, along its
+/// length (local +x), a little out from its sides.
+fn wheels(mesh: &mut ColorMesh, half: Vec2) {
+    let tyre = Vec2::new(half.x * 0.22, 3.5);
+    for x in [-0.6 * half.x, 0.6 * half.x] {
+        for y in [-half.y, half.y] {
+            let center = Vec2::new(x, y);
+            mesh.rect(center - tyre, center + tyre, -0.001, Color::srgb(0.08, 0.08, 0.08));
+        }
+    }
 }
 
 /// The dark grey of a tread, and the lighter grey of the links across it (placeholders).
@@ -162,6 +180,23 @@ fn treads(mesh: &mut ColorMesh, half: Vec2) {
             mesh.segment(Vec2::new(x, outer), Vec2::new(x, inner), 1.5, 0.0016, LINK_COLOR);
         }
     }
+}
+
+/// (M5-N11) A Prayer-mobile's megaphone ([`UnitShape::Megaphone`]): a brass cone on its front half, from its narrow end
+/// past the tag's letters to its bell at the hull's front edge, over its facing tick, in a dark rim.
+fn megaphone(mesh: &mut ColorMesh, half: Vec2) {
+    let cone = |grow: f32| {
+        let (back, front) = (0.42 * half.x - grow, half.x + grow);
+        let (narrow, wide) = (0.12 * half.y + grow, 0.5 * half.y + grow);
+        [
+            Vec2::new(back, -narrow),
+            Vec2::new(front, -wide),
+            Vec2::new(front, wide),
+            Vec2::new(back, narrow),
+        ]
+    };
+    mesh.polygon(&cone(1.5), 0.003, Color::srgb(0.12, 0.10, 0.06));
+    mesh.polygon(&cone(0.0), 0.004, Color::srgb(0.92, 0.76, 0.35));
 }
 
 /// A `kind` unit's facing tick, along local +x, to just in front of its body: from its centre, or from 60% of the

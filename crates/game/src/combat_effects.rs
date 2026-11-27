@@ -16,7 +16,8 @@
 //! from its shooter's muzzle to its target's body, nose first ([`ShotStyle::Missile`]), a homing one along the path the
 //! sim steers it ([`projectiles::homing_missiles`]), and where a single-target projectile lands an impact puff shows
 //! ([`blasts`]), (M5-S8) where a missile bursts a ring of its radius in its shooter's colour; on the target of each
-//! Target Lock of the player's own units, a reticle ([`locks`]).
+//! Target Lock of the player's own units, a reticle ([`locks`]). (M5-N11) Where a Prayer-mobile casts, its Inspire's
+//! circle or its Suppress's arc, fading ([`casts`]); the units they took in carry their buffs' marks ([`buffs`]).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
@@ -50,6 +51,7 @@
 
 pub mod blasts;
 pub mod buffs;
+pub mod casts;
 mod draw;
 pub mod locks;
 pub mod projectiles;
@@ -68,6 +70,7 @@ use draw::{draw_effects, spawn_effects_mesh};
 
 pub use crate::tuning::feedback::{DEATH_MARKER_TICKS, TRACER_TICKS};
 pub use blasts::{BLAST_TICKS, Blast, shows_blast};
+pub use casts::{CAST_TICKS, CastFlash, shows_cast};
 pub use projectiles::{Flight, shows_flight};
 
 /// HP bars: height, gap above the corners of the unit's silhouette (clear of a selection ring, which lies 7 su
@@ -155,6 +158,8 @@ pub struct CombatEffects {
     /// The projectiles in flight, in launch order (slice M4-O).
     pub flights: Vec<Flight>,
     pub blasts: Vec<Blast>,
+    /// (M5-N11) The casts round a caster or ahead of it ([`casts`]).
+    pub casts: Vec<CastFlash>,
     /// The `SimRes::generation` they belong to.
     generation: Option<u32>,
 }
@@ -298,7 +303,7 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, (shields, energy): (
             (half, half.length())
         }
     };
-    let drawn = drawn_at_height(pos, body_height(map, o.kind, pos, o.placement.as_ref()));
+    let drawn = drawn_at_height(pos, body_height(map, o, pos));
     HpBar {
         center: drawn - Vec2::new(0.0, above + BAR_GAP + BAR_HEIGHT / 2.0),
         width: (half.x * 2.0).max(BAR_MIN_WIDTH),
@@ -321,7 +326,7 @@ pub fn occupant_form(sim: &Sim, held: &Held) -> ObjectKind {
     fire.map_or(held.object.kind, |fire| fire.weapon_kind(held.object.kind))
 }
 
-/// Takes the new shots, deaths, projectiles and blasts from the frame's events, each with its sighting
+/// Takes the new shots, deaths, projectiles, blasts and (M5-N11) casts from the frame's events, each with its sighting
 /// (`ViewerEvents::sightings`), and drops the effects that have faded and the projectiles that have landed. A replaced
 /// sim starts from none.
 fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: ResMut<CombatEffects>) {
@@ -330,6 +335,7 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
         effects.deaths.clear();
         effects.flights.clear();
         effects.blasts.clear();
+        effects.casts.clear();
         effects.generation = Some(sim.generation());
     }
     // An attacker gone by now died in one of these ticks: its type and owner are its death's, (M5-V4) or its crush's.
@@ -463,6 +469,15 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                     seen,
                 })
             }
+            SimEvent::Cast {
+                ability, at, facing, ..
+            } if CastFlash::shown_for(ability) => effects.casts.push(CastFlash {
+                tick,
+                ability,
+                at,
+                facing,
+                seen,
+            }),
             _ => {}
         }
     }
@@ -470,4 +485,5 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
     effects.deaths.retain(|d| shows(&sim, d.tick, DEATH_MARKER_TICKS));
     effects.flights.retain(|f| sim.tick() < f.lands_at);
     effects.blasts.retain(|b| shows(&sim, b.tick, BLAST_TICKS));
+    effects.casts.retain(|c| shows(&sim, c.tick, CAST_TICKS));
 }

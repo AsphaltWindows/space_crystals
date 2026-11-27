@@ -3,8 +3,9 @@
 //! receive the buff for its duration and keep it even if they leave the area"): beside the place of its HP bar, right
 //! of it, a mark for each buff a unit has (`sc_sim::Object::buffs`), in its abilities' order, whether its bars show or
 //! not. Health regeneration's is a green cross, Energy regeneration's a violet one, the energy bar's
-//! (`super::draw`). Every player who sees the unit sees them, as its bars: **Placeholder (not in the design: who sees a
-//! buff, and its look; Q0001)**.
+//! (`super::draw`); (M5-N11) the Prayer-mobile's Inspire's a gold chevron pointing up ("+1.5 su/frame MaxSpeed"), its
+//! Suppress's a red X ("can't attack"), on every unit Suppress took in, of any player. Every player who sees the unit
+//! sees them, as its bars: **Placeholder (not in the design: who sees a buff, and its look; Q0001)**.
 
 use bevy::prelude::*;
 use sc_sim::{AreaAbility, Sim};
@@ -24,6 +25,9 @@ const GAP: f32 = 4.0;
 const HEALTH_COLOR: Color = Color::srgb(0.45, 1.0, 0.50);
 /// Energy regeneration's: the energy bar's violet.
 const ENERGY_COLOR: Color = Color::srgb(0.72, 0.45, 1.0);
+/// (M5-N11) Inspire's gold and Suppress's red (placeholders).
+const INSPIRE_COLOR: Color = Color::srgb(1.0, 0.80, 0.25);
+const SUPPRESS_COLOR: Color = Color::srgb(1.0, 0.28, 0.22);
 const RIM_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 
 /// A buff's mark: centred on `center` (view space), of `ability`'s buff.
@@ -51,17 +55,52 @@ pub fn buff_marks(sim: &Sim, sight: &Sight, alpha: f32) -> Vec<BuffMark> {
     marks
 }
 
-/// Draws `mark`: a cross in its ability's colour inside a dark rim.
+/// Draws `mark` in its ability's colour inside a dark rim: a cross, (M5-N11) Inspire's chevron and Suppress's X.
 pub(super) fn mark_shape(mesh: &mut ColorMesh, mark: BuffMark, z: f32) {
     let center = view_to_world(mark.center);
-    let color = match mark.ability {
-        AreaAbility::HealthRegeneration => HEALTH_COLOR,
-        AreaAbility::EnergyRegeneration => ENERGY_COLOR,
-    };
+    match mark.ability {
+        AreaAbility::HealthRegeneration => cross(mesh, center, HEALTH_COLOR, z),
+        AreaAbility::EnergyRegeneration => cross(mesh, center, ENERGY_COLOR, z),
+        AreaAbility::Inspire => {
+            // A chevron pointing up the screen (Bevy world space: +y): two arms from its tip.
+            let tip = center + Vec2::new(0.0, ARM * 0.7);
+            let arms = [Vec2::new(-ARM, -ARM * 0.5), Vec2::new(ARM, -ARM * 0.5)];
+            strokes(mesh, arms.map(|arm| (tip, center + arm)), INSPIRE_COLOR, z);
+        }
+        AreaAbility::Suppress => {
+            let corners = [
+                Vec2::new(-ARM, -ARM),
+                Vec2::new(ARM, ARM),
+                Vec2::new(-ARM, ARM),
+                Vec2::new(ARM, -ARM),
+            ];
+            let strokes_of = [(corners[0], corners[1]), (corners[2], corners[3])];
+            strokes(
+                mesh,
+                strokes_of.map(|(a, b)| (center + a, center + b)),
+                SUPPRESS_COLOR,
+                z,
+            );
+        }
+    }
+}
+
+/// A cross round `center` (Bevy world space) in `color` inside a dark rim.
+fn cross(mesh: &mut ColorMesh, center: Vec2, color: Color, z: f32) {
     for (grow, color) in [(RIM, RIM_COLOR), (0.0, color)] {
         for half in [Vec2::new(ARM, THICK), Vec2::new(THICK, ARM)] {
             let half = half + Vec2::splat(grow);
             mesh.rect(center - half, center + half, z, color);
+        }
+    }
+}
+
+/// The strokes `lines` (Bevy world space), each as thick as a cross's arm, in `color` inside a dark rim.
+fn strokes(mesh: &mut ColorMesh, lines: [(Vec2, Vec2); 2], color: Color, z: f32) {
+    for (grow, color) in [(RIM, RIM_COLOR), (0.0, color)] {
+        for (a, b) in lines {
+            let along = (b - a).normalize_or_zero() * grow;
+            mesh.segment(a - along, b + along, 2.0 * (THICK + grow), z, color);
         }
     }
 }

@@ -416,6 +416,18 @@ No commands: Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT).
 | D | AtkGnd | Attack Ground | click a target; Shift queues |
 | X | Stop | Stop | Shift queues |
 
+#### Prayer-mobile (PM)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues |
+| E | Hold | Hold Position | Shift queues |
+| R | Insp. | Inspire |  |
+| S | Patrol | Patrol | click a target; Shift queues |
+| F | Suppr. | Suppress |  |
+| X | Stop | Stop | Shift queues |
+
 ### Buildings
 
 #### Recruitment Hall (RH)
@@ -462,6 +474,7 @@ No commands: Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT).
 | Q | Plain | Plain Recruits | opens a menu |
 | Q → Q | SKR | Build Seeker |  |
 | Q → W | HOH | Build Hand of Heaven |  |
+| Q → E | PM | Build Prayer-mobile | Requires a Temple |
 | Q → A | Rel. | Release |  |
 | W | Const. | Constitution Recruits | opens a menu, the same as Q's |
 | E | Metab. | Metabolism Recruits | opens a menu, the same as Q's |
@@ -568,7 +581,7 @@ No commands: Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT).
 
 **Before it is finished:** X Cancel Construction.
 
-No commands: Prayer-mobile (PM), Storage (SE), Gunworks (GS), Machine Shop (MS), Scrap Hangar (SH).
+No commands: Storage (SE), Gunworks (GS), Machine Shop (MS), Scrap Hangar (SH).
 
 ## Colonists
 

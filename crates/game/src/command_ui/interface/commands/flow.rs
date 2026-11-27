@@ -2,6 +2,8 @@
 //! target ([`PanelCommand::needs_target`]), goes to one instance alone ([`PanelCommand::instance_only`]), and is
 //! queued by Shift ([`PanelCommand::queues`]).
 
+use sc_sim::AbilityArea;
+
 use super::PanelCommand;
 
 impl PanelCommand {
@@ -11,7 +13,10 @@ impl PanelCommand {
     /// (M5-N5) a Shrine's casts, on a point ("Targeting: AwaitingTarget, left-click a point in vision"), and (M5-K) a
     /// Rocketman's Target Lock, on an enemy unit or structure (`factions/gdo/units/rocketman.md > Placeholder stats`:
     /// "targeted: left-click an enemy unit or structure"). The others are issued at once: HoldPosition and Stop, a
-    /// Disciple's Shroud, Raise and Lower Shield, Convert, a producer's Train and Cancel Production, a constructor's
+    /// Disciple's Shroud, (M5-N11) a Prayer-mobile's casts, round it and ahead of it
+    /// (`factions/cults/units/prayer_mobile.md > Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target)",
+    /// "**Suppress** (hotkey **F**, instant, no target)"), Raise and Lower Shield, Convert, a producer's Train and
+    /// Cancel Production, a constructor's
     /// Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the
     /// EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct
     /// menu entry too); or they change the selection (the Egress Node's F).
@@ -27,8 +32,8 @@ impl PanelCommand {
             | PanelCommand::DropOff
             | PanelCommand::Assist
             | PanelCommand::Repair
-            | PanelCommand::Cast(_)
             | PanelCommand::TargetLock => true,
+            PanelCommand::Cast(ability) => ability.def().area == AbilityArea::AtPoint,
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RaiseShield

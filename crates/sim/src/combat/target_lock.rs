@@ -37,6 +37,10 @@
 //!   its target: it doesn't auto-target. An order given without Shift breaks the lock, and "a Shift-queued order waits
 //!   behind the lock and runs when it ends" (`factions/gdo/units/rocketman.md > Target Lock`, design change 0438,
 //!   answering Q0171; plan decision T76).
+//! - (M5-N11) **Suppressed** (`crate::suppress`; `factions/cults/units/prayer_mobile.md > Abilities`: "A Rocketman's
+//!   **Target Lock can be maintained**, but no missile can be fired while suppressed"): the lock's tick runs as above,
+//!   counting, holding and breaking as it would, and locked it engages its target; but its shooters hold their fire
+//!   (`phases::Shooter`), so no sequence starts, and its first missile's begins once the status is over.
 
 use serde::{Deserialize, Serialize};
 

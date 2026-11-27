@@ -3,9 +3,12 @@
 //! speed ([`Object::movement`], [`Object::max_speed`]) and the weapon ([`augmented`], which `combat::weapon` applies).
 //! The numbers are data (`defs::AUGMENTATION`); a unit's net increments are derived from them and its owner's levels
 //! whenever a stat is read, never stored ([`Increments`]). A unit without an Augmentation reads its kind's stats
-//! unchanged, at the cost of one branch.
+//! unchanged, at the cost of one branch. (M5-N11) The same accessors add an Inspire's top speed and faster attack, the
+//! one buff that changes a stat (`crate::buffs::max_speed_bonus`, `crate::buffs::inspired`): a unit without an
+//! Augmentation nor a buff reads its kind's.
 
 use super::{Augmentation, Levels, Research};
+use crate::buffs;
 use crate::defs::{AUGMENTATION, AttackAttrs, Augmentable, MovementAttrs, ObjectKind};
 use crate::object::Object;
 use crate::transform;
@@ -92,8 +95,8 @@ impl Object {
         self.movement_ref(research, &mut None).copied()
     }
 
-    /// (M5-N1a) Its movement numbers ([`Object::movement`]) by reference: its kind's own without an Augmentation, else
-    /// made in `slot`. What phase 5d moves it by, with nothing copied for a unit without one.
+    /// (M5-N1a) Its movement numbers ([`Object::movement`]) by reference: its kind's own without an Augmentation (nor,
+    /// M5-N11, a buff), else made in `slot`. What phase 5d moves it by, with nothing copied for a unit without one.
     #[inline]
     pub fn movement_ref<'a>(
         &self,
@@ -101,7 +104,7 @@ impl Object {
         slot: &'a mut Option<MovementAttrs>,
     ) -> Option<&'a MovementAttrs> {
         let movement = &self.def().unit.as_ref()?.movement;
-        match self.augmentation.is_none() {
+        match self.augmentation.is_none() && self.buffs.is_empty() {
             true => Some(movement),
             false => Some(augmented_movement(self, movement, research, slot)),
         }
@@ -115,8 +118,10 @@ impl Object {
     }
 }
 
-/// The movement numbers of `o`, which has an Augmentation, from its kind's `movement`, made in `slot`
-/// ([`Object::movement_ref`]).
+/// The movement numbers of `o`, which has an Augmentation or (M5-N11) a buff, from its kind's `movement`, made in `slot`
+/// ([`Object::movement_ref`]): its Augmentations' top speed ([`movement_of`]), and its Inspire's on top
+/// (`crate::buffs::max_speed_bonus`: "**Stacks with augmentation** (e.g. Improved Metabolism): different sources add
+/// up", `factions/cults/units/prayer_mobile.md > Abilities`), as [`faster`] raises it.
 #[inline(never)]
 fn augmented_movement<'a>(
     o: &Object,
@@ -124,7 +129,13 @@ fn augmented_movement<'a>(
     research: Research,
     slot: &'a mut Option<MovementAttrs>,
 ) -> &'a MovementAttrs {
-    slot.insert(movement_of(*movement, o.increments(research)))
+    let augmented = movement_of(*movement, o.increments(research));
+    let extra = buffs::max_speed_bonus(o);
+    slot.insert(if extra == 0.0 {
+        augmented
+    } else {
+        faster(augmented, extra)
+    })
 }
 
 /// The net increments of `o`, which has an Augmentation ([`Object::increments`]): none for a kind that can't be

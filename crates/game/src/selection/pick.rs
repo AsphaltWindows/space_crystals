@@ -101,7 +101,7 @@ impl Selectable {
             Some(_) => Shape::of(object).bound_half(),
             None => Vec2::splat(SU_PER_GU / 4.0),
         };
-        let drawn = drawn_at_height(pos, body_height(map, object.kind, pos, None));
+        let drawn = drawn_at_height(pos, body_height(map, object, pos));
         Self {
             id: object.id,
             kind: object.kind,

@@ -13,9 +13,10 @@ use crate::sides::SideLetter;
 /// (plan decision T71: one pool path for every such building, `sim/producers/pool.rs`), which drives out of the exit
 /// doorway on side C; (M5-N10) and the Hand of Heaven of three (`> Production`: "missile platform; 3 Recruits"), its
 /// recipe after the Seeker's, in the panel's order (design change 0444: "**Q: Build Seeker**, **W: Build Hand of
-/// Heaven**, **E: Build Prayer-mobile**"). Recruits build it (`factions/cults/units/recruit.md > Constructs`) once
-/// their player owns an Armory. Its numbers are the design's "Placeholder stats". The Prayer-mobile
-/// (`factions/cults/units/prayer_mobile.md`) is slice M5-N11's.
+/// Heaven**, **E: Build Prayer-mobile**"); (M5-N11) and the Prayer-mobile of two (`> Production`: "wheeled caster; 2
+/// Recruits; requires a Temple"), its recipe after the Hand of Heaven's, once its player owns a Temple. Recruits build
+/// it (`factions/cults/units/recruit.md > Constructs`) once their player owns an Armory. Its numbers are the design's
+/// "Placeholder stats".
 pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
     kind: ObjectKind::ChopShop,
     name: "Chop Shop",
@@ -75,6 +76,17 @@ pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
                     cost: 150,
                     frames: 480,
                     requires: &[],
+                },
+                // (M5-N11) `factions/cults/units/prayer_mobile.md > Placeholder stats`: "Cost: Chop Shop, 2 Recruits,
+                // **125 Space Crystals, 400 frames (25 s)**; requires a Temple" ("**E: Build Prayer-mobile** (greyed
+                // "Requires a Temple" until one stands"): its 2 Recruits its Unit Control cost ("consumes **2
+                // Recruits**; Unit Control cost **2**"), its TechPrerequisite its own ("player owns at least one
+                // **Temple** (core/tech_and_research.md > Unit Prerequisites)").
+                Recipe {
+                    kind: ObjectKind::PrayerMobile,
+                    cost: 125,
+                    frames: 400,
+                    requires: &[ObjectKind::Temple],
                 },
             ],
             recruitment: None,
@@ -137,9 +149,10 @@ mod tests {
 
     /// 3×3, ABAC, MaxHP 450, PointArmor 1, FullArmor 9 (the building armour rule's n = 1), SightRange 4, not Groupable
     /// (design change 0348), behind an Armory. Its pool: Recruits walk in at side B and come out of side C, 10 of them,
-    /// reserved ones counted. It trains the Seeker of two Recruits for 75 Space Crystals in 320 frames, and (M5-N10)
-    /// the Hand of Heaven of three for 150 in 480, in that order, out of side C. Recruits build it from outside for 200
-    /// Space Crystals in 640 frames with one of them, from 10% HP.
+    /// reserved ones counted. It trains the Seeker of two Recruits for 75 Space Crystals in 320 frames, (M5-N10) the
+    /// Hand of Heaven of three for 150 in 480 and (M5-N11) the Prayer-mobile of two for 125 in 400 once a Temple
+    /// stands, in that order, out of side C. Recruits build it from outside for 200 Space Crystals in 640 frames with
+    /// one of them, from 10% HP.
     #[test]
     fn the_chop_shop_follows_the_design() {
         let structure = assert_structure(
@@ -170,6 +183,12 @@ mod tests {
                     cost: 150,
                     frames: 480,
                     requires: &[]
+                },
+                Recipe {
+                    kind: ObjectKind::PrayerMobile,
+                    cost: 125,
+                    frames: 400,
+                    requires: &[ObjectKind::Temple]
                 }
             ]
         );
@@ -177,6 +196,7 @@ mod tests {
         let recruits = |kind: ObjectKind| kind.def().unit.as_ref().and_then(|u| u.unit_control_cost);
         assert_eq!(recruits(ObjectKind::Seeker), Some(2), "2 Recruits");
         assert_eq!(recruits(ObjectKind::HandOfHeaven), Some(3), "3 Recruits");
+        assert_eq!(recruits(ObjectKind::PrayerMobile), Some(2), "2 Recruits");
         let holds = structure.holds.expect("its pool");
         assert_eq!(
             (holds.entrance, holds.exit),

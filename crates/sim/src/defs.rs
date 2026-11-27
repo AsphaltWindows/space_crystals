@@ -29,7 +29,7 @@ use crate::scenario::SpawnSettings;
 pub use colonists::units::drone::BEACON_DEPLOYMENT;
 pub use colonists::units::weapon_conversion::CONVERT_TICKS;
 pub use colonists::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING};
-pub use cults::abilities::{AbilityDef, AreaAbility, BuffEffect};
+pub use cults::abilities::{AbilityArea, AbilityDef, Affects, AreaAbility, BuffEffect};
 pub use cults::augmentation::{AUGMENTATION, AugmentationTable, IncrementEffects};
 pub use cults::research::{ResearchLine, Tech, TechDef};
 pub use cults::{CONSTRUCT_MENU, ConstructEntry, ConstructMenu, ConstructSlot};

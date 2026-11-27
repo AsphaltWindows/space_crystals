@@ -48,7 +48,10 @@
 //! release of one participant and Eject All): `shrine`, on another. The Airstrip (slice M5-N7: Recruits right-clicked
 //! in, its door arrows along the runway, its KindMenu's Build Sparrow, and the Sparrow taking off): `airstrip`, on
 //! another. The Chop Shop (slice M5-N6: Recruits right-clicked in, its door arrows, its KindMenu's Build Seeker, greyed
-//! with one Recruit free, the Seeker driving out of side C, and its W, Reverse): `chop_shop`, on another.
+//! with one Recruit free, the Seeker driving out of side C, and its W, Reverse; slice M5-N11: its E, Build Prayer-mobile,
+//! greyed until a Temple stands): `chop_shop`, on another. The Prayer-mobile (slice M5-N11: R's Inspire and F's
+//! Suppress cast at once, the buffs' marks, the cast's ring and wedge, and the keys greyed without the energy):
+//! `prayer_mobile`, on another.
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
 //! over Recruits and Militants, the group's placement with its Shift chain, and, slice M5-S4, a Hall placed flush
@@ -87,6 +90,7 @@ mod indicators;
 mod minimap;
 mod panel;
 mod portals;
+mod prayer_mobile;
 mod production;
 mod production_field;
 mod rally;

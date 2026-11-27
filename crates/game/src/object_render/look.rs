@@ -32,6 +32,10 @@ pub enum UnitShape {
     Square,
     /// A square with its corners cut off.
     Octagon,
+    /// (M5-N11) The Prayer-mobile's: a square hull on four wheels, with a megaphone at its front, a cone widening
+    /// forward (`factions/cults/units/prayer_mobile.md`: "a wheeled vehicle carrying a **megaphone**"; placeholder,
+    /// Q0001).
+    Megaphone,
     /// (M5-N10) A tracked hull: the Square's rectangle, its length along its facing, with a dark tread down each of
     /// its long sides (`super::units::treads`): the Hand of Heaven's, a TrackedVehicle.
     Tracked,

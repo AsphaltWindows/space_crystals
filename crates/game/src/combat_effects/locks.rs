@@ -71,7 +71,7 @@ pub fn lock_marks(sim: &Sim, sight: &Sight, alpha: f32) -> Vec<LockMark> {
 /// air), view space.
 fn body_center(sim: &Sim, o: &Object, alpha: f32) -> Vec2 {
     let pos = o.prev_pos.lerp(o.pos, alpha);
-    drawn_at_height(pos, body_height(sim.map(), o.kind, pos, o.placement.as_ref()))
+    drawn_at_height(pos, body_height(sim.map(), o, pos))
 }
 
 /// How far `o`'s body reaches from its middle, su: a unit's silhouette's corners however it turns, a structure's

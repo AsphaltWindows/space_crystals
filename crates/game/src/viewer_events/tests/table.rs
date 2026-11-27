@@ -436,6 +436,17 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
                 caster: TUNNEL,
                 ability: sc_sim::AreaAbility::HealthRegeneration,
                 at: unit,
+                facing: 0.0,
+            },
+            [W, W, N, W],
+        ),
+        // (M5-N11) A Prayer-mobile's Suppress, ahead of it: its point is where it stood, which counts as the Shrine's.
+        (
+            SimEvent::Cast {
+                caster: TUNNEL,
+                ability: sc_sim::AreaAbility::Suppress,
+                at: unit,
+                facing: 1.0,
             },
             [W, W, N, W],
         ),

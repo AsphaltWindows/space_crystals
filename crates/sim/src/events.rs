@@ -508,11 +508,13 @@ pub enum SimEvent {
     },
     /// (M5-N5) `caster`, a Shrine, cast `ability` at `at`, space units, and paid its energy (`Command::Cast`): its
     /// owner's units in the circle hold its buff from this tick on (`crate::buffs`). Seen where it was cast, as a
-    /// blast is.
+    /// blast is. (M5-N11) A Prayer-mobile's Inspire or Suppress, `at` its centre as it cast, `facing` its facing then
+    /// (radians), which Suppress's arc lies along (`AbilityArea::Ahead`); a Shrine's facing, which nothing reads.
     Cast {
         caster: ObjectId,
         ability: AreaAbility,
         at: Vec2,
+        facing: f32,
     },
     /// (M5-V4) `crusher`'s move in phase 5d crushed `id`, a crushable enemy its Silhouette overlapped or swept
     /// (`movement::crush`; `systems/units.md > UnitCollision > Crushing`: "**Effect**: instant death of the crushed

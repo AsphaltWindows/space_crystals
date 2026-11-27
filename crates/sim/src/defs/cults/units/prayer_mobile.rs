@@ -1,16 +1,20 @@
-//! The Prayer-mobile — `factions/cults/units/prayer_mobile.md` (design changes 0364 and 0365).
+//! The Prayer-mobile — `factions/cults/units/prayer_mobile.md` (design changes 0364 and 0365): its numbers, and
+//! (M5-N11) those of its two abilities, Inspire ([`INSPIRE`]) and Suppress ([`SUPPRESS`]), which `AreaAbility::def`
+//! reads.
 
+use crate::defs::cults::abilities::{AbilityArea, AbilityDef, Affects, BuffEffect};
 use crate::defs::units::{MovementAttrs, UnitBase, UnitDef};
-use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
+use crate::defs::{AreaAbility, Armor, Category, EnergyDef, EnergyRegen, Footprint, ObjectDef, ObjectKind, SpellDef};
+use crate::math::PI;
 use crate::player::Faction;
 
 /// `factions/cults/units/prayer_mobile.md`: "A Cults **energy-based caster vehicle**: a wheeled vehicle carrying a
-/// **megaphone**, with **no weapon** (a pure caster)". Its numbers only (slice M5-G2, plan decision T69), its movement
-/// as data: nothing reads its turning radius yet (slice V2 turns vehicles); its energy (`> Energy - has an energy pool
-/// for its abilities (values TBD)`), its abilities (`> Abilities`: Inspire and Suppress) and its production at the Chop
-/// Shop, where its TechPrerequisite is its recipe's (`> TechPrerequisite - player owns at least one **Temple**
-/// (core/tech_and_research.md > Unit Prerequisites)`, `Recipe::requires`), come with their slice, so no building makes
-/// it yet. Its numbers are the design's "Placeholder stats".
+/// **megaphone**, with **no weapon** (a pure caster)". Its numbers (slice M5-G2, plan decision T69), its movement as
+/// data, which slice M5-V2's wheeled movement drives it by; since slice M5-N11 its energy (`> Energy - has an energy
+/// pool for its abilities`, `crate::energy`), its two abilities (`> Abilities`: Inspire and Suppress, each cast at once
+/// by a `Command::Cast`, `crate::buffs`) and its production at the Chop Shop, where its TechPrerequisite is its
+/// recipe's (`> TechPrerequisite - player owns at least one **Temple**`, `Recipe::requires`). Its numbers are the
+/// design's "Placeholder stats".
 pub(crate) static PRAYER_MOBILE: ObjectDef = ObjectDef {
     kind: ObjectKind::PrayerMobile,
     name: "Prayer-mobile",
@@ -59,13 +63,62 @@ pub(crate) static PRAYER_MOBILE: ObjectDef = ObjectDef {
         worker: None,
         augmentable: None,
         repairs: None,
-        spells: &[],
+        // `> Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target)", "**Suppress** (hotkey **F**,
+        // instant, no target)": each cast at once, from where the vehicle stands (`Command::Cast`).
+        spells: &[
+            SpellDef::Cast(AreaAbility::Inspire),
+            SpellDef::Cast(AreaAbility::Suppress),
+        ],
         separation_radius: None,
         target_lock: None,
     }),
     structure: None,
     default_settings: None,
-    energy: None,
+    // "Energy: MaxEnergy 200; starts at 50; regenerates 0.5 per second."
+    energy: Some(EnergyDef {
+        max: 200.0,
+        start: 50.0,
+        regen: EnergyRegen::PerSecond(0.5),
+    }),
+};
+
+/// (M5-N11) `> Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target): 75 energy; every own infantry unit
+/// within **4 grid units** of the vehicle gets **+1.5 su/frame MaxSpeed** for **10 s**; Recruits also attack **25%
+/// faster** (their attack cycle × 0.75) for the same time"; `> Abilities`: "**Who** (user, 2026-11-27): every own
+/// infantry type (Recruit, Militant, Gunner, Disciple) gets the movement speed; Recruits also get the attack speed".
+/// "**Stacks with augmentation** (e.g. Improved Metabolism): different sources add up. **Recasting** on units that
+/// are already inspired **restarts the duration**; Inspire doesn't stack with itself" (`crate::buffs`).
+pub(crate) static INSPIRE: AbilityDef = AbilityDef {
+    name: "Inspire",
+    cost: 75.0,
+    area: AbilityArea::AroundCaster,
+    radius: 4.0,
+    affects: Affects::Own(&[
+        ObjectKind::Recruit,
+        ObjectKind::Militant,
+        ObjectKind::Gunner,
+        ObjectKind::Disciple,
+    ]),
+    effect: BuffEffect::Inspire {
+        max_speed: 1.5,
+        attack_cycle: 0.75,
+        faster_attacks: &[ObjectKind::Recruit],
+    },
+    duration: 10.0,
+};
+
+/// (M5-N11) `> Placeholder stats`: "**Suppress** (hotkey **F**, instant, no target): 100 energy; an arc of **90°
+/// total** in front of the vehicle's current facing, **5 grid units** long; units whose centre is inside can't attack
+/// for **4 s**"; `> Abilities`: "**Affects every unit in the arc, enemies and own alike** (user, 2026-11-27), like
+/// friendly fire. **Not buildings** [...] **Air units in the arc are affected** too" (`crate::suppress`).
+pub(crate) static SUPPRESS: AbilityDef = AbilityDef {
+    name: "Suppress",
+    cost: 100.0,
+    area: AbilityArea::Ahead { arc: PI / 2.0 },
+    radius: 5.0,
+    affects: Affects::EveryUnit,
+    effect: BuffEffect::HoldFire,
+    duration: 4.0,
 };
 
 #[cfg(test)]
@@ -76,7 +129,7 @@ mod tests {
 
     /// A 56×40 WheeledVehicle, MaxHP 150, PointArmor 1, FullArmor 1, SightRange 7, not Groupable; the Seeker's
     /// FixedTurnRadiusMovement but 6 su a frame forward; no weapon and no turret; Unit Control 2, the Recruits it is
-    /// made of.
+    /// made of; (M5-N11) a pool of 200 energy from 50, +0.5 a second, and its two spells, Inspire and Suppress.
     #[test]
     fn the_prayer_mobile_follows_the_design() {
         let def = ObjectKind::PrayerMobile.def();
@@ -121,6 +174,64 @@ mod tests {
                 unit.beacon_capacity_cost
             ),
             (Some(2), None, None)
+        );
+        let energy = def.energy.expect("its pool");
+        assert_eq!(
+            (energy.max, energy.start, energy.regen),
+            (200.0, 50.0, EnergyRegen::PerSecond(0.5))
+        );
+        assert_eq!(
+            unit.spells,
+            [
+                SpellDef::Cast(AreaAbility::Inspire),
+                SpellDef::Cast(AreaAbility::Suppress)
+            ]
+        );
+        assert_eq!(
+            unit.spells.iter().map(SpellDef::needs).collect::<Vec<_>>(),
+            [75.0, 100.0]
+        );
+    }
+
+    /// (M5-N11) Inspire: 75 energy, round the vehicle, 4 grid units, own infantry, +1.5 su a tick and the Recruits'
+    /// attack cycle × 0.75, for 10 s; Suppress: 100 energy, 90° ahead, 5 grid units long, every unit, 4 s.
+    #[test]
+    fn its_abilities_follow_the_design() {
+        let inspire = AreaAbility::Inspire.def();
+        assert_eq!(
+            (
+                inspire.name,
+                inspire.cost,
+                inspire.area,
+                inspire.radius,
+                inspire.duration
+            ),
+            ("Inspire", 75.0, AbilityArea::AroundCaster, 4.0, 10.0)
+        );
+        const INFANTRY: [ObjectKind; 4] = [
+            ObjectKind::Recruit,
+            ObjectKind::Militant,
+            ObjectKind::Gunner,
+            ObjectKind::Disciple,
+        ];
+        assert_eq!(inspire.affects, Affects::Own(&INFANTRY));
+        assert_eq!(
+            inspire.effect,
+            BuffEffect::Inspire {
+                max_speed: 1.5,
+                attack_cycle: 0.75,
+                faster_attacks: &[ObjectKind::Recruit],
+            }
+        );
+        let suppress = AreaAbility::Suppress.def();
+        assert_eq!(
+            (suppress.name, suppress.cost, suppress.radius, suppress.duration),
+            ("Suppress", 100.0, 5.0, 4.0)
+        );
+        assert_eq!(suppress.area, AbilityArea::Ahead { arc: PI / 2.0 }, "90° in all");
+        assert_eq!(
+            (suppress.affects, suppress.effect),
+            (Affects::EveryUnit, BuffEffect::HoldFire)
         );
     }
 }
