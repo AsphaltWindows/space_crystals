@@ -29,6 +29,13 @@ While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. Each pi
 ## Both at once
 (user, 2026-11-25) Sludge and Cover are independent toggles and **can both be on at the same time**: one pass then leaves a trail that both slows and blinds, draining both tanks.
 
+## Trail rules
+(user, 2026-11-26; Q0159)
+- **Standing still lays too**: a Shadebringer with a toggle on that isn't moving keeps laying its effect **where it stands** (and keeps draining). Since sludge and smoke only last a set time, parking to hold a spot is a conscious choice: e.g. a full Cover tank holds one spot of smoke for about 22 s (10 s of tank, then the last smoke's 12 s).
+- **In it = its centre is in it**: a unit is in sludge, or inside smoke, when its **centre** is inside the trail, as for Rugged terrain, the Shrine and the First Aid Tent. (Area damage still goes by overlap.)
+- **Entering the Tunnel Network switches both toggles off**: it comes out with both off; the player switches them on again.
+- **An empty tank switches its toggle off** (as in Charges and recharging): it never stays "on" with nothing left.
+
 ## Charges and recharging
 (user, 2026-11-25) Sludge and Cover each have their **own, separate charge**. The charges are **recharged only inside the Tunnel Network**, and only while the player owns a **Vault** (this is the Vault's "re-arming" role). Away from the tunnels, a Shadebringer that has used up a charge can't use that ability until it goes back underground.
 - **Each charge is a tank** (user, 2026-11-25) that **drains while its toggle is on**. Using an ability for a short while costs only a little. When a tank runs **empty**, that ability switches off and can't be switched back on until the tank has some charge again.
