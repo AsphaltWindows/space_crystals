@@ -120,6 +120,7 @@
 - **Every scripted text replacement asserts it matched exactly once** (`assert s.count(old) == 1`). An unasserted `str.replace` on a brief silently did nothing, and the error only surfaced later.
 - **The Designer answers questions within the hour,** often while the slice that raised them is still running. Triage at every hook notice, and fold answers into briefs that haven't launched yet (M3-V took 0169, 0175–0176 and 0183 that way). Slices waiting on a busy area split: M3-L became L1 (vision, now) and L2 (orders, after R).
 - **Free slots go to small client or polish slices** (M3-U) when every queued slice waits on one running slice (R).
+- **An agent's merge commit with git's default message can't be fixed afterwards:** the permission system refuses `git filter-branch` and other history rewrites, and doing it for the agent would be permission laundering. M5-K's branch went in as one attributed squash commit: built on a `k-squash` branch in the agent's worktree (`git switch -c k-squash master`, `git merge --squash`, `git commit -F`), checked identical to the tested tree with `git diff --quiet`, then fast-forwarded. The squash message lists the branch's commits. `m5-common.md` and the launch prompts now ask for `-m` on every merge.
 
 ## M4 plan revision 2 (adopted 2026-11-25)
 - `artifacts/director/m4-plan.md` is the planner's revision 2, which folds in 0229–0282. It adds R1 and R2 (code organization), O (combat spike), U (Grenadier), and S1 and S2 (Laser Turrets). The waves and the critical path are in `plan.md`'s M4 entry.
