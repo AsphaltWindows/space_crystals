@@ -2018,6 +2018,29 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **The Director's call:** with one Robo Portal, Beacon Capacity sits at its cap from about 3:00, with 882 SC banked at 3:00 on `playtest.json`. A computer player that sits on its money is a weak opponent, so A2d's part 3 makes the Colonists spend it. Two Robo Portals did keep capacity ahead in A2c's trials, but the mirror then stalled against passive, so A2d must also find what breaks a passive Colonists defender.
   - **Perf:** `think` averages 8–44 µs on the Colonists' rows.
   - 2457 tests passed, 57 ignored. No golden moved, and the sim is untouched.
+- **A2a The Cults' computer player** (Opus; merged in `946d6dff`):
+  - **What it plays:**
+    - Recruits fill the field's seats: 2 per patch for each Storage, across a one-tile gap. A new Storage goes up once all seats are taken;
+    - spare Recruits enter the Armory, which trains Militants, then only Gunners once a Gunworks stands (built after 2 Halls);
+    - Recruitment Halls go on open Recruitable land within 20 GU of the start, where each claims at least 90% of its area: 4 fit on `dev_skirmish`, 5 on `playtest.json`;
+    - one Build at a time, by the nearest Recruits;
+    - the default waves, 8 and then 32.
+  - **Shared-layer changes:**
+    - after searching the patches, a wave searches a grid of points 8 GU apart within 20 GU of an enemy's start (`army::search_points`), since Cults Halls can stand far from any patch. It applies only in games with a Cults player, to keep the other rows as they were;
+    - `View::faction`;
+    - the harness's `Aim::Around`.
+  - **A sim fix, found by the AI games** (`7285eec0`):
+    - **The bug:** a unit walking out of a doorway whose building is destroyed was left moving with no goal, which tripped invariant I7.
+    - **The Director's reading,** since `core/entities.md > Exit Doorway` doesn't cover it: with no goal it stands where it is; toward a rally point it goes on there.
+    - **Tests:** `crates/sim/tests/production/exit.rs`, where Peacekeepers destroy a Barracks mid-exit. The first test fails without the fix.
+  - **Results:**
+    - The 81 non-Cults rows are unchanged, the GDO rows included.
+    - In the Cults mirror, standard beats passive in 6:59–13:54.
+    - The Cults' standard beats every other faction's passive: the GDO's in 12:58–14:16, the Syndicate's in 6:18–8:21 and the Colonists' in 9:45–14:21.
+    - The GDO's standard beats the Cults in 4:21–5:56.
+  - **The Director's finding:** the Cults bank 4,000–6,000 SC by 7–9 minutes, while 40+ mining Recruits use the Unit Control their army needs (95/95 at the end of a mirror). That is A2d's part 4.
+  - **Perf:** `think` averages 8–16 µs on the Cults rows.
+  - 2461 tests passed, 57 ignored. No golden moved.
 
     | Map | Standard as P1 vs passive | Passive vs standard as P2 | Standard vs standard |
     |---|---|---|---|
@@ -2034,11 +2057,11 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
 ## In progress
 - **Running:**
-  - **A2a The Cults' computer player** (Opus; brief `scratchpad/briefs/a2-ai-factions.md`). It has reported. Its games found a sim bug: a unit walking out of a doorway whose building is destroyed is left moving with no goal, which trips invariant I7. It is committing the fix, the Director's reading that such a unit stands (`core/entities.md > Exit Doorway` doesn't cover it), with a regression test, before the merge. A2d gains the Cults' bank (4,000–6,000 SC by 7–9 minutes) and the wave search's scope. A2b, the Syndicate's, and A2c, the Colonists', are merged (`73da4292`, `157d6c28`). See Computer opponents below.
+  - **M5-MM The Minimap** (Opus; brief `scratchpad/briefs/m5mm-minimap.md`): 0415, which the user asked to be prioritised. Launched in A2a's slot.
   - **M5-V1 Oriented silhouettes** (Opus; brief `scratchpad/briefs/m5v1-oriented-silhouettes.md`), launched in A2b's slot, since it heads M5's critical path.
   - **M5-N7 The Airstrip and the Sparrow** (Opus; brief `scratchpad/briefs/m5n7-airstrip-sparrow.md`, with 0408, 0410, 0411's test and 0412 folded in), launched in A2c's slot.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next, as slots free:** **M5-MM, the Minimap** (0415, which the user asked to be prioritised; brief `scratchpad/briefs/m5mm-minimap.md`), then K (brief `scratchpad/briefs/m5k-rocketman-arsenal.md`, with HeadDisjointed, Target Lock and 0407's Verification test) (V1 and N7 are running); then **M5-S7** (0413, 0414 and 0416: full screen, the cursor kept in the window, the 8 px margin, the F10 menu with Restart and Quit, and the map explored at start; brief `scratchpad/briefs/m5s7-window-and-playtest-menu.md`) and A2d; V2 → V3 and N6 → N10 and V4, then N11; then X1 → X2 → M.
+- **Next, as slots free:** K (brief `scratchpad/briefs/m5k-rocketman-arsenal.md`, with HeadDisjointed, Target Lock and 0407's Verification test) (V1 and N7 are running); then **M5-S7** (0413, 0414 and 0416: full screen, the cursor kept in the window, the 8 px margin, the F10 menu with Restart and Quit, and the map explored at start; brief `scratchpad/briefs/m5s7-window-and-playtest-menu.md`) and A2d; V2 → V3 and N6 → N10 and V4, then N11; then X1 → X2 → M.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
@@ -2052,7 +2075,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
         - `crates/ai/tests/`, which plays every pairing AI against AI on every map, to a defeat or a time limit. It checks the invariants and the gate every tick and reports who won and when.
     - **Slices:**
       - **A1 The framework and the GDO** (Opus): all of the above, and the GDO's standard and passive profiles: the `gdo_opening` line, Barracks, and Peacekeepers in waves.
-      - **A2a–c The Cults, the Syndicate, the Colonists** (Opus, in parallel once A1 lands): each faction's opening, made robust from the pairings openings, its production, and the shared army layer. Each keeps the GDO's games unchanged and reports its pairings against the GDO. The rush profile moved to A2d, so the three stay disjoint.
+      - **A2a–c The Cults, the Syndicate, the Colonists** (Opus, in parallel once A1 lands): each faction's opening, made robust from the pairings openings, its production, and the shared army layer. Each keeps the GDO's games unchanged and reports its pairings against the GDO. The rush profile moved to A2d, so the three stay disjoint. **Done:** A2b (`73da4292`), A2c (`157d6c28`) and A2a (`946d6dff`).
       - **A2d The rush profile for all four factions, the Syndicate grows by Tunnels, and the Colonists spend their bank** (Opus, after A2a–c; brief `scratchpad/briefs/a2d-rush-and-syndicate-tunnels.md`).
       - **A3, later, from playtests:** defense, expansions, tech, spells and difficulty.
 - **Next**:
@@ -2860,7 +2883,7 @@ Last triaged: 0282.
 | 0399 **A shows whenever any selected group can attack**, whichever group is in focus, and is hidden only when no selected unit can attack (replaces 0398's hidden A) | done (**M5-S5**, `d6d1a1a2`) | Verification: Drones and Militants with the Drones in focus show A; Drones alone don't |
 | 0400 **Right-click in multi-stage menus** does the selection's normal right-click and leaves the menu open (BuildMenu, ExpandMenu, EjectMenu, KindMenu, AugmentMenu). In AwaitingTarget and AwaitingPlacement it cancels straight to DefaultState, and a ready building stays ready. Escape and Z still go back one step | done (**M5-S5**, `d6d1a1a2`) | Verification: Recruits in Basic Construct, right-click ground, they move and the menu stays; right-click in placement goes to DefaultState; Escape in placement goes back to the build menu |
 | 0401 **The Economy check is closed** (answers Q0146, a): the Cults', GDO's and Syndicate's economy targets stay in the docs as reference for playtests, and the Director measures nothing more against them. The oracle stays as an on-demand tool whose pins aren't maintained, and the pairings tests stay | done (**M5-P3**, `8eaf316e`): the oracle's tests are ignored and its docs cite 0401 | — |
-| 0402 **Computer players are a playtest tool, with fair knowledge** (answers Q0147: fair, a). They see only what their own objects see, remember what they have seen, and know the map and the start locations. They use a player's commands and rules, and their behavior is the Director's placeholder (`core/game_rules.md > Computer players (playtest tool)`) | GDO done (**A1**, `168dadc0`), the Syndicate (**A2b**, `73da4292`) and the Colonists (**A2c**, `157d6c28`); its Verification is checked every tick in `crates/ai/tests/games.rs`. The Cults are in progress (**A2a**) | Verification: in an AI-vs-AI game, an AI doesn't attack a building it has never seen or scouted, apart from the known start locations |
+| 0402 **Computer players are a playtest tool, with fair knowledge** (answers Q0147: fair, a). They see only what their own objects see, remember what they have seen, and know the map and the start locations. They use a player's commands and rules, and their behavior is the Director's placeholder (`core/game_rules.md > Computer players (playtest tool)`) | done for all four factions: the GDO (**A1**, `168dadc0`), the Syndicate (**A2b**, `73da4292`), the Colonists (**A2c**, `157d6c28`) and the Cults (**A2a**, `946d6dff`). Its Verification is checked every tick in `crates/ai/tests/games.rs`. **A2d** adds the rush profile and makes three economies spend their income | Verification: in an AI-vs-AI game, an AI doesn't attack a building it has never seen or scouted, apart from the known start locations |
 | 0403 **The Sparrow's SightRange is 8 GU** (answers Q0148 part 1), so a lone Sparrow keeps its target in sight through its loop. Attack Move is unchanged, and what Attack Move means for units that can't stop stays an open design question | done (**M5-H2**, `b825b923`) for targets up to a Peacekeeper's size. Bigger targets are lost after 1–4 passes: Q0149 | Verification: a lone Sparrow ordered to Attack a stationary target, with no spotter, makes repeated passes until it dies |
 | 0404 **A glider's Move completes when it first reaches its point** (answers Q0148 part 2). The next queued order starts; with none, it circles there as when idle | done (**M5-H2**, `b825b923`) | Verification: Shift-queue Move A then Move B for a Sparrow: it passes A, flies on to B and circles at B |
 | 0405 **Gliders push apart slowly, at a quarter of the HoverCraft strength, and their SeparationRadius exceeds their silhouette** (answers Q0148 part 3): Sparrow and Dragonfly 48, Specter 64 | done (**M5-H2**, `b825b923`): gliders at a quarter, and the Sparrow's radius is 48. The Dragonfly's and the Specter's radii wait for their defs (0366, 0367). The drift takes 11–17 s, not "a few seconds": Q0152 | Verification: six Sparrows sent to one point drift apart while circling and end about 48 su apart; two Sparrows passing on one target stay on their lines |
