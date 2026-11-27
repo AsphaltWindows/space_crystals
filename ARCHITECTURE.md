@@ -2136,8 +2136,9 @@ did), and the code is
   SeparationRadius (`UnitDef::separation_radius`: the Sparrow's 48 su, (slice M5-H2) design change 0405, was 32)
   nearer than the larger radius is pushed apart, each by half of what the pair lacks, a unit's whole push in a tick
   capped at `tuning::air::SEPARATION_PUSH_SU` (2 su, a placeholder). (M5-H2) Each unit takes its own base's share of
-  its pushes and of the cap (`UnitBaseDef::separation_strength`): a HoverCraft all of it, a Glider a quarter (design
-  change 0405: "Gliders push apart slowly"). The pairs come from a `space::Layer` of the air units, in id order, and
+  its pushes and of the cap (`UnitBaseDef::separation_strength`): a HoverCraft all of it, a Glider (slice M5-N7) a
+  third (design change 0412; a quarter from design change 0405: "Gliders push apart slowly"). The pairs come from a
+  `space::Layer` of the air units, in id order, and
   the pushes are summed and applied together; nothing blocks them. A HoverCraft is kept on the map (design change
   0045), a Glider isn't. A push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and
   a unit at rest stays at rest. Units spawned in the tick are pushed against but not pushed.

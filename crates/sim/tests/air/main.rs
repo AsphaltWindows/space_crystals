@@ -22,9 +22,9 @@
 //! - `edge`: circling near the map's edge takes it past the edge, where it stays visible and attackable as at the
 //!   nearest edge tile; a click past the edge sends it to the edge (`systems/units.md > Air Collision`);
 //! - `separation`: six Sparrows sent to one point circle it without stacking (`systems/units.md > Air Collision`:
-//!   SeparationRadius); (M5-H2) design change 0405's Verification: pushed by a quarter of a HoverCraft's push ("Gliders
-//!   push apart slowly"), they drift apart while they circle it and end 48 su apart, and two Sparrows strafing one
-//!   target stay on their lines;
+//!   SeparationRadius); (M5-H2) design change 0405's Verification: pushed by (M5-N7) a third of a HoverCraft's push
+//!   (design change 0412: "Gliders push apart slowly", a quarter before), they drift apart while they circle it and
+//!   end 48 su apart, in roughly 10 s or more, and two Sparrows strafing one target stay on their lines;
 //! - `shroud`: Shroud doesn't protect air units: a Sparrow under a cloud takes an anti-air attack's hits in full
 //!   (`factions/cults/units/disciple.md > Spells > Shroud`: "not air units").
 //!

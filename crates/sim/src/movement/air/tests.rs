@@ -72,12 +72,12 @@ fn two_idle_air_units_part_by_at_most_2_su_a_tick_each_to_their_separation_radiu
 }
 
 /// (M5-H2) Design change 0405: "**Gliders push apart slowly** [...] with a **much weaker** repulsion than other air
-/// units (placeholder: a quarter of the HoverCraft strength)". Two idle units of the Glider base 10 su apart part by a
-/// quarter of what two HoverCraft would: half a space unit a tick each while the pair lacks 4 su or more, then a
-/// quarter of half of what it lacks, so that the last few su close by a quarter each tick and the pair comes ever
-/// nearer its SeparationRadius without a last step onto it.
+/// units", (M5-N7) at "**a third** of the HoverCraft strength [...]; was a quarter" (design change 0412). Two idle units
+/// of the Glider base 10 su apart part by a third of what two HoverCraft would: two thirds of a space unit a tick each
+/// while the pair lacks 4 su or more, then a third of half of what it lacks, so that the last few su close by a third
+/// each tick and the pair comes ever nearer its SeparationRadius without a last step onto it.
 #[test]
-fn two_idle_units_of_the_glider_base_part_by_a_quarter_of_the_push() {
+fn two_idle_units_of_the_glider_base_part_by_a_third_of_the_push() {
     let _glider = glider_based();
     let mut t = field(ObjectKind::Guard, &[Vec2::new(500.0, 500.0), Vec2::new(510.0, 500.0)]);
     let mut gaps = Vec::new();
@@ -86,17 +86,21 @@ fn two_idle_units_of_the_glider_base_part_by_a_quarter_of_the_push() {
         gaps.push(t.pos(2).x - t.pos(1).x);
         assert_eq!(t.mover(1).velocity, Vec2::ZERO);
     }
-    let mut want: Vec<f32> = (11..=29).map(|gap| gap as f32).collect();
-    want.extend([29.75, 30.3125]);
-    assert_eq!(gaps, want, "{gaps:?}");
-    assert_eq!(t.pos(1).x + t.pos(2).x, 1010.0, "each by as much");
+    // 4/3 su a tick from 10 to 28.667, then two thirds of what the pair lacks of 32 left each tick.
+    let mut want: Vec<f32> = (1..=14).map(|n| 10.0 + 4.0 * n as f32 / 3.0).collect();
+    want.extend([29.778, 30.519, 31.012, 31.342, 31.561, 31.707, 31.805]);
+    for (gap, want) in gaps.iter().zip(&want) {
+        assert!((gap - want).abs() < 0.001, "{gap} su, not {want}: {gaps:?}");
+    }
+    assert!((t.pos(1).x + t.pos(2).x - 1010.0).abs() < 0.001, "each by as much");
     t.run(40);
     let gap = t.pos(2).x - t.pos(1).x;
     assert!((31.99..=32.0).contains(&gap), "{gap}");
 }
 
 /// (M5-H2) Each unit of a pair takes its own base's share of the push: a HoverCraft and a unit of the Glider base 10 su
-/// apart part by 2 su a tick and half a space unit, until the pair lacks less than 4 su.
+/// apart part by 2 su a tick and (M5-N7, design change 0412) two thirds of a space unit, until the pair lacks less than
+/// 4 su.
 #[test]
 fn a_hovercraft_and_a_glider_take_each_its_own_share_of_the_push() {
     let (_air, _glider) = (hovercraft(), glider_based());
@@ -107,7 +111,8 @@ fn a_hovercraft_and_a_glider_take_each_its_own_share_of_the_push() {
     for n in 1..=7 {
         t.step();
         let n = n as f32;
-        assert_eq!((t.pos(1).x, t.pos(2).x), (500.0 - 2.0 * n, 510.0 + 0.5 * n));
+        assert_eq!(t.pos(1).x, 500.0 - 2.0 * n);
+        assert!((t.pos(2).x - (510.0 + 2.0 * n / 3.0)).abs() < 0.001, "{}", t.pos(2).x);
     }
 }
 

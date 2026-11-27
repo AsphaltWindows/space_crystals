@@ -96,8 +96,9 @@ pub struct UnitBaseDef {
     pub contact_step: ContactStep,
     /// (M5-H2) `systems/units.md > Air Collision`: how strongly the soft separation of air units pushes a unit of this
     /// base off another (`movement::air`), as the share it takes of the full push (half of what the pair lacks, at
-    /// most `tuning::air::SEPARATION_PUSH_SU` a tick): a HoverCraft all of it, as in slice M5-H1, a Glider a quarter
-    /// (design change 0405). `None` for the bases that don't fly, which collide hard (`Domain::hard_collision`).
+    /// most `tuning::air::SEPARATION_PUSH_SU` a tick): a HoverCraft all of it, as in slice M5-H1, a Glider a third
+    /// (design change 0412; a quarter from design change 0405). `None` for the bases that don't fly, which collide
+    /// hard (`Domain::hard_collision`).
     pub separation_strength: Option<f32>,
     /// The class of unit the base belongs to for the Tunnel Network's transit (`factions/syndicate/tunnels.md > Tunnel
     /// Network > Transit Tier Requirements`, as it lists the bases; [`Transit::of`]).
@@ -305,9 +306,9 @@ static GLIDER: UnitBaseDef = UnitBaseDef {
     movement_model: MovementModel::Glider,
     contact_step: ContactStep::Diagonal, // An air base: ground collision never reaches it.
     // "**Gliders push apart slowly** (user, 2026-11-27; Q0148): gliders do separate, but with a **much weaker**
-    // repulsion than other air units (placeholder: a quarter of the HoverCraft strength), so they drift apart
-    // gradually, mostly while circling, and their attack runs and loops are barely bent" (design change 0405,
-    // answering Q0148 part 3). Placeholder.
-    separation_strength: Some(0.25),
+    // repulsion than other air units (**a third** of the HoverCraft strength, user, 2026-11-26, Q0152, to try; was a
+    // quarter), so they drift apart gradually, mostly while circling, and their attack runs and loops are barely bent"
+    // (design changes 0405 and 0412, answering Q0148 part 3 and Q0152). Placeholder.
+    separation_strength: Some(1.0 / 3.0),
     transit: Transit::Air, // "Tier 3+: Air units (Hover Craft, Glider)"
 };

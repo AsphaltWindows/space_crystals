@@ -16,8 +16,9 @@ pub const IDLE_CIRCLE_GU: f32 = 1.0;
 /// tick each". Read as a cap on each unit's whole push in a tick, whatever the number of pairs it is in, so that a unit
 /// never moves more than its speed and this in a tick (invariant I3, `docs/movement.md > 8`). Space units per tick.
 /// Placeholder (Q0120 point 1: the design gives the radius, not the strength of the push). (M5-H2) It is the full push,
-/// a HoverCraft's: each air base takes its share of it (`UnitBaseDef::separation_strength`), a Glider a quarter (design
-/// change 0405: "placeholder: a quarter of the HoverCraft strength"), half a space unit a tick.
+/// a HoverCraft's: each air base takes its share of it (`UnitBaseDef::separation_strength`), a Glider a third (design
+/// change 0412: "**a third** of the HoverCraft strength [...]; was a quarter", design change 0405's), two thirds of a
+/// space unit a tick.
 pub const SEPARATION_PUSH_SU: f32 = 2.0;
 
 /// (M5-N7) `factions/cults/units/sparrow.md > Placeholder stats`: "**No rally point**: it circles 2 grid units past the
