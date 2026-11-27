@@ -57,7 +57,8 @@ cargo run -- --factions gdo,cults --map maps/playtest.json --tuning tuning
 ```
 
 - **At the start.** The directory is read before the first tick. Its rules go to the game as a debug command in the
-  first tick's inputs, so the game plays by them from the second tick on.
+  first tick's inputs, so the game plays by them from the second tick on. The first tick, a sixteenth of a second,
+  plays on the built-in rules, so a command given in it (a computer player's) reads the built-in numbers.
 - **While the game runs.** Save a file, and within half a second the game reads the directory again, also while it
   is paused. Changed rules apply from the next tick on. The client's feel (`client/*.json`) applies at once.
 - **Objects keep their state.** HP and Shields follow their new maxima but keep the damage taken, and energy stays
@@ -144,6 +145,20 @@ The rest stays in code:
 
 - colours, and the drawing sizes no playtest has asked to tune (rings, markers, fonts, the HUD's layout);
 - technical constants: the z order, the Shroud's texels per tile, frame budgets, capture timeouts.
+
+## Trying it
+
+`qa/tuning/peacekeeper_damage/` sets the Peacekeeper's Damage to 100. `qa/tuning/fight.json` spawns a Peacekeeper of
+player 1 and a Guard of player 2, three tiles apart, on the empty map, and they fight on their own:
+
+```sh
+cargo run -- --scenario empty --commands qa/tuning/fight.json --windowed
+cargo run -- --scenario empty --commands qa/tuning/fight.json --windowed --tuning qa/tuning/peacekeeper_damage
+```
+
+Without the directory the Guard wins. With it, the Peacekeeper's first shot, in tick 4, destroys the Guard. Run both
+with `--headless --exit-at-tick <n> --dump-state <file>` to compare the states: they are equal at tick 1, differ at
+tick 2 only by the `RulesChanged` event, are equal again at tick 3, and differ from the first shot on.
 
 ## Baking a value
 
