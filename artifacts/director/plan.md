@@ -2397,13 +2397,12 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
 ## In progress
 - **Running:**
+  - **M5-X1 The sim's ruleset** (Opus; brief `scratchpad/briefs/m5x1-ruleset.md`), launched alone after N11's merge, on 2026-11-27. It may split into X1a, the tuning modules, and X1b.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** X1 → X2 → Mb, once V4, N10 and N11 are in.
-  - **The Director split M:**
-    - **Ma, the playtest kit's generated tables,** runs beside X1, in the client and docs only: the controls table, which a test keeps current; the placeholders list; the deferred list; and "Starting a playtest".
-    - **Mb, the QA,** runs after X2: perf, the soak, the walkthrough, the ignored suite and readiness.
-  - **The briefs:** `scratchpad/briefs/m5x1-ruleset.md`, `m5x2-data-files.md`, `m5ma-playtest-kit.md` and `m5mb-qa.md`.
-  - N10 and N11 each add one Chop Shop key (0444), and whichever lands second checks all three.
+- **Next:** X2 after X1, then **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
+  - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
+  - **M6 starts at X1's merge** (T101), beside X2: **GK** and **SK** first (W1), then GR and GD beside Mb (W2).
+  - **The briefs:** `scratchpad/briefs/m5x2-data-files.md`, `m6-common.md`, `m6gk-gdo-kinds.md` and `m6sk-syndicate-kinds.md`, drafted. Each gets X1's report at launch.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
