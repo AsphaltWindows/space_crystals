@@ -4008,6 +4008,34 @@ a replay's playback show each player's view, and the sim isn't touched. A defeat
 game is over, gives no commands: the command UI's input set doesn't run (`outcome::may_command`), and nothing is
 `commandable` after the end.
 
+**Minimap** (`hud/minimap.rs`, `hud/minimap/`; slice M5-MM, `systems/controls/hud.md > Minimap`, design change
+0415): a CPU-side image in the Minimap section, in place of its name, one texel a physical pixel, sampled nearest.
+`MinimapFrame` letterboxes the map in the section's content box, its aspect kept, on whole pixels, and holds the one
+mapping each way: `ground_at` (a panel point to the ground, clamped onto the map, so a drag goes on beyond the panel)
+and `screen_at`. The terrain is baked once per map and frame size (`raster::Terrain`: each tile flat in
+`map_render::tile_base_color`, the terrain mesh's colour before its faces are shaded, and that dimmed); the fog and
+the objects are painted over it (`raster::paint`) only when what they show changed (`LayersKey`: the sim, its tick,
+the local player, `Sight::revision` and `records_revision`, the map), at most `REDRAWS_PER_SECOND` (15) times a
+second of real time, and at once while the sim stands still (`SimControl::may_step`), so screenshots show their tick.
+The layers read the sim's objects only through `Sight`: the tile states (`Sight::tile_states`, the fog layer's too),
+then the records on Explored tiles, dimmed by `raster::KEPT` (what the fog's `EXPLORED_ALPHA` leaves, in linear
+light), then the live objects `Sight::sees`, map resources under structures under units: footprints for structures
+and patches, `raster::dot_texels` squares for units at `Object::map_pos`, in `object_render::player_color` (map
+resources neutral). The camera's outline is a bordered node placed every frame after `apply_camera`
+(`MinimapFrame::camera_rect`: the world view's extent around the ground under its centre, cut to the map). Its input
+(`hud/minimap/input.rs`, `MinimapPointer`) is read in `Actions` before the command UI's: the panel is over the UI, so
+no `MapPress`, `MapClick` or `SelectionBox` starts there, and nothing reaches the selection. A left press on the map
+area (`MinimapPress`) centres the camera on the ground under the cursor each time that changes
+(`follow_minimap_press`), unless the command flow claims it: `click_targets` takes it while a target is awaited, with
+the map's click allowance, and resolves it on `MapTarget::on_ground` (ground only, the designer's placeholder). A right
+press (`MinimapClick`) is the map's ground right-click there: `right_click_orders` gives both through one
+`right_click`. Placement reads only `MapClick`s, so in AwaitingPlacement a minimap click only moves the camera (the
+Director's reading). Measured (`hud/minimap/tests/perf.rs`, ignored, release; `maps/playtest.json`, 305 objects, the
+fog on; load average 7.6): a redraw 0.029 ms at 1280 × 720, 0.039 ms at 1920 × 1080 (worst 0.049), 0.092 ms at
+3840 × 2160 (worst 0.33), so 0.008 to 0.023 ms a frame on average at 60 frames a second. Tests: `hud/minimap/tests.rs`
+and `tests/layers.rs` (the frame and the mappings, the outline at two zooms, the redraws, the fog layers),
+`tests/commands/minimap.rs` (the clicks through the virtual mouse, and the panel).
+
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the
 focused text field's key handling), and gameplay and editor code read only what it produces: `InputAction`s, which

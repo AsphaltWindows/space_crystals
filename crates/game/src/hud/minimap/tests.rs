@@ -3,6 +3,7 @@
 //! fog of war on (`layers`).
 
 mod layers;
+mod perf;
 
 use sc_sim::SU_PER_GU;
 

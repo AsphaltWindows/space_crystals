@@ -179,14 +179,13 @@ pub fn paint(data: &mut [u8], frame: &MinimapFrame, terrain: &Terrain, states: &
     }
     for (row, texels) in terrain.rows.iter().zip(data.chunks_exact_mut(width * 4)) {
         let first = row * terrain.width;
-        for (column, texel) in terrain.columns.iter().zip(texels.chunks_exact_mut(4)) {
+        for (column, texel) in terrain.columns.iter().zip(texels.as_chunks_mut::<4>().0) {
             let tile = first + column;
-            let color = match states.get(tile) {
+            *texel = match states.get(tile) {
                 Some(VisibilityState::Visible) => terrain.colors[tile][0],
                 Some(VisibilityState::Explored) => terrain.colors[tile][1],
                 Some(VisibilityState::Unexplored) | None => UNEXPLORED,
             };
-            texel.copy_from_slice(&color);
         }
     }
     let dot = dot_texels(frame);
@@ -212,8 +211,6 @@ fn fill(data: &mut [u8], size: UVec2, min: Vec2, max: Vec2, color: [u8; 4]) {
     for y in lo.y..hi.y {
         let start = (y * size.x + lo.x) as usize * 4;
         let end = (y * size.x + hi.x) as usize * 4;
-        for texel in data[start..end].chunks_exact_mut(4) {
-            texel.copy_from_slice(&color);
-        }
+        data[start..end].as_chunks_mut::<4>().0.fill(color);
     }
 }
