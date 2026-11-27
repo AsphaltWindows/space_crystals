@@ -2525,16 +2525,59 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **`Ruleset::check`** bounds a stock's frames (at most 65535) and its start (at most its maximum).
   - **Perf:** an interleaved A/B against `36901a85` showed no regression in movement, battle, attack-moving, 40 Sparrows or the drones' economy.
   - fmt, clippy and the 2,885 tests in 10 programs pass (62 ignored), as do the seed sweep, `data::`, the `tuning` program and the controls doc. The 192 computer-player games are identical. The new golden `gdo_drones` makes 25; no other golden moved.
+- **M5-Mb M5's QA** (Opus; merged by fast-forward at `f31e2620`, with two clean merges of master: GD, and the design changes 0450 and 0451). **M5 is done.** The playtest build is ready for all four factions.
+  - **Readiness, every item yes:**
+    - the 16 pairings start from the command line, and restart from the F10 menu with `--ai 2`;
+    - both Skirmish Default map files and the built-in dev_skirmish have all four layouts in both slots;
+    - the controls table and the placeholders are current;
+    - live tuning works (the Militant's HP 40 → 100, "Tuned: 1 file");
+    - the computer players play every faction and profile;
+    - the screenshots are reviewed.
+  - **The walkthrough** `qa/walkthrough/m5/run.sh` runs 10 scenes in about 90 s and writes 37 screenshots. They cover the plan's 16 steps, the addendum and everything since.
+  - **The soak:** `soak_sweep` plays 192 games (16 pairings × 3 maps × 4 seeds) in about a minute, checking T65's and the later invariants every tick. `ai_games`' 192 games pass; 27 have no winner at 20:00, each a passive player holding out.
+  - **Fixed, each with a test:**
+    - after F2, player 2 saw player 1's refusal (`3263f617`);
+    - the I5/I7 checker misfired on a defeat tick (`c702087f`; the sim is unchanged);
+    - skirmish_soak's GDO waves kept winning after 0323 (`7df740a2`).
+  - **Not fixed, QA tooling:** under `--fast`, the key or click right after a menu key is lost, so the scenes with menu keys run in real time. This is **Z4** (Next).
+  - **Perf:** the 22 perf tests pass, and the new ones are `cults_perf` and `soak_sweep`. Three regressions since M4 are over 25%, each explained by an A/B against its commits, and all far under a tick's budget:
+    - agents_perf's network, 0.061 vs 0.043 ms mean (M4-W3's contact step);
+    - projectiles in flight, +35% (V1's oriented Silhouettes);
+    - placement_perf, +40% (GK +18%, X1a +6.7%).
+    - A computer player's `think` averages 21.4 µs.
+  - **The ignored suite:** 41 tests, about 24 minutes beside other builds. The two `recruit_gathering::jam` tests fail, as they should: the jam is the accepted behaviour (0320). They should become pins of it (Z4).
+  - **The docs:** `m5.md`'s "Not in M5" lists M6's live slices: SV's, and GD's Drone Operator, greyed for Supplies until GS. It also lists 0448 and 0450 (queued in CM) and 0451 (in GF), the known issues, and Q0176–Q0184. ARCHITECTURE.md's "Adding a faction" was reviewed against the Cults.
+- **M6-GR The Radar Station, Scan and the Defense System** (Opus; merged as `5cb666c8`, squashed by the Director from four commits and two merges of master, one of which resolved conflicts with GD, on top of Mb; 0422, 0423).
+  - **Scan:** Q at any point on the map. A 6 GU circle (113 tiles) is Visible for 128 ticks, then the fog delay. Each station has its own 960-tick cooldown, and Scan is refused meanwhile.
+    - The Radar Station is Ungroupable (0422): Q, click, Tab, Q, click scans two places.
+  - **A technical deviation:** `Object::cooldown: Option<Progress>` (hash tag 10) replaces the plan's `cooldown_until`. The Power ratio (0423) can't slow a fixed end tick.
+    - At 30/51 Power the cooldown takes 1632 ticks. With no Power the ratio is 0, so a consumer stops, as 0423's rule gives.
+  - **The Defense System** builds by the Extraction Facility's flow:
+    - Q builds a Missile Turret, 100 SC and 240 frames, at the ratio. Place is greyed with a progress bar meanwhile.
+    - X refunds in full, or 75% once the turret is ready.
+    - The turret is placed in the GDO's build area.
+  - **The Missile Turret** fires M5-K's homing missile at air and ground. It never misses, and it fires from its first tick.
+    - Its whole attack cycle banks the Power ratio each tick (`AttackState::power_carry`): 24 ticks at full Power, 41 at 30/51.
+  - **Placeholders:**
+    - a group of Defense Systems builds at every one, but places the first one's turret;
+    - a Scan click off the map is an invalid target.
+  - **For SC (0433):** a Scan's tiles are stamped in `Vision::step_scans` (`vision/scans.rs`). That is where smoke should leave out the tiles under it.
+  - **For GF and GH2:** a consumer's speed is `PowerSummary::speed(kind)`. Step a timer with `Progress::step(speed)`; an attack cycle uses `combat/power.rs`'s `spend` with `power_carry`.
+  - **Perf** (A/B against `b35ce523`): vision_perf 0.218 vs 0.219 ms (with four scans, 0.221); structures_perf 0.479 vs 0.480 ms.
+  - **Integration:** Mb and GR finished together, so the Director squashed GR onto Mb's head and checked the combined tree once. The two merged cleanly but didn't compile together: Mb's new soak tallied casts with an exhaustive match over the Cults' four abilities, and GR added `AreaAbility::Scan`. A test-only fix, `4e1b7501`, counts Scan too. Then fmt, clippy and the 2,914 tests in 10 programs pass (65 ignored), as do the seed sweep and both soak sweeps. The 192 computer-player games are identical. The new golden `gdo_defense` makes 26; no other golden moved.
 
 ## In progress
 - **Running:**
-  - **M5-Mb M5's QA** (Opus; brief `scratchpad/briefs/m5mb-qa.md`), launched at X2's merge, on 2026-11-27, with M6 running beside it. The playtest build is the commit at its merge.
-  - **M6-GR The Radar Station, Scan and the Defense System** (Opus; brief `scratchpad/briefs/m6gr-radar-defense.md`), launched at SV's merge, on 2026-11-27.
   - **M6-GF The Factory, Advanced Mechanics, the Industrial Powerplant, the Raptor and the Twister** (Opus; brief `scratchpad/briefs/m6gf-factory.md`), launched at GD's merge, on 2026-11-27. It also pins the Raptor's close-range cases for Q0184. **0451's parking** (Q0177) was folded in after launch: a newly released vehicle parks around a taken rally point, at the Chop Shop and the Factory.
+  - **M6-SD The air doors, the Forge, the Aerospace Assembly and the Phantom** (Opus; brief `scratchpad/briefs/m6sd-air-doors.md`), launched at Mb's and GR's checks, on 2026-11-27.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** SD and GH1, the heads of the longest chains, as slots free. Then SN; SB after SN (it adds the Vault to SN's `network/services.rs`); CM; and GA after GF.
-  - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
-  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK, SK, SV and GD are merged, and GR and GF are running. SD and GH1 come next.
+- **Next:** **GH1** at GR's merge. Then SN; SB after SN (it adds the Vault to SN's `network/services.rs`); CM; and GA after GF.
+  - **S6a, early: a small sweep of 0453 and Z4,** when a slot is free. 0453: a Stopping crusher crushes (M5-V4's trigger).
+  - **Z4, QA tooling (small, from Mb), in S6a:**
+    - under `--fast`, the key or click right after a menu key is lost;
+    - the two `recruit_gathering::jam` tests fail by design (0320): make them pins of the accepted jam.
+  - **M5 is done:** N11 was its last content slice, and M's QA, split into **Ma** and **Mb**, is merged. The playtest build is at Mb's merge.
+  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK, SK, SV, GD and GR are merged, and GF and SD are running. GH1 comes next.
   - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. `m6sn-null-chamber.md`, `m6sd-air-doors.md`, `m6gh1-airfield-hornet.md` and `m6cm-mirage.md` (0448) are drafted. Each brief's "Landed since" is filled in at its launch. Mb's brief has the soak failure to bisect, and M6 running beside it.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
@@ -2990,17 +3033,17 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0175 | A vehicle building with no rally point stalls after its first vehicle: idle vehicles don't yield (0440), against the Exit Doorway's "so they don't cause stalls" (from M5-N6) | no | answered by 0446 (a default rally point 3 GU out of the exit) and 0447 (it can be cleared): **M5-S8** |
 | Q0176 | `combat.md`'s table says a tracked unit turns "unconstrained" while stationary or stopping, against the tread law's SpinRate at rest and the Hand of Heaven's "about 19° a frame" (from M5-V3) | no | answered by 0449 (option 1, as built: the tread law at every speed) |
 | Q0177 | The default rally point, 3 GU out, holds three Seekers, and a fourth left alone stalls the doorway, though five can queue: keep 3 GU, take a longer distance, or have vehicles park around a taken rally point? (from M5-S8) | no | answered by 0451 (option 3: a newly released vehicle parks at the nearest free spot around a taken rally point): **M6-GF** |
-| Q0178 | Crushing: does a Stopping (braking or coasting) crusher crush, which the Trigger's "Moving or Reversing" leaves out; and does a crush ping the minimap, whose alert fires on damage? (from M5-V4) | no | open |
+| Q0178 | Crushing: does a Stopping (braking or coasting) crusher crush, which the Trigger's "Moving or Reversing" leaves out; and does a crush ping the minimap, whose alert fires on damage? (from M5-V4) | no | answered by 0453: (b) a Stopping crusher crushes, and (a) a crush gives no alert, as built: **M6-S6a** |
 | Q0179 | The Hand of Heaven: its MinRange back-off (to 9 GU) leaves its own 7 GU sight, so alone it loses the target; a wall can stop its hull aim for good; and `AttackingObject`'s step 4, which it doesn't follow (from M5-N10) | no | open |
 | Q0180 | Inspire's faster attack: how the cycle × 0.75 rounds to whole frames (an Improved Metabolism Recruit gets 20%), which phases shorten (built: Firing), and whether the Augmentations' 2-frame Firing floor applies (built: no, so Level 2 reaches 1); with the energy pace for information (from M5-N11) | no | open |
 | Q0181 | SeparationRadius for the five air units whose docs give none (the Hornet, the Supply Chopper, the operator's drone, the Phantom and the Prism): proceeding on the Silhouette's side + 8 su, the pattern of the three given radii (from M6-SK and M6-GK) | no | open |
 | Q0182 | Four GDO numbers the docs don't give: the Supply Chopper's UnitControlCost, the Outpost's Groupable, the mine's sight and armour, and the Hornet's TargetType (its dodgeable missile, single-target or a burst like the Rocketman's, 0445): proceeding on 2, true, 0 and 0/0, and SingleTarget (from M6-GK) | no | open |
 | Q0183 | Idle vehicles stall a Tunnel's exit: of five Bikes ejected with no order, two come out, since an idle vehicle doesn't yield (0440) and the Tunnels have no default rally point (0446); with a rally point straight ahead, four (from M6-SV) | no | open |
 | Q0184 | The Assault Bike at close range: a target inside its turning circle (it gives the Attack up), its own blast (it hits itself from 48 su, by Q0083), and Attack Ground out of its arc (it circles forever); options: a MinRange, a loop, giving up, other numbers (from M6-SV) | no | open |
-| Q0185 | What energy does an illusion show? Everyone sees a Disciple's energy bar (M5-N4a's placeholder), and 0448 says enemies can't tell illusions from Disciples: proceeding on the parent's current energy, live (for M6-CM) | no | open |
+| Q0185 | What energy does an illusion show? Everyone sees a Disciple's energy bar (M5-N4a's placeholder), and 0448 says enemies can't tell illusions from Disciples: proceeding on the parent's current energy, live (for M6-CM) | no | answered by 0452 (a: the parent's energy, live, as assumed): **M6-CM** |
 
 ## Design change entries
-Last triaged: 0451.
+Last triaged: 0453.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -3424,4 +3467,6 @@ Last triaged: 0451.
 | 0449 **Tracked turning at rest follows the tread law** (answers Q0176, option 1): `combat.md`'s "unconstrained" Stationary and Stopping rows are corrected to the law of 0417 | done (no-op: M5-V3 built it so; `tests/tracked/spin.rs`) | Verification: a stopped Hand of Heaven turns about 19° a frame, never instantly; a braking one turns faster as it slows |
 | 0450 **Disciples and their illusions don't fire from a Garrison** (the user): they may still enter it, sheltered; Recruits still fire as Militants. A Garrison holding only Disciples and illusions isn't a threat to enemy scans (Q0139's rule, unchanged). It replaces M5-N2's firing Disciples and 0448's firing illusions | queued (**M6-CM**, folded into its brief) | Verification: two Disciples in a Garrison with an enemy in range don't fire; add a Recruit and it fires the Militant's attack; illusions inside don't fire |
 | 0451 **Newly released vehicles park around a taken rally point** (answers Q0177, option 3): a wheeled or tracked vehicle released through a building's exit side whose rally point is taken by parked vehicles parks at the nearest free spot around it where it fits, at any rally distance. Infantry, player Moves and 0440 are unchanged; Tunnels and aircraft aren't covered. The wanted exit-blocked warning waits for a notification system | in progress (**M6-GF**, folded in after its launch) | Verification: a Chop Shop's five Seekers, left on the default rally point, cluster around it and all leave; the same with Hands of Heaven; a farther rally point gets the cluster there |
+| 0452 **An illusion shows its parent's energy, live** (answers Q0185, option a, as assumed): its bar and InfoPanel line read the parent's current energy; no state of its own; everyone still sees Disciple energy | queued (**M6-CM**, folded into its brief) | Verification: after Mirage all five Disciples show the same energy; they drain together while the parent channels, and regenerate together after |
+| 0453 **A braking crusher still crushes; a crush gives no minimap alert** (answers Q0178): a crusher crushes while it has any speed, Moving, Reversing or Stopping (braking, or coasting after Stop), and is a hard obstacle only once Stationary and not turning (turning in place still crushes, 0418). A crush isn't damage, so it pings nothing, as built | queued (**M6-S6a**, early, with Z4): M5-V4 built "Stopping doesn't crush" | Verification: a Hand of Heaven stopping on enemy Peacekeepers, or pressing Stop just before them, crushes those it overlaps while braking; at rest it blocks them; a crush off the owner's screen gives no ping |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
