@@ -33,6 +33,15 @@
 //!   Placement`: "the order is cancelled and the Drone stops and idles"); one that hasn't begun its deployment within
 //!   [`DEPLOY_PATIENCE_TICKS`] of its order is stopped, as when gathering Drones keep it from getting through. That
 //!   Drone and that site are left out of the next Deploys for [`FAILED_DEPLOY_TICKS`].
+//! - **Doorways** ([`apart`], slice A2d): a Warp In covers more than its Beacon (a Bio Portal a column and a row more,
+//!   a Robo Portal a ring), so two Beacons a tile apart may make two portals side by side, which may shut every way
+//!   out of a portal's energy doorway (`factions/colonists/structures/README.md > Portals > Portal Exits (energy
+//!   doorway)`: "if no direction is free, the unit stays half out at the edge of the footprint", and the next unit
+//!   "doesn't come out until the previous units have vacated the way out"). On `dev_skirmish` a rush's Bio Portals,
+//!   three side by side, so held their units from 6 minutes, its bank piling up to 4,000 Space Crystals. So a Warp
+//!   In, and a Beacon kept for a Bio Portal ([`hosts`]), leaves a tile clear between what it covers and every building
+//!   of the player's but its Beacons: the Beacon's own free ring keeps the way out at the top-left end of the Bio
+//!   Portal's arc open.
 
 use sc_sim::deploy;
 use sc_sim::nav::TileRect;
@@ -286,9 +295,10 @@ fn sites(
 
 /// The Beacons kept for the Bio Portals to come (module docs), and whether they are fewer than those: as many as the
 /// Bio Portals of [`WARP_INS`] the player lacks, of its Beacons (complete, under deployment, or the sites of its
-/// pending Deploys) on which a Bio Portal still fits as far as the footprints and the terrain go, those nearest the
-/// staging point first (as a Warp In picks them), ties by id and then row by row. Each is given by what a Bio Portal
-/// on it would cover, which the next sites keep clear.
+/// pending Deploys) on which a Bio Portal still fits as far as the footprints and the terrain go, a tile clear of the
+/// player's buildings but its Beacons and of the hosts before it ([`apart`], slice A2d), those nearest the staging
+/// point first (as a Warp In picks them), ties by id and then row by row. Each is given by what a Bio Portal on it
+/// would cover, which the next sites keep clear.
 fn hosts(turn: &Turn<'_, '_>, base: &Base<'_>, occupied: &Occupied) -> (Vec<TileRect>, bool) {
     let view = turn.view();
     let map = view.map();
@@ -318,15 +328,27 @@ fn hosts(turn: &Turn<'_, '_>, base: &Base<'_>, occupied: &Occupied) -> (Vec<Tile
             .then(a.1.cmp(&b.1))
             .then((a.2.y, a.2.x).cmp(&(b.2.y, b.2.x)))
     });
-    let short = hosts.len() < to_come;
-    (
-        hosts
-            .into_iter()
-            .take(to_come)
-            .map(|(_, _, _, portal)| portal)
-            .collect(),
-        short,
-    )
+    // Each apart from the buildings and from the hosts before it, as a Warp In takes them ([`apart`]).
+    let mut kept: Vec<TileRect> = Vec::new();
+    for (_, _, _, portal) in hosts {
+        if kept.len() < to_come && apart(view, portal, &kept) {
+            kept.push(portal);
+        }
+    }
+    let short = kept.len() < to_come;
+    (kept, short)
+}
+
+/// Whether a building warped in to cover `footprint` keeps a ring of a tile clear of the player's buildings but its
+/// Beacons, and of the footprints `planned` (module docs, "Doorways"): two portals side by side may shut every way out
+/// of a doorway (`factions/colonists/structures/README.md > Portals > Portal Exits (energy doorway)`), and the
+/// finished unit then waits inside for good.
+pub(super) fn apart(view: &View<'_>, footprint: TileRect, planned: &[TileRect]) -> bool {
+    let ring = grown(footprint, 1);
+    let buildings = (view.own().filter(|o| o.kind != Beacon))
+        .filter_map(|o| o.placement)
+        .map(|p| TileRect::new(p.origin, p.w, p.h));
+    !(buildings.chain(planned.iter().copied())).any(|rect| overlaps(ring, rect))
 }
 
 /// What a Bio Portal warped in, unturned, on a Beacon whose footprint's top-left tile is `origin` would cover

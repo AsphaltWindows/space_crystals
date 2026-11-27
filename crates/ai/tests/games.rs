@@ -6,18 +6,26 @@
 //!   [`a_standard_cults_computer_attacks_a_passive_one`] and [`a_standard_syndicate_computer_attacks_a_passive_one`]):
 //!   standard against passive of one faction on `dev_skirmish` for [`DEFAULT_RUN`] of game time, with every
 //!   invariant. At the end, the standard player's waves have gone out and fought.
+//! - **The rush's default run** (slice A2d, [`the_rush_attacks_before_standard_would`], for each faction): its rush
+//!   against its passive, the same way; its first wave leaves before standard's would, and fights.
+//! - **The Syndicate's growth** (slice A2d, [`a_standard_syndicate_computer_staffs_a_second_crystal_hatch`]): on
+//!   `maps/playtest.json`, two crystal hatches staffed by 5:00.
 //! - **0402's Verification** ([`computers_attack_only_buildings_they_know`]): standard against standard, where both
 //!   attack, to a defeat; and the check itself, on a planted target ([`an_attack_on_a_building_never_seen_is_caught`]).
 //! - **Determinism** ([`the_same_game_ends_the_same`], and each faction's own, as
-//!   [`the_same_cults_game_ends_the_same`] and [`the_same_syndicate_game_ends_the_same`]): the same game twice ends
-//!   with the same state hash.
+//!   [`the_same_cults_game_ends_the_same`] and [`the_same_syndicate_game_ends_the_same`], and the rush's,
+//!   [`the_same_rush_game_ends_the_same`]): the same game twice ends with the same state hash.
 //! - **`ai_games`** (ignored, a report, in release): every pairing whose factions both have a computer player, on every
-//!   Skirmish Default map, each profile against each that attacks, to a defeat or [`LIMIT`]: standard must beat its own
-//!   faction's passive within [`STANDARD_BEATS_PASSIVE`] from either slot, and standard against standard must end in a
-//!   defeat. Standard beating another faction's passive within [`LIMIT`] is wanted, not required (the A2 brief's
-//!   "Wanted"): the report lists whether it did. It prints a table of who won, when, and how many units each side
-//!   trained, and what `Ai::think` cost: `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored
-//!   --nocapture`.
+//!   Skirmish Default map, standard against passive from either slot and against standard, and in a faction's mirror
+//!   its rush against passive and against standard from either slot ([`pairings`]), to a defeat or [`LIMIT`]: standard
+//!   must beat its own faction's passive within [`STANDARD_BEATS_PASSIVE`] from either slot, standard against standard
+//!   must end in a defeat, and the rush's first wave must leave before standard's in its place against the same
+//!   passive. The Colonists' standard banks less than 500 Space Crystals on average from 3:00 to 10:00 in their mirror,
+//!   and the Cults' less than 1,000 against the GDO's passive (the A2d brief). Standard beating another faction's
+//!   passive within [`LIMIT`] is wanted, not required (the A2 brief's "Wanted"): the report lists whether it did. It
+//!   prints a table of who won, when, how many units each side trained, when its first wave left, its mean bank and
+//!   income from 3:00 to 10:00, and what `Ai::think` cost: `cargo test -p sc_ai --release --test ai games::ai_games --
+//!   --ignored --nocapture`.
 //! - **The Colonists** (slice A2c, [`colonists`]): their default run and determinism.
 //! - **The map explored from the start** (slice M5-S7, design change 0416, `core/vision.md > Starting exploration`):
 //!   the client starts its games so by default, while these games keep the sim's default, unexplored, and `ai_games`
@@ -31,13 +39,15 @@ mod harness;
 use std::fs;
 use std::path::Path;
 
+use sc_ai::tuning::syndicate::AGENTS_PER_HATCH;
 use sc_ai::{Ai, Profile, Start, View};
+use sc_sim::economy::drop_off::{Resource, hatch_square};
 use sc_sim::{
-    Category, Command, Faction, GameSetup, MapDef, MapType, OrderKind, PlayerCommand, PlayerId, Scenario,
-    TICKS_PER_SECOND, Tick, scenarios,
+    Category, Command, Faction, GameSetup, MapDef, MapType, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand,
+    PlayerId, Scenario, Sim, TICKS_PER_SECOND, Tick, Vec2, scenarios,
 };
 
-use harness::{Aim, Checks, Cost, Knowledge, Report, play};
+use harness::{Aim, Checks, Cost, Knowledge, Report, play, watch};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -50,7 +60,7 @@ const LIMIT: Tick = 20 * 60 * TICKS_PER_SECOND;
 /// By when standard must have beaten passive: 15 minutes (the brief's).
 const STANDARD_BEATS_PASSIVE: Tick = 15 * 60 * TICKS_PER_SECOND;
 
-use Profile::{Passive, Standard};
+use Profile::{Passive, Rush, Standard};
 
 /// `scenario` with `factions` in its slots, as `--factions a,b` starts it.
 fn with_factions(mut scenario: Scenario, factions: [Faction; 2]) -> Scenario {
@@ -103,6 +113,109 @@ fn a_standard_syndicate_computer_attacks_a_passive_one() {
     assert!(standard.waves >= 1, "the standard player sent no wave: {report:?}");
     assert_eq!(passive.waves, 0, "the passive player never attacks: {report:?}");
     assert!(passive.lost >= 1 && standard.lost >= 1, "the wave fought: {report:?}");
+}
+
+/// The rush's default run (slice A2d), for `faction`: its rush against its passive on `dev_skirmish` for
+/// [`DEFAULT_RUN`] of game time, with every invariant. The rush's first wave leaves before standard's would in its place
+/// (standard's game, played to that tick, has sent none yet), and fights.
+fn the_rush_attacks_before_standard_would(faction: Faction) {
+    let scenario = with_factions(scenarios::dev_skirmish(), [faction; 2]);
+    let report = play(&scenario, &[(P1, Rush), (P2, Passive)], DEFAULT_RUN, Checks::All);
+    let (rush, passive) = (report.side(P1), report.side(P2));
+    let first = rush.first_wave.expect("the rush sent a wave");
+    assert_eq!(passive.waves, 0, "the passive player never attacks: {report:?}");
+    assert!(passive.lost >= 1 && rush.lost >= 1, "the wave fought: {report:?}");
+    let standard = play(&scenario, &[(P1, Standard), (P2, Passive)], first, Checks::Rules);
+    assert_eq!(
+        standard.side(P1).first_wave,
+        None,
+        "standard's first wave leaves later than the rush's, at {}: {report:?}",
+        clock(Some(first))
+    );
+}
+
+#[test]
+fn a_gdo_rush_attacks_before_standard_would() {
+    the_rush_attacks_before_standard_would(Faction::Gdo);
+}
+
+#[test]
+fn a_syndicate_rush_attacks_before_standard_would() {
+    the_rush_attacks_before_standard_would(Faction::Syndicate);
+}
+
+#[test]
+fn a_cults_rush_attacks_before_standard_would() {
+    the_rush_attacks_before_standard_would(Faction::Cults);
+}
+
+#[test]
+fn a_colonists_rush_attacks_before_standard_would() {
+    the_rush_attacks_before_standard_would(Faction::Colonists);
+}
+
+/// The Syndicate's growth (slice A2d): standard builds a second Tunnel whose crystal hatch takes in patches of its
+/// starting field that the first hatch's Agents don't mine, and by 5:00 staffs both hatches with [`AGENTS_PER_HATCH`]
+/// Agents each (its third Tunnel, toward the staging point for its Tunnel Space, has no patch near), on
+/// `maps/playtest.json`, explored from the start as the client starts its games, or not. On `dev_skirmish` its default
+/// run keeps one: the starting field lies along the map's edge against the first Tunnel's area, where no second
+/// Tunnel's area fits (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`).
+#[test]
+fn a_standard_syndicate_computer_staffs_a_second_crystal_hatch() {
+    let (_, playtest) = (maps().into_iter())
+        .find(|(flag, _)| flag.ends_with("maps/playtest.json"))
+        .expect("maps/playtest.json");
+    for explored in [false, true] {
+        let mut scenario = with_factions(playtest.clone(), [Faction::Syndicate; 2]);
+        scenario.setup.config.start_explored = explored;
+        let at = 5 * 60 * TICKS_PER_SECOND;
+        let mut staffed = Vec::new();
+        watch(&scenario, &[(P1, Standard), (P2, Passive)], at, Checks::All, |sim| {
+            if sim.tick() == at {
+                staffed = hatches_staffed(sim, P1);
+            }
+        });
+        let full = staffed
+            .iter()
+            .filter(|&&(_, agents)| agents >= AGENTS_PER_HATCH)
+            .count();
+        assert!(
+            full >= 2,
+            "explored {explored}: two crystal hatches, each with its Agents: {staffed:?}"
+        );
+    }
+}
+
+/// `player`'s Tunnels in operation, each with the Agents gathering Space Crystals at a patch nearer its crystal
+/// hatch than any other of the player's: those that deliver there (`factions/syndicate/units/agent.md > Gathering`).
+fn hatches_staffed(sim: &Sim, player: PlayerId) -> Vec<(ObjectId, usize)> {
+    let own = |o: &&Object| o.owner == Some(player);
+    let hatches: Vec<(ObjectId, Vec2)> = (sim.objects().filter(own))
+        .filter(|o| o.kind == ObjectKind::Tunnel && o.is_operational())
+        .filter_map(|o| Some((o.id, hatch_square(o, Resource::Crystals)?.center())))
+        .collect();
+    let mut staffed: Vec<(ObjectId, usize)> = hatches.iter().map(|&(id, _)| (id, 0)).collect();
+    for agent in (sim.objects().filter(own)).filter(|o| o.kind == ObjectKind::Agent) {
+        let current = agent.orders.as_ref().and_then(|orders| orders.current.as_ref());
+        let Some(OrderKind::Gather(patch)) = current.map(|active| active.order.kind) else {
+            continue;
+        };
+        let Some(at) = sim
+            .object(patch)
+            .filter(|o| o.kind == ObjectKind::CrystalPatch)
+            .map(|o| o.pos)
+        else {
+            continue;
+        };
+        let nearest = (0..hatches.len()).min_by(|&a, &b| {
+            let d = |i: usize| hatches[i].1.distance_squared(at);
+            d(a).total_cmp(&d(b)).then(hatches[a].0.cmp(&hatches[b].0))
+        });
+        if let Some(i) = nearest {
+            staffed[i].1 += 1;
+        }
+    }
+    staffed
 }
 
 /// Design change 0416: the client starts its games with the map explored (`SimConfig::start_explored`), and a
@@ -226,6 +339,19 @@ fn the_same_syndicate_game_ends_the_same() {
     assert!(first.sides.iter().all(|s| s.waves >= 1), "both attacked: {first:?}");
 }
 
+/// Determinism with the rush (slice A2d): every faction's, two to a game, rush against rush, each game twice.
+#[test]
+fn the_same_rush_game_ends_the_same() {
+    for factions in [[Faction::Gdo, Faction::Cults], [Faction::Syndicate, Faction::Colonists]] {
+        let scenario = with_factions(scenarios::dev_skirmish(), factions);
+        let game = || play(&scenario, &[(P1, Rush), (P2, Rush)], DEFAULT_RUN, Checks::Rules);
+        let (first, second) = (game(), game());
+        assert_eq!(first.hash, second.hash, "{factions:?}");
+        assert_eq!(first.sides, second.sides, "{factions:?}");
+        assert!(first.sides.iter().all(|s| s.waves >= 1), "both attacked: {first:?}");
+    }
+}
+
 #[test]
 #[ignore = "a report, in release: cargo test -p sc_ai --release --test ai games::ai_games -- --ignored --nocapture"]
 fn ai_games() {
@@ -239,7 +365,7 @@ fn ai_games() {
                 // Slice M5-S7: the map unexplored at the start, as the rows have always been played (design change
                 // 0416 made explored the client's default), so that they compare with master's.
                 scenario.setup.config.start_explored = false;
-                for profiles in [[Standard, Passive], [Passive, Standard], [Standard, Standard]] {
+                for profiles in pairings(a == b) {
                     let ais = [(P1, profiles[0]), (P2, profiles[1])];
                     let report = play(&scenario, &ais, LIMIT, Checks::All);
                     think.add(&report.think);
@@ -273,18 +399,84 @@ fn ai_games() {
             wanted.join("\n")
         );
     }
+    let rushes: Vec<String> = (rows.iter())
+        .filter_map(|row| {
+            let rush = row.player(Rush)?;
+            let first = |row: &Row| clock(row.report.side(rush).first_wave);
+            let standard = rows.iter().find(|r| r.is_standard_of(row))?;
+            let winner = row.report.winner().map_or("none".to_owned(), |p| format!("{}", p.0));
+            Some(format!(
+                "  {}: first wave {} (standard's {}), winner {winner} at {}",
+                row.label(),
+                first(row),
+                first(standard),
+                clock(Some(row.report.ticks))
+            ))
+        })
+        .collect();
+    println!(
+        "The rush: its first wave, and standard's in its place\n{}",
+        rushes.join("\n")
+    );
     for row in &rows {
         let ended = row.report.winner().is_some();
+        let mirror = row.factions[0] == row.factions[1];
         match row.profiles {
             [Standard, Standard] => assert!(ended, "{}: standard against standard ends in a defeat", row.label()),
-            _ if row.factions[0] == row.factions[1] => assert!(
-                row.standard_won() && row.report.ticks <= STANDARD_BEATS_PASSIVE,
+            [Standard, Passive] | [Passive, Standard] if mirror => assert!(
+                row.won(Standard) && row.report.ticks <= STANDARD_BEATS_PASSIVE,
                 "{}: standard beats passive within 15 minutes",
                 row.label()
             ),
+            [Rush, Passive] | [Passive, Rush] => {
+                let rush = row.player(Rush).expect("a rush");
+                let standard = rows.iter().find(|r| r.is_standard_of(row)).expect("standard's row");
+                let (early, late) = (row.report.side(rush).first_wave, standard.report.side(rush).first_wave);
+                assert!(
+                    early.is_some_and(|early| late.is_none_or(|late| early < late)),
+                    "{}: the rush attacks before standard's first wave would ({early:?}, {late:?})",
+                    row.label()
+                );
+            }
             _ => {}
         }
+        for (side, profile) in row.report.sides.iter().zip(row.profiles) {
+            let faction = row.factions[side.player.0 as usize - 1];
+            let enemy = row.factions[2 - side.player.0 as usize];
+            let bank = side.bank.unwrap_or(0);
+            if profile == Standard && faction == Faction::Colonists && mirror {
+                assert!(bank < 500, "{}: the Colonists' bank, {bank} on average", row.label());
+            }
+            if profile == Standard && faction == Faction::Cults && enemy == Faction::Gdo && !mirror {
+                let passive = row.profiles.contains(&Passive);
+                assert!(
+                    !passive || bank < 1000,
+                    "{}: the Cults' bank, {bank} on average",
+                    row.label()
+                );
+            }
+        }
     }
+}
+
+/// The profiles `ai_games` plays a pairing with: standard against passive from either slot, and against standard; in
+/// a faction's `mirror`, the rush too (slice A2d), against passive and against standard from either slot. The A2d
+/// brief's cut: a rush in every pairing would double the table's time.
+fn pairings(mirror: bool) -> Vec<[Profile; 2]> {
+    let mut pairings = vec![[Standard, Passive], [Passive, Standard], [Standard, Standard]];
+    if mirror {
+        pairings.extend([[Rush, Passive], [Passive, Rush], [Rush, Standard], [Standard, Rush]]);
+    }
+    pairings
+}
+
+/// A game time as the table prints it, minutes and seconds; "-" for none.
+fn clock(tick: Option<Tick>) -> String {
+    let Some(tick) = tick else {
+        return "-".to_owned();
+    };
+    let seconds = tick / TICKS_PER_SECOND;
+    format!("{}:{:02}", seconds / 60, seconds % 60)
 }
 
 /// One of `ai_games`' games.
@@ -296,12 +488,26 @@ struct Row {
 }
 
 impl Row {
+    /// The player of `profile`, the first if both are.
+    fn player(&self, profile: Profile) -> Option<PlayerId> {
+        let slot = self.profiles.iter().position(|&p| p == profile)?;
+        Some(PlayerId(slot as u8 + 1))
+    }
+
+    /// Whether the player of `profile` won.
+    fn won(&self, profile: Profile) -> bool {
+        self.player(profile).is_some_and(|p| self.report.winner() == Some(p))
+    }
+
+    /// Whether this is the game `rush` would be with standard in the rush's place.
+    fn is_standard_of(&self, rush: &Row) -> bool {
+        let profiles = rush.profiles.map(|p| if p == Rush { Standard } else { p });
+        self.map == rush.map && self.factions == rush.factions && self.profiles == profiles
+    }
+
     /// Whether the standard player won, against a passive one.
     fn standard_won(&self) -> bool {
-        let standard = (self.profiles.iter())
-            .position(|&p| p == Standard)
-            .map(|i| PlayerId(i as u8 + 1));
-        standard.is_some() && self.report.winner() == standard
+        self.won(Standard)
     }
 
     fn label(&self) -> String {
@@ -311,31 +517,41 @@ impl Row {
     }
 }
 
-/// `ai_games`' table: a line for each game.
+/// `ai_games`' table: a line for each game, with each side's first wave, mean bank and income from 3:00 to 10:00
+/// (`harness::Side`).
 fn table(rows: &[Row]) -> String {
     let mut lines = vec![format!(
-        "{:<44} {:<9} {:<9} {:>6} {:>6} {:>13} {:>9} {:>15}",
-        "map, factions", "player 1", "player 2", "winner", "at", "trained", "waves", "think mean/max"
+        "{:<44} {:<9} {:<9} {:>6} {:>6} {:>11} {:>7} {:>13} {:>13} {:>9} {:>15}",
+        "map, factions",
+        "player 1",
+        "player 2",
+        "winner",
+        "at",
+        "trained",
+        "waves",
+        "first wave",
+        "bank 3-10",
+        "SC/s",
+        "think mean/max"
     )];
+    let or_dash = |n: Option<u32>| n.map_or("-".to_owned(), |n| n.to_string());
     for row in rows {
         let r = &row.report;
         let [a, b] = row.factions.map(|f| format!("{f:?}").to_lowercase());
         let winner = r.winner().map_or("none".to_owned(), |p| format!("{}", p.0));
-        let at = format!(
-            "{}:{:02}",
-            r.ticks / TICKS_PER_SECOND / 60,
-            r.ticks / TICKS_PER_SECOND % 60
-        );
         let (one, two) = (r.side(P1), r.side(P2));
         lines.push(format!(
-            "{:<44} {:<9} {:<9} {:>6} {:>6} {:>13} {:>9} {:>15}",
+            "{:<44} {:<9} {:<9} {:>6} {:>6} {:>11} {:>7} {:>13} {:>13} {:>9} {:>15}",
             format!("{} {a},{b}", row.map),
             row.profiles[0].name(),
             row.profiles[1].name(),
             winner,
-            at,
+            clock(Some(r.ticks)),
             format!("{} / {}", one.trained, two.trained),
             format!("{} / {}", one.waves, two.waves),
+            format!("{} / {}", clock(one.first_wave), clock(two.first_wave)),
+            format!("{} / {}", or_dash(one.bank), or_dash(two.bank)),
+            format!("{} / {}", or_dash(one.income), or_dash(two.income)),
             format!("{:.0?} / {:.0?}", r.think.mean(), r.think.worst),
         ));
     }

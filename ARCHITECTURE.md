@@ -4963,7 +4963,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--replay <file.json>` | Plays a recorded game back (see Replays and golden hashes) with its own map, players and game options: not with `--scenario`, `--map`, `--factions`, `--editor`, `--no-debug` or `--commands`. Pauses at the end, so no tick of the other flags may come after it. The other QA flags work with it. |
 | `--record <file.json>` | Records the game to that file. A game is recorded to `replays/` anyway; a QA run only with this flag. Not with `--editor` or `--replay`. |
 | `--no-record` | Doesn't record the game. |
-| `--ai <n>[:<profile>],...` | Computer players play players `n`, … (slice A1, see *Computer players*), each with a profile, `standard` (the default) or `passive`: `--ai 2`, `--ai 1,2:passive`. Their factions must have one (`sc_ai::factions::with_ai`). Not with `--editor` or `--replay` (a replay records their commands). The client gives a computer's player no command; F2 still switches to it. |
+| `--ai <n>[:<profile>],...` | Computer players play players `n`, … (slice A1, see *Computer players*), each with a profile, `standard` (the default), `rush` (slice A2d) or `passive`: `--ai 2`, `--ai 2:rush`, `--ai 1,2:passive`. Their factions must have one (`sc_ai::factions::with_ai`). Not with `--editor` or `--replay` (a replay records their commands). The client gives a computer's player no command; F2 still switches to it. |
 
 Taking a screenshot (no window appears; about one second plus `tick / 16` seconds, or add `--fast`):
 
@@ -5317,10 +5317,13 @@ playtest tool, started from the command line (`--ai`, see *QA mode*), whose beha
 
 ### The crate
 
-- **`Ai`** plays one player with a `Profile`: `standard`, or `passive` (the same but never attacks). `Ai::think(&sim)`
-  runs once a tick before the step: it reads the game as the last tick left it and returns the player's commands for
-  the next tick. They are the same `PlayerCommand`s a client sends, through the same gate, and the replay records
-  them. It gives none once its player is defeated or the game is over.
+- **`Ai`** plays one player with a `Profile`: `standard`; `rush` (slice A2d: its faction's opening cut short toward
+  an early army, and a small first wave, `FactionAi::waves`; then as standard); or `passive` (standard's play, but it
+  never attacks). Each faction's module plays its own rush (`Profile::rushes`), its numbers in `tuning::<faction>`
+  (`RUSH_WAVE`, and the GDO's `RUSH_OPENING`, the Cults' `RUSH_CREW`). `Ai::think(&sim)` runs once a tick before the
+  step: it reads the game as the last tick left it and returns the player's commands for the next tick. They are the
+  same `PlayerCommand`s a client sends, through the same gate, and the replay records them. It gives none once its
+  player is defeated or the game is over.
 - **Layers**:
   - `view`: what the player knows (below);
   - `turn`: one tick's commands. The gate checks each one (`View::validate`) before it is kept. The gate sees the
@@ -5328,9 +5331,10 @@ playtest tool, started from the command line (`--ai`, see *QA mode*), whose beha
     footprints they place;
   - `build`: where a building goes, the nearest spot the placement check takes, with a free ring around it;
   - `army`, shared by every faction: the staging point, the waves and the defense. A wave that knows of nothing to
-    attack searches the patches near the enemy starts, then, when it or the enemy is a Cults player, the ground around
-    the enemy's start (`army::search_points`, `tuning::army::SEARCH_GROUND_OF`, slice A2a: the Cults' Halls stand away
-    from any patch). The View tells every player's faction (`View::faction`), shown to every player at game start;
+    attack searches the patches near the enemy starts, then the ground around the enemy's start
+    (`army::search_points`; slice A2a, for the Cults' Halls away from any patch, and since slice A2d in every game,
+    for the Colonists' last Beacons too). The View tells every player's faction (`View::faction`), shown to every
+    player at game start;
   - `factions`: one module per faction behind `FactionAi`. It decides what to build and train, which units fight and
     which buildings rally, and may size its army's waves (`FactionAi::waves`; the army layer's own by default).
 - **Numbers**: all placeholders, in `sc_ai::tuning` (*Tunables*).
@@ -5376,7 +5380,7 @@ It never panics, whatever the game's state: an assumption that fails skips the a
 - **Restart** (slice M5-S7): the playtest menu's Restart gives the new game new `Ai`s of the same players and profiles
   (`AiPlayers::start`, as at launch), so a restarted game plays out as a fresh launch does
   (`tests/playtest_menu/restart.rs`: an AI-against-AI game restarted at tick 600 has, 1200 ticks later, a fresh
-  launch's hash).
+  launch's hash; and a rush and a passive player stay so, slice A2d).
 
 ### Tests
 
@@ -5388,14 +5392,23 @@ It never panics, whatever the game's state: an assumption that fails skips the a
   at a building the player knew of, a start, a patch, a point of the ground a wave searches around a start
   (`army::search_points`) or a point of its own. The tests:
   - the default run: standard against passive of each faction with a computer player, on `dev_skirmish` for 6
-    minutes, every invariant checked;
+    minutes, every invariant checked; and each faction's rush against its passive the same way (slice A2d), whose
+    first wave must leave before standard's would;
+  - the Syndicate's growth (slice A2d): on `maps/playtest.json`, explored or not, two crystal hatches staffed by 5:00;
   - 0402's check on a game to a defeat, and on a planted target;
-  - determinism: the same game twice gives the same hash, for each faction with a computer player;
+  - determinism: the same game twice gives the same hash, for each faction with a computer player, and with every
+    faction's rush;
   - the ignored `ai_games`, `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored --nocapture`. It
-    plays every pairing of factions that have a computer player on every Skirmish Default map. Standard must beat
-    its own faction's passive within 15 minutes from either slot, and standard against standard must end in a defeat.
-    Standard beating another faction's passive within 20 minutes is wanted, not required: it lists whether it did. It
-    prints who won, when, the units trained, the waves sent and what `Ai::think` cost.
+    plays every pairing of factions that have a computer player on every Skirmish Default map, standard against
+    passive from either slot and against standard, and in each faction's mirror its rush against passive and against
+    standard from either slot (slice A2d). Standard must beat its own faction's passive within 15 minutes from either
+    slot, standard against standard must end in a defeat, and a rush's first wave must leave before standard's in its
+    place. The Colonists' standard must bank under 500 Space Crystals on average from 3:00 to 10:00 in their mirror,
+    the Cults' under 1,000 against the GDO's passive. Standard beating another faction's passive within 20 minutes is
+    wanted, not required: it lists whether it did. It prints who won, when, the units trained, the waves sent, when
+    the first left, each side's mean bank and income from 3:00 to 10:00 (the harness's `Side::bank` and
+    `Side::income`; `harness::watch` shows an observer every step) and what `Ai::think` cost, and the rush's first
+    waves beside standard's.
 - **The client**:
   - `cli/ai/tests.rs`: the flags;
   - `tests/commands/computer.rs`: the input drop;
@@ -5636,10 +5649,11 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   so the code that uses it still names it there.
 - **The computer players'** (`crates/ai/src/tuning.rs`, slice A1): `army` (the staging point, the waves, the
   defense), `build` (where a building goes) and one module per faction with a computer player (`gdo`: the opening,
-  the Barracks, the queues; `syndicate`: the Agents, the Tunnels, the expansions, the waves; `cults`: the field's
-  seats, the sites and crews of its buildings, the Halls, the Gunners). Each is "Placeholder (Q0147 point N)" (2:
-  how it plays; 3: build orders) or "Placeholder (not in the design: why)": the behaviour is the Director's
-  placeholder (*Computer players*).
+  the Barracks, the queues; `syndicate`: the Agents, the Tunnels and where they add income, the runners, the
+  expansions, the waves; `cults`: the field's seats, the sites and crews of its buildings, the Halls, the Gunners, the
+  bank that stops the crew growing; `colonists`: the Warp Ins, the Drones, Beacon Capacity's lead, the Beacon sites),
+  each with its rush's (slice A2d). Each is "Placeholder (Q0147 point N)" (2: how it plays; 3: build orders) or
+  "Placeholder (not in the design: why)": the behaviour is the Director's placeholder (*Computer players*).
 - Each constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where there is one,
   why it has its value.
 - Colours and drawing sizes stay with the drawing code. Technical constants stay where they are used: the sim's

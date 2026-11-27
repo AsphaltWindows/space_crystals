@@ -20,7 +20,8 @@ Game:
                               colonists (any case); gdo for the slots not named
   --player <n>                Show player n's view (default 1)
   --ai <n>[:<profile>],...    Computers play players n, ... (a playtest tool), each with a profile:
-                              {profiles} (default {default_profile}); e.g. --ai 2, --ai 1,2:passive.
+                              {profiles} (default {default_profile}); e.g. --ai 2, --ai 2:rush,
+                              --ai 1,2:passive.
                               Their factions must have a computer player: {with_ai}. A computer's player
                               takes no commands from the client; F2 still switches the player (needs debug)
   --window-size <W>x<H>       Window or offscreen image size in pixels (default {w}x{h})
@@ -76,7 +77,7 @@ QA (any of these makes the run reproducible: keyboard and mouse are ignored, fra
 
   -h, --help                  Show this help",
         names = scenarios::NAMES.join(", "),
-        profiles = Profile::ALL.iter().map(|p| p.name()).collect::<Vec<_>>().join(" or "),
+        profiles = profile_names(),
         default_profile = Profile::default(),
         with_ai = factions::with_ai()
             .into_iter()
@@ -89,4 +90,14 @@ QA (any of these makes the run reproducible: keyboard and mouse are ignored, fra
         w = DEFAULT_WINDOW_SIZE.x,
         h = DEFAULT_WINDOW_SIZE.y,
     )
+}
+
+/// The profiles `--ai` takes, as a list: "standard, rush or passive".
+fn profile_names() -> String {
+    let names: Vec<&str> = Profile::ALL.iter().map(|p| p.name()).collect();
+    match names.split_last() {
+        Some((last, [])) => (*last).to_owned(),
+        Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
+        None => String::new(),
+    }
 }

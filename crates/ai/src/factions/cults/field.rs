@@ -8,7 +8,8 @@
 //!   patch to Storage, in whole tiles" (`factions/cults/economy.md > Economy check`). A seat is the pair; its lane is
 //!   the middle of the gap between them, where its Recruits mine and deliver.
 //! - **Dealing** ([`Cults::deal`]): each Recruit without work (idle, or whose seat is gone) goes to the free seat whose
-//!   lane is nearest it, ties by the seat. One whose seat lies across its patch from it first walks to the lane (Move,
+//!   lane is nearest it, ties by the seat, while the crew is smaller than the player wants (`super` module docs, "The
+//!   crew" and "The rush"; [`Cults::pull`] takes Recruits off the field). One whose seat lies across its patch from it first walks to the lane (Move,
 //!   then Gather with Shift), as a player sends Recruits round a line to its far side (design change 0385: "Recruits on
 //!   the far side are sent there by the scenario's orders, as a player would"; `factions/cults/units/recruit.md >
 //!   Gathering`, Crowding: "it is the player's job to redistribute them"); the game then takes its loads to the
@@ -27,7 +28,7 @@ use sc_sim::{Command, Object, ObjectId, ObjectKind, OrderKind, Placement, SU_PER
 use super::{Cults, own};
 use crate::Turn;
 use crate::View;
-use crate::tuning::cults::{SEATS_ACROSS, SEATS_AT_CORNER};
+use crate::tuning::cults::{MIN_CREW, PULL_TICKS, SEATS_ACROSS, SEATS_AT_CORNER};
 
 /// A seat of the field (module docs): a patch and a complete Storage of the player's a tile from it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -186,6 +187,7 @@ impl Cults {
         for seat in self.seated.values() {
             *taken.entry(*seat).or_default() += 1;
         }
+        let crew = self.crew();
         let mut armory = self.armory_room(view);
         let dealt: Vec<&Object> = own(view, ObjectKind::Recruit)
             .filter(|o| !given.contains(&o.id) && (idle(o) || gone.contains(&o.id)))
@@ -195,8 +197,9 @@ impl Cults {
                 let (da, db) = (a.lane.distance_squared(o.pos), b.lane.distance_squared(o.pos));
                 da.total_cmp(&db).then(a.seat.cmp(&b.seat))
             };
+            let room = crew.is_none_or(|crew| self.seated.len() < crew);
             let free = (field.pairs.iter())
-                .filter(|p| taken.get(&p.seat).copied().unwrap_or(0) < p.seats)
+                .filter(|p| room && taken.get(&p.seat).copied().unwrap_or(0) < p.seats)
                 .min_by(nearest);
             if let Some(pair) = free {
                 let mut sent = true;
@@ -228,5 +231,44 @@ impl Cults {
     /// (`builds.rs`).
     pub(super) fn field_full(&self, field: &Field) -> bool {
         self.seated.len() as u32 >= field.seats()
+    }
+
+    /// While the bank outruns the army (`super` module docs, "The crew"), one seated Recruit every [`PULL_TICKS`],
+    /// but those `given` an order in the turn, leaves the field for the Armory while it has room and the crew is
+    /// larger than [`MIN_CREW`]: one that mines (not one building), the nearest the Armory, ties by id.
+    pub(super) fn pull(&mut self, turn: &mut Turn<'_, '_>, given: &BTreeSet<ObjectId>) {
+        let view = turn.view();
+        let now = view.tick();
+        if !self.spending || self.rushing() || now < self.pull_at || self.seated.len() <= MIN_CREW {
+            return;
+        }
+        let Some((armory, _)) = self.armory_room(view).filter(|&(_, room)| room > 0) else {
+            return;
+        };
+        let Some(at) = view.own_object(armory).map(|o| o.pos) else {
+            return;
+        };
+        let pulled = (self.seated.keys())
+            .filter(|id| !given.contains(id))
+            .filter_map(|&id| view.own_object(id))
+            .filter(|o| gathers(o))
+            .min_by(|a, b| {
+                (a.pos.distance_squared(at))
+                    .total_cmp(&b.pos.distance_squared(at))
+                    .then(a.id.cmp(&b.id))
+            })
+            .map(|o| o.id);
+        let Some(id) = pulled else {
+            return;
+        };
+        let enter = Command::Order {
+            units: vec![id],
+            kind: OrderKind::Enter(armory),
+            queue: false,
+        };
+        if turn.give(enter) {
+            self.seated.remove(&id);
+            self.pull_at = now + PULL_TICKS;
+        }
     }
 }

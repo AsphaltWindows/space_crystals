@@ -15,7 +15,8 @@ fn slot(player: u8, profile: Profile) -> AiSlot {
     }
 }
 
-/// `--ai`: players by number, each with a profile after a colon (any case) or the standard one.
+/// `--ai`: players by number, each with a profile after a colon (any case: standard, rush or passive) or the standard
+/// one.
 #[test]
 fn ai_flags_parse() {
     let ai = |flags: &str| parse(&args(flags)).unwrap().ai;
@@ -29,6 +30,23 @@ fn ai_flags_parse() {
         ai("--ai 2:PASSIVE,1:standard"),
         [slot(2, Profile::Passive), slot(1, Profile::Standard)]
     );
+    assert_eq!(
+        ai("--ai 1:rush,2:Rush"),
+        [slot(1, Profile::Rush), slot(2, Profile::Rush)]
+    );
+}
+
+/// The help's `--ai` lines name every profile (slice A2d added the rush).
+#[test]
+fn the_usage_names_every_profile() {
+    let text = crate::cli::usage();
+    let from = text.find("--ai <n>").unwrap();
+    let to = from + text[from..].find("--window-size").unwrap();
+    let lines = text[from..to].split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        lines.contains("each with a profile: standard, rush or passive (default standard); e.g. --ai 2, --ai 2:rush"),
+        "{lines}"
+    );
 }
 
 /// A player that isn't a number, a profile there isn't (the error lists those there are), and a player named twice.
@@ -38,10 +56,10 @@ fn bad_ai_flags_are_errors() {
     for bad in ["--ai", "--ai 0", "--ai x", "--ai 2:", "--ai ,2", "--ai 1,"] {
         assert!(parse(&args(bad)).is_err(), "{bad}");
     }
-    let rush = error("--ai 2:rush");
+    let blitz = error("--ai 2:blitz");
     assert!(
-        rush.contains("\"rush\"") && rush.contains("standard, passive"),
-        "{rush}"
+        blitz.contains("\"blitz\"") && blitz.contains("standard, rush, passive"),
+        "{blitz}"
     );
     assert_eq!(error("--ai 1,2,1:passive"), "--ai names player 1 twice");
 }

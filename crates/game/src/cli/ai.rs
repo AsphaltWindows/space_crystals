@@ -11,7 +11,7 @@ use super::values::parse_player;
 use crate::ai_players::AiSlot;
 
 /// `--ai`'s value: players by number, comma-separated, each with a profile after a colon or the standard one
-/// (`2`, `1:passive`, `1,2:passive`). Each player at most once.
+/// (`2`, `1:passive`, `2:rush`, `1,2:passive`). Each player at most once.
 pub(super) fn parse_ai(s: &str) -> Result<Vec<AiSlot>, String> {
     let mut slots: Vec<AiSlot> = Vec::new();
     for part in s.split(',') {

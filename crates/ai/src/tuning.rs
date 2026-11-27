@@ -5,7 +5,7 @@
 
 /// The army layer (`crate::army`): the staging point, the waves and the defense.
 pub mod army {
-    use sc_sim::{Faction, Tick};
+    use sc_sim::Tick;
 
     /// Placeholder (Q0147 point 2: "pulls its army home when its base is attacked"; the brief's "a staging point
     /// between its base and the map's center"): how far the army gathers from its start toward the map's centre, grid
@@ -36,16 +36,13 @@ pub mod army {
     pub const SEARCH_RADIUS_GU: f32 = 20.0;
     /// Placeholder (not in the design: once those patches are searched, a wave searches the ground around the start, on
     /// a square grid of points this far apart, within [`SEARCH_RADIUS_GU`] of it; slice A2a, for the buildings a Cults
-    /// player spreads over its Recruitable land), grid units. Each of a wave's units sees 5 grid units around it
-    /// (`factions/gdo/units/peacekeeper.md > SightRange - 5 grid units`, `factions/cults/units/gunner.md > SightRange -
-    /// 5 grid units`), so a wave at each point and on its way between them sees nearly all the ground there.
+    /// player spreads over its Recruitable land, and since slice A2d in every game, for a Colonists' last Beacons and a
+    /// Syndicate's last Tunnels: scoped to games with a Cults player, the Colonists' standard against standard on
+    /// `maps/playtest.json` ended in no defeat, the loser's last two Beacons never found), grid units. Each of a wave's
+    /// units sees 5 grid units around it (`factions/gdo/units/peacekeeper.md > SightRange - 5 grid units`,
+    /// `factions/cults/units/gunner.md > SightRange - 5 grid units`), so a wave at each point and on its way between
+    /// them sees nearly all the ground there.
     pub const SEARCH_STEP_GU: f32 = 8.0;
-    /// Placeholder (not in the design: a wave searches the ground around an enemy's start, [`SEARCH_STEP_GU`], when its
-    /// player or the enemy is of one of these factions; slice A2a): the Cults, whose Recruitment Halls go on open
-    /// Recruitable land, away from the patches. Their own waves search so too: without, the Cults' standard against the
-    /// Colonists' standard on `dev_skirmish` ends in no defeat (`crates/ai/tests/games.rs`, `ai_games`). Every player's
-    /// faction is known from the start of the game (`crate::View::faction`).
-    pub const SEARCH_GROUND_OF: &[Faction] = &[Faction::Cults];
     /// Placeholder (Q0147 point 2: "pulls its army home when its base is attacked"): how long the defense lasts after
     /// the last damage to one of its buildings, ticks (10 seconds).
     pub const DEFENSE_TICKS: Tick = 160;
@@ -90,6 +87,15 @@ pub mod gdo {
     /// Placeholder (Q0147 point 2: "training its basic units without pause"): the Peacekeepers each Barracks keeps
     /// queued.
     pub const TRAIN_QUEUE: usize = 2;
+    /// Placeholder (Q0147 point 2's rush: "a small early army and an early first attack"; point 3: the build order;
+    /// slice A2d): the rush's opening, a Barracks before the second Generator. The Generators after it come as the
+    /// Power planned needs them, as standard's do.
+    pub const RUSH_OPENING: [ObjectKind; 2] = [ObjectKind::Generator, ObjectKind::Barracks];
+    /// Placeholder (Q0147 point 2's rush: "a small early army and an early first attack"; slice A2d): the Peacekeepers
+    /// of the rush's first wave, which its Barracks trains before the plates and the Generators, and which leave as
+    /// soon as they wait at staging (`FactionAi::waves`). Smaller than standard's 8 ([`super::army::FIRST_WAVE_SIZE`]),
+    /// so that it goes sooner.
+    pub const RUSH_WAVE: usize = 6;
 }
 
 /// The Cults' computer player (`crate::factions::cults`).
@@ -146,6 +152,28 @@ pub mod cults {
     /// Placeholder (not in the design: a Build whose site hasn't started this long after it was ordered is given up,
     /// its builders sent back to work, so that nothing waits for good, M3-G3), ticks (40 seconds).
     pub const BUILD_PATIENCE_TICKS: Tick = 640;
+    /// Placeholder (not in the design; the A2d brief: "Stop growing the gathering crew once income outruns what the
+    /// army can spend"): once the bank holds more than this, Space Crystals, the crew stops growing and Recruits leave
+    /// the field for the Armory ([`PULL_TICKS`]), until it holds less than [`BANK_LOW`]. Without it the bank piled up to
+    /// 4,000 to 6,000 by 7 to 9 minutes on `maps/playtest.json` (slice A2a).
+    pub const BANK_HIGH: u32 = 600;
+    /// Placeholder (not in the design): see [`BANK_HIGH`], Space Crystals.
+    pub const BANK_LOW: u32 = 300;
+    /// Placeholder (not in the design: while the bank outruns the army, [`BANK_HIGH`]), ticks (1 second): a seated
+    /// Recruit leaves the field for the Armory at most this often, which trains one every 2 seconds
+    /// (`factions/cults/structures/armory.md > Training`: "TrainingTime: 32 frames").
+    pub const PULL_TICKS: Tick = 16;
+    /// Placeholder (not in the design): the fewest Recruits left mining while the bank outruns the army
+    /// ([`BANK_HIGH`]).
+    pub const MIN_CREW: usize = 8;
+    /// Placeholder (Q0147 point 2's rush: "a small early army and an early first attack"; the A2d brief: "every
+    /// Recruit beyond a minimal gathering crew becomes a Militant"): the Recruits that mine while a rush plays its
+    /// opening, the Starting Conditions' six (`factions/cults/economy.md > Starting Conditions`).
+    pub const RUSH_CREW: usize = 6;
+    /// Placeholder (Q0147 point 2's rush; slice A2d): the Militants of the rush's first wave, which its Armory trains
+    /// before any other building goes up, and which leave as soon as they wait at staging (`FactionAi::waves`).
+    /// Smaller than standard's 8 ([`super::army::FIRST_WAVE_SIZE`]), so that it goes sooner.
+    pub const RUSH_WAVE: usize = 6;
 }
 
 /// The Colonists' computer player (`crate::factions::colonists`, slice A2c).
@@ -167,14 +195,20 @@ pub mod colonists {
     /// Placeholder (Q0147 point 2: "one or two production buildings"; point 3: the scripted lines' "a Bio Portal
     /// warps in on the first Beacon", the golden game `colonists_opening`'s): the buildings it warps in, each once it
     /// has this many gathering Drones, in their order of priority for the bank. An Egress Node and a Robo Portal (the
-    /// Starting Conditions' own, warped in again if lost), a Bio Portal on its first Beacon, and two more as its
-    /// income grows: a second at 12 Drones, and a third at 18, 2 a patch (`factions/gdo/economy.md > Economy Targets
-    /// (GDO vs Colonists)`: "Colonists at 2 Drones per patch ≈ 23 Space Crystals per second for 18 Drones", 32 fully
-    /// saturated). Three Bio Portals and the Robo Portal spend 35 a second.
-    pub const WARP_INS: [(ObjectKind, usize); 5] = [
+    /// Starting Conditions' own, warped in again if lost), a Bio Portal on its first Beacon, a second Robo Portal at 8
+    /// Drones (slice A2d), and two more Bio Portals as its income grows: a second at 12 Drones, and a third at 18, 2 a
+    /// patch (`factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`: "Colonists at 2 Drones per patch ≈ 23
+    /// Space Crystals per second for 18 Drones", 32 fully saturated). Three Bio Portals and two Robo Portals spend 40 a
+    /// second. The Robo Portals' Drones fill the field and deploy the Beacons (`factions/colonists/units/drone.md >
+    /// BeaconCapacityCost`: "roughly every 6th Drone must deploy as a Beacon to keep Drone production going"): with
+    /// one, standard's bank averaged up to 1,055 Space Crystals from 3:00 to 10:00 in the mirror on
+    /// `maps/playtest.json`, Beacon Capacity holding its portals back, and under 350 with two (`crates/ai/tests/games.rs`,
+    /// `ai_games`).
+    pub const WARP_INS: [(ObjectKind, usize); 6] = [
         (ObjectKind::EgressNode, 0),
         (ObjectKind::RoboPortal, 0),
         (ObjectKind::BioPortal, 0),
+        (ObjectKind::RoboPortal, 8),
         (ObjectKind::BioPortal, 12),
         (ObjectKind::BioPortal, 18),
     ];
@@ -190,8 +224,10 @@ pub mod colonists {
     /// Placeholder (not in the design: Beacon Capacity kept ahead of the army, `factions/colonists/units/drone.md >
     /// BeaconCapacityCost`: "roughly every 6th Drone must deploy as a Beacon to keep Drone production going"): a
     /// Drone deploys once the room under Beacon Capacity, the Beacons on their way counted, falls short of what the
-    /// queued units take plus this many of each portal's next units: one, a portal's next 10 seconds.
-    pub const BEACON_LEAD: u32 = 1;
+    /// queued units take plus this many of each portal's next units: two, a portal's next 20 seconds (slice A2d). With
+    /// one, standard's bank averaged up to 503 Space Crystals from 3:00 to 10:00 against the GDO's passive on
+    /// `maps/playtest.json`; with two, under 150 there and in the mirror (`crates/ai/tests/games.rs`, `ai_games`).
+    pub const BEACON_LEAD: u32 = 2;
     /// Placeholder (not in the design: where Beacons go): how far from the Robo Portal the Beacon sites reach, each
     /// way, tiles. A site takes a Beacon's 2 x 2 (a Bio Portal's 3 x 3 while one to come lacks a Beacon) and a free
     /// tile round it, so that 16 tiles each way hold the 40 buildings of Beacon Capacity's 200
@@ -206,6 +242,11 @@ pub mod colonists {
     /// Placeholder (not in the design: a Drone whose Deploy failed, and that Deploy's site, are left out of the next
     /// Deploys this long), ticks (1 minute).
     pub const FAILED_DEPLOY_TICKS: Tick = 960;
+    /// Placeholder (Q0147 point 2's rush: "a small early army and an early first attack"; slice A2d): the Legionnaires
+    /// of the rush's first wave, Sabres its Bio Portal trains before the Robo Portal's Drones (half of them convert
+    /// into Rifles, [`RIFLE_EVERY`]), which leave as soon as they wait at staging (`FactionAi::waves`). Smaller than
+    /// standard's 8 ([`super::army::FIRST_WAVE_SIZE`]), so that it goes sooner.
+    pub const RUSH_WAVE: usize = 6;
 }
 
 /// The Syndicate's computer player (`crate::factions::syndicate`).
@@ -220,7 +261,12 @@ pub mod syndicate {
     /// near its crystal hatch, centre to centre), grid units. A Skirmish Default map's starting field lies within 6.
     pub const FIELD_REACH_GU: f32 = 8.0;
     /// Placeholder (not in the design: the Agents that gather Supplies at a Supply Delivery Station and build the
-    /// Tunnels, `factions/syndicate/overview.md > SyndicateResources > Supplies`: "Spent on Tunnel construction").
+    /// Tunnels, `factions/syndicate/overview.md > SyndicateResources > Supplies`: "Spent on Tunnel construction"), for
+    /// each Tunnel on a field (slice A2d), so that Tunnel Space grows with the income. With one in all, an Agent's
+    /// Supply a trip from a starting Tunnel to the centre's station (about 1 a minute, of the station's 4) paid for the
+    /// sixth Tunnel only at about 16 minutes: on `maps/playtest.json`, with two crystal hatches at work, Tunnel Space
+    /// was full from 3 minutes, and the bank piled up to 1,350 Space Crystals. Two on every map, the passive player's
+    /// larger army held out for 20 minutes against standard's in the mirror on `dev_skirmish`, from slot 1.
     pub const RUNNERS: usize = 1;
     /// Placeholder (not in the design: the Tunnels it owns at most; `factions/syndicate/overview.md > TheSyndicate`:
     /// "building more Tunnels/upgrades grows" Tunnel Space, its army cap).
@@ -244,12 +290,24 @@ pub mod syndicate {
     /// staging this long, they go as a wave however few they are), ticks (4 minutes; at a crystal hatch's 12.5 Space
     /// Crystals a second, design change 0294, a wave of 20 Guards takes about 3 and a half).
     pub const WAVE_PATIENCE_TICKS: Tick = 3840;
+    /// Placeholder (Q0147 point 2's rush: "a small early army and an early first attack"; slice A2d): the Guards of the
+    /// rush's first wave, which it trains before it wants a runner or builds a second Tunnel, and which leave as soon
+    /// as they wait at staging (`FactionAi::waves`).
+    pub const RUSH_WAVE: usize = 6;
     /// Placeholder (not in the design: an Agent standing idle is given a job again at most this often), ticks (2
     /// seconds).
     pub const JOB_RETRY_TICKS: Tick = 32;
     /// Placeholder (not in the design: a new Tunnel's site lies within this distance of where it is wanted), grid
     /// units.
     pub const SITE_REACH_GU: f32 = 16.0;
+    /// Placeholder (not in the design; slice A2d: a new Tunnel adds crystal income at patches its crystal hatch is
+    /// nearer than every other hatch of the player's by this much at least, centre to centre, so that the Agents
+    /// mining them, standing at their edge, deliver there), grid units.
+    pub const INCOME_MARGIN_GU: f32 = 1.0;
+    /// Placeholder (not in the design; slice A2d: the patches a new Tunnel adds income at lie within this distance of
+    /// its crystal hatch, centre to centre; design change 0294: "3 Agents saturate out to about 3 GU", from the
+    /// patch's edge), grid units.
+    pub const INCOME_REACH_GU: f32 = 4.5;
     /// Placeholder (not in the design: the most build checks one search for a Tunnel's site makes, so that it costs
     /// little).
     pub const SITE_CHECKS: usize = 400;
