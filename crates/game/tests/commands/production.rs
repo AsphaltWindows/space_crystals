@@ -8,7 +8,7 @@
 use bevy::prelude::*;
 use sc_sim::{ArmyResource, Command, ObjectKind, PlayerId, ProductionCommand};
 const UNIT_CONTROL_CAP: u32 = sc_sim::FactionRules::BUILTIN.gdo.unit_control_cap;
-use space_crystals::command_ui::feedback::{NO_CRYSTALS_TEXT, TargetFeedback, UNIT_CONTROL_TEXT};
+use space_crystals::command_ui::feedback::{NO_CRYSTALS_TEXT, TargetFeedback, TargetFeedbackView, UNIT_CONTROL_TEXT};
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand};
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::hud::info_panel::InfoText;
@@ -268,6 +268,62 @@ fn e_trains_a_field_engineer_once_a_career_campus_stands() {
     assert_eq!(feedback(&app), Some("Requires a Career Campus"));
     assert_eq!(productions(&app).len(), 1, "nothing more sent");
     assert_eq!((queued(&app, 15), bank(&app)), (1, 925), "still queued, not refunded");
+}
+
+/// The feedback line belongs to the player who caused it (slice M5-Mb; found by slice M5-Ma: "after F2 switches player,
+/// player 1's refusal message still shows to player 2"). Player 1's greyed E ("Requires a Career Campus", a press) and a
+/// Train that a Barracks didn't queue for want of Space Crystals ("Not enough Space Crystals", the sim's
+/// `ProductionRefused`, design change 0083) each show to player 1, and go as the debug player switch (F2) makes player
+/// 2 the local player, not to come back as F2 returns to player 1. Player 2's own greyed E, at a Barracks of theirs,
+/// shows to player 2, and goes as F2 returns to player 1.
+#[test]
+fn the_feedback_line_shows_only_to_the_player_who_caused_it() {
+    let p2 = PlayerId(2);
+    let mut app = production_game(0, 1000);
+    click(&mut app, barracks_at(15), &[]);
+    tap(&mut app, &[], KeyE);
+    assert_eq!(feedback(&app), Some("Requires a Career Campus"));
+    tap(&mut app, &[], KeyCode::F2);
+    assert_eq!(local_player(&app), p2);
+    assert_eq!(feedback(&app), None, "player 1's press, which player 2 never made");
+    tap(&mut app, &[], KeyCode::F2);
+    assert_eq!(local_player(&app), P1);
+    assert_eq!(feedback(&app), None, "gone, not back");
+
+    // Three Barracks and crystals for two Peacekeepers: the third doesn't queue, and the sim says so.
+    select_barracks(&mut app, &BARRACKS);
+    set_crystals(&mut app, 100);
+    tap(&mut app, &[], KeyQ);
+    assert_eq!(BARRACKS.map(|id| queued(&app, id)), [1, 1, 0]);
+    assert_eq!(feedback(&app), Some(NO_CRYSTALS_TEXT));
+    tap(&mut app, &[], KeyCode::F2);
+    assert_eq!(feedback(&app), None, "player 1's refusal, not player 2's");
+    let mut views = app
+        .world_mut()
+        .query_filtered::<&Visibility, With<TargetFeedbackView>>();
+    assert!(
+        views.iter(app.world()).all(|v| *v == Visibility::Hidden),
+        "no band shows"
+    );
+
+    // Player 2's own: a Barracks of theirs (tiles (30, 12) to (32, 13)), its E greyed, with player 2's camera (F2 took
+    // it to their start, `camera::players`) over the field.
+    app.world_mut().resource_mut::<CameraView>().center = VIEW_CENTER;
+    let spawn = DebugCommand::Spawn {
+        kind: ObjectKind::Barracks,
+        owner: Some(p2),
+        at: SpawnAt::Tile(TilePos::new(30, 12)),
+        orientation: Default::default(),
+    };
+    submit(&mut app, P1, Command::Debug(spawn));
+    updates(&mut app, 2);
+    click(&mut app, Vec2::new(31.5, 13.0) * 64.0, &[]);
+    assert_eq!(selected(&app).len(), 1, "player 2's Barracks");
+    tap(&mut app, &[], KeyE);
+    assert_eq!(feedback(&app), Some("Requires a Career Campus"));
+    tap(&mut app, &[], KeyCode::F2);
+    assert_eq!(local_player(&app), P1);
+    assert_eq!(feedback(&app), None, "player 2's press");
 }
 
 /// The InfoPanel's activity area, while it shows (the Altar's tests' too, `super::altar`).

@@ -54,8 +54,8 @@ use std::sync::LazyLock;
 use bevy::picking::Pickable;
 use bevy::prelude::*;
 use sc_sim::{
-    ArmyResource, ObjectKind, PlacementCheck, PlacementProblem, Refusal, Reject, SimEvent, Tech, Tick, TileProblem,
-    WholeProblem,
+    ArmyResource, ObjectKind, PlacementCheck, PlacementProblem, PlayerId, Refusal, Reject, SimEvent, Tech, Tick,
+    TileProblem, WholeProblem,
 };
 
 use super::{CommandRefused, DataRefused, InvalidPlacement, InvalidTarget, WhyUnavailable};
@@ -189,6 +189,11 @@ pub struct TargetFeedback {
     generation: Option<u32>,
     /// (M5-X2) How many ticks it shows: a refusal of the data files' longer than the rest.
     lasts: u32,
+    /// (M5-Mb) The player whose message it is: the local player its cause came from (their click or press, or an
+    /// event of theirs, `crate::viewer_events`). It shows to them alone, so the debug player switch (F2) takes it off
+    /// the line: another player's refusal ("Requires …", "Not enough …") is none of the new local player's. `None` for
+    /// a data directory's refusal, which is nobody's and shows to whoever plays.
+    owner: Option<PlayerId>,
 }
 
 impl Default for TargetFeedback {
@@ -198,6 +203,7 @@ impl Default for TargetFeedback {
             text: INVALID_TARGET_TEXT,
             generation: None,
             lasts: 0,
+            owner: None,
         }
     }
 }
@@ -405,7 +411,9 @@ pub fn deploy_failed_text(problems: &PlacementCheck) -> &'static str {
 /// Takes the frame's invalid clicks (on a target, or a placement), its greyed-out buttons pressed, the refusals and
 /// the waits of the producers, constructors and units that the local player perceives (their own:
 /// `crate::viewer_events`), and (M5-X2) the data files' refusals, and shows the latest one's message for
-/// `FeedbackTuning::feedback_ticks` (a data file's for `FeedbackTuning::refusal_ticks`).
+/// `FeedbackTuning::feedback_ticks` (a data file's for `FeedbackTuning::refusal_ticks`). (M5-Mb) A message shows to
+/// the player it belongs to ([`TargetFeedback::owner`]): once F2 switches to another player, an earlier one of the
+/// player before goes, and doesn't come back on the switch back.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn show_feedback(
     mode: Res<ClientMode>,
@@ -440,28 +448,35 @@ fn show_feedback(
         _ => None,
     });
     let lasts = tuning.feedback.feedback_ticks;
-    let files = (data.read()).map(|refused| (refused.tick, refused.text, tuning.feedback.refusal_ticks));
+    let local = Some(sight.get().player());
+    let files = (data.read()).map(|refused| (refused.tick, refused.text, tuning.feedback.refusal_ticks, None));
     let latest = (clicks.chain(placements).chain(presses).chain(refusals))
-        .map(|(tick, text)| (tick, text, lasts))
+        .map(|(tick, text)| (tick, text, lasts, local))
         .chain(files)
-        .max_by_key(|&(tick, _, _)| tick);
+        .max_by_key(|&(tick, _, _, _)| tick);
     let generation = Some(sim.generation());
     let earlier = feedback
         .since
-        .filter(|_| feedback.generation == generation)
-        .map(|since| (since, feedback.text, feedback.lasts));
+        .filter(|_| feedback.generation == generation && feedback.owner.is_none_or(|owner| Some(owner) == local))
+        .map(|since| (since, feedback.text, feedback.lasts, feedback.owner));
     let shown = latest
         .or(earlier)
-        .filter(|&(tick, _, lasts)| sim.tick().saturating_sub(tick) < lasts);
-    let (since, text, lasts) = shown.map_or((None, feedback.text, feedback.lasts), |(tick, text, lasts)| {
-        (Some(tick), text, lasts)
-    });
-    if feedback.since != since || feedback.text != text || feedback.generation != generation || feedback.lasts != lasts
+        .filter(|&(tick, _, lasts, _)| sim.tick().saturating_sub(tick) < lasts);
+    let (since, text, lasts, owner) = shown.map_or(
+        (None, feedback.text, feedback.lasts, feedback.owner),
+        |(tick, text, lasts, owner)| (Some(tick), text, lasts, owner),
+    );
+    if feedback.since != since
+        || feedback.text != text
+        || feedback.generation != generation
+        || feedback.lasts != lasts
+        || feedback.owner != owner
     {
         feedback.since = since;
         feedback.text = text;
         feedback.generation = generation;
         feedback.lasts = lasts;
+        feedback.owner = owner;
     }
     for mut shown_text in &mut texts {
         if shown_text.0 != text {
