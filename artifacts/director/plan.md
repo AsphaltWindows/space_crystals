@@ -2462,18 +2462,44 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - **GA:** the deployed Rig shows the BasicCombatUnit panel.
     - **GS:** the Chopper's cargo, its Unit Control placeholder, and the Field Engineer's Supply.
   - 2814 tests passed, 62 ignored, in 9 programs. No golden moved, the seed sweep passes (256 of 256), and the 192 computer-player games are identical.
+- **M5-X2 Data files and live tuning** (Opus; merged in `2b2f275c`, fast-forwarded: seven commits and three merges of master). **M5's last build slice:** Mb, the QA, follows.
+  - **`Ruleset::check`** and `Reject::RulesInvalid { field, why }`: every number keeps its built-in sign, within the defs' bounds. A zero speed and a negative cost are refused.
+  - **`--export-data <dir>`** writes the ruleset as 118 JSON files, pretty-printed in field order, at paths read from the kind registry:
+    - `defs/<faction or map>/{units,structures}/<kind>.json`, a def that is neither a unit nor a building in its faction's folder (`defs/gdo/mine.json`), and a form that shares a module next to its kind;
+    - `defs/<faction>.json`, `defs/bases/<base>.json`, `tuning/<system>.json` (14);
+    - `client/{camera,input,feedback,look}.json`.
+
+    A test checks each file against its kind's module.
+  - **`--tuning <dir>`** reads each file as a merge patch (RFC 7386): objects merge, lists and values replace whole, and `null` means none.
+    - **A refusal** rejects the whole directory and keeps the current data. The feedback line and the log give `<file>: <member>: <why>`.
+    - **Timing:** the directory is read before tick 1, and its SetRules goes in tick 1's inputs, so tick 1 still plays on the built-in rules. It is then polled every 0.5 s of real time, paused included. The client's files apply at once.
+    - **The top bar** shows "Tuned: N files".
+    - **Beyond 63 rulesets** in one run, the message says to quit and relaunch.
+  - **F8** restarts the game, as the playtest menu's Restart does, on the directory's data, and works with the menu open.
+    - **A structural patch** is refused, live and after F8: "…: structural, which needs a change to the Rust default and a rebuild".
+    - **No `Scenario::rules`** (the Director's call, on X2's question). `docs/tuning.md` says it isn't available.
+  - **The client's feel** is tunable: camera, input and feedback as `tunables!`, and a new `look` (the Shroud's haze and its release flash, the bars' sizes, the air shadow's offset, the lift). Colours, drawing sizes and technical constants stay in code.
+  - **A catch for playtesters:** a list replaces whole, so a recipe patch written before GK, without `supplies`, is refused as "missing field `supplies`". The message names the file but not the member path. A patch should start from an export.
+  - **Tests:** 9 in `data/tests.rs`, and the `tests/tuning.rs` program (8):
+    - an export gives the hashes of a run without `--tuning`;
+    - a mid-game change gives equal hashes before its tick, and a different outcome after;
+    - refusals show in the feedback line, and the game goes on;
+    - a tuned recording replays;
+    - F8 restarts.
+
+    A 2000-tick GDO computer game with the export matches one without it.
+  - **QA:** `qa/tuning/peacekeeper_damage/` with `qa/tuning/fight.json`. Tuned, the Peacekeeper's first shot of 100 destroys the Guard; untuned, the Guard wins. `/tuning/` is in `.gitignore`.
+  - 2834 tests passed, 62 ignored, in 10 programs. The goldens are unchanged, the seed sweep passes, and the 192 computer-player games are identical.
 
 ## In progress
 - **Running:**
-  - **M5-X2 Data files and live tuning** (Opus; brief `scratchpad/briefs/m5x2-data-files.md`), launched at X1b's merge, on 2026-11-27, beside GK and SK.
-    - **Done** (2026-11-27), with every check green and the computer players' games identical. It is merging GK and covering GK's forms that share a module, before its own merge.
-    - **F8 restarts on tuned numbers only** (the Director's call, 2026-11-27, on X2's question). A game starts on the build's structure, so a structural patch is refused, live and after F8, and needs a change to the Rust default and a rebuild. A per-game `Scenario::rules` that would allow structural tuning is a possible follow-up, if playtesting asks for it.
   - **M6-SV The Vehicle Assembly and the Assault Bike** (Opus; brief `scratchpad/briefs/m6sv-vehicle-assembly.md`), launched at SK's merge into the free slot, ahead of its wave (W3), on 2026-11-27.
     - **Done** (2026-11-27), with the golden `syndicate_vehicles` and the computer players' games identical. Before its merge, it merges GK, whose kind numbering changes its golden's hashes, and fixes a control bug as its own commit. The bug: a Bike braking for a target in range coasts straight, so the target slips out of its 40° arc, and the Bike gives it up without firing.
     - **Q0183 filed:** of five Bikes ejected with no order, two come out. An idle vehicle doesn't yield (0440), and the Tunnels have no default rally point (0446).
   - **M6-GD The Drone Operator** (Opus; brief `scratchpad/briefs/m6gd-drone-operator.md`), launched at GK's merge, on 2026-11-27. It builds the second cost (Supplies) that GF, GH1, GM and GS reuse.
+  - **M5-Mb M5's QA** (Opus; brief `scratchpad/briefs/m5mb-qa.md`), launched at X2's merge, on 2026-11-27, with M6 running beside it. The playtest build is the commit at its merge.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
+- **Next:** **GR** at SV's merge, then GF and SN (W3) as slots free.
   - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
   - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK and SK (W1) are merged. SV runs ahead of its wave, and GD is running. **GR** takes the next free slot, then GF and SN (W3).
   - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. `m6gr-radar-defense.md`, `m6gf-factory.md` and `m6sn-null-chamber.md` are drafted with what GK and SK landed. Mb's brief has the soak failure to bisect, and M6 running beside it.
