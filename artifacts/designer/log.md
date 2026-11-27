@@ -2381,3 +2381,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Map starts explored by default (neutral objects remembered, no player objects), command-line flag (0416).
 - Q0153 parts 1, 3: tread-based turning law, TrackWidth replaces SpeedToTurnRadiusRatio, ReverseMaxSpeed half (0417).
 - Q0153 part 2 (user: b): crushers crush while spinning in place (0418).
+- Q0153 part 4 (user: b): surfaced Transport crushes (0419). Q0153 closed.
