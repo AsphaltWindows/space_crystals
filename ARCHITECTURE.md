@@ -5778,7 +5778,8 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
 What a faction needs before players can start with it, in the order M3 (the Colonists) built it. Started by slice
 M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/director/m3-plan.md`, the Built entries of
 `artifacts/director/plan.md`); reviewed against M4 (the Syndicate) by slice M4-M, which added items 15 to 18 and M4's
-examples.
+examples, and against M5 (the Cults) by slice M5-Mb: M5's slices had added the Cults' cases as they went (items 1, 4,
+5, 7, 8, 11 and 19), and M5-Mb added item 16's.
 
 1. **Defs** (slice M3-A, laid out by M4-R1): the faction's root module, `defs/<faction>.rs`, with its own rules (its
    caps and divisors), and a def module per kind under `defs/<faction>/`, each with its line at the end of the kind
@@ -5894,7 +5895,8 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
     `Builder::Tunnel`, the Tunnel's one operation, *Expansions and a Tunnel's operation*). Its maximum HP follows the
     ConstructionHP rule, every system asks `Object::is_operational` before treating it as working, and its cancel and
     refunds are the site's (`SimEvent::SiteCancelled`, `BuildRefunded` for an order that never became a site). A
-    builder that isn't a worker or a Tunnel adds a `Builder` variant.
+    builder that isn't a worker or a Tunnel adds a `Builder` variant, as the Cults' Recruits, who build together from
+    outside, added `Builder::Recruits` (slice M5-E, *Economy > Cults construction*).
 17. **The underground layer** (M4-A, M4-F, M4-H, plan decision T32): `StructureDef::underground` puts a structure in
     a layer of its own: hidden from every player but its owner while owned (*Vision > Hidden objects*), walked over
     (`BlockerKind::UndergroundExpansion`; surface and underground footprints never share a tile, `may_overlap`),
@@ -5916,7 +5918,8 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
       `testing::colonists::skirmish`; `tests/golden/syndicate.rs`, `testing::syndicate::skirmish`;
       `tests/golden/cults.rs`, `testing::cults::skirmish`);
     - its economy oracle against the design's targets (`tests/economy_oracle/`, `docs/economy_oracle.md`);
-    - a perf test of its crowds (`tests/drones_perf.rs`, `tests/agents_perf.rs`, `tests/recruits_perf.rs`) and an ignored 10-minute soak of the
+    - a perf test of its crowds (`tests/drones_perf.rs`, `tests/agents_perf.rs`, `tests/recruits_perf.rs`; the
+      Cults' whole economy, `tests/cults_perf.rs`, slice M5-Mb) and an ignored 10-minute soak of the
       golden game (`tests/skirmish_soak.rs`, `tests/syndicate_soak.rs`: invariants, books, no stuck order, the hash
       stable over two runs; the Syndicate's adds the network's invariants, `check_network`, and plays on past the
       golden's end with more on both sides);
@@ -5924,8 +5927,10 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
       `openings.rs`): every ordered pair of the four factions (16) plays on every Skirmish Default map
       under the invariants, the books and the gate, until player 2's buildings are removed and player 1 wins; the
       client's `tests/pairings.rs` starts each pair from `--factions`. A faction without a line plays idle;
-    - a scripted walkthrough of the first playable (`--factions` with `--input-script`, see *QA mode*), and its
-      playtest notes in `docs/playtest/`, listed in `docs/playtest/README.md`.
+    - its pairings in the ignored `soak_sweep` (`pairings/soak.rs`, slice M5-Mb), with its own invariants checked
+      after every tick (*Sim scenarios and tests*);
+    - a scripted walkthrough of the first playable (`--factions` with `--input-script`, see *QA mode*; the Cults',
+      `qa/walkthrough/m5/run.sh`), and its playtest notes in `docs/playtest/`, listed in `docs/playtest/README.md`.
 20. **A computer player** (slices A1, A2): its module in `crates/ai/src/factions/<faction>.rs` and its `HOOK`
     (*Computer players > The crate*). `--ai` then takes its players, and `ai_games` plays it against every faction
     that has one.
