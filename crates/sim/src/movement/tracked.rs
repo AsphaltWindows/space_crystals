@@ -7,11 +7,11 @@
 //! the rules after the sweep, yielding and stuck detection are shared with every model (`super::follow`).
 //!
 //! **The tread law** (design change 0417, `systems/units.md > SpeedTurnRadiusMovement > The turning law`): "forward
-//! speed is their average, turning comes from
-//! their difference, and each tread's top speed is MaxSpeed". Stopped, it spins at **SpinRate = 2 × MaxSpeed ÷
-//! TrackWidth** a tick; at speed `v` it turns at most **SpinRate × (1 − |v| ÷ MaxSpeed)** ([`Tracked::rate`]), on a
-//! tightest radius of `(TrackWidth ÷ 2) × |v| ÷ (MaxSpeed − |v|)`, which is `|v|` over that rate; at MaxSpeed it can't
-//! turn at all. Backing up it turns by the same law with `|v|`. Turning costs no speed by itself.
+//! speed is their average, turning comes from their difference, and each tread's top speed is MaxSpeed". Stopped, it
+//! spins at **SpinRate = 2 × MaxSpeed ÷ TrackWidth** a tick; at speed `v` it turns at most **SpinRate × (1 − |v| ÷
+//! MaxSpeed)** ([`Tracked::rate`]), on a tightest radius of `(TrackWidth ÷ 2) × |v| ÷ (MaxSpeed − |v|)`, which is `|v|`
+//! over that rate; at MaxSpeed it can't turn at all. Backing up it turns by the same law with `|v|`. Turning costs no
+//! speed by itself.
 //! `systems/combat.md > LocomotionOrientationConstraints[SpeedTurnRadiusMovement]` calls Stationary and Stopping +
 //! Turning "unconstrained": the law at their speed is what limits them here, as 0417's Verification asks ("standing
 //! still turns 90° in about 5 frames").
@@ -24,31 +24,26 @@
 //!    Moving the other way from its leg, it brakes to rest first.
 //! 2. **Turn**: towards the step it heads along, by at most the law's rate at this tick's speed, so "it turns as soon
 //!    as it is below MaxSpeed, while still braking". At rest that is a spin in place. A Silhouette turns as far as it
-//!    stays free (`World::turn`, slice M5-V1): a spin cut short **stops at contact**; a turn cut while it moves is
-//!    made as V2's is, backing off by what its corners sweep (`World::back_off`).
+//!    stays free (`World::turn`, slice M5-V1). A turn cut short is made all the same, as V2's is, backing off by what
+//!    its corners sweep (`World::back_off`), but by no more than the unit moves in the tick: its speed, or at rest
+//!    one tick's acceleration, away from its way. Else it **stops at contact**.
 //! 3. **Displacement**: the speed along the heading halfway through the tick's turn, as far as tiles and units allow
 //!    (`World::shuffle`).
 //! 4. **Blocked** (design change 0035): a move that met something, or a turn cut short, leaves no momentum.
 //!
-//! **The corner choice** (T85 with 0417, the brief's rule: "choose the speed to take it at, from full speed down to a
-//! stop and spin. Take the fastest whose arc fits the free space on the nav grid, counting the time to brake to it"):
-//! analytic, from the law, with no tables ([`Tracked::corner_speed`]). For a turn of θ it compares
-//! `CORNER_SPEEDS` + 1 speeds `v` from a stop to its top speed by the time each takes, counted together: changing
-//! speed to `v` from the speed it has, turning θ at the law's rate at `v`, getting back to its top speed, less the
-//! way it makes meanwhile towards where the turn leads (its braking along its old heading, `cos θ` of it; the arc's
-//! `r × sin θ`; the acceleration after). It takes the soonest of them whose arc, the tightest at `v` from where it
-//! starts until it heads the new way, tested every `ARC_TEST_RAD` in its own Silhouette, is clear of the nav grid's
-//! blocked tiles ([`Tracked::arc_fits`]); a stop and spin when none is. So it depends only on the angle, the speed it
-//! has and the room the arc needs, never on an estimate of a path: predictable (design change 0223). For the Hand of
-//! Heaven from full speed: a gentle 15° at 4.5 su a tick, 45° at 3.9, a right angle at 2.8 (on the law's 19 su
-//! radius, nearly pivoting about its inner tread), a turn about at 0.9 ([`tests`]). From rest every turn is a spin
-//! first: turning in place is the quickest turn there is, and it gives up no speed it has.
-//! - **The turn now**: each tick, for the turn from its heading onto the step it takes ([`Tracked::drive`]): its
-//!   speed is at most the choice's. A heading that misses the steering waypoint by less than `TRACKED_MISS_SU` is
-//!   held as it is: at full speed the law turns it by nothing.
-//! - **The corner ahead**: the turn at its steering waypoint, from the way there onto the path's next leg
-//!   ([`Tracked::ahead`]): the unit brakes in time to be at that corner's speed once it is within a step of the
-//!   waypoint, where `super::follow` passes it and the turn now takes over. Only within braking distance of it.
+//! **At rest** (`docs/movement.md > 6.12`; design change 0035: "Blocked units don't freeze; they creep and turn out of
+//! the contact"):
+//! - **A glance**, the rules' step along the face of a unit it met that doesn't move away ([`glances`]), is taken as
+//!   it is where the unit would spin to head along it: its facing kept and no speed carried, as it takes its contact
+//!   step (design change 0323). A glance depends on how the Silhouette lies, and a spin would turn the Silhouette into
+//!   the contact or out of it, and the glance with it, so that the unit turned to and fro where it stood. A slide
+//!   along tiles is no glance: there the unit heads along the step it asked for, which its Silhouette doesn't change.
+//! - **A spin cut short** that backing off doesn't free takes the rules' step as far as its Silhouette lies free where
+//!   the spin stopped, so it creeps along what it is pressed against; with no such step it stays.
+//!
+//! **The corner choice** ([`corner`]; T85 with 0417): the speed it takes a turn at, from full speed down to a stop and
+//! spin, the soonest whose arc fits the free space on the nav grid; for the turn now, onto the step it takes, and for
+//! the corner ahead, at its steering waypoint.
 //!
 //! **Without a goal** ([`Tracked::coast`]) a unit that still has momentum brakes to rest along its facing.
 //!
@@ -65,8 +60,7 @@ use super::wheeled::Driven;
 use crate::defs::MovementAttrs;
 use crate::math;
 use crate::mover::{Locomotion, Mover};
-use crate::shape::Shape;
-use crate::tuning::movement::{ARC_TEST_RAD, CORNER_SPEEDS, TRACKED_MISS_SU};
+use crate::tuning::movement::TRACKED_MISS_SU;
 
 /// One unit's SpeedTurnRadiusMovement numbers for this tick, the way its leg drives, in space units and ticks.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -90,6 +84,27 @@ pub(super) struct Tracked {
 fn speed_of(momentum: Vec2, ahead: Vec2) -> f32 {
     let speed = momentum.length();
     if momentum.dot(ahead) < 0.0 { -speed } else { speed }
+}
+
+/// Whether a unit whose steering waypoint is `aim` away makes the turn `turn` (signed, radians) onto its step now (the
+/// corner choice's turn now, module docs): a heading that misses the waypoint by less than `TRACKED_MISS_SU` is held as
+/// it is.
+fn turns_now(turn: f32, aim: f32) -> bool {
+    turn != 0.0 && aim * math::sin(turn.abs().min(core::f32::consts::FRAC_PI_2)) >= TRACKED_MISS_SU
+}
+
+/// Whether the shared rules' step `probe` from `from`, for the step `asked` of them, is a glance (module docs, at rest):
+/// a slide along the face of a unit it met that doesn't move away along `asked` (behind one that does, the step closes
+/// up along `asked`), which moves the unit. A slide along tiles is no glance: the unit heads along `asked` there, which
+/// doesn't depend on how its Silhouette lies, so it spins to its way and creeps along them.
+fn glances(world: &World, probe: &Moved, asked: Vec2, from: Vec2) -> bool {
+    probe.pos != from
+        && probe.forward
+        && !probe.aside
+        && !probe.slid
+        && probe
+            .blocker
+            .is_some_and(|blocker| world.bodies[blocker].velocity.dot(asked) <= 0.0)
 }
 
 impl Tracked {
@@ -154,127 +169,6 @@ impl Tracked {
         next * way
     }
 
-    /// The time a turn of `angle` (radians, `0..=π`; `sin` and `cos` its sine and cosine) takes at the speed `v`, from
-    /// the speed `from` (module docs, the corner choice), in ticks: changing to `v`, the arc at the law's rate, getting
-    /// back to the top speed, less the way it makes meanwhile towards where the turn leads, at the top speed. Infinite
-    /// where the law turns nothing.
-    fn turn_time(&self, from: f32, angle: f32, sin: f32, cos: f32, v: f32) -> f32 {
-        let rate = self.rate(v);
-        if rate <= 0.0 || self.top <= 0.0 {
-            return f32::INFINITY;
-        }
-        let change = if v <= from {
-            (from - v) / self.decel
-        } else {
-            (v - from) / self.accel
-        };
-        let changing = (from + v) * 0.5 * change;
-        let after = (self.top - v).max(0.0) / self.accel;
-        let rejoining = (self.top + v) * 0.5 * after;
-        change + angle / rate + after - (cos * changing + v * sin / rate + rejoining) / self.top
-    }
-
-    /// The corner choice (module docs): the speed at which a unit that drives along the unit vector `travel` from `at`,
-    /// facing `facing`, takes a turn of `turn` (radians, signed: clockwise on screen if positive) onto its new way,
-    /// from the speed `from`. Of the speeds from a stop to the top speed, the one whose turn takes least time
-    /// ([`Tracked::turn_time`]), else the next slower one whose arc fits ([`Tracked::arc_fits`]); a stop and spin if
-    /// none does.
-    pub(super) fn corner_speed(&self, world: &World, at: Vec2, facing: f32, travel: Vec2, turn: f32, from: f32) -> f32 {
-        let angle = turn.abs();
-        if angle == 0.0 || self.top <= 0.0 {
-            return self.top;
-        }
-        let speed = |k: u32| self.top * k as f32 / CORNER_SPEEDS as f32;
-        (1..=self.soonest(from, angle))
-            .rev()
-            .map(speed)
-            .find(|&v| self.arc_fits(world, at, facing, travel, turn, v))
-            .unwrap_or(0.0)
-    }
-
-    /// Which of the corner choice's speeds, `top × k ÷ CORNER_SPEEDS`, makes a turn of `angle` (radians, `0..=π`) from
-    /// the speed `from` soonest ([`Tracked::turn_time`]): its `k`, the slowest of equals.
-    fn soonest(&self, from: f32, angle: f32) -> u32 {
-        let (sin, cos) = (math::sin(angle), math::cos(angle));
-        let mut best = (0, self.turn_time(from, angle, sin, cos, 0.0));
-        for k in 1..=CORNER_SPEEDS {
-            let v = self.top * k as f32 / CORNER_SPEEDS as f32;
-            let time = self.turn_time(from, angle, sin, cos, v);
-            if time < best.1 {
-                best = (k, time);
-            }
-        }
-        best.0
-    }
-
-    /// Whether the tightest arc at the speed `v` (> 0) of a unit at `at`, facing `facing` and driving along `travel`,
-    /// that turns it by `turn` (signed, radians), is clear of the blocked tiles of its nav grid: its Silhouette, turned
-    /// as far as the arc has turned it, at every `ARC_TEST_RAD` of the turn and at its end (`Shape::clear_on`).
-    /// Units and the map's edge aside from tiles are the collision's to meet (`World::shuffle`, `World::turn`).
-    fn arc_fits(&self, world: &World, at: Vec2, facing: f32, travel: Vec2, turn: f32, v: f32) -> bool {
-        let Some(grid) = world.grid else {
-            return true;
-        };
-        let radius = v / self.rate(v);
-        let angle = turn.abs();
-        // Towards the side it turns to: clockwise on screen (+y is south) for a positive turn.
-        let side = Vec2::new(-travel.y, travel.x) * turn.signum();
-        let parts = (angle / ARC_TEST_RAD).ceil().max(1.0) as u32;
-        let body = world.body();
-        (1..=parts).all(|part| {
-            let phi = angle * part as f32 / parts as f32;
-            let pos = at + travel * (radius * math::sin(phi)) + side * (radius * (1.0 - math::cos(phi)));
-            let shape = match body.oriented {
-                Some(oriented) => Shape::oriented(pos, oriented.half, math::facing_vector(facing + phi.copysign(turn))),
-                None => Shape::rect(pos, body.half),
-            };
-            shape.clear_on(grid)
-        })
-    }
-
-    /// The corner ahead (module docs): the most a unit at `pos` with the speed `speed` (0 or more) may go this tick to
-    /// be at the corner speed of its steering waypoint `corner` (the turn from the way there onto the leg to `beyond`)
-    /// once it is within `step` of it, where it passes it. Braking by Deceleration from it each tick brings it to that
-    /// speed in time. Infinite where it needs no braking yet: it could still stop in the room it has, or the turn is
-    /// one it wouldn't slow for.
-    pub(super) fn ahead(&self, world: &World, pos: Vec2, corner: Vec2, beyond: Vec2, step: f32) -> f32 {
-        let to = corner - pos;
-        let dist = to.length();
-        let room = dist - step;
-        let out = beyond - corner;
-        if room <= 0.0 || self.approach(room) >= self.top || out == Vec2::ZERO {
-            return f32::INFINITY;
-        }
-        let travel = to / dist;
-        let turn = math::wrap_angle(math::vector_angle(out) - math::vector_angle(travel));
-        if out.length() * math::sin(turn.abs().min(core::f32::consts::FRAC_PI_2)) < TRACKED_MISS_SU {
-            return f32::INFINITY;
-        }
-        let facing = math::vector_angle(if self.reverses { -travel } else { travel });
-        let corner_speed = self.corner_speed(world, corner, facing, travel, turn, self.top);
-        self.brake_to(room, corner_speed)
-    }
-
-    /// The highest speed for this tick's move from which braking by Deceleration every tick brings the unit to the
-    /// speed `v` within `dist` space units: its moves `v + n × Deceleration`, … , `v + Deceleration` fit in it, the
-    /// first a little longer by what is left over. At most the top speed.
-    fn brake_to(&self, dist: f32, v: f32) -> f32 {
-        if !self.decel.is_finite() {
-            return self.top;
-        }
-        let (mut n, mut sum) = (0.0_f32, 0.0_f32);
-        loop {
-            let next = v + (n + 1.0) * self.decel;
-            if next > self.top || sum + next > dist {
-                break;
-            }
-            n += 1.0;
-            sum += next;
-        }
-        let longer = ((dist - self.decel * n * (n + 1.0) * 0.5) / (n + 1.0) - v).max(0.0);
-        (v + n * self.decel + longer).min(self.top)
-    }
-
     /// Steps 1 to 4 (module docs) for a unit on its way: `probe` is the step from `from` that the shared rules gave a
     /// unit without momentum, at the approach speed, for the step `asked` of them, and `lands` is set when it lands
     /// exactly on the goal; `ahead` is the most the corner ahead lets it go ([`Tracked::ahead`]) and `aim` how far its
@@ -314,14 +208,24 @@ impl Tracked {
             math::wrap_angle(math::vector_angle(step) - math::vector_angle(travel))
         };
         // The turn now: none for a miss it wouldn't slow down for.
-        let misses = aim * math::sin(turn.abs().min(core::f32::consts::FRAC_PI_2));
-        let turning = if turn == 0.0 || misses < TRACKED_MISS_SU {
-            f32::INFINITY
-        } else {
+        let turning = if turns_now(turn, aim) {
             self.corner_speed(world, from, start, travel, turn, current.abs())
+        } else {
+            f32::INFINITY
         };
         let want = length.min(ahead).min(turning);
         let speed = self.next_speed(current, want);
+        // At rest, a glance it would spin to head along is taken as it is (module docs).
+        if current == 0.0 && speed == 0.0 && turns_now(turn, aim) && glances(world, &probe, asked, from) {
+            mover.momentum = Vec2::ZERO;
+            return Driven {
+                moved: probe,
+                velocity: probe.pos - from,
+                turned: 0.0,
+                locomotion: Locomotion::Moving,
+                cut: None,
+            };
+        }
         // Braking to set off the other way: Stopping, which turns by the law all the same.
         let stopping = speed != 0.0 && (speed < 0.0) != self.reverses;
         let turned_to = (step != Vec2::ZERO).then(|| {
@@ -331,16 +235,49 @@ impl Tracked {
         let turned = world.turn(from, start, *facing);
         let mut set_off = from;
         if turned.cut {
-            // A spin cut short stops at contact (slice M5-V1). A turn cut while it moves is made all the same, as a
-            // wheeled unit's is, backing off the way it came by what its corners sweep (`World::back_off`).
-            let most = math::wrap_angle(*facing - start).abs() * world.body().oriented.map_or(0.0, |o| o.half.length());
-            let back = math::facing_vector(start) * -speed.signum();
-            match (speed != 0.0)
-                .then(|| world.back_off(from, *facing, back, most))
+            // A turn cut short is made all the same, as a wheeled unit's is, backing off the way it came by what its
+            // corners sweep (`World::back_off`), but by no more than it moves in the tick: its speed, or from rest one
+            // tick's acceleration, backing away from its way (it creeps out of the contact, design change 0035). Slow,
+            // the law turns it far more than a wheeled unit's speed does, and its corners sweep farther than it moves.
+            // Else it stops at contact (slice M5-V1).
+            let swept =
+                math::wrap_angle(*facing - start).abs() * world.body().oriented.map_or(0.0, |o| o.half.length());
+            let (most, back) = if speed != 0.0 {
+                (speed.abs(), math::facing_vector(start) * -speed.signum())
+            } else {
+                (self.accel.min(self.top), -travel)
+            };
+            match (swept > 0.0)
+                .then(|| world.back_off(from, *facing, back, swept.min(most)))
                 .flatten()
             {
                 Some(at) => set_off = at,
                 None => *facing = turned.facing,
+            }
+            if speed == 0.0 && set_off == from && probe.pos != from {
+                // At rest, its spin cut short, it takes the rules' step as it is, as far as its Silhouette lies free
+                // where the spin stopped (module docs).
+                let step = probe.pos - from;
+                touched.clear();
+                let pos = if world.clear(from, step, touched) {
+                    from + step
+                } else {
+                    world.shuffle(from, step, touched)
+                };
+                mover.momentum = Vec2::ZERO;
+                return Driven {
+                    moved: Moved {
+                        pos,
+                        forward: probe.forward && pos != from,
+                        blocker: probe.blocker.or(touched.first().copied()),
+                        aside: probe.aside,
+                        slid: probe.slid,
+                    },
+                    velocity: pos - from,
+                    turned: math::wrap_angle(*facing - start).abs(),
+                    locomotion: Locomotion::Moving,
+                    cut: Some(turned.blocker),
+                };
             }
         }
         let angle = math::wrap_angle(*facing - start);
@@ -446,5 +383,6 @@ impl Tracked {
     }
 }
 
+mod corner;
 #[cfg(test)]
 mod tests;

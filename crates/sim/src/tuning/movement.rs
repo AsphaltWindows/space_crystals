@@ -168,5 +168,6 @@ pub const ARC_TEST_RAD: f32 = core::f32::consts::FRAC_PI_8;
 
 /// (M5-V3) How far a SpeedTurnRadiusMovement unit's heading may miss its steering waypoint, space units, and be held
 /// as it is: at full speed the tread law turns it not at all, so it doesn't slow down to turn for less. It still
-/// passes within a step of the waypoint. Placeholder (not in the design: a technical bound).
+/// passes within a step of the waypoint. And how near to where it passes a waypoint it counts as there, braking for the
+/// corner at it (`Tracked::ahead`). Placeholder (not in the design: a technical bound).
 pub const TRACKED_MISS_SU: f32 = 1.0;

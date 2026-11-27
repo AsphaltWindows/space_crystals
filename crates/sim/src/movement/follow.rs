@@ -300,7 +300,7 @@ fn follow(
         }
         // (M5-V3) A tracked unit takes a contact step as it is, sideways, its facing kept and no speed carried; else it
         // heads along that step by the tread law, at the speed of the corner choice.
-        Some(Model::Tracked(_)) if stepping.is_some() => {
+        Some(Model::Tracked(_)) if mover.step_aside.is_some() => {
             *steered = true;
             mover.momentum = Vec2::ZERO;
             moved
@@ -324,12 +324,13 @@ fn follow(
         None => moved,
     };
     if spinning {
-        // Turning in place for the whole tick, as a TurnRate unit stands to turn: it waits for its turn, and its stuck
-        // clock doesn't run.
+        // Turning in place for the whole tick, as a TurnRate unit stands to turn: it doesn't get on, so its stuck clock
+        // runs, and the stuck rules see it, as they see a blocked unit (a spin that never ended would be a unit that
+        // never got on).
         mover.momentum = Vec2::ZERO;
-        wait(mover, tick);
+        stand(mover);
         mover.orientation = Orientation::Turning(target);
-        return false;
+        return stuck::after_move(*pos, mover, step, &moved, world, chased, engaged, tick);
     }
     *pos = moved.pos;
     // (0323) The contact step is made once the unit is on its end, or past it.
