@@ -7,6 +7,7 @@ mod agents_perf;
 mod air_perf;
 mod attack_move_perf;
 mod behaviours_perf;
+mod cults_perf;
 mod drones_perf;
 mod garrisons_perf;
 mod holding_perf;
