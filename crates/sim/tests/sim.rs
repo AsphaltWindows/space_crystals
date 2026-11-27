@@ -169,6 +169,7 @@ mod structures;
 mod structures_vision;
 mod symmetry;
 mod syndicate;
+mod syndicate_kinds;
 mod syndicate_line;
 mod syndicate_soak;
 mod syndicate_start;

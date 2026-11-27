@@ -87,6 +87,21 @@ pub fn of(kind: ObjectKind) -> &'static ClientKind {
         ObjectKind::FieldEngineer => &gdo::field_engineer::KIND,
         ObjectKind::Arsenal => &gdo::arsenal::KIND,
         ObjectKind::Rocketman => &gdo::rocketman::KIND,
+        ObjectKind::Vault => &syndicate::vault::KIND,
+        ObjectKind::VehicleAssembly => &syndicate::vehicle_assembly::KIND,
+        ObjectKind::Forge => &syndicate::forge::KIND,
+        ObjectKind::NullChamber => &syndicate::null_chamber::KIND,
+        ObjectKind::AerospaceAssembly => &syndicate::aerospace_assembly::KIND,
+        ObjectKind::OrbitalCommand => &syndicate::orbital_command::KIND,
+        ObjectKind::AssaultBike => &syndicate::assault_bike::KIND,
+        ObjectKind::Shadebringer => &syndicate::shadebringer::KIND,
+        ObjectKind::LaserBattery => &syndicate::laser_battery::MOBILE,
+        ObjectKind::LaserBatteryDeployed => &syndicate::laser_battery::DEPLOYED,
+        ObjectKind::SubterraneanTransport => &syndicate::subterranean_transport::SURFACED,
+        ObjectKind::SubterraneanTransportBurrowed => &syndicate::subterranean_transport::BURROWED,
+        ObjectKind::Phantom => &syndicate::phantom::KIND,
+        ObjectKind::Specter => &syndicate::specter::KIND,
+        ObjectKind::Prism => &syndicate::prism::KIND,
     }
 }
 

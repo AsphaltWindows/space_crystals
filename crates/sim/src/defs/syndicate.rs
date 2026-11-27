@@ -25,10 +25,29 @@ crate::tuning::tunables! {
 /// the EjectMenu's unit types, in the order they take the grid's slots: "entries take the grid slots in order (Q, W, E,
 /// R, A, S, …)", the unit types "(Agent, Guard, Grenadier, …)", that is Agent Q, Guard W, Grenadier E (Q0068). That is
 /// `factions/syndicate/units/README.md > Files` (design change 0285: "Listed in panel order: this is the order used by
-/// the Tunnel's EjectMenu"), which goes on after the Grenadier (Assault Bike, Shadebringer, …). Each Syndicate unit
-/// joins the list with its kind (the Grenadier third, with slice M4-U), so that the client's menu (slice M4-J2) needs
-/// no edit: a test checks that it lists every Syndicate unit once.
-pub const EJECT_MENU_ORDER: &[ObjectKind] = &[ObjectKind::Agent, ObjectKind::Guard, ObjectKind::Grenadier];
+/// the Tunnel's EjectMenu"): "Agent, Guard, Grenadier, then the vehicles and aircraft in production-building order",
+/// the Assault Bike, the Shadebringer, the Laser Battery and the Subterranean Transport, then the Phantom, the Specter
+/// and the Prism, Q to C. Each Syndicate unit joins the list with its kind (the Grenadier third, with slice M4-U; the
+/// seven others with slice M6-SK), so that the client's menu (slice M4-J2) needs no edit, and each keeps its tile
+/// greyed with a count of 0 while none is inside (design change 0299: "**Every Syndicate unit type keeps its
+/// tile**"), as every one of the seven is until its slice makes it. A test checks that it lists every Syndicate unit
+/// once, but a unit's second type, the Laser Battery (Deployed) and the Subterranean Transport (Burrowed), which never
+/// enter the network: a deployed Battery can't move (`factions/syndicate/units/laser_battery.md > Deploy (ability)`:
+/// "**cannot move**"), and a burrowed Transport surfaces before it drives in
+/// (`factions/syndicate/units/subterranean_transport.md > Entering the Tunnel Network loaded`: "It never enters from
+/// below").
+pub const EJECT_MENU_ORDER: &[ObjectKind] = &[
+    ObjectKind::Agent,
+    ObjectKind::Guard,
+    ObjectKind::Grenadier,
+    ObjectKind::AssaultBike,
+    ObjectKind::Shadebringer,
+    ObjectKind::LaserBattery,
+    ObjectKind::SubterraneanTransport,
+    ObjectKind::Phantom,
+    ObjectKind::Specter,
+    ObjectKind::Prism,
+];
 
 /// An entry of the Tunnel's ExpandMenu ([`EXPAND_MENU`], slice M4-F): an expansion a Tunnel builds, or an entry not in
 /// the game yet, which holds its slot.
