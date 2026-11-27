@@ -53,22 +53,11 @@ pub(crate) const RIFLE_LEGIONNAIRE: ObjectDef = ObjectDef {
             cooldown_ticks: 7,                     // CooldownDuration: 7 frames
             reload_ticks: 4,                       // ReloadDuration: 4 frames
         }),
-        unit_control_cost: None,
-        tunnel_space_cost: None,
-        beacon_capacity_cost: Some(2), // BeaconCapacityCost - 2
-        riot_shield: None,
+        beacon_capacity_cost: Some(2),            // BeaconCapacityCost - 2
         conversion: Some(LEGIONNAIRE_CONVERSION), // `factions/colonists/units/weapon_conversion.md`
-        deploy: None,
-        worker: None,
-        augmentable: None,
-        repairs: None,
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

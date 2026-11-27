@@ -18,12 +18,10 @@ pub(crate) const STORAGE: ObjectDef = ObjectDef {
     groupable: true,                            // Groupable - true
     sight_range: 3.0,                           // SightRange - 3 grid units
     max_hp: Some(250.0),                        // MaxHP - 250
-    max_shields: None,
     // PointArmor - 1, FullArmor - 6 (building armor rule, n × size = 1 × 6; design change 0380, was 4 at 2x2): the
     // rule's 1 / 6 for a 3x2 at n = 1 (`core/entities.md > Structure Type > Building armor rule`; slice M5-G2).
     armor: Armor { point: 1.0, full: 6.0 },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // SymmetryType - ABAB (long sides alike, short sides alike; design change 0380, was AAAA): two orientations,
         // its long sides north and south or east and west.
@@ -31,29 +29,14 @@ pub(crate) const STORAGE: ObjectDef = ObjectDef {
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
         // "Multiple Recruits can drop off Space Crystals simultaneously"; `factions/cults/units/recruit.md >
         // Gathering`: DropOffReach is measured to "the Storage's edge" (slice M5-D).
         drop_off: Some(DropOff::Anywhere),
-        underground: false,
-        tunnel: None,
         site: Some(STORAGE_SITE),
-        expansion: None,
         requires: &[], // TechPrerequisite - None
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Storage's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md > Cults

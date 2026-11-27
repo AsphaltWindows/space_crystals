@@ -27,7 +27,6 @@ pub(crate) const GRENADIER: ObjectDef = ObjectDef {
     groupable: true,    // Groupable - true (assumed)
     sight_range: 5.0,   // SightRange - 5
     max_hp: Some(70.0), // MaxHP - 70
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 1.0,  // FullArmor - 1
@@ -66,22 +65,10 @@ pub(crate) const GRENADIER: ObjectDef = ObjectDef {
             cooldown_ticks: 4,           // CooldownDuration: 4 frames
             reload_ticks: 28,            // ReloadDuration: 28 frames
         }),
-        unit_control_cost: None,
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
-        worker: None,
-        augmentable: None,
-        repairs: None,
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

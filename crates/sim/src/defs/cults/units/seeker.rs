@@ -30,7 +30,6 @@ pub(crate) const SEEKER: ObjectDef = ObjectDef {
     groupable: true,     // Groupable true
     sight_range: 6.0,    // SightRange 6 grid units
     max_hp: Some(120.0), // MaxHP 120
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 1.0,  // FullArmor 1
@@ -75,21 +74,9 @@ pub(crate) const SEEKER: ObjectDef = ObjectDef {
         // `factions/cults/structures/README.md > Cults Vehicles`: "vehicles cost one Unit Control per Recruit consumed"
         // (plan decision T55).
         unit_control_cost: Some(2),
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
-        worker: None,
-        augmentable: None,
-        repairs: None,
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

@@ -26,13 +26,11 @@ pub(crate) const GARRISON: ObjectDef = ObjectDef {
     groupable: true,     // Groupable true
     sight_range: 6.0,    // SightRange 6 grid units
     max_hp: Some(400.0), // MaxHP 400
-    max_shields: None,
     armor: Armor {
         point: 2.0, // PointArmor 2
         full: 8.0,  // FullArmor 8 (building armor rule, n = 2: sturdier as a defense)
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // "SymmetryType AAAB, **the door on side B** (one door, entrance and exit; user, 2026-11-26; Q0116; side
         // placeholder)": A on top, right and bottom, B on the left in the default orientation.
@@ -40,21 +38,10 @@ pub(crate) const GARRISON: ObjectDef = ObjectDef {
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(GARRISON_SITE),
-        expansion: None,
         requires: &[ObjectKind::Armory], // TechPrerequisite - player owns at least one Armory
         // Its occupants fire, not the building (`> Garrisoning`: "Without units inside, the Garrison does not attack").
         attack: None,
-        popup: None,
         holds: Some(HoldsDef {
             // "the door on side B (one door, entrance and exit)": units walk in at its middle, as at every entrance
             // (`core/entities.md > Entrance and exit (production and research buildings)`, `holding::entry_path`).
@@ -83,11 +70,9 @@ pub(crate) const GARRISON: ObjectDef = ObjectDef {
             range_bonus_gu: 1.0,
             bonus_for: &[ObjectKind::Militant, ObjectKind::Gunner],
         }),
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Garrison's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

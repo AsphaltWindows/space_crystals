@@ -22,7 +22,6 @@ pub(crate) const MILITANT: ObjectDef = ObjectDef {
     groupable: true,                                       // Groupable - true
     sight_range: 5.0,                                      // SightRange - 5 grid units
     max_hp: Some(40.0),                                    // MaxHP - 40
-    max_shields: None,
     armor: Armor {
         point: 0.0, // PointArmor - 0
         full: 0.0,  // FullArmor - 0
@@ -58,22 +57,11 @@ pub(crate) const MILITANT: ObjectDef = ObjectDef {
         // equals the number of Recruits consumed to produce it": one, the Recruit an Armory trains it from
         // (`factions/cults/structures/armory.md > Training`; plan decision T55).
         unit_control_cost: Some(1),
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
-        worker: None,
         // (M5-N1a) `factions/cults/augmentation.md > Increments`: "Armed infantry (Militant, Gunner)".
         augmentable: Some(Augmentable { unarmed: false }),
-        repairs: None,
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

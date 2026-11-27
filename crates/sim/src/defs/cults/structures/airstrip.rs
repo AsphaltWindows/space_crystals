@@ -29,20 +29,17 @@ pub(crate) const AIRSTRIP: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 4.0,    // SightRange 4 grid units
     max_hp: Some(400.0), // MaxHP 400
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 8.0,  // FullArmor 8
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // "SymmetryType ABAC with the short sides B and C": A on top and bottom, B on the right, C on the left.
         symmetry: SymmetryType::ABAC,
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
         // `> Production`: "**Production works like the Armory** [...]: Recruits enter an internal pool, orders are serial
         // and queueable and reserve the aircraft's number of Recruits, which are consumed on completion. A finished
         // aircraft **takes off from the Airstrip** to its RallyPoint"; "a finished aircraft is placed **directly on the
@@ -70,18 +67,8 @@ pub(crate) const AIRSTRIP: ObjectDef = ObjectDef {
             augment: &[],
             default_rally: None,
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(AIRSTRIP_SITE),
-        expansion: None,
         requires: &[ObjectKind::ChopShop], // TechPrerequisite - player owns at least one Chop Shop
-        attack: None,
-        popup: None,
         // "EntranceSide B (Recruits walk in)"; "InternalRecruitCapacity 10, counting reserved Recruits; so at most 10
         // orders queued (bounded by capacity: reserved units count toward it; Q0104)", the pool buildings' rule (design
         // change 0347 point 5, slice M5-F2's); and `systems/controls/commands.md > Enter`: Recruits only. Its aircraft
@@ -95,12 +82,9 @@ pub(crate) const AIRSTRIP: ObjectDef = ObjectDef {
             capacity: 10,
             accepts: &[ObjectKind::Recruit],
         }),
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Airstrip's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

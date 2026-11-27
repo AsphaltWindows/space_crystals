@@ -22,33 +22,16 @@ pub(crate) const EGRESS_NODE: ObjectDef = ObjectDef {
         full: 0.0,  // FullArmor - 0
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
-        symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
-        build_radius_extension: 0,    // none (see `defs/colonists.rs`)
-        power: 0,                     // none (plan decision T21)
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
+        symmetry: SymmetryType::AAAA,      // SymmetryType - AAAA
+        build_radius_extension: 0,         // none (see `defs/colonists.rs`)
+        power: 0,                          // none (plan decision T21)
         drop_off: Some(DropOff::Anywhere), // `factions/colonists/economy.md > Egress Node > Drop Off`
-        underground: false,
-        tunnel: None,
-        site: None,
-        expansion: None,
         // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
         requires: &[],
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

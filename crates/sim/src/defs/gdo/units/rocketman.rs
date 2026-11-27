@@ -28,7 +28,6 @@ pub(crate) const ROCKETMAN: ObjectDef = ObjectDef {
     groupable: true,    // Groupable true
     sight_range: 6.0,   // SightRange 6 grid units
     max_hp: Some(45.0), // MaxHP 45
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 1.0,  // FullArmor 1
@@ -45,7 +44,6 @@ pub(crate) const ROCKETMAN: ObjectDef = ObjectDef {
             max_speed: 3.0,
         },
         rugged_terrain_defense_bonus: Some(0.5),
-        turret: None,
         attack: Some(AttackAttrs {
             // "AttackType: DoublyDisjointed (the missile travels to where the target was at the end of Aiming; targets
             // can dodge; can also be fired at the ground)".
@@ -75,16 +73,6 @@ pub(crate) const ROCKETMAN: ObjectDef = ObjectDef {
             reload_ticks: 8,
         }),
         unit_control_cost: Some(1), // UnitControlCost 1
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
-        worker: None,
-        augmentable: None,
-        repairs: None,
-        spells: &[],
-        separation_radius: None,
         // "Target Lock: **LockOnDuration 48 frames (3 s)**; **LockRange 7 grid units**; locked missiles use the same
         // Damage, radius and timings, homing; they are **area damage too** (user, 2026-11-26), bursting on the target"
         // (`crate::combat::target_lock::attrs`: its weapon's, homing).
@@ -92,10 +80,9 @@ pub(crate) const ROCKETMAN: ObjectDef = ObjectDef {
             lock_on_ticks: 48,
             lock_range: 7.0,
         }),
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

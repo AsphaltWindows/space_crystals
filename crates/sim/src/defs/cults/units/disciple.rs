@@ -23,7 +23,6 @@ pub(crate) const DISCIPLE: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 6.0,   // SightRange - 6 grid units
     max_hp: Some(40.0), // MaxHP - 40
-    max_shields: None,
     armor: Armor {
         point: 0.0, // PointArmor - 0
         full: 0.0,  // FullArmor - 0
@@ -48,15 +47,8 @@ pub(crate) const DISCIPLE: ObjectDef = ObjectDef {
         // equals the number of Recruits consumed to produce it" (`factions/cults/structures/recruitment_hall.md > Unit
         // Control Tracking`; plan decision T55).
         unit_control_cost: Some(1),
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
-        worker: None,
         // (M5-N1a) `factions/cults/units/disciple.md > AttackAttributes`: "for Augmentation it is **armed**".
         augmentable: Some(Augmentable { unarmed: false }),
-        repairs: None,
         // (M5-N4b) `> Spells > Shroud`; Shroud numbers - cloud radius 3 grid units around the Disciple; drains 5 energy
         // per second; [...] needs at least 10 energy to start
         spells: &[SpellDef::Shroud(ShroudDef {
@@ -64,17 +56,15 @@ pub(crate) const DISCIPLE: ObjectDef = ObjectDef {
             drain: 5.0,
             needs: 10.0,
         })],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
     // Energy - MaxEnergy 200; starts at 50; regenerates 0.5 per second
     energy: Some(EnergyDef {
         max: 200.0,
         start: 50.0,
         regen: EnergyRegen::PerSecond(0.5),
     }),
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

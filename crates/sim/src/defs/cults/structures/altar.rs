@@ -29,20 +29,17 @@ pub(crate) const ALTAR: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 4.0,    // SightRange - 4 grid units (placeholder)
     max_hp: Some(300.0), // MaxHP - 300 (placeholder)
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1 (placeholder)
         full: 6.0,  // FullArmor - 6 (placeholder)
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // SymmetryType - ABAC (placeholder): A on top and bottom, B on the right, C on the left, its short sides.
         symmetry: SymmetryType::ABAC,
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
         // `> Altar > Augmentation Orders`: "Orders are queueable and serial — processed one at a time, in the order
         // queued"; "the unit **automatically exits** from the exit side and moves to the RallyPoint", as the units it
         // holds do (`holds`). It trains no unit and recruits none: its entries are its orders (and Releases, design
@@ -74,18 +71,8 @@ pub(crate) const ALTAR: ObjectDef = ObjectDef {
             ],
             default_rally: None,
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(ALTAR_SITE),
-        expansion: None,
         requires: &[ObjectKind::Storage], // TechPrerequisite - player owns at least one Storage
-        attack: None,
-        popup: None,
         // `> Altar > EntranceSide / ExitSide - B / C (placeholder, like the Armory)`, `> Altar > InternalUnitCapacity -
         // 10 (placeholder)`, and `> Altar > Entry`: "Any Cults infantry (Recruit, Militant, Gunner, Disciple) can enter
         // the Altar to join its StoredUnits pool, up to InternalUnitCapacity", in the order of the type tiles of
@@ -102,12 +89,9 @@ pub(crate) const ALTAR: ObjectDef = ObjectDef {
                 ObjectKind::Disciple,
             ],
         }),
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Altar's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction time

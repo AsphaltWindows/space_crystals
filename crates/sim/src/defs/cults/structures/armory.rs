@@ -24,13 +24,11 @@ pub(crate) const ARMORY: ObjectDef = ObjectDef {
     groupable: false, // Groupable - false (design change 0348 point 5: "Cults production buildings aren't groupable")
     sight_range: 4.0, // SightRange - 4 grid units
     max_hp: Some(300.0), // MaxHP - 300
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 6.0,  // FullArmor - 6
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // SymmetryType - ABAC (top A, right B, bottom A, left C): `> EntranceSide - one short side (B)`, `> ExitSide -
         // opposite short side (C)`.
@@ -38,7 +36,6 @@ pub(crate) const ARMORY: ObjectDef = ObjectDef {
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
         // `> Training`: "Training is queueable and serial — orders are processed one at a time, in the order queued";
         // "the trained unit exits from the exit side" (`> ExitSide - opposite short side (C)`), as the units it holds do
         // (`holds`). Of the Recruits inside (slice M5-F2, `sim/producers/pool.rs`), so it recruits nothing.
@@ -67,19 +64,9 @@ pub(crate) const ARMORY: ObjectDef = ObjectDef {
             augment: &[],
             default_rally: None,
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(ARMORY_SITE),
-        expansion: None,
         // TechPrerequisite - player owns at least one Storage
         requires: &[ObjectKind::Storage],
-        attack: None,
-        popup: None,
         // `> EntranceSide - one short side (B)`, `> ExitSide - opposite short side (C)`, `> InternalRecruitCapacity -
         // 10`, and `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only (to be trained)".
         holds: Some(HoldsDef {
@@ -88,12 +75,9 @@ pub(crate) const ARMORY: ObjectDef = ObjectDef {
             capacity: 10,
             accepts: &[ObjectKind::Recruit],
         }),
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Armory's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md > Cults Building

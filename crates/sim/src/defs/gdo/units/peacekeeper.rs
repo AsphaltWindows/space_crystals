@@ -60,16 +60,13 @@ const PEACEKEEPER_DEF: ObjectDef = ObjectDef {
     groupable: true,                                       // Groupable - true
     sight_range: 5.0,                                      // SightRange - 5 grid units
     max_hp: Some(50.0),                                    // MaxHP - 50
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 1.0,  // FullArmor - 1
     },
     needs_flat_ground: false,
     unit: Some(PEACEKEEPER_UNIT),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// `factions/gdo/units/peacekeeper.md`: its unit attributes, the Shielded type's but for its MaxSpeed.
@@ -100,17 +97,8 @@ const PEACEKEEPER_UNIT: UnitDef = UnitDef {
         reload_ticks: 12,                      // ReloadDuration: 12 frames
     }),
     unit_control_cost: Some(1), // UnitControlCost - 1
-    tunnel_space_cost: None,
-    beacon_capacity_cost: None,
     riot_shield: Some(PEACEKEEPER_RIOT_SHIELD),
-    conversion: None,
-    deploy: None,
-    worker: None,
-    augmentable: None,
-    repairs: None,
-    spells: &[],
-    separation_radius: None,
-    target_lock: None,
+    ..UnitDef::NONE
 };
 
 #[cfg(test)]

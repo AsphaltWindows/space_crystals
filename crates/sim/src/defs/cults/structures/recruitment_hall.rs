@@ -23,13 +23,11 @@ pub(crate) const RECRUITMENT_HALL: ObjectDef = ObjectDef {
     groupable: true,                            // Groupable - true (user, 2026-11-27; design change 0395, was false)
     sight_range: 6.0,                           // SightRange - 6 grid units
     max_hp: Some(1000.0),                       // MaxHP - 1000
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 16.0, // FullArmor - 16
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // SymmetryType - AAAB (design change 0342, answering Q0100: "It becomes AAAB with the exit on B (the side is a
         // placeholder)").
@@ -38,7 +36,6 @@ pub(crate) const RECRUITMENT_HALL: ObjectDef = ObjectDef {
         // "Cults buildings are constructed on-site by Recruits").
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
         // `> RecruitmentHall > Production Behavior`: "automatically and continuously produces Recruits at no resource
         // cost until LocalUnitControlUsage reaches LocalUnitControlCapacity" (plan decision T57).
         production: Some(ProductionDef {
@@ -58,25 +55,11 @@ pub(crate) const RECRUITMENT_HALL: ObjectDef = ObjectDef {
             augment: &[],
             default_rally: None,
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(RECRUITMENT_HALL_SITE),
-        expansion: None,
         requires: &[], // TechPrerequisite - None
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Recruitment Hall's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md >

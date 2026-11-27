@@ -23,12 +23,10 @@ pub(crate) const ROBO_PORTAL: ObjectDef = ObjectDef {
         full: 16.0, // FullArmor - 16
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 0,    // none (see `defs/colonists.rs`)
         power: 0,                     // none (plan decision T21)
-        seeds_build_area: false,
         production: Some(ProductionDef {
             // The energy doorway at the centre (design change 0145, `factions/colonists/structures/README.md > Portals
             // > Portal Exits (energy doorway)`): "Since the Robo Portal is fully symmetric (AAAA), units may leave in
@@ -44,26 +42,11 @@ pub(crate) const ROBO_PORTAL: ObjectDef = ObjectDef {
             augment: &[],
             default_rally: None,
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
-        site: None,
-        expansion: None,
         // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
         requires: &[],
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

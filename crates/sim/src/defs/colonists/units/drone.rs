@@ -50,12 +50,8 @@ pub(crate) const DRONE: ObjectDef = ObjectDef {
         // TurretAttributes - None: the HoverVehicle base can carry a turret (CanHaveTurret), and the Drone has none
         // (design change 0154): it is unarmed.
         turret: None,
-        attack: None, // AttackAttributes - None (unarmed)
-        unit_control_cost: None,
-        tunnel_space_cost: None,
-        beacon_capacity_cost: Some(1), // BeaconCapacityCost - 1
-        riot_shield: None,
-        conversion: None,
+        attack: None,                    // AttackAttributes - None (unarmed)
+        beacon_capacity_cost: Some(1),   // BeaconCapacityCost - 1
         deploy: Some(BEACON_DEPLOYMENT), // > Deploying
         // `> Gathering`
         worker: Some(WorkerDef {
@@ -75,16 +71,11 @@ pub(crate) const DRONE: ObjectDef = ObjectDef {
             builds: &[],
             shares_builds: false,
         }),
-        augmentable: None,
         // It repairs nothing (slice M5-N8): no Colonists repair is in the design.
         repairs: None,
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

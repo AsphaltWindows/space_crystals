@@ -20,7 +20,6 @@ pub(crate) const FIELD_ENGINEER: ObjectDef = ObjectDef {
     groupable: true,    // Groupable true
     sight_range: 5.0,   // SightRange 5 grid units
     max_hp: Some(50.0), // MaxHP 50
-    max_shields: None,
     armor: Armor {
         point: 0.0, // PointArmor 0
         full: 0.0,  // FullArmor 0
@@ -37,28 +36,17 @@ pub(crate) const FIELD_ENGINEER: ObjectDef = ObjectDef {
             max_speed: 4.0,
         },
         rugged_terrain_defense_bonus: Some(0.5),
-        turret: None,
         attack: None,               // "The Field Engineer carries **no weapon**."
         unit_control_cost: Some(1), // UnitControlCost 1
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
-        worker: None, // It gathers nothing.
-        augmentable: None,
+        worker: None,               // It gathers nothing.
         // `factions/gdo/units/field_engineer.md > Abilities`: "**Repair**: repairs buildings and vehicles. Repair costs
         // Space Crystals (not free)"; "**D** Repair (targeted: a damaged own building or vehicle)".
         repairs: Some(RepairDef {
             targets: RepairTargets::OwnBuildingsAndVehicles,
         }),
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

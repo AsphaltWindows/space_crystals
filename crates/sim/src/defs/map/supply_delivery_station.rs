@@ -23,15 +23,12 @@ pub(crate) const SUPPLY_DELIVERY_STATION: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 0.0,
     max_hp: None,
-    max_shields: None,
     armor: Armor::NONE,
     needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
-    unit: None,
-    structure: None,
     default_settings: Some(SpawnSettings::SupplyDeliveryStation {
         starting_supplies: DEFAULT_STARTING_SUPPLIES,
         delivery_size: DEFAULT_DELIVERY_SIZE,
         delivery_interval: DEFAULT_DELIVERY_INTERVAL,
     }),
-    energy: None,
+    ..ObjectDef::NONE
 };

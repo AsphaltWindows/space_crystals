@@ -25,7 +25,6 @@ pub(crate) const OPTICS_LAB: ObjectDef = ObjectDef {
     // 0254): "Sight: none (underground)".
     sight_range: 0.0,
     max_hp: Some(400.0), // HP - 400
-    max_shields: None,
     // PointArmor - 6, FullArmor - 24: "underground expansion, n = 6" (`factions/syndicate/structures/README.md > Tunnel
     // Expansions > High armor underground`, design change 0264: "this replaces the 1/4 listed in individual stat
     // blocks").
@@ -33,33 +32,18 @@ pub(crate) const OPTICS_LAB: ObjectDef = ObjectDef {
     // `core/map.md > Elevation` (design change 0005): "Syndicate underground expansions (inside a Tunnel Area) may be
     // placed on sloped tiles; the flatness rule doesn't apply to them".
     needs_flat_ground: false,
-    unit: None,
     structure: Some(StructureDef {
         // Not given (plan decision T29): AAAA, since none of its sides has a function.
         symmetry: SymmetryType::AAAA,
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
-        production: None, // Commands - none for now
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
+        production: None,  // Commands - none for now
         underground: true, // Entity Type - Structure Type (Underground)
-        tunnel: None,
-        site: None,
         expansion: Some(OPTICS_LAB_EXPANSION),
         requires: &[], // TechPrerequisite - None
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Optics Lab's construction by a Tunnel (`StructureDef::expansion`, slice M4-F's).

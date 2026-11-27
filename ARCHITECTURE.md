@@ -205,8 +205,14 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`, `systems/units.md`): its `UnitBase`, whose `static UnitBaseDef`
   holds the base's domain, movement model and flags (turret, crushable, (M5-V4) crushes, …), the attributes of that
   movement model (`MovementAttrs`, `defs/units/movement_attrs.rs` since slice M5-V3), and its turret, attack and
-  costs. Its box is its silhouette (`ObjectDef::half_extents`). Armour (`ObjectDef::armor`, an `Armor` of PointArmor
-  and FullArmor) is the same for units and structures; map resources have `Armor::NONE`.
+  costs (its attack's types in `defs/units/attack.rs`, a worker's and a repairer's in `defs/units/worker.rs`, split
+  off in slice M6-GK). Its box is its silhouette (`ObjectDef::half_extents`). Armour (`ObjectDef::armor`, an `Armor`
+  of PointArmor and FullArmor) is the same for units and structures; map resources have `Armor::NONE`. **Struct-update
+  defaults** (plan decision T84, slice M6-GK; `defs/defaults.rs`): every def literal ends with `..ObjectDef::NONE`,
+  `..UnitDef::NONE` or `..StructureDef::NONE` and lists only what its type has (a literal made from another def, the
+  Peacekeeper (Shielded)'s, ends with that def). A `NONE` leaves the optional fields unset (`None`, an empty list, or
+  `false` for a flag few types have); its other fields are placeholders every literal sets. So a new optional field is
+  one line in its struct and in its `NONE`, plus the literals of the kinds that have it.
 - **Structures** (`defs/structures.rs`, `defs/gdo/`; `factions/gdo/structures/`, `factions/gdo/economy.md`): the
   GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
   `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
@@ -5581,7 +5587,8 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
 1. **Its def module**, `crates/sim/src/defs/<faction>/{units,structures}/<object>.rs`, named as the design's file of
    the object (`factions/<faction>/{units,structures}/<object>.md`; an economy building's is
    `factions/<faction>/economy.md`, and `defs/map/` holds the map's objects). Its doc comment cites that file. It
-   holds the kind's `ObjectDef`, with every number the design gives the object, each cited, and the object's tests.
+   holds the kind's `ObjectDef`, with every number the design gives the object, each cited, and the object's tests;
+   the literal ends with `..ObjectDef::NONE` (its `UnitDef` or `StructureDef` with theirs: *Object model*).
    What the type does differently goes in a field of its def, which the logic reads, rather than in a `match` on its
    kind. Then its line in the sim's kind registry (`kind_registry!` in `defs.rs`), **at the end**: that one line makes
    the `ObjectKind` variant, its place in `ObjectKind::ALL` and its arm of `ObjectKind::def`; the state hash numbers

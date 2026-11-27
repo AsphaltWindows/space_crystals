@@ -21,39 +21,21 @@ pub(crate) const SCRAP_HANGAR: ObjectDef = ObjectDef {
     groupable: true,     // Groupable true
     sight_range: 4.0,    // SightRange 4 grid units
     max_hp: Some(450.0), // MaxHP 450
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 9.0,  // FullArmor 9
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         symmetry: SymmetryType::AAAA, // SymmetryType AAAA
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(SCRAP_HANGAR_SITE),
-        expansion: None,
         requires: &[ObjectKind::Airstrip], // TechPrerequisite - player owns at least one Airstrip
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Scrap Hangar's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and

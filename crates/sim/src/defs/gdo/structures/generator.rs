@@ -16,39 +16,20 @@ pub(crate) const GENERATOR: ObjectDef = ObjectDef {
     groupable: true,                            // Groupable - true
     sight_range: 3.0,                           // SightRange - 3 grid units
     max_hp: Some(350.0),                        // MaxHP - 350
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 4.0,  // FullArmor - 4
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 1,    // BuildRadiusExtension - 1 grid unit
         power: 20,                    // Power - +20
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
-        site: None,
-        expansion: None,
         // No TechPrerequisite (`factions/gdo/structures/deployment_center.md > Constructs`: no "Requires")
         requires: &[],
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

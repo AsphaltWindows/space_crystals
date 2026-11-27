@@ -18,13 +18,10 @@ pub(crate) const CRYSTAL_PATCH: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 0.0,
     max_hp: None,
-    max_shields: None,
     armor: Armor::NONE,
     needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
-    unit: None,
-    structure: None,
     default_settings: Some(SpawnSettings::CrystalPatch {
         starting_amount: DEFAULT_STARTING_AMOUNT,
     }),
-    energy: None,
+    ..ObjectDef::NONE
 };

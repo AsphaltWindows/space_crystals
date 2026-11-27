@@ -21,7 +21,6 @@ pub(crate) const GUARD: ObjectDef = ObjectDef {
     groupable: true,    // Groupable - true
     sight_range: 5.0,   // SightRange - 5 (grid units, `core/scale.md > GridUnit`)
     max_hp: Some(80.0), // MaxHP - 80
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 1.0,  // FullArmor - 1
@@ -54,22 +53,10 @@ pub(crate) const GUARD: ObjectDef = ObjectDef {
             cooldown_ticks: 3,                      // CooldownDuration: 3 frames (placeholder)
             reload_ticks: 16,                       // ReloadDuration: 16 frames (placeholder)
         }),
-        unit_control_cost: None,
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
-        worker: None,
-        augmentable: None,
-        repairs: None,
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

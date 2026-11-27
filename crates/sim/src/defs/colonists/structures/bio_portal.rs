@@ -23,7 +23,6 @@ pub(crate) const BIO_PORTAL: ObjectDef = ObjectDef {
         full: 9.0,  // FullArmor - 9
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // SymmetryType - AABB: A on top and on the right, B at the bottom and on the left, unturned (design change
         // 0079), so the two A sides are adjacent ("AABB: neighbouring sides, top and right in the default
@@ -31,7 +30,6 @@ pub(crate) const BIO_PORTAL: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AABB,
         build_radius_extension: 0, // none (see `defs/colonists.rs`)
         power: 0,                  // none (plan decision T21)
-        seeds_build_area: false,
         production: Some(ProductionDef {
             // `> Exit Behavior`: "The Bio Portal's two open sides are its "A" sides ... Units leave in any direction
             // through them" (the energy doorway at the centre, design change 0145): a half-circle of directions.
@@ -46,26 +44,11 @@ pub(crate) const BIO_PORTAL: ObjectDef = ObjectDef {
             augment: &[],
             default_rally: None,
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
-        site: None,
-        expansion: None,
         // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
         requires: &[],
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

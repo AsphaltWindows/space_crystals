@@ -2410,13 +2410,18 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 ## In progress
 - **Running:**
   - **M5-X1b SetRules** (the same agent, after X1a): `DebugCommand::SetRules`, refused for a structural change (`Reject::RulesStructural`) or past 64 generations (`RulesFull`), applied as the next tick starts, with `RulesChanged`; HP that follows a new MaxHP; the generation in saves and replays; `tests/rules.rs`.
-  - **M6-GK The GDO kinds** (Opus; brief `scratchpad/briefs/m6gk-gdo-kinds.md`), launched at X1a's merge, on 2026-11-27. It adds the struct-update defaults (T84).
+  - **M6-GK The GDO kinds** (Opus; brief `scratchpad/briefs/m6gk-gdo-kinds.md`), launched at X1a's merge, on 2026-11-27.
+    - **Its first commit is merged early** (`774dae2b`, GK's `c76c8765` with a merge of master's bookkeeping), so that SK and every later slice write `..<Struct>::NONE` from the start:
+      - `defs/units.rs` split into `units/attack.rs` and `units/worker.rs`, all re-exported;
+      - `ObjectDef::NONE`, `UnitDef::NONE` and `StructureDef::NONE` in `defs/defaults.rs` (T84), and every def literal ends with `..<Struct>::NONE`;
+      - `Ruleset::BUILTIN`'s JSON byte-identical (GK's check). 2750 tests passed, 62 ignored; the goldens unchanged, the seed sweep passes, and the 192 computer-player games are identical.
+    - **Conventions shared with SK** (the Director's): a deployed kind is immobile by its def (MaxSpeed and ReverseMaxSpeed 0, exempted by name in `unit_is_consistent`'s `IMMOBILE` list, T87). An air unit whose doc gives no SeparationRadius takes its Silhouette's side + 8 su (Q0181).
   - **M6-SK The Syndicate kinds** (Opus; brief `scratchpad/briefs/m6sk-syndicate-kinds.md`), beside GK. Its block goes after GK's in the registry.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
 - **Next:** X2 after X1b, then **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
   - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
   - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: **GK** and **SK** (W1), then GR and GD beside Mb (W2).
-  - **The briefs:** `scratchpad/briefs/m5x2-data-files.md` gets X1b's report at launch. `m6-common.md` holds X1's shape for every M6 slice.
+  - **The briefs:** `scratchpad/briefs/m5x2-data-files.md` gets X1b's report at launch. `m6-common.md` holds X1's shape for every M6 slice. W2's `m6gr-radar-defense.md` and `m6gd-drone-operator.md` are drafted, with 0421, 0422, 0423, 0435 and 0441 in them.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
@@ -2873,6 +2878,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0178 | Crushing: does a Stopping (braking or coasting) crusher crush, which the Trigger's "Moving or Reversing" leaves out; and does a crush ping the minimap, whose alert fires on damage? (from M5-V4) | no | open |
 | Q0179 | The Hand of Heaven: its MinRange back-off (to 9 GU) leaves its own 7 GU sight, so alone it loses the target; a wall can stop its hull aim for good; and `AttackingObject`'s step 4, which it doesn't follow (from M5-N10) | no | open |
 | Q0180 | Inspire's faster attack: how the cycle × 0.75 rounds to whole frames (an Improved Metabolism Recruit gets 20%), which phases shorten (built: Firing), and whether the Augmentations' 2-frame Firing floor applies (built: no, so Level 2 reaches 1); with the energy pace for information (from M5-N11) | no | open |
+| Q0181 | SeparationRadius for the five air units whose docs give none (the Hornet, the Supply Chopper, the operator's drone, the Phantom and the Prism): proceeding on the Silhouette's side + 8 su, the pattern of the three given radii (from M6-SK and M6-GK) | no | open |
 
 ## Design change entries
 Last triaged: 0282.
