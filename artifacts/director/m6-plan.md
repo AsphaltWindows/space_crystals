@@ -56,7 +56,9 @@
 >   - Q0166 by 0432: Enter surfaces a burrowed Transport first;
 >   - Q0168 by 0434: Thrust is targeted and Shift-queues;
 >   - Q0169 by 0435 and 0436: the six units' Supply costs, the Chopper repaired free on its Tower, and the GDO
->     starting with 1 Supply, which GS builds.
+>     starting with 1 Supply, which GS builds;
+>   - with no question, 0441 (the Drone Operator's Supply cost 1, the Twister's 1) and 0442 (the Supply Chopper carries
+>     units, landing to load and unload): GS grows by the transport, into a second slice if it needs one.
 
 # M6 plan: the GDO's and the Syndicate's remaining content (planning spike M6-P)
 
