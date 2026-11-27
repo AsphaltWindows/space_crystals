@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 
-- Q0177 (non-blocking): default rally point (3 GU) holds three Seekers; a fourth stalls the doorway.
 - Q0178 (non-blocking): does a Stopping crusher crush; does a crush ping the minimap?
 - Q0179 (non-blocking): Hand of Heaven MinRange back-off leaves its sight; wall blocks hull aim forever.
 - Q0180 (non-blocking): Inspire faster attack: rounding to frames, which phase, 2-frame floor.
@@ -38,6 +37,7 @@
 - Q0183 (non-blocking): idle vehicles stall a Tunnel's exit (5 Bikes ejected, 2 come out).
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
+- **Notification system** (pinned by the user, 2026-11-27): only the off-screen damage alert exists (hud.md > Alerts). Waiting on it: exit stays blocked (Q0177, user wants it), production waiting for capacity, refinery input full, Agents' empty station. Open: form (ping colour, text line?), trigger delay, throttle, Space jump.
 - **Real in-game menu / game creation screen**: the F10 playtest menu (0414) and command-line flags (computer players, starting exploration 0416) are temporary.
 - **Supplies**: only 6 GDO units cost Supplies (0435); buildings/research Supply costs still open. Starting Supplies 1.
 - **Attack Move for units that can't stop (gliders)**: what it should mean is open (user, 2026-11-27, Q0148): today its 6 GU leash drops a looping Sparrow's target.
