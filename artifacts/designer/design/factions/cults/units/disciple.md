@@ -38,6 +38,7 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 - **Health**: each illusion starts with the Disciple's **current HP**, and has its MaxHP and speed (augmentations included; designer's default, confirmed by the user). Illusions can't be augmented at the Altar themselves.
 - **Double damage**: illusions take **double damage from all sources** (Shroud releases included).
 - **Seen by enemies**: exactly like a Disciple, on the map and when selected; enemies can't tell them apart.
+- **Energy shown** (user, 2026-11-27; Q0185): an illusion's energy bar and InfoPanel always show its **parent's current energy**, live (it drains when the parent channels, regenerates with it). Illusions have no energy of their own.
 - **Seen by the owner**: they **look different on the screen**, and their name reads **"Disciple (illusion)"**.
 - **Control**: the owner commands them as **normal units**. They use **no Unit Control**.
 - **Sight**: they have the Disciple's **SightRange**, so they can scout.
