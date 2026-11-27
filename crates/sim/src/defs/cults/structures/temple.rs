@@ -48,6 +48,7 @@ pub(crate) static TEMPLE: ObjectDef = ObjectDef {
             recipes: &[],
             recruitment: None,
             augment: &[],
+            default_rally: None,
         }),
         mining: None,
         onto: None,

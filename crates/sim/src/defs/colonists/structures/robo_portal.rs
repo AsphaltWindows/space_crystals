@@ -42,6 +42,7 @@ pub(crate) static ROBO_PORTAL: ObjectDef = ObjectDef {
             }],
             recruitment: None,
             augment: &[],
+            default_rally: None,
         }),
         mining: None,
         onto: None,

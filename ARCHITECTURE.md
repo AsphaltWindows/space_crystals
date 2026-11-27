@@ -2787,10 +2787,17 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   out, and the movement's doorway walk drives it straight out (`movement/doorway.rs`, slice M5-V2), to its rally point
   or, with none, to a stop just clear of the doorway; an idle vehicle doesn't yield (0353), so the next Seeker stands
   in the doorway behind it and the queue waits until the player moves the first (**the implementer's reading**, a jam
-  for the playtest notes). Recruits build it while their player owns an Armory, and it is the Machine Shop's and the
-  Airstrip's TechPrerequisite. Tests: `crates/sim/tests/chop_shop/` (`training.rs`: 0319's NoRecruit, the price, the
-  frames and the rally point, the queue of 5, X, Release and Eject All, the right-click; `exit.rs`: the four
-  orientations, no rally point, the doorway behind a stopped Seeker; `seeker.rs`: full HP and no Augmentation, the Unit
+  for the playtest notes). (M5-S8) **It starts with a rally point** 3 grid units out of side C (*Production > Rally
+  points*, design changes 0446 and 0447, answering Q0175), so that stall comes only with the rally point cleared ("A
+  cleared vehicle building leaves the stall to the player"); left alone, three Seekers park between the point and the
+  door (the first on it, the others 62 and 126 su behind), and a fourth stops in the doorway behind them (the
+  placeholder distance holds three). Recruits build it while their player owns an Armory, and it is the Machine
+  Shop's and the Airstrip's TechPrerequisite. Tests: `crates/sim/tests/chop_shop/` (`training.rs`: 0319's NoRecruit,
+  the price, the frames and the rally point, the queue of 5, X, Release and Eject All, the right-click; `exit.rs`: the
+  four orientations, no rally point (cleared first since slice M5-S8: 0447's Verification), the doorway behind a
+  stopped Seeker; `rally.rs` (slice M5-S8): the default rally point in the 16 orientations, a site's from its
+  placement through its completion, three Seekers to it with the doorway never stalling, a moved one, the map's edge
+  and water, a save with none; `seeker.rs`: full HP and no Augmentation, the Unit
   Control; `combat.rs`: a Militant killed on the move, the DirectionalArmor's three sides, Rugged terrain;
   `destruction.rs`; `normal_game.rs`: an Armory, a Chop Shop and a Seeker from the Cults' start, the Machine Shop and
   the Airstrip no longer greyed; `saves.rs`) and `tests/repair/vehicles.rs` (the Seeker repaired by the real recipe),
@@ -2917,13 +2924,32 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Chop Shop (slice M5-N6); not the Temple, the Garrison,
   whose panel has none, nor the Shrine), a site, an expansion's included, or under Warp In. Its functions held back
   (`Object::production` is `None`), it holds a `Production` with the rally alone while one is set, and `None` again
-  once it is cleared, so a game that sets none keeps its hashes (the goldens'). The gate's `SetRally` takes the
-  player's buildings of such a type, finished or not; its other production commands only producers at work
+  once it is cleared, so a game that sets none keeps its hashes (the goldens'), but for a vehicle building's site,
+  which holds its default one from its placement (below). The gate's `SetRally` takes the player's buildings of such
+  a type, finished or not; its other production commands only producers at work
   (`Object::is_operational`), so a Train to the site is `NoProducers`. `Sim::start_functions` keeps the rally as the
   functions start ("The rally point is kept when the building completes"); a cancelled Warp In takes it away with the
   portal. Tests: `tests/cults_construction/rally.rs` (0396's Verification in the sim, a Storage's and a Garrison's
   sites), `tests/warp_in/rally.rs` (a portal kept through completion and lost with a cancel, an Egress Node) and
   `tests/expansions/building.rs` (a Hideout's site).
+- **A vehicle building's default rally point** (slice M5-S8; `core/entities.md > Entrance and exit > Exit Doorway`
+  point 7, design changes 0446 and 0447, answering Q0175): idle wheeled and tracked vehicles don't step aside, so a
+  building that releases them through an exit side "**starts with a RallyPoint 3 grid units straight out from the
+  middle of its exit side** (placeholder distance)". A def field, `ProductionDef::default_rally` (grid units, `None`
+  for every other producer; `defs_are_consistent`: only with `ExitRule::Side`, for a type that makes a wheeled or
+  tracked vehicle), which the Chop Shop sets to 3, so that M6's Factory only sets it too. `production::default_rally`
+  places it (`Door::spot` of the type's one exit side, as the placement turns and flips it), and `Sim::new_object`
+  sets it as the building's object comes into the game, whichever way (a scenario's spawn, a site, a GDO placement),
+  so a site has it from its placement ("it is set at placement, so it exists during construction"):
+  `transform::hold_back` keeps a rally the object has, in a `Production` that holds it alone, and
+  `Sim::start_functions` keeps it at completion. It is an ordinary rally point, hashed and saved as any (a Chop Shop's
+  game moves from its first tick: `cults_vehicles` re-blessed), which the rally commands move or clear (on the
+  building itself). **Placeholder (not in the design: a spot off the map, or on ground a vehicle can't stand on)**:
+  the point of the map nearest to it (`Map::clamp_point`), one the gate would take, and kept on any ground, as one
+  set by hand may be. A saved game's building placed before it existed has none, and loads with none: loading
+  builds no object anew. Tests: `tests/chop_shop/rally.rs` and `exit.rs`; in the client,
+  `crates/game/tests/commands/chop_shop.rs` (0446's and 0447's Verifications: the marker 3 grid units out of side C,
+  a right-click on the Chop Shop clearing it, one turned a quarter).
 - **Tests**: `src/production.rs` and `production/exit/tests.rs` (the queue, the Barracks' door in all 8
   orientations and its rule, the room before a door, the Hall's four doors and their order), `recruitment/tests.rs`
   (slice M5-C: the area, the exact capacity, the claims and their order, the lineages' points),
@@ -5125,10 +5151,12 @@ unchecked.
   locks and locked after, and no burst, all in the air, hits the Rocketmen under them. In `cults_vehicles` (to 1:15, on
   a test map, debug commands on for the two Seekers' 150 Space Crystals) four Recruits go into a Chop Shop, which queues
   two Seekers, each of the two Recruits inside the longest of those left: each comes out in its tick half inside the
-  middle of side C, facing west, the first of its Recruits, the second gone (`during`), and drives to the rally point;
-  at tick 760 the two attack-move onto two Militants and two Guards behind them (player 2's, the Syndicate), firing
-  their turrets on the move: they kill the Militants, a Guard kills one Seeker, and the other kills both Guards; every
-  hit of the game is a Seeker's on them or theirs on a Seeker. The
+  middle of side C, facing west, the first of its Recruits, the second gone (`during`), and drives to the rally point
+  (re-blessed in slice M5-S8: the Chop Shop starts with its default rally point, 3 grid units out of side C, until
+  the game sets its own in tick 64, so the checkpoints of ticks 0 and 32 alone moved); at tick 760 the two
+  attack-move onto two Militants and two Guards behind them (player 2's, the Syndicate), firing their turrets on the
+  move: they kill the Militants, a Guard kills one Seeker, and the other kills both Guards; every hit of the game is a
+  Seeker's on them or theirs on a Seeker. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

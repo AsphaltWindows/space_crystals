@@ -31,6 +31,15 @@ pub struct ProductionDef {
     /// producer. Optional in files.
     #[serde(default, deserialize_with = "crate::defs::leak::slice")]
     pub augment: &'static [AugmentRecipe],
+    /// (M5-S8) The RallyPoint it starts with, so many grid units straight out from the middle of its exit side, where
+    /// it lies once placed (`crate::production::default_rally`): `core/entities.md > Entrance and exit > Exit
+    /// Doorway` point 7, "Every building that releases **wheeled or tracked vehicles** through an exit side (today the
+    /// Cults **Chop Shop** and the GDO **Factory**) therefore **starts with a RallyPoint 3 grid units straight out
+    /// from the middle of its exit side** (placeholder distance)" (design changes 0446 and 0447, answering Q0175).
+    /// Only a type with one exit side (`ExitRule::Side`) has one (`defs_are_consistent`). `None` for every other
+    /// producer. Optional in files.
+    #[serde(default)]
+    pub default_rally: Option<u32>,
 }
 
 impl ProductionDef {

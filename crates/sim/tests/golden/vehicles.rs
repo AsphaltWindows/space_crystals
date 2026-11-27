@@ -63,7 +63,9 @@ fn cults_p1_syndicate_p2(builder: ScenarioBuilder) -> Scenario {
 /// left (design change 0332). Each comes out at its tick of [`OUT`], the first of its two Recruits, half inside the
 /// middle of side C and facing out of it, and drives to the rally point. At [`ATTACK`] the two AttackMove onto player
 /// 2's Militants (ids 6, 7) and the Guards (ids 8, 9) behind them: they kill the two Militants, a Guard kills one of
-/// them, and the other kills both Guards (as the game played when it was made).
+/// them, and the other kills both Guards (as the game played when it was made). (M5-S8) Until [`TRAIN`] the Chop Shop
+/// has the rally point it starts with, 3 grid units out of side C (design change 0446), which the game's own replaces:
+/// re-blessed for it, the checkpoints of ticks 0 and 32 alone moved.
 pub(crate) fn cults_vehicles() -> Game {
     let mut builder =
         ScenarioBuilder::new(&open(40, 18)).spawn(ObjectKind::ChopShop, Some(P1), SpawnAt::Tile(TilePos::new(30, 8)));

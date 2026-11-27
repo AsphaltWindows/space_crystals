@@ -72,6 +72,7 @@ pub(crate) static ALTAR: ObjectDef = ObjectDef {
                     frames: 96,
                 },
             ],
+            default_rally: None,
         }),
         mining: None,
         onto: None,

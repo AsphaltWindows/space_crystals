@@ -15,16 +15,23 @@
 //! - **On an unfinished building** ([`takes_rally`], design change 0396): a building that will produce or release
 //!   units takes its rally point while it is still under construction or transformation, and keeps it when it
 //!   completes.
+//! - **(M5-S8) A vehicle building's default** ([`default_rally`], design changes 0446 and 0447): a building whose type
+//!   says so (`ProductionDef::default_rally`: the Chop Shop's, M6's Factory's) starts with a rally point straight out
+//!   of its exit side, its site from its placement on; an ordinary rally point, which the rally commands move or
+//!   clear.
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use super::exit::Doorway;
 use crate::defs::ObjectKind;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
+use crate::map::Map;
 use crate::object::Object;
+use crate::units::gu;
 use crate::vision::Vision;
 
 /// `BarracksInstanceState > RallyPoint: Coordinates | ObjectInstance` (`None` is no `Rally` at all).
@@ -58,6 +65,24 @@ impl Rally {
 /// (`factions/cults/structures/garrison.md > Placeholder stats > Panel`).
 pub fn takes_rally(kind: ObjectKind) -> bool {
     (kind.def().structure.as_ref()).is_some_and(|s| s.production.is_some() && s.research.is_none())
+}
+
+/// (M5-S8) The RallyPoint `building` starts with as it comes into the game (`Sim::new_object`), a site from the start
+/// of its construction: `core/entities.md > Entrance and exit > Exit Doorway` point 7, a vehicle building "**starts
+/// with a RallyPoint 3 grid units straight out from the middle of its exit side** (placeholder distance)", and design
+/// change 0446: "it is set at placement, so it exists during construction". Its type's `ProductionDef::default_rally`
+/// grid units out of the middle of its exit side, as its placement turns and flips that side
+/// ([`Door::spot`](super::Door::spot)); `None` for a type without one. "It is an ordinary rally point: the player can
+/// move it, or **clear** it by rallying on the building itself" (design change 0447): the rally commands do, as for
+/// any other.
+///
+/// Placeholder (not in the design: a spot off the map, or on ground a vehicle can't stand on): the point of the map
+/// nearest to it (`Map::clamp_point`), so that it is one the gate would take (`Sim::check_production`: a rally point
+/// off the map is refused), and kept on any ground, as a rally point set by hand may be.
+pub fn default_rally(map: &Map, building: &Object) -> Option<Rally> {
+    let out = building.def().structure.as_ref()?.production.as_ref()?.default_rally?;
+    let door = Doorway::of(building)?.doors().next()?;
+    Some(Rally::Point(map.clamp_point(door.spot(gu(out as f32)))))
 }
 
 /// Whether `target` is an enemy of `player`: another player's object (no teams yet, so no allies; neutral objects

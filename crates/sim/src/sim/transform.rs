@@ -225,11 +225,17 @@ impl Sim {
 /// and abilities start at completion"): the capabilities a structure works with, its production (so it takes no
 /// Train), its construction and its mining, which completion gives it as a new object of its kind has them
 /// ([`Sim::start_functions`]). (M5-S6) Not its rally point, which it takes meanwhile (design change 0396, over 0116's
-/// "no Set Rally Point"; `sim/producers.rs`). What its kind does by itself, such as an Egress Node taking drop-offs
+/// "no Set Rally Point"; `sim/producers.rs`): (M5-S8) one it has already, a vehicle building's site's from its
+/// placement (`production::default_rally`), stays, in a production that holds it alone, as one set meanwhile is
+/// (`sim/producers.rs`'s `set_rally`). What its kind does by itself, such as an Egress Node taking drop-offs
 /// (`sim/workers.rs`), checks [`Object::is_transforming`]. A Tunnel's expansion holds them back while it is built
 /// (slice M4-F).
 pub(super) fn hold_back(o: &mut Object) {
-    o.production = None;
+    let rally = o.production.as_ref().and_then(|production| production.rally);
+    o.production = rally.map(|rally| Production {
+        rally: Some(rally),
+        ..Production::default()
+    });
     o.constructor = None;
     o.extractor = None;
 }

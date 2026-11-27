@@ -299,6 +299,24 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
                 );
             }
         }
+        // (M5-S8) A default rally point lies out of the middle of the exit side (`production::default_rally`,
+        // `core/entities.md > Entrance and exit > Exit Doorway` point 7): a type with one has one exit side, and makes
+        // the units it is for, "wheeled or tracked vehicles".
+        if let Some(out) = production.default_rally {
+            assert!(
+                matches!(production.exits, ExitRule::Side(_)) && out > 0,
+                "{name}: a default rally point {out} GU out of {:?}",
+                production.exits
+            );
+            let vehicle = |kind: ObjectKind| {
+                let base = kind.def().unit.as_ref().map(|unit| unit.base);
+                matches!(base, Some(UnitBase::WheeledVehicle | UnitBase::TrackedVehicle))
+            };
+            assert!(
+                production.recipes.iter().any(|recipe| vehicle(recipe.kind)),
+                "{name}: a default rally point for vehicles"
+            );
+        }
         if let Some(recruitment) = production.recruitment {
             let (w, h) = def.tile_size().expect("a structure has tiles");
             assert_eq!(production.recipes.len(), 1, "{name} recruits one kind");
