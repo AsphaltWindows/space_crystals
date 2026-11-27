@@ -9,11 +9,11 @@ A gap is harmless: a slice that needs no new state leaves its number unused.
 
 | Namespace | On master | Assigned (slice) |
 |---|---|---|
-| `Object`'s optional state | 9 buffs (M5-N5); 10 cooldown (GR); 11–13 stock, tether, drone (GD); 14 aircraft (GH1) | 15 CM; 16 GA; 17 SP; 18 ST1; 19 GM; 20 GB; 21 SN (only if it adds Object state); 22 GP; 23 SL; 24 SB; 25 ST2; 26 GL; 27–28 GS1 (the Chopper's cargo and attachment, the Tower's schedule); 29 GS2; 30 S6a; 31 S6b; 32 SR (the armed Prism, the lock); 33 SA; 34 SC |
-| `OrderKind` (`orders/hash.rs`) | up to 19 (18 Rebase, 19 ReturnToBase, GH1) | 20 CM; 21 GA; 22 SN; 23 GM (LayMine); 24 SP (Thrust); 25 ST1; 26 GB; 27 GH2; 28 GP; 29 SL; 30 SB; 31 ST2; 32 GL; 33–35 GS1 (PickUpSupplies, DropOffSupplies, AttachToTower); 36–37 GS2 (Load, Unload All); 38 S6a; 39 S6b; 40 SR (Relay); 41 SA; 42 SC |
+| `Object`'s optional state | 9 buffs (M5-N5); 10 cooldown (GR); 11–13 stock, tether, drone (GD); 14 aircraft (GH1); 15 illusion_of (CM) | 16 GA (unused); 17 SP; 18 ST1; 19 GM; 20 GB; 21 SN (unused); 22 GP; 23 SL; 24 SB; 25 ST2; 26 GL; 27–28 GS1 (the Chopper's cargo and attachment, the Tower's schedule); 29 GS2; 30 S6a; 31 S6b; 32 SR (the armed Prism, the lock); 33 SA; 34 SC |
+| `OrderKind` (`orders/hash.rs`) | up to 21 (18 Rebase, 19 ReturnToBase, GH1; 21 VehicleDeploy, GA); 20 and 22 stay unused (CM and SN needed none) | 23 GM (LayMine); 24 SP (Thrust); 25 ST1; 26 GB; 27 GH2; 28 GP; 29 SL; 30 SB; 31 ST2; 32 GL; 33–35 GS1 (PickUpSupplies, DropOffSupplies, AttachToTower); 36–37 GS2 (Load, Unload All); 38 S6a; 39 S6b; 40 SR (Relay); 41 SA; 42 SC |
 | `Sim` (`sim.rs`) | 1 held; 2 projectiles; 3 clouds | 4 SB (sludge patches); 5 SC (smoke, unless it lives in SB's patch store); 6 SA (only if the falling bomb needs state outside the projectiles' tag 2) |
 | `Mover` | 10 rise (SD) | 11 GH2; 12 SP; 13 GL; 14 ST2; 15 SA; 16 GS1; 17 GS2 |
-| `Behaviour` (`orders/state/hash.rs`) | up to 13 (13 VehicleDeploy, GA) | 14 GH2; 15 GM; 16 ST1; 17 SP; 18 GB; 19 GP; 20 GL; 21 GS1; 22 GS2; 23 ST2; 24 SR; 25 SA; 26 S6a; 27 SL; 28 SB; 29 SC; 30 S6b; 31 CM (only if it adds one) |
+| `Behaviour` (`orders/state/hash.rs`) | up to 13 (13 VehicleDeploy, GA) | 14 GH2; 15 GM; 16 ST1; 17 SP; 18 GB; 19 GP; 20 GL; 21 GS1; 22 GS2; 23 ST2; 24 SR; 25 SA; 26 S6a; 27 SL; 28 SB; 29 SC; 30 S6b; 31 unused (CM needed none) |
 | `Behaviour::Enter` | sub-tag 1 descent (SD) | |
 | `Place` (`network.rs`) | 0 Network; 1 Site; 2 Building | 3 ST1 (Carrier) |
 | `Held` (`network.rs`) | 1 leaving | 2 SN (service) |
