@@ -2422,3 +2422,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - User: Disciples and illusions don't fire from a Garrison (they can still enter, sheltered) — 0450 (replaces part of 0448). Q0177: option 3, vehicles park around a taken rally point — 0451. Exit-blocked warning wanted; notifications pinned (new loose end).
 - Q0185: illusions show parent's live energy (0452).
 - Q0178: braking crushers crush (1b), crush gives no alert (2a) — 0453.
+- Q0179: back-off to MinRange+1 GU for all units; can't-aim → reposition (explicit) / leash (auto); step 4 hull-aim from docs — 0454.

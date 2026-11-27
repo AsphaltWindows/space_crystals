@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 
-- Q0179 (non-blocking): Hand of Heaven MinRange back-off leaves its sight; wall blocks hull aim forever.
 - Q0180 (non-blocking): Inspire faster attack: rounding to frames, which phase, 2-frame floor.
 - Q0181 (non-blocking): SeparationRadius for five air units without one.
 - Q0182 (non-blocking): four GDO numbers the docs don't give.

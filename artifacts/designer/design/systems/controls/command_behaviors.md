@@ -86,7 +86,7 @@ Base behavior for attacking a destructible object instance. The unit moves towar
 3. When targetable:
    - Locomotion = Stopping, Orientation = Maintaining (or Turning toward target for infantry)
    - Begin attack sequence on BaseAttackChannel (infantry) or set TurretCommandState.LockedTarget = TargetObject (turret units)
-4. If target moves out of range or arc: resume MovingToObject toward TargetObject
+4. If target moves out of range or arc: resume MovingToObject toward TargetObject. **Units that aim with their hull** (a turret unit whose turret barely turns and whose base turns in place; today the Hand of Heaven: factions/cults/units/hand_of_heaven.md) instead **stop once the target is in range and beyond MinRange**, wherever the arc is, and **turn the hull** to bring the target into the arc (Q0179; as the Hand of Heaven's doc says).
 5. If target is destroyed: behavior complete
 6. **Target lost from vision** (user, 2026-11-25; Q0051, replaces the 2026-11-23 walk to the last seen position): if TargetObject is no longer visible to the unit's owner (it went into the fog of war), the **behavior completes at once**, exactly as when the target is destroyed. The unit **stops where it is** and is idle, or goes on to its next queued order if it has one. It does not walk to the last seen position or track the target through the fog; pursuing into the fog is the player's call. Once idle, normal idle auto-targeting (Idle behavior, with IdleLeashDistance) applies if the enemy is visible again. (The fog delay, core/vision.md > Visible > Fog delay, still keeps a target on tiles that just left sight visible for its 0.5 s.)
 
@@ -101,6 +101,11 @@ Gliders cannot stop. Instead of stopping when in range, the Glider performs stra
 ### Failure:
 If the unit repeatedly fails to make progress toward the target, behavior complete.
 
+### Can't aim from where it stands
+(user, 2026-11-27; Q0179) A unit in range that **can't bring its weapon to bear from where it stands** (e.g. a hull-aiming unit whose turn is stopped by a wall or cliff beside it):
+- **Explicit Attack**: it **keeps trying to get into a position from which it can attack** the target: it moves to a nearby spot from which it can aim (in range, beyond MinRange, with room to turn), then aims and fires. It doesn't wait in place, and doesn't give up for this reason (it still ends for the usual reasons: target destroyed, lost from vision, a new order). How the spot is chosen is the Director's call.
+- **Auto-acquired targets** (idle auto-targeting, AttackMove, Patrol): the same repositioning, under the **normal leash rules** (systems/controls/behaviors.md > BaseAutoTargeting, IdleLeashDistance; AttackMovingToLocation, AttackMoveLeashDistance): if it would take the unit past its leash, it disengages as usual.
+
 
 ### Blocked by its own side
 (user, 2026-11-25; Q0057; applies systems/controls/behaviors.md > Core principle) An attacker whose way to its target is blocked by other units, its own side's included:
@@ -110,7 +115,7 @@ If the unit repeatedly fails to make progress toward the target, behavior comple
 
 ### Target inside MinRange
 (user, 2026-11-24) On an explicit Attack whose target is inside the weapon's MinRange, a unit that can move **backs off** until the target is outside MinRange, then attacks. A unit that can't move (e.g. a deployed Artillery Rig) can't carry it out: the order fails with feedback ("Target too close"; same channel as other refusals).
-- **How far it backs off** (user, 2026-11-25; Q0054): to the **middle of the band** between MinRange and Range, not just past MinRange, so a target that keeps stepping closer doesn't make it stop and start on every step.
+- **How far it backs off** (user, 2026-11-27; Q0179; replaces "to the middle of the band", Q0054): to **MinRange + 1 grid unit** (never beyond Range), every unit. A target that keeps stepping closer may make it back off again; accepted. (The band's middle took the Hand of Heaven, 9 GU, beyond its own 7 GU sight, so alone it lost the target and never fired.)
 - **A unit that can't back off** (cornered, or blocked behind): it **gives up the order** with the same "Target too close" feedback, like an immobile unit (user, 2026-11-25; Q0054; for now).
 
 ## AttackingLocation
