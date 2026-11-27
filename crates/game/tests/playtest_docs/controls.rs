@@ -736,7 +736,8 @@ fn cursor(bindings: &Bindings, hotkeys: &[String]) -> String {
          with {queue} the order is queued and the aim goes on until Shift is let go. {right}, {cancel} or {back} \
          cancels.\n\
          - **Placing** (\"place it\"): the building's ghost follows the cursor, green where it can stand and red \
-         where it can't. Left-click places it; the placing keys above turn it; {cancel} or {back} goes back.\n\
+         where it can't. Left-click places it; the placing keys above turn it; {cancel} or {back} goes back. \
+         {right} stops placing (a building the Deployment Center has ready stays ready).\n\
          - **The pointer** shows what a right-click would do there, or the awaited click; over an object, a dot in its \
          owner's colour (yours green, an enemy's red, neutral yellow). Its colours are placeholders:\n\n\
          | Pointer | Means |\n|---|---|\n"

@@ -121,7 +121,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 ### Aiming and placing
 
 - **Aiming** ("click a target" in the panels' notes): the pointer is a crosshair. Left-click the target; with Shift (held) the order is queued and the aim goes on until Shift is let go. Right click, Esc or Z cancels.
-- **Placing** ("place it"): the building's ghost follows the cursor, green where it can stand and red where it can't. Left-click places it; the placing keys above turn it; Esc or Z goes back.
+- **Placing** ("place it"): the building's ghost follows the cursor, green where it can stand and red where it can't. Left-click places it; the placing keys above turn it; Esc or Z goes back. Right click stops placing (a building the Deployment Center has ready stays ready).
 - **The pointer** shows what a right-click would do there, or the awaited click; over an object, a dot in its owner's colour (yours green, an enemy's red, neutral yellow). Its colours are placeholders:
 
 | Pointer | Means |

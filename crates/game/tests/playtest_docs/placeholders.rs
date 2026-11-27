@@ -107,7 +107,7 @@ struct Mark {
     /// The item its doc comment documents, if a constant's or a field's: its name, in its inline modules, with its
     /// value when short.
     item: Option<String>,
-    /// Its sentence (module docs).
+    /// Its sentence ([`Block::sentence`]), cleaned for the doc ([`cleaned`]).
     text: String,
     /// The questions it names, in order.
     questions: Vec<String>,
