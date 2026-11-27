@@ -28,8 +28,8 @@ use sc_sim::{
     SpawnAt, Tile, TilePos, TilePresetId, TileProblem, WholeProblem, scenarios,
 };
 use space_crystals::command_ui::cursor::PointerLook;
-use space_crystals::command_ui::feedback::TargetFeedback;
-use space_crystals::command_ui::{BuildMenu, ButtonLook, InterfaceState, PanelButton, PanelCommand, Placing};
+use space_crystals::command_ui::feedback::{NOT_YET_TEXT, TargetFeedback};
+use space_crystals::command_ui::{BuildMenu, ButtonLook, InterfaceState, PanelButton, PanelCommand, Placing, Planned};
 use space_crystals::coords::drawn_position;
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::hud::info_panel::InfoText;
@@ -329,12 +329,35 @@ fn e() -> CommandSlot {
     slot(0, 2)
 }
 
+fn r() -> CommandSlot {
+    slot(0, 3)
+}
+
+fn a() -> CommandSlot {
+    slot(1, 0)
+}
+
 fn s() -> CommandSlot {
     slot(1, 1)
 }
 
 fn d() -> CommandSlot {
     slot(1, 2)
+}
+
+fn f() -> CommandSlot {
+    slot(1, 3)
+}
+
+/// (M6-GK) The Basic menu's three buildings that the Deployment Center doesn't construct yet, greyed in their slots,
+/// whatever it is doing: R the Supply Tower, A the Radar Station, F the Defense System.
+fn not_yet_basic() -> [(CommandSlot, PanelButton, ButtonLook, &'static str); 3] {
+    let planned = |planned| PanelButton::Command(PanelCommand::Planned(planned));
+    [
+        (r(), planned(Planned::SupplyTower), ButtonLook::Unavailable, "SPT"),
+        (a(), planned(Planned::RadarStation), ButtonLook::Unavailable, "RS"),
+        (f(), planned(Planned::DefenseSystem), ButtonLook::Unavailable, "DS"),
+    ]
 }
 
 const X: CommandSlot = CommandSlot::CANCEL_PRODUCTION;

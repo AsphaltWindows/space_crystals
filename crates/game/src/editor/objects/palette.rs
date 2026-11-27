@@ -15,7 +15,7 @@ pub fn palette_groups() -> Vec<PaletteGroup> {
     let factions = std::iter::once(None).chain(Faction::ALL.iter().copied().map(Some));
     let mut groups = Vec::new();
     for faction in factions {
-        for category in [Category::Resource, Category::Structure, Category::Unit] {
+        for category in [Category::Resource, Category::Structure, Category::Unit, Category::Mine] {
             let kinds: Vec<ObjectKind> = ObjectKind::ALL
                 .iter()
                 .copied()
@@ -37,6 +37,7 @@ fn group_title(faction: Option<Faction>, category: Category) -> String {
         Category::Resource => "Resources",
         Category::Structure => "Structures",
         Category::Unit => "Units",
+        Category::Mine => "Mines",
     };
     match faction {
         None => category.to_string(),

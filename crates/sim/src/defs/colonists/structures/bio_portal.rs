@@ -39,6 +39,7 @@ pub(crate) const BIO_PORTAL: ObjectDef = ObjectDef {
                 cost: 100,
                 frames: 160,
                 requires: &[],
+                supplies: 0,
             }],
             recruitment: None,
             augment: &[],
@@ -82,6 +83,7 @@ mod tests {
                     cost: 100,
                     frames: 160,
                     requires: &[],
+                    supplies: 0,
                 }][..]
             )
         );

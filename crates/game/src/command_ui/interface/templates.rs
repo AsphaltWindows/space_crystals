@@ -151,9 +151,9 @@ pub enum BuildMenu {
 impl BuildMenu {
     pub const ALL: [BuildMenu; 3] = [BuildMenu::Basic, BuildMenu::Advanced, BuildMenu::Construct];
 
-    /// The Deployment Center's entries, slot by slot (`CommandSlot::all` order): the buildings it constructs
-    /// ([`gdo::deployment_center::menu`]).
-    pub fn entries(self) -> &'static [Option<ObjectKind>; 12] {
+    /// The Deployment Center's entries, slot by slot (`CommandSlot::all` order): the buildings it constructs, and
+    /// (M6-GK) those it will, greyed ([`gdo::deployment_center::menu`]).
+    pub fn entries(self) -> &'static [Option<PanelCommand>; 12] {
         gdo::deployment_center::menu(self)
     }
 }

@@ -17,7 +17,14 @@ use crate::command_ui::interface::templates::Planned;
 /// expansions with their ExpandMenu placeholders' labels (VT, VA, FE, NC, AA, OC), and the units by the same rules,
 /// AB, LB and LBD, with three letters where two are taken: the Shadebringer's SBR (SR is the Shrine's), the
 /// Subterranean Transport's STR and STB (ST is the Scout's), the Phantom's PHM (PM is the Prayer-mobile's), the
-/// Specter's SPR and the Prism's PRM.
+/// Specter's SPR and the Prism's PRM. Slice M6-GK: the GDO's other kinds, a one-word name's first and last letters, a
+/// longer name's initials, and where those are taken, a letter more: the Factory's FY, the Airfield's AD, Advanced
+/// Mechanics' AM, Propulsion Labs' PL, the Industrial Powerplant's IP, the Radar Station's RS, the Defense System's
+/// DS, the Missile Turret's MTT (MT is the Militant's), the Outpost's OT, the Bunker's BKR and the First Aid Tent's FAT
+/// (their entries' labels), the Supply Tower's SPT (ST is the Scout's, STR the Subterranean Transport's); the Raptor's
+/// RR, the Twister's TR, the Prospector's PR, the Artillery Rig's ARG and ARD (AR is the Altar's), the Hornet's HT,
+/// the Dragonfly's DY, the Drone Operator's DO, its drone's DRN (DR is the Colonists' Drone's), the Supply Chopper's
+/// SCR (SC is the patch's) and the mine's ME; the Deployment Center's eight entries with their types' labels.
 #[test]
 fn every_label_is_its_own() {
     let in_game = |planned: &Planned| ObjectKind::ALL.iter().any(|kind| kind.def().name == planned.name());
@@ -90,6 +97,15 @@ fn every_label_is_its_own() {
         [Planned::Bunker, Planned::FirstAidTent].map(|p| p.label()),
         ["BKR", "FAT"]
     );
+    let gdo = &ObjectKind::ALL[ObjectKind::Factory as usize..=ObjectKind::Mine as usize];
+    assert_eq!(
+        gdo.iter().map(|&kind| short_label(kind)).collect::<Vec<_>>(),
+        [
+            "FY", "AD", "AM", "PL", "IP", "RS", "DS", "MTT", "OT", "BKR", "FAT", "SPT", "RR", "TR", "PR", "ARG", "ARD",
+            "HT", "DY", "DO", "DRN", "SCR", "ME"
+        ],
+        "slice M6-GK's kinds"
+    );
     let expansions = [
         ObjectKind::Vault,
         ObjectKind::VehicleAssembly,
@@ -133,10 +149,11 @@ fn every_label_is_its_own() {
     );
 }
 
-/// A kind's module agrees with its def: a unit's look is a unit's, a structure's a structure's, a turret's a
-/// structure's that attacks (plan decision T49: `StructureDef::attack`), a runway's a structure's whose aircraft take
-/// off along it (slice M5-N7: `ExitRule::Runway`), a map resource's its own; and a kind has a shot style exactly when
-/// it has a weapon, a unit's or a structure's.
+/// A kind's module agrees with its def: a unit's look is a unit's, or (slice M6-GK) a mine's, "closer to a permanently
+/// deployed unit" (design change 0426), a structure's a structure's, a turret's a structure's that attacks (plan
+/// decision T49: `StructureDef::attack`), a runway's a structure's whose aircraft take off along it (slice M5-N7:
+/// `ExitRule::Runway`), a map resource's its own; and a kind has a shot style exactly when it has a weapon, a unit's
+/// or a structure's.
 #[test]
 fn every_kind_module_fits_its_def() {
     for &kind in ObjectKind::ALL {
@@ -147,7 +164,7 @@ fn every_kind_module_fits_its_def() {
             matches!(exits, Some(sc_sim::defs::ExitRule::Runway { .. }))
         };
         let look_fits = match client.look {
-            Look::Unit { .. } => def.unit.is_some(),
+            Look::Unit { .. } => def.unit.is_some() || def.category == Category::Mine,
             Look::Structure => def.structure.as_ref().is_some_and(|s| !attacks(s) && !runway(s)),
             Look::Turret => def.structure.as_ref().is_some_and(attacks),
             Look::Runway => def.structure.as_ref().is_some_and(|s| !attacks(s) && runway(s)),

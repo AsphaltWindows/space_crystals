@@ -230,6 +230,20 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   which only counts so far (its research is to come), the Rocketman one of the Barracks' recipes (`Recipe::requires` an
   Arsenal), LightInfantry with the Peacekeeper's movement at MaxSpeed 3, a DoublyDisjointed Universal missile (Range
   6, MinRange 2) and Target Lock (`UnitDef::target_lock`, *Combat > HeadDisjointed and Target Lock*).
+  **Every other GDO kind** (slice M6-GK, design change 0366; plan §B > GK) follows the Rocketman, before slice
+  M6-SK's Syndicate kinds: the twelve buildings (the Factory to the Supply Tower), the ten units (the Raptor to the
+  Supply Chopper, the deployed Artillery Rig, `ArtilleryRigDeployed`, and the Drone Operator's drone,
+  `OperatorDrone`, named "Drone", among them) and the `Mine`, of a category of its own, `Category::Mine` (a
+  silhouette, no `UnitDef` and no `StructureDef`, no orders; never on tiles: `paths` and `placement` pass it by; the
+  client draws it with the ground objects, and the editor's palette has a group of mines),
+  one def module each with its design file's numbers. Nothing makes them yet (plan decision T69): **their recipes are
+  held** in `defs::PLANNED_RECIPES` (`defs/gdo.rs`: the producer and the `Recipe`, each with its cost, frames,
+  `requires` and, design changes 0435 and 0441, `Recipe::supplies`, the GDO's second cost), out of every
+  `constructs`, `production` and `builds`, until the slice that makes each one moves its recipe into its producer's
+  def; the editor's debug spawn places any of them. `defs/gdo/tests.rs` checks the kinds against the design folder
+  and that nothing makes them; `tests/gdo_kinds.rs` that no player's command constructs, trains, builds or spawns
+  one. The deployed Rig doesn't move (`defs/tests.rs`'s `IMMOBILE`: speed 0, no reverse): a Move given it ends
+  without moving it.
 - **The Colonists** (`defs/colonists/`; `factions/colonists/units/`, `factions/colonists/economy.md`, slice M3-A):
   the Drone, the Beacon, the Egress Node, the Robo Portal, the Bio Portal and the Sabre and Rifle Legionnaires, after
   the M2 kinds. Three def fields came before their slices: `ObjectDef::max_shields` (MaxShields, set for exactly
@@ -2298,7 +2312,9 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   third (design change 0412; a quarter from design change 0405: "Gliders push apart slowly"). The pairs come from a
   `space::Layer` of the air units, in id order, and
   the pushes are summed and applied together; nothing blocks them. A HoverCraft is kept on the map (design change
-  0045), a Glider isn't. A push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and
+  0045), a Glider isn't. (Slice M6-GK) So is a HoverCraft's own move (`movement::step`: the edge stops it as an
+  obstacle does, design change 0035), the end of its straight path (`paths::serve`, so that it arrives at a corner
+  or an edge) and where the gate puts it (`Sim::check_unit_fits`, Blocked), all by `Map::clamp_box`. A push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and
   a unit at rest stays at rest. Units spawned in the tick are pushed against but not pushed.
 - **Idle units that overlap move apart** (`movement/separate.rs`; design change 0126, which amends 0106's "nothing
   is pushed apart"): in its turn, a unit that yields (`yielding::can_yield`: no command at all) and is at rest
@@ -4591,7 +4607,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
 - **Construction** (slice M2-H2; `factions/gdo/structures/deployment_center.md >
   ObjectInterfaceState[DeploymentCenter]`, design change 0104; `factions/gdo/economy.md > ExtractionFacility >
   ObjectInterfaceState[ExtractionFacility]`): the constructors' commands are `PanelCommand`s too: `BuildMenu(menu)` (the
-  Deployment Center's Q Basic and W Advanced, unavailable while none of its buildings is in the game),
+  Deployment Center's Q Basic and W Advanced; since slice M6-GK every building of its Constructs holds its slot, those
+  it doesn't construct yet as `PanelCommand::Planned`, greyed "Not available yet", `deployment_center::menu`),
   `Construct(kind)`, `CancelConstruction` and `CancelReady` (X), and `PlaceReady(kind)`, "Select completed building",
   which takes its building's slot once it is ready. `InterfaceState` adds `BuildMenu(menu)` and
   `AwaitingPlacement(Placing { builder, kind, orientation, shortcut })`, the builder a constructor's
@@ -4884,7 +4901,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   is `PanelCommand::BuildMenu(BuildMenu::Construct)`, a build menu of its own that no other type has, labelled "Constr"
   (six letters, the most a label keeps its size with) and named "Construct" in its hint; the Recruit's and the
   Deployment Center's stay Basic and Advanced. Its menu (`field_engineer::menu`, by `menu_grid`) is Q Bunker and W First
-  Aid Tent, both `Planned` until designed, and Z Back. D is the Recruit's Repair, and the right-click the sim's one rule
+  Aid Tent, both `Planned` until slice M6-GB makes them built (their kinds are registered since slice M6-GK), and Z
+  Back. D is the Recruit's Repair, and the right-click the sim's one rule
   (`object_right_click`, as the BasicCombatUnit's): Repair on a damaged own building or vehicle, under
   `PointerDisplay::Repair`. The Barracks' panel is the Production template with the Field Engineer in E
   (`templates/gdo/barracks.rs`). The Career Campus, the Deployment Center's BuildMenu[Basic] D (greyed "Requires a
@@ -5610,11 +5628,14 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
    `StructureDef::attack`, and its pop-up form, `StructureDef::popup` (the Laser Turret, slices M4-S1 and M4-S2; every
    object of such a type a pop-up since slice M5-Y). A new expansion also turns its `ExpandEntry::Planned` into its
    `Kind` in `defs::syndicate::EXPAND_MENU`, and a new Syndicate unit joins `EJECT_MENU_ORDER` there. A unit's second
-   type (the Peacekeeper (Shielded); slice M6-SK's Laser Battery (Deployed) and Subterranean Transport (Burrowed)) is a
-   kind of its own in its first type's module (and client module), its literal made from the first's; a deployed type
-   is immobile by its def, MaxSpeed and ReverseMaxSpeed 0 (plan decision T87), named in `IMMOBILE` (`defs/tests.rs`),
-   and a type that never enters the Tunnel Network stays out of `EJECT_MENU_ORDER` (`NEVER_INSIDE`,
-   `defs/syndicate/tests.rs`).
+   type (the Peacekeeper (Shielded); slice M6-GK's Artillery Rig (Deployed); slice M6-SK's Laser Battery (Deployed) and
+   Subterranean Transport (Burrowed)) is a kind of its own in its first type's module (and client module), its literal
+   made from the first's; a deployed type is immobile by its def, MaxSpeed and ReverseMaxSpeed 0 (plan decision T87),
+   named in `IMMOBILE` (`defs/tests.rs`), and a type that never enters the Tunnel Network stays out of
+   `EJECT_MENU_ORDER` (`NEVER_INSIDE`, `defs/syndicate/tests.rs`). A kind registered before its slice makes it (the
+   GDO's, slice M6-GK) keeps its `Recipe` in its def module, held in `defs::PLANNED_RECIPES` with its producer; its
+   slice moves it into the producer's `constructs`, `production` or `builds` (and its `Planned` menu entry, if it has
+   one, becomes its command).
 2. **Its client module**, `crates/game/src/kinds/<faction>/<object>.rs` (*Client architecture > Kinds*): its
    `ClientKind`, with
    - its label, two letters of its own (`kinds::tests::every_label_is_its_own` checks them against every other

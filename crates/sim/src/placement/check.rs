@@ -125,7 +125,7 @@ pub fn check_reserving(
                 let problem = match o.kind.def().category {
                     Category::Structure => TileProblem::Structure,
                     Category::Resource => TileProblem::Resource,
-                    Category::Unit => continue,
+                    Category::Unit | Category::Mine => continue,
                 };
                 if overlap(rect, footprint.rect()) {
                     footprint.mark(&mut found, problem, |tile| overlap(rect, TileRect::new(tile, 1, 1)));

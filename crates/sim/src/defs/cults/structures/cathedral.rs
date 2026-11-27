@@ -57,6 +57,7 @@ pub(crate) const CATHEDRAL: ObjectDef = ObjectDef {
                     cost: 75,
                     frames: 320,
                     requires: &[],
+                    supplies: 0,
                 },
             ],
             recruitment: None,

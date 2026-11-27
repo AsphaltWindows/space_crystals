@@ -119,11 +119,12 @@ fn object_color(kind: ObjectKind, owner: Option<PlayerId>) -> Color {
     player_color(owner.filter(|_| kind.def().category != Category::Resource))
 }
 
-/// When an object of `kind` is drawn among the live ones: map resources, then structures, then units.
+/// When an object of `kind` is drawn among the live ones: map resources, then structures and (M6-GK) mines, then
+/// units.
 fn layer(kind: ObjectKind) -> u8 {
     match kind.def().category {
         Category::Resource => 0,
-        Category::Structure => 1,
+        Category::Structure | Category::Mine => 1,
         Category::Unit => 2,
     }
 }

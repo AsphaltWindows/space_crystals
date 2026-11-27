@@ -31,6 +31,7 @@ pub(crate) const EXTRACTION_FACILITY: ObjectDef = ObjectDef {
             cost: 75,    // Extraction Plate: 75 Space Crystals,
             frames: 400, // 400 frames (25 seconds)
             requires: &[],
+            supplies: 0,
         }],
         // No TechPrerequisite (`factions/gdo/structures/deployment_center.md > Constructs`: no "Requires")
         requires: &[],
@@ -62,6 +63,7 @@ mod tests {
             cost: 75,
             frames: 400,
             requires: &[],
+            supplies: 0,
         };
         assert_eq!(structure.constructs, [plate]);
     }

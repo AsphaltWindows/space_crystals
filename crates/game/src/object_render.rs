@@ -232,13 +232,14 @@ pub fn object_height(map: &Map, pos: Vec2, placement: Option<&Placement>) -> f32
 /// The layer the visuals of objects of `kind` are drawn in: a unit's above every tile-based object's
 /// ([`DrawLayer::GroundUnits`]), so that a unit is never hidden under a structure, also while it crosses one's
 /// footprint (a unit walking out of a portal's energy doorway, slice M3-D2), and (M5-H1) an air unit's above every
-/// ground unit's ([`DrawLayer::Air`], [`flight`]); structures and map resources y-sorted among themselves
-/// ([`DrawLayer::GroundObjects`]), a plate over the patch it covers (`structures`).
+/// ground unit's ([`DrawLayer::Air`], [`flight`]); structures, map resources and (M6-GK) mines y-sorted among
+/// themselves ([`DrawLayer::GroundObjects`]), a plate over the patch it covers (`structures`), a unit over the mine it
+/// drives over.
 pub fn draw_layer(kind: ObjectKind) -> DrawLayer {
     match kind.def().category {
         Category::Unit if flies(kind) => DrawLayer::Air,
         Category::Unit => DrawLayer::GroundUnits,
-        Category::Structure | Category::Resource => DrawLayer::GroundObjects,
+        Category::Structure | Category::Resource | Category::Mine => DrawLayer::GroundObjects,
     }
 }
 

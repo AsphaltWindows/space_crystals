@@ -5,10 +5,12 @@
 use super::*;
 
 /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104): a
-/// selected Deployment Center shows Q Basic Construction, and W Advanced Construction unavailable while none of its
-/// buildings is in the game. Q, or a click on its button, opens BuildMenu[Basic]: Q Generator, W Barracks, E Extraction
-/// Facility, S Arsenal (slice M5-K) and D Career Campus (slice M5-N9; both greyed: "Requires a Barracks"), the other
-/// slots hidden, and Z Back. Back
+/// selected Deployment Center shows Q Basic Construction and W Advanced Construction. W opens BuildMenu[Advanced],
+/// whose five buildings hold their slots greyed, none constructed yet (slice M6-GK): Q Factory, W Advanced Mechanics, E
+/// Airfield, R Propulsion Labs and A Industrial Powerplant; pressing one sends nothing and says "Not available yet".
+/// Q, or a click on its button, opens BuildMenu[Basic]: Q Generator, W Barracks, E Extraction Facility, S Arsenal
+/// (slice M5-K) and D Career Campus (slice M5-N9; both greyed: "Requires a Barracks"), R Supply Tower, A Radar Station
+/// and F Defense System greyed as not constructed yet (slice M6-GK), and Z Back. Back
 /// and Esc return to DefaultState (`factions/gdo/structures/deployment_center.md > BuildMenu (instance idle)`:
 /// "Escape: returns to DefaultState (StateOnlyTransition). Right-click does its normal right-click and the menu stays
 /// open", design change 0400): a right-click on the ground does the Deployment Center's, nothing, and the menu stays
@@ -27,27 +29,44 @@ fn the_deployment_center_opens_its_basic_build_menu() {
         buttons(&mut app),
         [
             (q(), c(Menu(BuildMenu::Basic)), Common, "Basic"),
-            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Adv."),
+            (w(), c(Menu(BuildMenu::Advanced)), Common, "Adv."),
         ]
     );
     tap(&mut app, &[], KeyW);
+    assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Advanced));
+    let planned = |planned| c(PanelCommand::Planned(planned));
     assert_eq!(
-        interface(&app),
-        InterfaceState::DefaultState,
-        "nothing to build in it yet"
+        buttons(&mut app),
+        [
+            (q(), planned(Planned::Factory), Unavailable, "FY"),
+            (w(), planned(Planned::AdvancedMechanics), Unavailable, "AM"),
+            (e(), planned(Planned::Airfield), Unavailable, "AD"),
+            (r(), planned(Planned::PropulsionLabs), Unavailable, "PL"),
+            (a(), planned(Planned::IndustrialPowerplant), Unavailable, "IP"),
+            (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
+        ]
     );
+    tap(&mut app, &[], KeyQ);
+    assert_eq!(constructions(&app), [], "not constructed yet");
+    assert_eq!(feedback(&app), Some(NOT_YET_TEXT));
+    tap(&mut app, &[], KeyZ);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
 
     let menu = InterfaceState::BuildMenu(BuildMenu::Basic);
     tap(&mut app, &[], KeyQ);
     assert_eq!(interface(&app), menu);
+    let [supply_tower, radar_station, defense_system] = not_yet_basic();
     assert_eq!(
         buttons(&mut app),
         [
             (q(), c(Construct(GENERATOR)), Common, "GN"),
             (w(), c(Construct(BARRACKS_KIND)), Common, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Common, "EF"),
+            supply_tower,
+            radar_station,
             (s(), c(Construct(ARSENAL)), Disabled, "AL"),
             (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
+            defense_system,
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
         ]
     );
@@ -106,7 +125,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
 /// construction and its progress (design change 0105).
 #[test]
 fn a_construction_is_cancelled_with_a_full_refund() {
-    use ButtonLook::{Back, Common, Disabled, Unavailable};
+    use ButtonLook::{Back, Common, Disabled};
     use PanelCommand::{BuildMenu as Menu, CancelConstruction, Construct, Place};
     let mut app = construction_game(1000);
     select(&mut app, DC);
@@ -122,7 +141,7 @@ fn a_construction_is_cancelled_with_a_full_refund() {
         buttons(&mut app),
         [
             (q(), c(Menu(BuildMenu::Basic)), Common, "Basic"),
-            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Adv."),
+            (w(), c(Menu(BuildMenu::Advanced)), Common, "Adv."),
             (e(), c(Place(GENERATOR)), Disabled, "GN"),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]
@@ -142,14 +161,18 @@ fn a_construction_is_cancelled_with_a_full_refund() {
     tap(&mut app, &[], KeyW);
     assert_eq!(bank(&app), 800, "a Barracks");
     tap(&mut app, &[], KeyQ);
+    let [supply_tower, radar_station, defense_system] = not_yet_basic();
     assert_eq!(
         buttons(&mut app),
         [
             (q(), c(Construct(GENERATOR)), Disabled, "GN"),
             (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
+            supply_tower,
+            radar_station,
             (s(), c(Construct(ARSENAL)), Disabled, "AL"),
             (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
+            defense_system,
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]

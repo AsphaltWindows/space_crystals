@@ -944,7 +944,10 @@ on a unit's whole push in a tick). The pairs come from the movement's spatial gr
 the cell of its centre), taken in id order; the pushes are summed from where the moves left the units and applied
 together, so no push depends on another's, and nothing blocks them. Two units on one point part along the x axis.
 A Glider may be pushed past the edge; a HoverCraft is clamped onto the map by its half extents (design change 0045).
-A push is no part of the unit's own move: its velocity and momentum stay its movement's, and a unit at rest stays
+**(M6-GK)** So is a HoverCraft's own move (`movement::step`), the edge stopping it as an obstacle does (design change
+0035: the blocked part dropped, no momentum left); its straight path ends where its box lies on the map
+(`paths::serve`), so that sent to a corner or an edge it lands there and arrives; and the gate puts it only there
+(`Sim::check_unit_fits`, Blocked, as a ground unit's box off the map): all by `Map::clamp_box`. A push is no part of the unit's own move: its velocity and momentum stay its movement's, and a unit at rest stays
 at rest. Units spawned in this tick are pushed against but not pushed. Six Sparrows sent to one point came within
 1 % of 32 su of each other within 10 s and within 0.001 su from 20 s: a soft push leaves a pair at the radius, and
 each tick's flight may bring it a hair nearer before the next. **(M5-H2)** Design change 0405 ("**Gliders push
@@ -1228,7 +1231,9 @@ among Peacekeepers, Recruits and Guards.
     IdleSpeed and its MaxSpeed, its velocity its momentum (its own flight; the push comes on top), and its
     `Object::map_pos` is on the map. One stopped after its flight in the tick (its Attack's target died in 5e) shows
     no move, Stationary, without a goal or a circle, and keeps its speed. A test breaks each rule on purpose.
-  - **I2** is unchanged: it holds for ground boxes, and an air unit has none.
+  - **I2** is unchanged: it holds for ground boxes, and an air unit has none. **(M6-GK)** The seed sweep
+    (`tests/robustness.rs`) checks beside it that a HoverCraft's box lies on the map (`systems/units.md > Air
+    Collision > Map edge`: "HoverCraft stay inside the map").
   **(M5-V2)** **W1**: a FixedTurnRadiusMovement unit turns in a tick by at most `(|momentum| + a) / MinimumTurnRadius`,
   `momentum` what it carried into the tick and `a` the largest of its accelerations and Deceleration: never in place
   (`testing/invariants/momentum.rs`; 6.11). I3's bound for it is its ForwardMaxSpeed.

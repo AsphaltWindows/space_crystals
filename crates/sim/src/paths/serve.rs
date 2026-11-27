@@ -218,13 +218,23 @@ pub(crate) fn serve(
                 // Without a grid of its class the request fails on any set (`PathFail::NoGrid`).
                 on.push(plan.map_or(0, |(index, _)| index));
             }
-            None => direct.push((
-                o.id,
-                Direct::Straight {
-                    path: vec![o.pos, goal],
-                    goal,
-                },
-            )),
+            // (M6-GK) A HoverCraft's path ends at the nearest point at which its box lies on the map (`Map::clamp_box`),
+            // as a ground unit's ends at the nearest point it can reach: its own move is held there
+            // (`movement::step`; `systems/units.md > Air Collision > Map edge`: "HoverCraft stay inside the map"), so it
+            // lands on that end and arrives. A Glider may fly past the edge.
+            None => {
+                let end = match unit.glides() {
+                    true => goal,
+                    false => map.clamp_box(goal, silhouette / 2.0),
+                };
+                direct.push((
+                    o.id,
+                    Direct::Straight {
+                        path: vec![o.pos, end],
+                        goal,
+                    },
+                ))
+            }
         }
     }
 

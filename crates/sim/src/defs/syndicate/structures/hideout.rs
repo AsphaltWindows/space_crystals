@@ -46,6 +46,7 @@ pub(crate) const HIDEOUT: ObjectDef = ObjectDef {
                     cost: 100,   // "Agent: 100 Space Crystals"
                     frames: 240, // "240 frames (15 seconds)"
                     requires: &[],
+                    supplies: 0,
                 },
                 Recipe {
                     kind: ObjectKind::Guard,
@@ -53,6 +54,7 @@ pub(crate) const HIDEOUT: ObjectDef = ObjectDef {
                     frames: 120, // "120 frames (7.5 seconds)"
                     // "Unit Prerequisite: player owns at least one Optics Lab"
                     requires: &[ObjectKind::OpticsLab],
+                    supplies: 0,
                 },
                 Recipe {
                     kind: ObjectKind::Grenadier,
@@ -62,6 +64,7 @@ pub(crate) const HIDEOUT: ObjectDef = ObjectDef {
                     frames: 160,
                     // "Unit Prerequisite: player owns at least one Chemical Plant"
                     requires: &[ObjectKind::ChemicalPlant],
+                    supplies: 0,
                 },
             ],
             recruitment: None,

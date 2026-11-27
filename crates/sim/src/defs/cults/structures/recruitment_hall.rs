@@ -47,6 +47,7 @@ pub(crate) const RECRUITMENT_HALL: ObjectDef = ObjectDef {
                 cost: 0,     // "at no resource cost"
                 frames: 192, // BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit, at 100% effectiveness
                 requires: &[],
+                supplies: 0,
             }],
             recruitment: Some(RecruitmentDef {
                 area: 10,     // RecruitmentArea: "A 10x10 grid unit area centered on the 4x4 building"

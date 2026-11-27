@@ -62,6 +62,7 @@ pub(crate) const CHOP_SHOP: ObjectDef = ObjectDef {
                     cost: 75,
                     frames: 320,
                     requires: &[],
+                    supplies: 0,
                 },
                 // (M5-N10) "**W: Build Hand of Heaven**" (design change 0444, answering Q0174), "missile platform; 3
                 // Recruits": its 3 Recruits are its Unit Control cost, as the Seeker's are
@@ -73,6 +74,7 @@ pub(crate) const CHOP_SHOP: ObjectDef = ObjectDef {
                     cost: 150,
                     frames: 480,
                     requires: &[],
+                    supplies: 0,
                 },
                 // (M5-N11) `factions/cults/units/prayer_mobile.md > Placeholder stats`: "Cost: Chop Shop, 2 Recruits,
                 // **125 Space Crystals, 400 frames (25 s)**; requires a Temple" ("**E: Build Prayer-mobile** (greyed
@@ -84,6 +86,7 @@ pub(crate) const CHOP_SHOP: ObjectDef = ObjectDef {
                     cost: 125,
                     frames: 400,
                     requires: &[ObjectKind::Temple],
+                    supplies: 0,
                 },
             ],
             recruitment: None,
@@ -160,19 +163,22 @@ mod tests {
                     kind: ObjectKind::Seeker,
                     cost: 75,
                     frames: 320,
-                    requires: &[]
+                    requires: &[],
+                    supplies: 0,
                 },
                 Recipe {
                     kind: ObjectKind::HandOfHeaven,
                     cost: 150,
                     frames: 480,
-                    requires: &[]
+                    requires: &[],
+                    supplies: 0,
                 },
                 Recipe {
                     kind: ObjectKind::PrayerMobile,
                     cost: 125,
                     frames: 400,
-                    requires: &[ObjectKind::Temple]
+                    requires: &[ObjectKind::Temple],
+                    supplies: 0,
                 }
             ]
         );

@@ -35,18 +35,21 @@ pub(crate) const BEACON: ObjectDef = ObjectDef {
                 cost: 75,    // Egress Node | 75 Space Crystals |
                 frames: 320, // 320 frames (20 seconds)
                 requires: &[],
+                supplies: 0,
             },
             Recipe {
                 kind: ObjectKind::RoboPortal,
                 cost: 250, // Robo Portal | 250 Space Crystals (was 400; user, 2026-11-24) | (design change 0167)
                 frames: 640, // 640 frames (40 seconds)
                 requires: &[],
+                supplies: 0,
             },
             Recipe {
                 kind: ObjectKind::BioPortal,
                 cost: 150,   // Bio Portal | 150 Space Crystals |
                 frames: 480, // 480 frames (30 seconds)
                 requires: &[],
+                supplies: 0,
             },
         ],
         // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
@@ -80,6 +83,7 @@ mod tests {
             cost,
             frames,
             requires: &[],
+            supplies: 0,
         };
         assert_eq!(
             structure.warp_in,

@@ -142,6 +142,13 @@ pub struct Recipe {
     /// (`StructureDef::requires`), which holds wherever it is built. Empty for none.
     #[serde(deserialize_with = "crate::defs::leak::slice")]
     pub requires: &'static [ObjectKind],
+    /// (M6-GK) Supplies, on top of the Space Crystals (`factions/gdo/overview.md > Supplies`, design changes 0435 and
+    /// 0441: "Supply costs (first set)", "Paid with the Space Crystals at the moment of queueing (the order needs
+    /// enough of both), and refunded with them on cancel"). 0 for none: every recipe in the game yet. The GDO's units
+    /// that cost Supplies aren't produced yet, their recipes held until their slices make them live; slice M6-GD builds
+    /// the second cost in the production gate, and slice M6-GS charges the Field Engineer's 1, with the GDO's first
+    /// Supply (design change 0436).
+    pub supplies: u32,
 }
 
 /// (M5-N1b) One of the orders an Altar takes (`ProductionDef::augment`; `factions/cults/augmentation.md > Altar >

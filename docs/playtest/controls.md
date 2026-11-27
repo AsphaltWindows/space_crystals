@@ -193,6 +193,116 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | D | AtkGnd | Attack Ground | click a target; Shift queues |
 | X | Stop | Stop | Shift queues |
 
+#### Raptor (RR)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues |
+| E | Hold | Hold Position | Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| D | AtkGnd | Attack Ground | click a target; Shift queues; greyed: "Not available for this unit" |
+| X | Stop | Stop | Shift queues |
+
+#### Twister (TR)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues |
+| E | Hold | Hold Position | Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| D | AtkGnd | Attack Ground | click a target; Shift queues; greyed: "Not available for this unit" |
+| X | Stop | Stop | Shift queues |
+
+#### Prospector (PR)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues |
+| E | Hold | Hold Position | Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
+#### Artillery Rig (ARG)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues |
+| E | Hold | Hold Position | Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
+#### Artillery Rig (Deployed) (ARD)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues |
+| E | Hold | Hold Position | Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| D | AtkGnd | Attack Ground | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
+#### Hornet (HT)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
+| E | Hold | Hold Position | Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| D | AtkGnd | Attack Ground | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
+#### Dragonfly (DY)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
+| E | Hold | Hold Position | Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| D | AtkGnd | Attack Ground | click a target; Shift queues; greyed: "Not available for this unit" |
+| X | Stop | Stop | Shift queues |
+
+#### Drone Operator (DO)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
+| E | Hold | Hold Position | Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
+#### Drone (DRN)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
+| E | Hold | Hold Position | Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
+#### Supply Chopper (SCR)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
+| E | Hold | Hold Position | Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
 ### Buildings
 
 #### Deployment Center (DC)
@@ -203,9 +313,17 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q → Q | GN | Build Generator |  |
 | Q → W | BR | Build Barracks |  |
 | Q → E | EF | Build Extraction Facility |  |
+| Q → R | SPT | Build Supply Tower | greyed: "Not available yet" |
+| Q → A | RS | Build Radar Station | greyed: "Not available yet" |
 | Q → S | AL | Build Arsenal | Requires a Barracks |
 | Q → D | CC | Build Career Campus | Requires a Barracks |
-| W | Adv. | Advanced Construction | greyed: "Not available yet" |
+| Q → F | DS | Build Defense System | greyed: "Not available yet" |
+| W | Adv. | Advanced Construction | opens a menu |
+| W → Q | FY | Build Factory | greyed: "Not available yet" |
+| W → W | AM | Build Advanced Mechanics | greyed: "Not available yet" |
+| W → E | AD | Build Airfield | greyed: "Not available yet" |
+| W → R | PL | Build Propulsion Labs | greyed: "Not available yet" |
+| W → A | IP | Build Industrial Powerplant | greyed: "Not available yet" |
 
 **While it builds:** E Place the building (greyed: "Still under construction"), X Cancel Construction.
 
@@ -233,7 +351,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 
 **Once the building is ready:** Q Place the building, X Cancel Ready Plate.
 
-No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL).
+No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL), Factory (FY), Airfield (AD), Advanced Mechanics (AM), Propulsion Labs (PL), Industrial Powerplant (IP), Radar Station (RS), Defense System (DS), Missile Turret (MTT), Outpost (OT), Bunker (BKR), First Aid Tent (FAT), Supply Tower (SPT), Mine (ME).
 
 ## Syndicate
 

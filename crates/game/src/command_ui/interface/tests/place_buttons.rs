@@ -36,7 +36,7 @@ fn constructing(kind: ObjectKind, frames: u32) -> Constructor {
 /// stays").
 #[test]
 fn the_deployment_centers_e_shows_its_construction_then_places_it() {
-    use ButtonLook::{Common, Disabled, Unavailable};
+    use ButtonLook::{Common, Disabled};
     use PanelCommand::{BuildMenu as Menu, CancelConstruction, CancelReady, Place, PlaceReady};
     let dc = Selection::new([(id(1), DC)]);
     let command = PanelButton::Command;
@@ -49,7 +49,7 @@ fn the_deployment_centers_e_shows_its_construction_then_places_it() {
         shown(&building),
         [
             (q, command(Menu(BuildMenu::Basic)), Common),
-            (w, command(Menu(BuildMenu::Advanced)), Unavailable),
+            (w, command(Menu(BuildMenu::Advanced)), Common),
             (e, command(Place(GENERATOR)), Disabled),
             (x, command(CancelConstruction), Common),
         ]

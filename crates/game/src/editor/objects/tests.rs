@@ -253,4 +253,7 @@ fn the_palette_lists_every_object_type_once() {
     assert_eq!(sorted.len(), listed.len(), "no type twice");
     assert_eq!(sorted.len(), ObjectKind::ALL.len(), "every type");
     assert_eq!(groups[0].title, "Resources");
+    // (M6-GK) The GDO's mine, of a category of its own (design change 0426), in a group of its own.
+    let mines = groups.iter().find(|g| g.title == "GDO mines").expect("the GDO's mines");
+    assert_eq!(mines.kinds, [ObjectKind::Mine]);
 }

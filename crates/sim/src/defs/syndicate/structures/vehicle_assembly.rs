@@ -72,6 +72,7 @@ pub(crate) const ASSAULT_BIKE_RECIPE: Recipe = Recipe {
     cost: 125,
     frames: 240,
     requires: &[],
+    supplies: 0,
 };
 
 /// W: the Shadebringer, behind a Vault, for slice M6-SB.
@@ -81,6 +82,7 @@ pub(crate) const SHADEBRINGER_RECIPE: Recipe = Recipe {
     cost: 150,
     frames: 320,
     requires: &[ObjectKind::Vault],
+    supplies: 0,
 };
 
 /// E: the Laser Battery, behind an Optics Lab, for slice M6-SL.
@@ -90,6 +92,7 @@ pub(crate) const LASER_BATTERY_RECIPE: Recipe = Recipe {
     cost: 200,
     frames: 400,
     requires: &[ObjectKind::OpticsLab],
+    supplies: 0,
 };
 
 /// R: the Subterranean Transport, behind a Forge, for slice M6-ST1.
@@ -99,6 +102,7 @@ pub(crate) const SUBTERRANEAN_TRANSPORT_RECIPE: Recipe = Recipe {
     cost: 200,
     frames: 400,
     requires: &[ObjectKind::Forge],
+    supplies: 0,
 };
 
 #[cfg(test)]

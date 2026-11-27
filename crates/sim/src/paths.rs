@@ -367,7 +367,8 @@ pub(crate) fn blocking_footprint(kind: ObjectKind, placement: &Placement, rules:
         }
         Category::Structure => BlockerKind::Structure,
         Category::Resource => BlockerKind::Resource,
-        Category::Unit => return None,
+        // Neither a unit's nor (M6-GK) a mine's: a Silhouette, never placed on tiles.
+        Category::Unit | Category::Mine => return None,
     };
     rules
         .footprint_blocks(blocker)

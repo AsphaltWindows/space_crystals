@@ -40,6 +40,7 @@ pub use cults::augmentation::{AugmentationTable, IncrementEffects};
 pub use cults::research::{ResearchLine, Tech, TechDef, Techs};
 pub use cults::{CONSTRUCT_MENU, ConstructEntry, ConstructMenu, ConstructSlot, CultsRules};
 pub use gdo::GdoRules;
+pub use gdo::PLANNED_RECIPES;
 pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
 pub use map::crystal_patch::DEFAULT_STARTING_AMOUNT;
 pub use map::supply_delivery_station::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_SUPPLIES};
@@ -213,6 +214,54 @@ kind_registry! {
     Arsenal => gdo::structures::arsenal::ARSENAL,
     /// `factions/gdo/units/rocketman.md`
     Rocketman => gdo::units::rocketman::ROCKETMAN,
+    /// `factions/gdo/structures/factory.md` (slice M6-GK: the GDO's other kinds, design change 0366's, its buildings
+    /// first; plan decision T84)
+    Factory => gdo::structures::factory::FACTORY,
+    /// `factions/gdo/structures/airfield.md`
+    Airfield => gdo::structures::airfield::AIRFIELD,
+    /// `factions/gdo/structures/advanced_mechanics.md`
+    AdvancedMechanics => gdo::structures::advanced_mechanics::ADVANCED_MECHANICS,
+    /// `factions/gdo/structures/propulsion_labs.md`
+    PropulsionLabs => gdo::structures::propulsion_labs::PROPULSION_LABS,
+    /// `factions/gdo/structures/industrial_powerplant.md`
+    IndustrialPowerplant => gdo::structures::industrial_powerplant::INDUSTRIAL_POWERPLANT,
+    /// `factions/gdo/structures/radar_station.md`
+    RadarStation => gdo::structures::radar_station::RADAR_STATION,
+    /// `factions/gdo/structures/defense_system.md`
+    DefenseSystem => gdo::structures::defense_system::DEFENSE_SYSTEM,
+    /// `factions/gdo/structures/missile_turret.md`
+    MissileTurret => gdo::structures::missile_turret::MISSILE_TURRET,
+    /// `factions/gdo/structures/outpost.md`
+    Outpost => gdo::structures::outpost::OUTPOST,
+    /// `factions/gdo/structures/bunker.md`
+    Bunker => gdo::structures::bunker::BUNKER,
+    /// `factions/gdo/structures/first_aid_tent.md`
+    FirstAidTent => gdo::structures::first_aid_tent::FIRST_AID_TENT,
+    /// `factions/gdo/economy.md > SupplyTower`
+    SupplyTower => gdo::structures::supply_tower::SUPPLY_TOWER,
+    /// `factions/gdo/units/raptor.md`
+    Raptor => gdo::units::raptor::RAPTOR,
+    /// `factions/gdo/units/twister.md`
+    Twister => gdo::units::twister::TWISTER,
+    /// `factions/gdo/units/prospector.md`
+    Prospector => gdo::units::prospector::PROSPECTOR,
+    /// `factions/gdo/units/artillery_rig.md`
+    ArtilleryRig => gdo::units::artillery_rig::ARTILLERY_RIG,
+    /// `factions/gdo/units/artillery_rig.md > Modes`: the Rig deployed, a type of its own
+    ArtilleryRigDeployed => gdo::units::artillery_rig::ARTILLERY_RIG_DEPLOYED,
+    /// `factions/gdo/units/hornet.md`
+    Hornet => gdo::units::hornet::HORNET,
+    /// `factions/gdo/units/dragonfly.md`
+    Dragonfly => gdo::units::dragonfly::DRAGONFLY,
+    /// `factions/gdo/units/drone_operator.md`
+    DroneOperator => gdo::units::drone_operator::DRONE_OPERATOR,
+    /// `factions/gdo/units/drone_operator.md > Placeholder stats`: the operator's drone, shown as "Drone" (the
+    /// Colonists' [`ObjectKind::Drone`] is another kind)
+    OperatorDrone => gdo::units::drone_operator::OPERATOR_DRONE,
+    /// `factions/gdo/units/supply_chopper.md`
+    SupplyChopper => gdo::units::supply_chopper::SUPPLY_CHOPPER,
+    /// `factions/gdo/units/twister.md > Mines`: what a Twister lays (design change 0426)
+    Mine => gdo::mine::MINE,
     /// `factions/syndicate/structures/vault.md` (slice M6-SK, plan decision T84: design change 0367's kinds, the
     /// expansions in the order of `factions/syndicate/structures/README.md > Tech Tree Overview`, then the units in that
     /// of `factions/syndicate/units/README.md > Files`, a unit's second type after its first)
@@ -274,6 +323,10 @@ pub enum Category {
     Structure,
     /// `core/map.md > Resource`: indestructible, unowned, no vision.
     Resource,
+    /// (M6-GK) `factions/gdo/units/twister.md > Mines`: "**closer to a permanently deployed unit** than to a structure.
+    /// It is **not a structure**" (design change 0426), a category of its own (plan decision T90): a Silhouette, and
+    /// neither unit nor structure attributes. The GDO's mine (`ObjectKind::Mine`) only.
+    Mine,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]

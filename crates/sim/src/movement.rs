@@ -64,7 +64,7 @@ use glam::Vec2;
 
 use crate::augmentation::Research;
 use crate::combat;
-use crate::defs::MovementAttrs;
+use crate::defs::{Domain, MovementAttrs};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
@@ -357,6 +357,24 @@ pub(crate) fn step(
                 tick,
             )
         };
+        // (M6-GK) A HoverCraft stays on the map (`systems/units.md > Air Collision > Map edge`: "HoverCraft stay inside
+        // the map"; design change 0045: "Movement bounds: clamp HoverCraft to the map"): its own move is held where its
+        // box lies on the map (`Map::clamp_box`), as the push of the soft separation is ([`air`]). The edge stops it as
+        // an obstacle does (design change 0035): the blocked part of the move is dropped, and no momentum is left. Its
+        // path ends where its box lies on the map (`paths::serve`), so it lands there and arrives. A Glider may fly past
+        // the edge (`glider`).
+        if base.domain == Domain::Air && !unit.glides() {
+            let on_map = map.clamp_box(o.pos, half);
+            if on_map != o.pos {
+                o.pos = on_map;
+                let mover = o.mover.as_mut().expect("units have movers");
+                mover.velocity = on_map - from;
+                mover.momentum = Vec2::ZERO;
+                if mover.velocity == Vec2::ZERO {
+                    mover.locomotion = Locomotion::Stationary;
+                }
+            }
+        }
         // (M5-V1) A turn its tick made outside `World::turn` (DragMovement's, a portal's doorway) is tried where the
         // unit now stands, and cut at contact as every turn of a Silhouette that turns is: it never ends up
         // overlapping, and a cut turn loses the unit its speed (`systems/units.md > UnitCollision > Collision

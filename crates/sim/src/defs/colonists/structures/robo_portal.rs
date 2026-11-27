@@ -37,6 +37,7 @@ pub(crate) const ROBO_PORTAL: ObjectDef = ObjectDef {
                 cost: 50,
                 frames: 160,
                 requires: &[],
+                supplies: 0,
             }],
             recruitment: None,
             augment: &[],
@@ -79,6 +80,7 @@ mod tests {
                     cost: 50,
                     frames: 160,
                     requires: &[],
+                    supplies: 0,
                 }][..]
             )
         );

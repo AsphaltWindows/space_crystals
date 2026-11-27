@@ -95,6 +95,7 @@ mod gathering_pass_through;
 #[path = "gathering_rules/main.rs"]
 mod gathering_rules;
 mod gathering_soak;
+mod gdo_kinds;
 #[path = "golden/main.rs"]
 mod golden;
 mod grenadier;

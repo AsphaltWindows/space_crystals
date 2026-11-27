@@ -1,7 +1,9 @@
 //! The Field Engineer — `factions/gdo/units/field_engineer.md` (design change 0328, slice M5-N9): GDO infantry,
 //! trained at the Barracks once its owner has a Career Campus (`factions/gdo/structures/barracks.md > Produces`), that
 //! repairs its owner's buildings and vehicles for Space Crystals through the repairers' one mechanism
-//! (`crate::repair`), and carries no weapon. Its Bunker and First Aid Tent aren't designed yet, so it builds nothing.
+//! (`crate::repair`), and carries no weapon. Its Bunker and First Aid Tent are registered (slice M6-GK), their
+//! recipes held in `crate::defs::PLANNED_RECIPES` until the slice that makes their sites, so it builds nothing yet
+//! (plan decision T69).
 
 use crate::defs::units::{MovementAttrs, RepairDef, RepairTargets, UnitBase, UnitDef};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
