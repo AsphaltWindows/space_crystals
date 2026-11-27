@@ -28,6 +28,7 @@ When visible, commands available to all objects in the Selection are visually di
 - Units that can attack carry it out: Attack on a target, or Attack Move on ground.
 - Units that can't attack (e.g. a Prayer-mobile, Shadebringer, Disciple or Drone) treat an Attack or an Attack Move as a **Move** (user, 2026-11-27): on ground they move to the spot (with the group, as for Attack Move); on a target they move to it (as a Move on that object).
 - So an attack-move with casters in the army brings the casters along.
+- **Units that can't attack this target** (user, 2026-11-27; Q0186): a unit whose weapon can't hit the clicked target's domain (e.g. an anti-air Twister on a ground unit or structure, Peacekeepers on a Sparrow) is treated like a unit that can't attack: it **moves to the target (follows it) with the group**. If **no** selected unit can attack the target, the click is an **invalid target** (AwaitingTarget > Invalid target clicks): ignored, with feedback, and the Attack still awaits a target.
 
 **Pressing an unavailable command** (user, 2026-11-24): a greyed-out command (e.g. Train with too few Space Crystals, or a full queue) can still be pressed or its hotkey used; nothing is issued, and the player gets the **same feedback as when an order is refused**, naming the reason (e.g. "Not enough Space Crystals", "Queue is full"). Same channel as invalid target clicks (AwaitingTarget > Invalid target clicks; exact form TBD with the notification system).
 
