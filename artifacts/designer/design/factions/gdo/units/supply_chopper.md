@@ -25,6 +25,7 @@ A Supply Chopper carries one of the following at a time:
 ## Silhouette - 60x60 space units (square)
 ## SeparationRadius - 68 space units (designer placeholder, 2026-11-27; Q0181: Silhouette side + 8 su)
 ## MaxHP - 150
+## UnitControlCost - 2 (designer placeholder, 2026-11-27; Q0182)
 ## PointArmor - 1
 ## FullArmor - 1
 ## SightRange - 5 grid units

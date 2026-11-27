@@ -1,0 +1,1 @@
+- Q0182 parts 1–3: Chopper UC 2, Outpost Groupable true, mine sight 1 GU armour 12/12 (user) — 0457. Part 4 (Hornet missile) pending user.

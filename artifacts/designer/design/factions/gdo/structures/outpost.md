@@ -11,4 +11,4 @@ GDO expansion structure created when a Prospector deploys. Its only function is 
 Provides **only** the build radius — it does not construct anything, produce units, or act as a drop-off.
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
-- Size 3x3 (the Prospector deploys in place); SymmetryType AAAA; MaxHP 600; PointArmor 1, FullArmor 9; SightRange 6 grid units; **BuildRadiusExtension 6 grid units**; Power −10.
+- Size 3x3 (the Prospector deploys in place); SymmetryType AAAA; MaxHP 600; PointArmor 1, FullArmor 9; SightRange 6 grid units; **Groupable true** (designer placeholder, 2026-11-27; Q0182: it has no commands, so it makes no difference yet); **BuildRadiusExtension 6 grid units**; Power −10.
