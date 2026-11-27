@@ -6,7 +6,7 @@
 ## UnitBase - DrillUnit (confirmed, Q0071; exits only through Tier 2+ Tunnels like other vehicles)
 ## Produced at - Vehicle Assembly
 ## TechPrerequisite - player owns at least one **Forge** (user, 2026-11-25)
-## AttackAttributes - none (confirmed, Q0071)
+## AttackAttributes - none (confirmed, Q0071). **Passengers don't fire out** (user, 2026-11-26; Q0166): they are carried, not fighting.
 
 ## Above-ground mode
 - When built, it **drives out of the Tunnel in its above-ground mode**, behaving as a tracked vehicle. Above ground it **crushes** enemy Light Infantry like any tracked vehicle (user, 2026-11-26; Q0153; systems/units.md > UnitCollision > Crushing); underground it crushes nothing.
@@ -29,6 +29,8 @@ Brings it back to its above-ground mode. **It can't surface on top of a building
 
 ## Entering the Tunnel Network loaded
 (user, 2026-11-25) It **can drive into a Tunnel with infantry inside**; they travel along inside it and stay aboard. Inside the network the passengers are **still locked inside the transport**: they only come out when the transport unloads (on the surface), and can't be ejected from a Tunnel on their own. **They always keep counting against the Tunnel Space cap** (user, 2026-11-25; Q0071: Tunnel Space is an army limit, factions/syndicate/tunnel_area_and_space.md > Tunnel Space > Production and Tunnel Space), aboard or not, inside the network or on the surface.
+- **Passengers aren't in the network themselves** (user, 2026-11-26; Q0166; confirms the assumption): only the Transport regenerates and takes a Null Chamber turn; its passengers don't regenerate and come out **unbuffed** when it unloads.
+- **An Enter order while burrowed surfaces it by itself** (user, 2026-11-26; Q0166): right-clicking an own Tunnel (or Enter) with a burrowed Transport makes it **surface** (48 frames, where it is, by the Surface rules) and then **drive in** through Side A like any vehicle. It never enters from below.
 
 ## Destroyed with passengers
 (user, 2026-11-25) If it is destroyed, **all infantry inside die** with it (above ground or underground).

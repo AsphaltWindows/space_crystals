@@ -2394,3 +2394,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0163 (user): Field Engineer builds inside alone like an Agent, comes out on completion, 75% cancel refund, Ungroupable (0429).
 - Q0164 (user: 1b, 2a, 3a): Bunker drops shield; Tent heals only units on map, only once complete (0430).
 - Q0165 answered from docs + placeholder: Phantom 16 f descend/rise, air target (0431).
+- Q0166 (user: 1a, 2a, 3c): Transport rules (0432).
