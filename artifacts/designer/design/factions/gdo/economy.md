@@ -8,7 +8,7 @@ The GDO player starts with:
 - One pre-built **Extraction Facility**
 - Two **Extraction Plates** already placed on Space Crystals patches near the starting base (which patches: set in the map's GDO Starting Layout)
 
-Starting resources: **100 Space Crystals**. Starting Supplies: **0** (placeholder; revisit when GDO Supply costs are designed, user 2026-11-24). Starting power: +30 (Deployment Center) − 15 (Extraction Facility) − 6 (two plates) = **+9**. Exact placement of the starting structures and plates relative to the player's start location is defined by the map's start position.
+Starting resources: **100 Space Crystals**. Starting Supplies: **1** (user, 2026-11-26; Q0169 follow-up: enough for one Field Engineer; was 0). Starting power: +30 (Deployment Center) − 15 (Extraction Facility) − 6 (two plates) = **+9**. Exact placement of the starting structures and plates relative to the player's start location is defined by the map's start position.
 
 ### Opening Economy Baseline
 GDO's early game is bounded by two build queues that should not sit idle: the Deployment Center (buildings) and the Extraction Facility (Extraction Plates, i.e. economy growth). Design goals for the opening:
