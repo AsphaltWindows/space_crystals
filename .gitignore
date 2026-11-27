@@ -8,3 +8,6 @@ artifacts/*/state/.notified_*
 
 # Recorded games (crates/game/src/replay)
 replays/
+
+# A playtest's data directory (`cargo run -- --export-data tuning`, docs/tuning.md)
+/tuning/
