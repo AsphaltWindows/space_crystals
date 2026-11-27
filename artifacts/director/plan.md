@@ -2406,10 +2406,23 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - With the tunables read once before each hot loop, the Director's A/B (5 interleaved rounds on one P-core against `30a50ae5`, load 2.3–3.8) gives: movement 0.589 against 0.578 ms (+1.8%; +1.1% without A's first round), recruits +2.0%, drones +0.6%, and air, vehicles, nav and structures within ±0.8%.
   - **The placeholders list** is regenerated: 215 → 226 marks, the 11 new ones N11's.
   - 2750 tests passed, 62 ignored. The 23 goldens are unchanged, the seed sweep passes, and the computer players' 192 games are identical.
+- **M5-X1b SetRules: a game's rules replaced between two ticks** (Opus; merged in `a8e9f9af`, X1b's `8a82c73c` with two merges of master that add no code; T66). With X1a, **M5-X1 is done.**
+  - **`DebugCommand::SetRules(Box<Ruleset>)`,** with debug commands on only. The gate refuses with `Reject::RulesStructural(field)` (anything beyond numbers and names, by `structural_diff`), `RulesNotFinite(field)` and `RulesFull` (past 64 generations).
+  - **New rules apply as the next tick starts,** with `SimEvent::RulesChanged`, and the last SetRules of a tick wins.
+    - HP and Shields follow their new maxima with the damage kept (`transform::follow_max`, never a kill), and energy is clamped.
+    - Work under way reads the new numbers. Shots in flight and planned paths keep theirs.
+  - **Saves and replays:** optional `rules` and `next_rules` keys, omitted for the built-in rules, so no format version moves and the goldens' bytes don't change. A save whose rules differ structurally from the build's is refused on load. The state hash excludes the rules.
+  - **`tests/rules.rs`** is the sim's fourth test program, since the generation is process-global. Its 5 tests run one at a time.
+  - **Perf,** by `perf stat` (user-space instructions and cycles, ABBA, 6 rounds on one core), since timing was unusable at load 3–11:
+    - X1b against X1a: instructions 0.998–1.009, cycles −1.5 to +1.3%;
+    - all of X1 against `30a50ae5`: cycles +0.5 to +2.3% (movement +2.3%, drones +2.0%, nav −1.2%), the cost of reading every number through `rules()`.
+  - **Not range-checked:** a zero or negative number where the code divides passes the gate. X2 adds the check (its brief).
+  - **Found:** the ignored `skirmish_soak::ten_minutes_of_the_colonists_against_the_gdo` fails at `30a50ae5` too: the Colonists are wiped out by tick 9600. Mb bisects and fixes it (its brief).
+  - 2756 tests passed, 62 ignored, in 9 programs. The 23 goldens are byte-identical, the seed sweep passes, and the computer players' 192 games are identical.
 
 ## In progress
 - **Running:**
-  - **M5-X1b SetRules** (the same agent, after X1a): `DebugCommand::SetRules`, refused for a structural change (`Reject::RulesStructural`) or past 64 generations (`RulesFull`), applied as the next tick starts, with `RulesChanged`; HP that follows a new MaxHP; the generation in saves and replays; `tests/rules.rs`.
+  - **M5-X2 Data files and live tuning** (Opus; brief `scratchpad/briefs/m5x2-data-files.md`), launched at X1b's merge, on 2026-11-27, beside GK and SK.
   - **M6-GK The GDO kinds** (Opus; brief `scratchpad/briefs/m6gk-gdo-kinds.md`), launched at X1a's merge, on 2026-11-27.
     - **Its first commit is merged early** (`774dae2b`, GK's `c76c8765` with a merge of master's bookkeeping), so that SK and every later slice write `..<Struct>::NONE` from the start:
       - `defs/units.rs` split into `units/attack.rs` and `units/worker.rs`, all re-exported;
@@ -2418,10 +2431,10 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - **Conventions shared with SK** (the Director's): a deployed kind is immobile by its def (MaxSpeed and ReverseMaxSpeed 0, exempted by name in `unit_is_consistent`'s `IMMOBILE` list, T87). An air unit whose doc gives no SeparationRadius takes its Silhouette's side + 8 su (Q0181).
   - **M6-SK The Syndicate kinds** (Opus; brief `scratchpad/briefs/m6sk-syndicate-kinds.md`), beside GK. Its block goes after GK's in the registry.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** X2 after X1b, then **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
+- **Next:** **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
   - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
   - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: **GK** and **SK** (W1), then GR and GD beside Mb (W2).
-  - **The briefs:** `scratchpad/briefs/m5x2-data-files.md` gets X1b's report at launch. `m6-common.md` holds X1's shape for every M6 slice. W2's `m6gr-radar-defense.md` and `m6gd-drone-operator.md` are drafted, with 0421, 0422, 0423, 0435 and 0441 in them.
+  - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. W2's `m6gr-radar-defense.md` and `m6gd-drone-operator.md` are drafted, with 0421, 0422, 0423, 0435 and 0441 in them. Mb's brief has the soak failure to bisect.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
