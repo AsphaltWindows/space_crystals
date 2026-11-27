@@ -2620,19 +2620,43 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Goldens:** only `gdo_drones` and `syndicate_air` moved, by the drag-only braking (from tick 736 in `syndicate_air`). With the flag off both match their old blessings; both re-blessed. In `gdo_drones` the falls are unchanged.
   - **Perf** (interleaved against `1504f447`, load 2.1–2.3): air_perf over 24 rounds, a whole tick 0.0645 vs 0.0640 ms (p99 0.081 for both); drones_perf, the DragMovement path, 0.1365 vs 0.1370 ms.
   - **Integration:** fmt, clippy, the workspace tests and the seed sweep pass, and the 192 computer-player games are identical.
+- **M6-GA The Artillery Rig and the vehicle deploy model** (Opus; brief `scratchpad/briefs/m6ga-artillery-rig.md`): **merged** (`df49b7f9`, squashed from one commit and a merge of master).
+  - **The deploy model (T44, T87),** built once for GP, SL and ST2:
+    - `UnitDef::vehicle_deploy { into, frames }` (structure in the ruleset; the 48 frames are tunable) and `OrderKind::VehicleDeploy { into }` (tag 21).
+    - `step_vehicle_deploys`, right after `step_modes`, completes a switch through `change_kind`. It then checks each queued order with `vehicle_deploy::can_take`, the gate's rule, and drops the rest with `SimEvent::OrderDropped`.
+    - `Behaviour::VehicleDeploy` hashes under Behaviour tag 13. The registry now has Behaviour, Mover, Place, Held and Service rows.
+  - **While switching:** the unit neither moves nor attacks, and Stop doesn't interrupt it.
+    - The last order given is held: a Move is dropped at completion with feedback, and an Attack runs once deployed. Shift-queued orders line up behind.
+    - Another deploy is refused (`Reject::Deploying`).
+    - A type with top speed 0 refuses every order that would move it (`Reject::CannotMove`), never yields and is never pushed.
+  - **The Rig:** the Factory's R with Advanced Mechanics, 250 SC and 5 Supplies, both refunded on cancel.
+    - R Deploy, or "Undep." once deployed, 48 frames each. The progress shows on R's bar, with "Deploying: N%" in the InfoPanel.
+    - A switching unit is judged as the type it becomes, for A and the right-click. Move, Rev. and Patrol grey when every selected unit is immobile.
+  - **The shell:**
+    - inside MinRange an Attack fails with "Target too close", and auto-targeting skips such targets;
+    - it hits at range 12, and a spotter's target 11 GU off;
+    - it misses a target that walks 1.5 GU during Firing;
+    - friendly fire, and Attack Ground, but no air targets (`CannotHit`);
+    - the mobile Rig never fires, and an undeploying one fires no new shell.
+  - **Checks:** the golden `gdo_artillery` (29 goldens), with no other golden moved. The 192 computer-player rows are unchanged. Perf, an A/B against `0cf082c4`, is within noise (movement 0.836/0.835 ms).
+  - **For GP:** the site arm's place is marked in `Sim::complete_vehicle_deploy` (`sim/vehicle_deploy.rs`). `defs/tests.rs` asserts that every deploy is a two-way pair within one faction; GP relaxes that for its one-way deploy.
+  - **For SL and ST2:** a `vehicle_deploy` row on each kind of the pair is enough; `templates.rs` gives R to any type with a row.
+  - **A bug, for SL to fix:** an order Shift-queued behind a queued Undeploy is judged at the gate against the deployed type, so a Move there is refused. The Rig's doc checks each order once the switch has finished. SL's brief has the fix, tested on both pairs.
+  - **Placeholders (not in the design):** the feedback texts "Cannot move while deployed" and "Still switching modes"; the InfoPanel's "Deploying: N%" and "Undeploying: N%"; and the label "Undep." (labels have six characters).
+  - **As the doc reads, so no question:** an order given while undeploying is held, and dropped at completion if the mobile type can't carry it out (D stays lit meanwhile). A deployed Rig's Attack Move is refused (`CannotMove`). An immobile unit neither backs off (0454, 0460) nor follows (0461): S6a's brief says so.
 
 ## In progress
 - **Running:**
   - **M6-CM The Disciple's Mirage, and the Shroud cloud's linger** (Opus; brief `scratchpad/briefs/m6cm-mirage.md`), launched at GF's merge, on 2026-11-27: 0448, with 0450 (Disciples don't fire from a Garrison) and 0452 (an illusion shows its parent's energy).
-  - **M6-GA The Artillery Rig and the vehicle deploy model** (Opus; brief `scratchpad/briefs/m6ga-artillery-rig.md`), launched at SD's merge, on 2026-11-27. It builds T44's deploy model once, for GP, SL and ST2 to reuse. It went ahead of S6a because three slices wait on it, and none on S6a.
   - **M6-SN The Null Chamber** (Opus; brief `scratchpad/briefs/m6sn-null-chamber.md`), launched at GH1's merge, on 2026-11-27. It heads the longest chain left: SN, then SB, then SA and SC.
+  - **M6-S6a The answer sweep: 0453, 0454, 0460, 0461 and Z4** (Opus; brief `scratchpad/briefs/m6s6a-sweep.md`), launched at GA's merge, on 2026-11-27.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** S6a; then the heads of the two-slice chains: GH2 (then GL and GS1, and GS2 after GS1 and ST1), ST1 (then ST2) and SP (then SR); SB after SN (it adds the Vault to SN's `network/services.rs`); GM; GP and SL after GA; GB; and S6b.
+- **Next:** the heads of the two-slice chains: GH2 (then GL and GS1, and GS2 after GS1 and ST1), ST1 (then ST2) and SP (then SR); SB after SN (it adds the Vault to SN's `network/services.rs`); GM; GP and SL (GA has merged); GB; and S6b.
   - **S6b, a second sweep, after SN:** 0455 (Metabolism and Inspire as percentages, and the attack-speed rule), 0456 and 0457 (the air radii, and the Chopper's and the Raptor's marks), and 0459 (vehicles drive clear of a Tunnel's exit; SN changes `sim/network/ejects.rs`, so S6b waits for it).
   - **GS splits in two** (at its brief, 2026-11-27): **GS1**, the Supply Tower, the Chopper's supply runs, the schedule and the starting Supply (0435 part 2, 0436), after GH2's landing; and **GS2**, the Chopper's unit transport (0442), after GS1 and ST1, whose carrier it reuses. The plan's "gated on D41" is settled: 0435 gave six GDO units Supply costs, so the GDO needs the loop to train them.
   - **Answers folded into unlaunched briefs** (2026-11-27): 0458, the Hornet's burst, into GH2; 0457's mine numbers and the Twister's mark into GM, the Outpost's mark into GP, and the Dragonfly's into GL; a note on the mine's armour into ST2.
   - **SN waited for SD:** SD's branch split `network.rs` (its paths are now in `network/paths.rs`), and SN's plan splits it too, for `network/services.rs`. CM took GF's slot instead, and GA SD's.
-  - **S6a, early: a sweep of 0453, 0454, 0460, 0461 and Z4,** when a slot is free (brief `scratchpad/briefs/m6s6a-sweep.md`):
+  - **S6a, a sweep of 0453, 0454, 0460, 0461 and Z4,** running (brief `scratchpad/briefs/m6s6a-sweep.md`):
     - 0453: a Stopping crusher crushes (M5-V4's trigger);
     - 0454: the MinRange back-off to MinRange + 1 GU, and repositioning when a unit can't aim. That covers Q0184's first case: the Bike, and GF's Raptor (its pin is in the brief now), reposition instead of giving up.
     - 0460: the Bike's mortar MinRange 1 GU, and Attack Ground repositions too (Q0184's other two cases), on 0454's mechanism;
@@ -2641,7 +2665,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - under `--fast`, the key or click right after a menu key is lost;
     - the two `recruit_gathering::jam` tests fail by design (0320): make them pins of the accepted jam.
   - **M5 is done:** N11 was its last content slice, and M's QA, split into **Ma** and **Mb**, is merged. The playtest build is at Mb's merge.
-  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK, SK, SV, GD, GR, GF, SD and GH1 are merged, and CM, GA and SN are running.
+  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK, SK, SV, GD, GR, GF, SD, GH1 and GA are merged, and CM, SN and S6a are running.
   - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. Every remaining M6 slice is drafted (`m6<id>-*.md`): SB, S6a, S6b, GH2, SP, ST1, ST2, GM, GB, GP, SL, GL, GS1, GS2, SR, SA, SC and MQ. Each brief names its hash tags from `artifacts/director/hash-tags.md`. Each brief's "Landed since" is filled in at its launch. Mb's brief has the soak failure to bisect, and M6 running beside it.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
@@ -3106,6 +3130,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0184 | The Assault Bike at close range: a target inside its turning circle (it gives the Attack up), its own blast (it hits itself from 48 su, by Q0083), and Attack Ground out of its arc (it circles forever); options: a MinRange, a loop, giving up, other numbers (from M6-SV) | no | answered: case 1 by 0454, as the Director read it (0460 confirms), cases 2 and 3 by 0460 (the Bike's MinRange 1 GU; Attack Ground repositions, and backs off from a spot inside MinRange): **M6-S6a** |
 | Q0185 | What energy does an illusion show? Everyone sees a Disciple's energy bar (M5-N4a's placeholder), and 0448 says enemies can't tell illusions from Disciples: proceeding on the parent's current energy, live (for M6-CM) | no | answered by 0452 (a: the parent's energy, live, as assumed): **M6-CM** |
 | Q0186 | An explicit Attack on a target some units' weapons can't hit (the Twister's anti-air gun at a ground unit): in a mixed selection, are they left out (built) or do they follow the target, as 0398's non-attackers do; alone, is the click an invalid target (built) or a follow? The rule covers every unit (from M6-GF) | no | answered by 0461 (mixed: a unit that can't hit the target follows it; alone: invalid target, as built): **M6-S6a** |
+| Q0187 | The Null Chamber's exit buff: does its +2 GU SightRange also widen the range at which the unit picks targets (AttackMove, Patrol and idle targeting scan "within SightRange")? Does a unit whose turn is done leave buffed when no working chamber is left? Proceeding on vision only, and buffed only with a working chamber (from M6-SN) | no | open |
 
 ## Design change entries
 Last triaged: 0461.
