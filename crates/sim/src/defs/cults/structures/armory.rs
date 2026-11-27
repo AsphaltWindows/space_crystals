@@ -65,6 +65,7 @@ pub(crate) static ARMORY: ObjectDef = ObjectDef {
             ],
             recruitment: None,
             augment: &[],
+            default_rally: None,
         }),
         mining: None,
         onto: None,

@@ -6,7 +6,7 @@
 use glam::Vec2;
 
 use super::*;
-use crate::combat::testing::{GRENADE, grenadier};
+use crate::combat::testing::{DART, GRENADE, grenadier};
 use crate::command::DebugCommand;
 use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
@@ -41,7 +41,7 @@ pub(super) fn launches(t: &TestSim) -> Vec<(Tick, Vec2, Vec2, Tick)> {
 pub(super) fn blasts(t: &TestSim) -> Vec<(Tick, Vec2, f32)> {
     (t.events().iter())
         .filter_map(|(tick, e)| match *e {
-            SimEvent::Blast { at, radius } => Some((*tick, at, radius)),
+            SimEvent::Blast { at, radius, .. } => Some((*tick, at, radius)),
             _ => None,
         })
         .collect()
@@ -388,57 +388,60 @@ fn the_store_counts_only_while_a_projectile_flies() {
     assert_eq!(loaded.projectiles(), t.sim().projectiles());
 }
 
-/// (M5-K) A single-target projectile, the Rocketman's missile (`factions/gdo/units/rocketman.md`: "Damage **20**",
-/// "ProjectileSpeed **16 su/frame**"), at a Guard of player 2 standing 256 su east: it leaves from the Rocketman's
-/// centre at the end of Firing, flies 16 ticks, and lands where the Guard stood at the end of Aiming, a blast of radius
-/// 0 there, hitting the Guard with its Damage less the Guard's PointArmor.
+/// (M5-K) A single-target projectile, the test dart (`combat::testing::DART`, the Rocketman's missile before design
+/// change 0445 made it burst: Damage 20, 16 su a tick), at a Peacekeeper of player 2 standing 256 su east: it leaves
+/// from the shooter's centre at the end of Firing, flies 16 ticks, and lands where the Peacekeeper stood at the end of
+/// Aiming, a blast of radius 0 there, hitting the Peacekeeper with its Damage less its PointArmor.
 #[test]
 fn a_missile_hits_the_unit_at_the_spot() {
+    let _dart = grenadier(DART);
     let from = Vec2::new(200.0, 320.0);
     let at = from + Vec2::new(256.0, 0.0);
     let mut t = ScenarioBuilder::new(&open()).start();
     t.without_auto_targeting()
-        .spawn_unit_at(1, ObjectKind::Rocketman, P1, from)
-        .spawn_unit_at(1, ObjectKind::Guard, P2, at)
+        .spawn_unit_at(1, ObjectKind::Guard, P1, from)
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P2, at)
         .order_at(2, P1, &[SHOOTER], OrderKind::Attack(TARGET), false);
     let launched = until_launched(&mut t);
     assert_eq!(launches(&t), [(launched, from, at, launched + 16)]);
     t.run_until(launched + 16);
     assert_eq!(blasts(&t), [(launched + 16, at, 0.0)]);
-    let guard = ObjectKind::Guard.def();
-    assert_eq!(hits_on(&t, TARGET), [(launched + 16, 20.0 - guard.armor.point)]);
+    let peacekeeper = ObjectKind::Peacekeeper.def();
+    assert_eq!(hits_on(&t, TARGET), [(launched + 16, 20.0 - peacekeeper.armor.point)]);
 }
 
-/// (M5-K) `systems/combat.md > DoublyDisjointed`: "Targets can dodge by moving out of the locked location". The Guard
-/// walks off as the missile leaves: it lands behind it, and hits nothing.
+/// (M5-K) `systems/combat.md > DoublyDisjointed`: "Targets can dodge by moving out of the locked location". The
+/// Peacekeeper walks off as the dart leaves: it lands behind it, and hits nothing.
 #[test]
 fn a_target_that_walks_off_dodges_the_missile() {
+    let _dart = grenadier(DART);
     let from = Vec2::new(200.0, 320.0);
     let stood = from + Vec2::new(256.0, 0.0);
     let mut t = ScenarioBuilder::new(&open()).start();
     t.without_auto_targeting()
-        .spawn_unit_at(1, ObjectKind::Rocketman, P1, from)
-        .spawn_unit_at(1, ObjectKind::Guard, P2, stood)
+        .spawn_unit_at(1, ObjectKind::Guard, P1, from)
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P2, stood)
         .order_at(2, P1, &[SHOOTER], OrderKind::Attack(TARGET), false);
     let launched = until_launched(&mut t);
     let away = Target::Point(Vec2::new(900.0, 320.0));
     t.order_at(launched + 1, P2, &[TARGET], OrderKind::Move(away), false)
         .run_until(launched + 16);
     assert_eq!(blasts(&t), [(launched + 16, stood, 0.0)]);
-    assert!(t.pos(2).x - stood.x > 18.0, "off the spot: {}", t.pos(2));
+    assert!(t.pos(2).x - stood.x > 12.0, "off the spot: {}", t.pos(2));
     assert_eq!(hits_on(&t, TARGET), []);
 }
 
 /// (M5-K) "The effect applies to whatever units are at the target location when the projectile arrives", whoever owns
-/// them (the module docs' placeholder: TailDisjointed's rule): an Attack Ground on the spot of one of the Rocketman's
-/// own Peacekeepers hits the Peacekeeper, and never the Rocketman itself.
+/// them (the module docs' placeholder: TailDisjointed's rule): an Attack Ground on the spot of one of the shooter's own
+/// Peacekeepers hits the Peacekeeper, and never the shooter itself.
 #[test]
 fn a_missile_hits_whatever_stands_at_the_spot_whoever_owns_it() {
+    let _dart = grenadier(DART);
     let from = Vec2::new(200.0, 320.0);
     let at = from + Vec2::new(256.0, 0.0);
     let mut t = ScenarioBuilder::new(&open()).start();
     t.without_auto_targeting()
-        .spawn_unit_at(1, ObjectKind::Rocketman, P1, from)
+        .spawn_unit_at(1, ObjectKind::Guard, P1, from)
         .spawn_unit_at(1, ObjectKind::Peacekeeper, P1, at)
         .order_at(2, P1, &[SHOOTER], OrderKind::AttackGround(at), false);
     let launched = until_launched(&mut t);
@@ -447,3 +450,5 @@ fn a_missile_hits_whatever_stands_at_the_spot_whoever_owns_it() {
     assert_eq!(hits_on(&t, TARGET), [(launched + 16, 20.0 - peacekeeper.armor.point)]);
     assert_eq!(hits_on(&t, SHOOTER), []);
 }
+
+mod bursts;

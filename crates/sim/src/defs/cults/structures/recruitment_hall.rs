@@ -56,6 +56,7 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
                 capacity: 20, // BaseUnitControlCapacity - 20
             }),
             augment: &[],
+            default_rally: None,
         }),
         mining: None,
         onto: None,

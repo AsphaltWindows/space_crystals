@@ -9,7 +9,8 @@ const CHOP_SHOP: ObjectId = ObjectId(1);
 /// `factions/cults/structures/chop_shop.md > Placeholder stats`: "InternalRecruitCapacity 10, counting reserved
 /// Recruits; so at most 5 Seekers queued". Player 1's Chop Shop with four Recruits inside queues two Seekers, each
 /// reserving two of them: its queue shows the two entries by name and the four Recruits they reserve of its 10, as the
-/// capacity counts them (Q0104), and no Recruit free.
+/// capacity counts them (Q0104), and no Recruit free. (M5-S8) Its rally point shows too: the one on the ground it
+/// starts with, out of side C (`core/entities.md > Entrance and exit > Exit Doorway` point 7, design change 0446).
 #[test]
 fn a_chop_shop_s_queue_counts_the_recruits_its_seekers_reserve() {
     let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
@@ -62,7 +63,8 @@ fn a_chop_shop_s_queue_counts_the_recruits_its_seekers_reserve() {
             "Inside: 4 / 10",
             "Free: Plain 0, Constitution 0, Metabolism 0, Both 0",
             "Training Seeker: 10%",
-            "Queue: Seeker, Seeker (4 / 10)"
+            "Queue: Seeker, Seeker (4 / 10)",
+            "Rally point: ground"
         ]
     );
 }

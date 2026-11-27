@@ -2,7 +2,9 @@
 //! `core/entities.md > Structure Type > Exit Doorway`): "half inside the building, at the middle of the exit side",
 //! facing out, or as far in as it takes to stand clear of a unit right in front of the doorway; then straight out by
 //! its FixedTurnRadiusMovement (slice M5-V2, `movement::doorway`), or to the rally point. Its 56 × 40 Silhouette turns
-//! with its facing (slice M5-V1), so out of a side that faces north or south it is 56 su deep and 40 su across.
+//! with its facing (slice M5-V1), so out of a side that faces north or south it is 56 su deep and 40 su across. (M5-S8)
+//! A Chop Shop starts with a rally point (`rally.rs`, design change 0446): the tests of a Seeker with none clear it
+//! first, as the player does by rallying on the building itself (design change 0447).
 
 use sc_sim::production::Doorway;
 use sc_sim::{BuildingOrientation, Rotation, math};
@@ -26,6 +28,11 @@ fn turned(rotation: Rotation, count: u32) -> (TestSim, Vec<ObjectId>) {
     fill(&mut t, CS, recruits.len());
     let order = inside(&t, CS);
     (t, order)
+}
+
+/// (M5-S8) `building`'s rally point, if it has one.
+fn rally_of(t: &TestSim, building: ObjectId) -> Option<sc_sim::production::Rally> {
+    t.sim().object(building)?.production.as_ref()?.rally
 }
 
 /// The exit side's middle and the way out of it, as the Chop Shop of `t` is placed.
@@ -92,12 +99,13 @@ fn the_seeker_comes_out_of_side_c_turned_with_it_whichever_way_the_chop_shop_fac
 /// `core/entities.md > Structure Type > Exit Doorway` 2, "with no rally point the unit walks straight out of the exit
 /// side", which a wheeled one does by its model (slice M5-V2, `movement::doorway::leave`: "drives straight out from
 /// where it was released, facing out, speeding up and braking to rest just clear of the building"): the Seeker trained
-/// with no rally point drives west out of side C along the doorway's middle line, never turning, and stops with its
-/// box just clear of the footprint.
+/// with no rally point (its default one cleared, design change 0447) drives west out of side C along the doorway's
+/// middle line, never turning, and stops with its box just clear of the footprint.
 #[test]
 fn with_no_rally_point_it_drives_straight_out_and_stops_just_clear() {
     let (mut t, order) = filled(2);
     let start = t.sim().tick() + 1;
+    t.at(start, P1, clear_rally(CS));
     t.at(start, P1, train(&[CS], RecruitKind::Plain));
     let (out, seeker) = until_produced(&mut t, CS, FRAMES + 2);
     assert_eq!((seeker, pos(&t, seeker)), (order[0], EXIT));
@@ -127,10 +135,19 @@ fn with_no_rally_point_it_drives_straight_out_and_stops_just_clear() {
 /// Structure Type > Exit Doorway`, "If the way is blocked, it stops in the doorway" and "While a unit still stands in
 /// it, the building pauses"; design change 0353, an idle vehicle never makes way). The first parks just clear of side C
 /// (above); the second comes out behind it, fully inside the doorway, its box touching the first's, and stands there
-/// for good, the doorway occupied: a third waits inside until the player moves the first.
+/// for good, the doorway occupied: a third waits inside until the player moves the first. (M5-S8) Design change 0447's
+/// Verification: "Select a new Chop Shop and right-click it: its default rally point disappears; a second Seeker then
+/// stalls behind the first, as before 0446" ("A cleared vehicle building leaves the stall to the player",
+/// `core/entities.md > Entrance and exit > Exit Doorway` point 7): the new Chop Shop's rally point, cleared by Set
+/// Rally Point on itself, is gone before any Seeker is trained.
 #[test]
 fn a_second_seeker_with_no_rally_point_stands_in_the_doorway_behind_the_first() {
     let (mut t, _) = filled(6);
+    let start = t.sim().tick() + 1;
+    assert!(rally_of(&t, CS).is_some(), "a new Chop Shop's default rally point");
+    t.at(start, P1, clear_rally(CS));
+    run_checked(&mut t, start);
+    assert_eq!(rally_of(&t, CS), None, "cleared");
     let start = t.sim().tick() + 1;
     for _ in 0..3 {
         t.at(start, P1, train(&[CS], RecruitKind::Plain));

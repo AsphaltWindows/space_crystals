@@ -1,7 +1,7 @@
 //! The Hand of Heaven — `factions/cults/units/hand_of_heaven.md` (design changes 0361 and 0363).
 
 use crate::defs::units::{
-    AttackAttrs, AttackType, MovementAttrs, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitDef,
+    AttackAttrs, AttackType, BlastDomain, MovementAttrs, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -63,6 +63,9 @@ pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
             // TargetType: **area damage** (AoE); "AoERadius **96 su (1.5 GU)**"
             target_type: TargetType::AoE {
                 radius: 96.0 / SU_PER_GU,
+                // Its TargetDomain's, Ground (`systems/combat.md > AoEDamage`): the Rocketman's rule is its own
+                // (design change 0445: "The Hand of Heaven (also DoublyDisjointed) is unchanged").
+                blast: BlastDomain::Attack,
             },
             // "Damage **600** total over the circle (AoEDamage; a 3x3 building wholly inside takes it all, a lone 24x24
             // infantry about 12, so it is a siege weapon, poor against spread or moving units)"
@@ -148,7 +151,14 @@ mod tests {
         assert!(can_target_ground(attack.attack_type), "CanTargetGround");
         assert_eq!(
             (attack.target_domain, attack.target_type, attack.damage),
-            (TargetDomain::Ground, TargetType::AoE { radius: 1.5 }, 600.0)
+            (
+                TargetDomain::Ground,
+                TargetType::AoE {
+                    radius: 1.5,
+                    blast: BlastDomain::Attack
+                },
+                600.0
+            )
         );
         assert!(domain_allows(attack.target_domain, Domain::Ground));
         assert!(!domain_allows(attack.target_domain, Domain::Air), "ground only");

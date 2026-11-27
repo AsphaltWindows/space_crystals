@@ -28,8 +28,9 @@ fn outcomes(t: &TestSim, target: u32) -> (usize, usize, usize) {
 /// two Sparrows (4, 5), spawned directly 280 su east of them and 180 su apart, which circle where they came into the
 /// game, in sight; auto-targeting off, so that nobody fights but on orders. In tick 2 all three lock onto Sparrow 4
 /// and, Shift-queued, onto Sparrow 5 (a queued order waits behind the lock, design change 0438). Sparrow 4 falls to
-/// three locked missiles of 20; then the locks on Sparrow 5 start, LockOnDuration again, and it falls too. Every
-/// missile they fire is a locked one, every hit takes 20, and the Rocketmen end idle.
+/// three locked missiles, (M5-S8) each a whole burst on its centre ([`BURST`]); then the locks on Sparrow 5 start,
+/// LockOnDuration again, and it falls too, the other Sparrow too far off for a burst to reach. Every missile they fire
+/// is a locked one, every hit a whole burst, and the Rocketmen end idle.
 #[test]
 fn locked_rocketmen_shoot_down_two_circling_sparrows() {
     let mut t = field(30, 20)
@@ -63,11 +64,11 @@ fn locked_rocketmen_shoot_down_two_circling_sparrows() {
         assert_eq!(hits.len(), 3, "three hits bring it down: {hits:?}");
         for &(_, attacker, damage) in &hits {
             assert!((1..=3).contains(&attacker));
-            assert_eq!(damage, DAMAGE);
+            assert!(whole_burst(damage), "a whole burst: {damage}");
         }
         let taken: f32 = hits.iter().map(|&(.., damage)| damage).sum();
         assert!(
-            taken >= SPARROW_HP && taken - DAMAGE < SPARROW_HP,
+            taken >= SPARROW_HP && taken - BURST < SPARROW_HP,
             "the third one: {taken}"
         );
         assert_eq!(outcomes(&t, sparrow), (0, 0, 3));
@@ -125,7 +126,9 @@ fn a_circling_sparrow_dodges_the_normal_missile_and_never_a_locked_one() {
 /// SightRange of 6 grid units, where player 1's Generators round the field keep it in sight. Every second in which none
 /// of the Rocketmen has a lock under way and player 1 sees the Sparrow, player 1 orders all three to lock onto it
 /// again, as a player would: a lock breaks as the Sparrow leaves its LockRange of 7. Within 30 seconds the Sparrow
-/// falls, the locked missiles' hits among those it takes, every one 20, and the three Rocketmen stand.
+/// falls, the locked missiles' hits among those it takes, every one a whole burst on its centre ([`BURST`]); (M5-S8) a
+/// normal missile's burst may graze it, and takes no more. Fired at an aircraft, no burst hits the Rocketmen under it,
+/// and the three stand.
 #[test]
 fn a_strafing_sparrow_kept_in_sight_falls_to_locks_given_again() {
     let mut scenario = field(40, 24)
@@ -151,10 +154,25 @@ fn a_strafing_sparrow_kept_in_sight_falls_to_locks_given_again() {
     }
     let (_, _, locked) = outcomes(&t, 4);
     assert!(locked > 0, "locked missiles hit it");
-    let hits = hits_on(&t, 4);
-    assert!(
-        hits.iter()
-            .all(|&(_, attacker, damage)| rocketmen.contains(&attacker) && damage == DAMAGE)
-    );
-    assert!(rocketmen.iter().all(|&n| alive(&t, n)), "the Rocketmen stand");
+    let normal: Vec<(u32, Tick)> = (missiles_at(&t, 4).iter())
+        .filter(|m| !m.homing)
+        .map(|m| (m.shooter, m.lands_at))
+        .collect();
+    for (tick, attacker, damage) in hits_on(&t, 4) {
+        assert!(rocketmen.contains(&attacker), "tick {tick}: {attacker}");
+        match normal.contains(&(attacker, tick)) {
+            true => assert!(damage < BURST + 1e-3, "a normal missile's: a graze at most: {damage}"),
+            false => assert!(whole_burst(damage), "a locked missile's, on its centre: {damage}"),
+        }
+    }
+    for n in rocketmen {
+        assert!(alive(&t, n), "the Rocketmen stand");
+        assert_eq!(
+            hits_on(&t, n)
+                .iter()
+                .filter(|&&(_, attacker, _)| rocketmen.contains(&attacker))
+                .count(),
+            0
+        );
+    }
 }

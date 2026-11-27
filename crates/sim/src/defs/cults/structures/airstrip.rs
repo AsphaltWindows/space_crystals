@@ -68,6 +68,7 @@ pub(crate) static AIRSTRIP: ObjectDef = ObjectDef {
             ],
             recruitment: None,
             augment: &[],
+            default_rally: None,
         }),
         mining: None,
         onto: None,

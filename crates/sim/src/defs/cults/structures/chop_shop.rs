@@ -67,6 +67,12 @@ pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
             ],
             recruitment: None,
             augment: &[],
+            // (M5-S8) `core/entities.md > Entrance and exit > Exit Doorway` point 7: "idle wheeled and tracked vehicles
+            // don't step aside [...], so a vehicle stopping just outside the exit would block the next one. Every
+            // building that releases **wheeled or tracked vehicles** through an exit side (today the Cults **Chop
+            // Shop** and the GDO **Factory**) therefore **starts with a RallyPoint 3 grid units straight out from the
+            // middle of its exit side** (placeholder distance)" (design changes 0446 and 0447, answering Q0175).
+            default_rally: Some(3),
         }),
         mining: None,
         onto: None,

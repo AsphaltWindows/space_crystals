@@ -6,7 +6,12 @@
 //!   drives to the rally point; ten Recruits queue five Seekers and a sixth is refused; X gives both Recruits and the
 //!   Space Crystals back; a Release lets a Recruit out as at the Airstrip; a right-click on it is a Recruit's Enter;
 //! - `exit`: the Seeker appears half inside the middle of side C, facing out, its box turned with it whichever way the
-//!   building is turned, moved in from a unit in front of the doorway, and drives straight out with no rally point;
+//!   building is turned, moved in from a unit in front of the doorway, and drives straight out with its rally point
+//!   cleared, a second one then stalling in the doorway behind the first (design change 0447);
+//! - `rally` (slice M5-S8, design changes 0446 and 0447): a Chop Shop starts with a rally point 3 grid units out of
+//!   side C, however it is turned, its site from its placement on; three Seekers drive to it, the doorway never
+//!   stalling; a moved rally point takes the next ones there; one off the map is drawn in to its edge; a save with
+//!   none loads with none;
 //! - `seeker`: two damaged, augmented Recruits make a Seeker at full HP with no augmentation (design change 0330); it
 //!   counts one Unit Control against each of its Recruits' Halls, half of it an orphan once one Hall is gone;
 //! - `combat`: it kills a Militant while driving past, its turret firing on a Move; rear hits do more than frontal ones
@@ -24,6 +29,7 @@ mod combat;
 mod destruction;
 mod exit;
 mod normal_game;
+mod rally;
 mod saves;
 mod seeker;
 mod training;
@@ -190,6 +196,12 @@ fn cancel(objects: &[ObjectId]) -> Command {
 
 fn rally(objects: &[ObjectId], at: Vec2) -> Command {
     production(objects, ProductionCommand::SetRally(Target::Point(at)))
+}
+
+/// (M5-S8) Clears `building`'s rally point, its default one among them: Set Rally Point on the building itself, as a
+/// right-click on it or C and a click on it does (design change 0447: "clear it by rallying on the building itself").
+fn clear_rally(building: ObjectId) -> Command {
+    production(&[building], ProductionCommand::SetRally(Target::Object(building)))
 }
 
 fn eject_all(buildings: &[ObjectId]) -> Command {

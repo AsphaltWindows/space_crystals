@@ -14,7 +14,8 @@
 //! the HP bar's place of each unit with a buff, a mark of each of its buffs ([`buffs`]). (M5-K) A missile flies flat
 //! from its shooter's muzzle to its target's body, nose first ([`ShotStyle::Missile`]), a homing one along the path the
 //! sim steers it ([`projectiles::homing_missiles`]), and where a single-target projectile lands an impact puff shows
-//! ([`blasts`]); on the target of each Target Lock of the player's own units, a reticle ([`locks`]).
+//! ([`blasts`]), (M5-S8) where a missile bursts a ring of its radius in its shooter's colour; on the target of each
+//! Target Lock of the player's own units, a reticle ([`locks`]).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
@@ -115,7 +116,8 @@ pub enum ShotStyle {
     /// (M5-K) A missile (`factions/gdo/units/rocketman.md`): no tracer either, a projectile, drawn in flight nose first
     /// with its exhaust lit, flying flat from its shooter's muzzle to its target's body ([`projectiles`]), and up to an
     /// aircraft's flight; a homing one along the path the sim steers it ([`projectiles::homing_missiles`]). It takes
-    /// effect where it lands, an impact puff showing there ([`blasts`]). Placeholder look (Q0001).
+    /// effect where it lands, (M5-S8) its burst showing there: the grenade's blast at its radius, its ring in its
+    /// shooter's colour ([`blasts::ring_color`]), in the air if it was fired at an aircraft. Placeholder look (Q0001).
     Missile,
 }
 
@@ -405,12 +407,19 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                     seen,
                 });
             }
-            SimEvent::Blast { at, radius } => {
-                // (M5-K) Where a single-target projectile struck: in the air, on an aircraft. A missile that flew
-                // straight lands where its flight was aimed, at its target's flight then; a homing one on its target,
-                // which stands, or fell, right there.
+            SimEvent::Blast { at, radius, attacker } => {
+                // The flight that landed here, if the client keeps one (not a homing missile's): its shooter's.
+                let landed = (effects.flights.iter())
+                    .find(|f| f.lands_at == tick && f.to == at && attacker.is_none_or(|a| f.shooter == a));
+                // (M5-S8) Its shooter, for its look: as its flight had it, else as the client knows it now.
+                let (weapon, owner) = match landed {
+                    Some(f) => (f.weapon, f.owner),
+                    None => (attacker.and_then(shooter_of)).map_or((None, None), |(form, owner)| (Some(form), owner)),
+                };
+                // (M5-K) Where a single-target projectile struck, and (M5-S8) where a missile burst: in the air, on an
+                // aircraft. A missile that flew straight lands where its flight was aimed, at its target's flight
+                // then; a homing one on its target, which stands, or fell, right there.
                 let struck = || {
-                    let landed = (effects.flights.iter()).find(|f| f.lands_at == tick && f.to == at);
                     let aircraft =
                         |kind: ObjectKind, pos: Vec2| (flies(kind) && pos.distance(at) < 1.0).then_some(kind);
                     landed.map(|f| f.lift.1).or_else(|| {
@@ -424,11 +433,18 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                             .map(flight_lift)
                     })
                 };
-                let lift = if radius > 0.0 { 0.0 } else { struck().unwrap_or(0.0) };
+                let missile = ShotStyle::of(weapon) == ShotStyle::Missile;
+                let lift = if radius > 0.0 && !missile {
+                    0.0
+                } else {
+                    struck().unwrap_or(0.0)
+                };
                 effects.blasts.push(Blast {
                     tick,
                     at,
                     radius,
+                    weapon,
+                    owner,
                     lift,
                     seen,
                 });

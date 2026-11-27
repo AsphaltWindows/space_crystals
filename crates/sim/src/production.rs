@@ -59,7 +59,7 @@ use crate::units::Tick;
 
 pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor, Runway};
 pub use queue::QueueEntry;
-pub use rally::{Rally, takes_rally};
+pub use rally::{Rally, default_rally, takes_rally};
 
 /// What the player tells producing structures (`factions/gdo/structures/barracks.md >
 /// ObjectInterfaceState[Barracks]`), sent as `Command::Production` to every producer of the selection
