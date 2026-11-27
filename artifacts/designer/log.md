@@ -2409,3 +2409,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Session pause (2026-11-26): all Director questions through Q0172 answered (0406–0443). User away to think about unit designs.
 - Q0174 answered from docs + placeholder: Chop Shop keys W HoH, E Prayer-mobile (0444). Q0173 to user.
 - Q0173 (user): keep aiming; Rocketman missiles AoE (normal + locked), domain of target, Damage 40 / radius 32 (0445).
+- Q0175 (user: 4): default rally point 3 GU out for vehicle buildings (0446).
