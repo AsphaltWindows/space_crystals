@@ -48,7 +48,8 @@ pub use syndicate::{CELLS_PER_TUNNEL_SPACE, EJECT_MENU_ORDER, EXPAND_MENU, Expan
 pub use units::{
     AttackAttrs, AttackType, Augmentable, ContactStep, ConversionDef, Domain, DropOffChoice, FullyConnectedSubtype,
     LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest, RepairDef, RepairPayment, RepairTargets,
-    Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
+    Resource, ReverseSpeed, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,
+    WorkerDef,
 };
 
 /// The kind registry's macro: from the list of kinds below, each with its def, it makes [`ObjectKind`],

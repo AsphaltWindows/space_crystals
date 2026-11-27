@@ -83,12 +83,12 @@ impl PanelCommand {
         }
     }
 
-    /// Whether the sim has a command for it yet: Reverse has no order (`sc_sim::OrderKind`; AttackGround has had one
-    /// since slice M4-O), and a building or a unit that isn't in the game has none at all. A StateOnlyTransition needs
+    /// Whether the sim has a command for it yet: a building or a unit that isn't in the game has none at all (Reverse
+    /// has had an order since slice M5-V2, AttackGround since slice M4-O). A StateOnlyTransition needs
     /// none (a build menu, the Egress Node's F). A Temple's key in progress has its line's Research, which the gate
     /// refuses meanwhile (`PanelCommand::Researching`).
     pub fn has_sim_command(self) -> bool {
-        !matches!(self, PanelCommand::Reverse | PanelCommand::Planned(_))
+        !matches!(self, PanelCommand::Planned(_))
     }
 
     /// The building it constructs, places, warps in or builds: a build menu's entry, a ready building's slot, the

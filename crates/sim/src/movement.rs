@@ -15,8 +15,9 @@
 //!   pass (oncoming ones, and idle groups that make way), then the rules after the sweep.
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
 //! - [`yielding`]: an idle unit's sidestep for a blocked unit of its owner (`docs/movement.md > 6.6`).
-//! - [`drag`]: DragMovement, the model of the units with momentum (slice M3-G); [`follow`]: one unit's tick along
-//!   its path, shared by every model.
+//! - [`model`]: the models of the units with momentum, [`drag`] (DragMovement, slice M3-G) and (M5-V2) [`wheeled`]
+//!   (FixedTurnRadiusMovement: the turn by speed on a fixed radius, braking, backing up on the Reverse order, the
+//!   forward loop); [`follow`]: one unit's tick along its path, shared by every model.
 //! - [`separate`]: an idle unit that overlaps another moves off it (design change 0126).
 //! - (M5-H1) [`glider`]: GliderMovement, the model of the units that never stop, in place of a unit's tick along its
 //!   path; [`air`]: the soft separation of air units from each other, after every unit has moved.
@@ -32,7 +33,7 @@
 //! chase's progress, the occupied-target rule and queueing behind attackers are in [`stuck`].
 //!
 //! Hooks for later slices: crushing is an exception in [`space::blocks`]; other movement models replace the
-//! "desired direction → facing and velocity" part of a unit's tick, as [`drag`] does in [`follow`].
+//! "desired direction → facing and velocity" part of a unit's tick, as [`drag`] and [`wheeled`] do in [`follow`].
 
 mod air;
 mod collide;
@@ -40,11 +41,13 @@ mod doorway;
 mod drag;
 mod follow;
 mod glider;
+mod model;
 mod round;
 mod scratch;
 mod separate;
 mod space;
 mod stuck;
+mod wheeled;
 mod yielding;
 
 use std::collections::BTreeMap;
@@ -68,11 +71,11 @@ use crate::shape::Shape;
 use crate::units::{SU_PER_GU, Tick, TilePos};
 
 use collide::World;
-use drag::Drag;
 #[cfg(test)]
 use follow::step_unit;
 use follow::step_unit_on;
 use glider::Glider;
+use model::Model;
 pub use scratch::MoveCounters;
 pub(crate) use scratch::{Chased, Scratch, Turns};
 use scratch::{body_of, layer_of, oriented_of, unit_of};
@@ -80,12 +83,14 @@ use scratch::{body_of, layer_of, oriented_of, unit_of};
 use space::Body;
 
 /// The most a unit turns in one tick, radians: its TurnRate (`systems/combat.md >
-/// LocomotionOrientationConstraints[TurnRateMovement]`), without limit for the movement models whose turn rate
-/// depends on speed (TODO(movement models): not built). (M5-H1) None for a Glider: its flight alone turns it, by its
-/// speed (`glider`), so nothing is left of a tick's turn for an aim of its base in phase 5e.
+/// LocomotionOrientationConstraints[TurnRateMovement]`). (M5-H1) None for a Glider: its flight alone turns it, by its
+/// speed (`glider`), so nothing is left of a tick's turn for an aim of its base in phase 5e. (M5-V2) None for a
+/// FixedTurnRadiusMovement unit either (`systems/combat.md > LocomotionOrientationConstraints[FixedTurnRadiusMovement]`:
+/// "Stationary + Turning: invalid", and Moving its turn is `currentSpeed / MinimumTurnRadius`, made by its drive in
+/// phase 5d, `wheeled`). TODO(M5-V3): SpeedTurnRadiusMovement still turns without limit.
 pub(crate) fn turn_rate(movement: &MovementAttrs) -> f32 {
     match movement {
-        MovementAttrs::Glider { .. } => 0.0,
+        MovementAttrs::Glider { .. } | MovementAttrs::FixedTurnRadius { .. } => 0.0,
         _ => movement.turn_rate().unwrap_or(f32::INFINITY),
     }
 }
@@ -219,7 +224,7 @@ pub(crate) fn step(
             // A unit in an attack sequence is busy: it doesn't yield (design change 0023).
             mover.sidestep = None;
             wait(mover, tick);
-            if let Some(model) = Drag::of(movement, mover.speed_factor, rugged) {
+            if let Some(model) = Model::of(movement, mover, rugged) {
                 model.coast(&mut o.pos, o.facing, mover, &mut world, &mut scratch.touched);
             }
             false
@@ -265,7 +270,8 @@ pub(crate) fn step(
                 &mut scratch.requests,
             );
             false
-        } else if let Some(ExitDoor::Side(door)) = door.filter(|_| mover.goal == MoveGoal::None && !coasting) {
+        } else if let Some(ExitDoor::Side(door)) = door.filter(|_| mover.goal == MoveGoal::None) {
+            // (M5-V2) A unit with momentum walks out by its model, braking to rest where it is out.
             doorway::leave(
                 &mut o.pos,
                 &mut o.facing,

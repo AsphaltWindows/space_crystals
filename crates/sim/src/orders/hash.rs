@@ -95,6 +95,11 @@ impl StateHash for OrderKind {
             }
             // (M5-N4b) A new tag, hashed only while a unit carries the order.
             OrderKind::Shroud => h.tag(14),
+            // (M5-V2) A new tag, hashed only while a unit carries the order.
+            OrderKind::Reverse(p) => {
+                h.tag(15);
+                p.hash(h);
+            }
         }
     }
 }

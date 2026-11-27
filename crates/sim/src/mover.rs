@@ -250,6 +250,13 @@ pub struct Mover {
     /// `None` (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub takeoff: Option<Takeoff>,
+    /// (M5-V2) `systems/controls/command_behaviors.md > ReversingToLocation`: "Identical to MovingToLocation except the
+    /// plan uses Reversing locomotion instead of Moving": this leg is driven backwards, on the Reverse order
+    /// (`orders::OrderKind::Reverse`; `movement::wheeled`). A property of one leg, as `presses_on` is: the behaviour
+    /// sets it after [`Mover::go_to`] ([`Mover::reverse`]); a new leg and a stop end it. Only a unit that takes the
+    /// order has it (`defs::UnitDef::can_reverse`). Left out of files and of the hash while unset (`mover/hash.rs`).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub reverses: bool,
 }
 
 fn is_zero(v: &Vec2) -> bool {
@@ -299,6 +306,7 @@ impl Default for Mover {
             orbit: None,
             strafe: None,
             takeoff: None,
+            reverses: false,
         }
     }
 }
@@ -324,6 +332,7 @@ impl Mover {
         self.presses_on = false;
         self.orbit = None;
         self.strafe = None;
+        self.reverses = false;
     }
 
     /// Design change 0315: the leg that just began ([`Mover::go_to`]) never counts as arrived behind standing units
@@ -332,15 +341,22 @@ impl Mover {
         self.presses_on = true;
     }
 
+    /// (M5-V2) The leg that just began ([`Mover::go_to`]) is driven backwards ([`Mover::reverses`]).
+    pub fn reverse(&mut self) {
+        self.reverses = true;
+    }
+
     /// No goal: the unit stops where it is (instantly, with infinite deceleration) and stands still. `status`
     /// becomes `Idle`. A sidestep ends too: every order stops or sends the unit, and a unit with an order doesn't
     /// yield (design change 0023). A unit with [`Mover::momentum`] keeps it: from its next turn in phase 5d it
     /// brakes to a stop (`movement::drag`), and only then is at rest. (M5-H1) A Glider, which can't stop, circles
-    /// where it is from its next turn on (`movement::glider`): its [`Mover::orbit`] and its strafing run end.
+    /// where it is from its next turn on (`movement::glider`): its [`Mover::orbit`] and its strafing run end. (M5-V2) A
+    /// leg driven backwards ([`Mover::reverses`]) ends with it.
     pub fn stop(&mut self) {
         self.sidestep = None;
         self.orbit = None;
         self.strafe = None;
+        self.reverses = false;
         self.goal = MoveGoal::None;
         self.status = MoveStatus::Idle;
         self.clear_path();

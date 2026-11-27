@@ -41,6 +41,14 @@
 //!   stop: the unit has another way to go.
 //!
 //! A base with `ContactStep::Diagonal` steps as before 0323: `d` turned 45°, else one tick's step along the face.
+//!
+//! **(M5-V2) Turn and graze** (`ContactStep::Graze`; 0323: "**WheeledVehicles** instead **turn and graze** around the
+//! obstacle"): a unit that can't turn in place takes no step aside. Its step is a whole step along the blocker's face,
+//! to the side the rules above choose (the near side at a standing blocker), if that is free; the unit's model turns it
+//! to head along that step and drives on (`super::super::wheeled`): its side scrapes past the blocker, and a move that
+//! meets it is blocked as any (design change 0035), so the unit creeps and keeps turning until it is past. It commits
+//! its side for `AVOID_COMMIT_TICKS` from each such step, as a contact step does: a unit that turns by its speed would
+//! not get round a blocker by turning one way and then the other.
 
 use core::f32::consts::FRAC_1_SQRT_2;
 
@@ -129,8 +137,9 @@ impl World<'_> {
         let at_face = face.at_by(d.length().copysign(face.at(d)));
         let towards = |side: Side| face.along(turned_90(at_face, side));
         let standing = self.bodies[hit.index].velocity == Vec2::ZERO;
-        // (0323) A contact step takes as many ticks as a unit with momentum takes over a step aside.
-        let near_side = near_side || self.contact == ContactStep::Sideways;
+        // (0323) A contact step takes as many ticks as a unit with momentum takes over a step aside, and (M5-V2) a
+        // grazing unit turns as slowly.
+        let near_side = near_side || matches!(self.contact, ContactStep::Sideways | ContactStep::Graze);
         if near_side && standing {
             let offset = face.along(pos) - face.along(self.bodies[hit.index].pos);
             if offset != 0.0 && tick >= mover.avoid_until {
@@ -174,10 +183,10 @@ impl World<'_> {
     }
 
     /// Whether the unit is going round on the side it last took a contact step to, whatever its lean (design change
-    /// 0323, the module docs): a contact step commits its side for `AVOID_COMMIT_TICKS`. A `ContactStep::Diagonal`
-    /// base never does: its lean chooses in every tick, as before.
+    /// 0323, the module docs): a contact step commits its side for `AVOID_COMMIT_TICKS`, and (M5-V2) so does a graze.
+    /// A `ContactStep::Diagonal` base never does: its lean chooses in every tick, as before.
     fn keeps_its_side(&self, mover: &Mover, tick: Tick) -> bool {
-        self.contact == ContactStep::Sideways && tick < mover.avoid_until
+        self.contact != ContactStep::Diagonal && tick < mover.avoid_until
     }
 
     /// The sidestep to `side` of a unit at `pos` whose move `d` met a blocker's face (`at_face`: straight at the
@@ -187,6 +196,7 @@ impl World<'_> {
     ///   the unit's own width. This tick's part of it, `speed` long, if that is wholly free; the rest is the
     ///   mover's from now on (`Mover::step_aside`, [`World::step_aside`]).
     /// - `ContactStep::Diagonal`: `d` turned 45°, which gets the unit on, else a whole step along the face.
+    /// - (M5-V2) `ContactStep::Graze`: a whole step along the face, its side committed (the module docs).
     #[expect(clippy::too_many_arguments, reason = "one unit's move, and the blocker's face")]
     fn sidestep(
         &mut self,
@@ -205,6 +215,14 @@ impl World<'_> {
                 .into_iter()
                 .find(|&(step, _)| self.clear(pos, step, touched))
                 .map(|(step, forward)| (pos + step, forward)),
+            ContactStep::Graze => {
+                if !self.clear(pos, along, touched) {
+                    return None;
+                }
+                mover.avoid_side = side;
+                mover.avoid_until = tick.saturating_add(AVOID_COMMIT_TICKS);
+                Some((pos + along, false))
+            }
             ContactStep::Sideways => {
                 // (M5-V1) Along the axis nearest to the face of a turned shape: a step aside is along an axis.
                 let along_y = along.y.abs() > along.x.abs();

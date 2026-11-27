@@ -105,6 +105,37 @@ impl MovementAttrs {
             | MovementAttrs::Glider { .. } => None,
         }
     }
+
+    /// (M5-V2) How the unit backs up on the Reverse order (`systems/controls/command_behaviors.md >
+    /// ReversingToLocation`), for the models that reverse: a FixedTurnRadiusMovement unit by its ReverseMaxSpeed and
+    /// ReverseAcceleration. `None` for the others. A lookup per model: SpeedTurnRadiusMovement gets a ReverseMaxSpeed of
+    /// its own and backs up with its Acceleration (design change 0417), its arm for slice M5-V3 to add; until then a
+    /// TrackedVehicle can't take the order ([`UnitDef::can_reverse`]).
+    pub fn reverse_speed(&self) -> Option<ReverseSpeed> {
+        match *self {
+            MovementAttrs::FixedTurnRadius {
+                reverse_max_speed,
+                reverse_acceleration,
+                ..
+            } => Some(ReverseSpeed {
+                max_speed: reverse_max_speed,
+                acceleration: reverse_acceleration,
+            }),
+            MovementAttrs::TurnRate { .. }
+            | MovementAttrs::SpeedTurnRadius { .. }
+            | MovementAttrs::Drag { .. }
+            | MovementAttrs::Glider { .. } => None,
+        }
+    }
+}
+
+/// (M5-V2) A model's numbers for backing up ([`MovementAttrs::reverse_speed`]).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ReverseSpeed {
+    /// The top speed backwards, space units per tick: ReverseMaxSpeed.
+    pub max_speed: f32,
+    /// Space units per tick per tick; `None` where the design gives none.
+    pub acceleration: Option<f32>,
 }
 
 /// `systems/units.md > TurretAttributes`: only on units whose base can carry a turret (`UnitBaseDef::can_have_turret`),
@@ -441,6 +472,13 @@ impl UnitDef {
     /// (M5-N4b) Its Shroud's numbers, if it casts Shroud ([`UnitDef::spells`]).
     pub fn shroud(&self) -> Option<&'static ShroudDef> {
         self.spells.iter().find_map(SpellDef::shroud)
+    }
+
+    /// (M5-V2) Whether it takes the Reverse order (`systems/controls/commands.md > Reverse`: "Only available to bases
+    /// with CanReverse = true"): its base can reverse, and its movement model knows how ([`MovementAttrs::reverse_speed`],
+    /// which slice M5-V3 gives SpeedTurnRadiusMovement). The gate and the client's command card ask this.
+    pub fn can_reverse(&self) -> bool {
+        self.base_def().can_reverse && self.movement.reverse_speed().is_some()
     }
 
     /// (M5-H1) Whether it moves by GliderMovement (`systems/units.md > GliderMovement`): it never stops

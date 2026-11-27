@@ -84,7 +84,8 @@ pub(crate) fn assign(
 
 /// Design change 0029 (`systems/controls/commands.md > Group Destinations (Magic Box)`, queued orders): where an order
 /// appended to `orders` finds its unit, if that is known: the destination of the unit's last order that moves it, the
-/// current one included, when that order ends at a known location (a Move to a point or an AttackMove: the unit's own
+/// current one included, when that order ends at a known location (a Move to a point, an AttackMove or (M5-V2) a
+/// Reverse: the unit's own
 /// spot, or the click it converges on). Stop and Hold move nobody, so the order before them decides. `None`, for which
 /// the unit's current position stands in (0029's fallback), when no order moves the unit, or when the last one ends
 /// somewhere unknown: it targets an object (Attack, Move to an object), or it is a Patrol, which never completes.
@@ -98,7 +99,9 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
         .chain(orders.current.as_ref().map(|active| &active.order));
     for order in latest_first {
         match order.kind {
-            OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) => return order.destination(),
+            OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Reverse(_) => {
+                return order.destination();
+            }
             // (M5-N4b) A channel, as a Hold, leaves the unit where the orders before it did.
             OrderKind::Stop | OrderKind::Hold | OrderKind::Shroud => {}
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Patrol(_) => return None,

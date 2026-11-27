@@ -346,7 +346,9 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 /// player doesn't see too. The Agent's Drop Off takes an own drop-off in operation ([`drop_off_target`], slice M4-J1;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "Requires clicking an own Tunnel"). The Recruits'
 /// Assist Construction takes an own site built from outside ([`assist_target`], slice M5-J1), and the Repair a damaged
-/// own object ([`repair_target`], slice M5-N8). Reverse has no order in the sim yet.
+/// own object ([`repair_target`], slice M5-N8). (M5-V2) Reverse takes the ground only
+/// (`systems/controls/interface.md > AwaitingTarget[Reverse] resolution`: "Left-click Ground: issues Reverse command to
+/// that location").
 pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {
@@ -355,6 +357,7 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
             target.destructible().then_some(OrderKind::Attack(id))
         }
         (PanelCommand::Move, Ground(point)) => Some(OrderKind::Move(Target::Point(point))),
+        (PanelCommand::Reverse, Ground(point)) => Some(OrderKind::Reverse(point)),
         (PanelCommand::Move, EnemyObject(id) | FriendlyObject(id) | NeutralObject(id)) => {
             Some(OrderKind::Move(Target::Object(id)))
         }

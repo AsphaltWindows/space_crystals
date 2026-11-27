@@ -109,6 +109,7 @@ impl StateHash for Mover {
             orbit,
             strafe,
             takeoff,
+            reverses,
         } = self;
         goal.hash(h);
         status.hash(h);
@@ -179,6 +180,11 @@ impl StateHash for Mover {
             h.tag(8);
             end.hash(h);
             along.hash(h);
+        }
+        // (M5-V2) Likewise only on a leg driven backwards (the Reverse order): games without one hash as before the
+        // field existed.
+        if *reverses {
+            h.tag(9);
         }
     }
 }

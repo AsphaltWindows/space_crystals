@@ -1,12 +1,13 @@
 //! One unit's tick along its path — `docs/movement.md > 6.2`, `> 6.3`: the steering waypoint, the turn, the step
 //! by the shared rules (`super::collide`), arrival, and the stuck clock (`super::stuck`). Shared by every movement
 //! model; the model decides how fast the unit approaches and what becomes of the step: a unit that stops within
-//! the tick takes it as it is, a DragMovement unit thrusts towards it (`super::drag`, slice M3-G).
+//! the tick takes it as it is, a DragMovement unit thrusts towards it (`super::drag`, slice M3-G), and (M5-V2) a
+//! FixedTurnRadiusMovement unit turns to head along it and drives (`super::wheeled`).
 
 use glam::Vec2;
 
 use super::collide::{Moved, World};
-use super::drag::Drag;
+use super::model::Model;
 use super::{Chased, stand, stuck, turn_rate, wait, yielding};
 use crate::defs::MovementAttrs;
 use crate::ids::ObjectId;
@@ -43,8 +44,8 @@ pub(super) fn step_unit(
 /// whether the tile under its centre is Rugged terrain, which only a DragMovement unit's model asks
 /// (`systems/units.md > HoverVehicle > RuggedTerrain`).
 ///
-/// A DragMovement unit that didn't steer in this tick (no goal, no path yet, its move ended before it stepped)
-/// brakes off the momentum it still has ([`Drag::coast`]); every other unit then stands.
+/// A unit with momentum that didn't steer in this tick (no goal, no path yet, its move ended before it stepped)
+/// brakes off the momentum it still has ([`Model::coast`]); every other unit then stands.
 #[expect(
     clippy::too_many_arguments,
     reason = "the unit's state, split into the borrows the step holds"
@@ -63,7 +64,7 @@ pub(super) fn step_unit_on(
     engaged: &[Option<ObjectId>],
     tick: Tick,
 ) -> bool {
-    let model = Drag::of(movement, mover.speed_factor, rugged);
+    let model = Model::of(movement, mover, rugged);
     let mut steered = false;
     let failed = follow(
         pos,
@@ -100,6 +101,8 @@ pub(super) fn step_unit_on(
 ///   unit (`systems/combat.md > LocomotionOrientationConstraints[DragMovement]`) turns as it moves and never stands to
 ///   turn. (M5-V1) A Silhouette that turns with the facing turns only as far as it stays free (`World::turn`), and
 ///   then moves in its turned shape; a turn cut short is a blocked move, and the unit creeps on ([`creep_on`]).
+///   (M5-V2) A FixedTurnRadiusMovement unit turns by its speed as it drives (`super::wheeled`), and steers straight
+///   on while its waypoint lies inside its turning circle: the forward loop (`Wheeled::steer`, design change 0353).
 /// - **Arrival**: when the goal is within one step and the way is free, the unit stands exactly on it and stops
 ///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots. A DragMovement
 ///   unit's step is its approach speed ([`Drag::approach`]), which brings it onto the goal at a speed it stops
@@ -115,7 +118,8 @@ pub(super) fn step_unit_on(
 ///   units it has to pass, if there are some ahead ([`World::lane_step`]), else by the rules of
 ///   [`World::resolve`]. It asks the idle units of its owner in its way to step aside ([`yielding::ask`], and
 ///   [`yielding::ask_ahead`] for a group it walks through), then its progress is measured ([`stuck`]). For a
-///   DragMovement unit that step is what it thrusts towards ([`Drag::drive`]).
+///   DragMovement unit that step is what it thrusts towards (`Drag::drive`); for a FixedTurnRadiusMovement unit,
+///   what it heads along (`Wheeled::drive`), and a unit its own move meets is asked to step aside as well.
 #[expect(
     clippy::too_many_arguments,
     reason = "the unit's state, split into the borrows the step holds"
@@ -126,7 +130,7 @@ fn follow(
     turned: &mut f32,
     mover: &mut Mover,
     movement: &MovementAttrs,
-    model: Option<&Drag>,
+    model: Option<&Model>,
     steered: &mut bool,
     world: &mut World,
     touched: &mut Vec<usize>,
@@ -166,8 +170,16 @@ fn follow(
     };
     let to = target - *pos;
     let dist = to.length();
-    // TODO(movement models): TurnRateMovement and DragMovement are modelled; the others turn without limit here.
+    // (M5-V2) The forward loop: a wheeled unit steers straight on while its waypoint lies inside its turning circle.
+    let (to, looping) = match model {
+        Some(Model::Wheeled(wheeled)) if dist > 0.0 => wheeled.steer(*facing, to),
+        _ => (to, false),
+    };
+    // TurnRate, Drag and (M5-V2) FixedTurnRadius are modelled. TODO(M5-V3): SpeedTurnRadiusMovement turns without
+    // limit here.
     let mut turning = false;
+    // The locomotion a model drove by, where it isn't Moving.
+    let mut locomotion = None;
     // A unit with momentum turns towards the step it takes, once the rules have given it (`Drag::drive`).
     if dist > 0.0 && model.is_none() {
         let wanted = math::wrap_angle(math::vector_angle(to));
@@ -196,7 +208,7 @@ fn follow(
     let reach = model.map_or(step, |model| {
         model.approach(stuck::remaining(*pos, &mover.path, usize::from(mover.next)))
     });
-    let arriving = usize::from(mover.next) == last_index && dist <= reach;
+    let arriving = !looping && usize::from(mover.next) == last_index && dist <= reach;
     let d = if dist > reach { to * (reach / dist) } else { to };
     touched.clear();
     // (G) First a step towards a lane clear of the units it has to pass, if there are some ahead; else the rules
@@ -234,12 +246,30 @@ fn follow(
     }
     // (M3-G) A unit with momentum thrusts towards that step and goes where its velocity takes it.
     let moved = match model {
-        Some(model) => {
+        Some(Model::Drag(drag)) => {
             *steered = true;
-            let turn = model.drive(from, facing, turn_rate(movement), d, moved, mover, world, touched);
+            let turn = drag.drive(from, facing, turn_rate(movement), d, moved, mover, world, touched);
             *turned = turn.1;
             turning = turn.1 != 0.0;
             turn.0
+        }
+        // (M5-V2) A wheeled unit heads along that step and drives at its speed.
+        Some(Model::Wheeled(wheeled)) => {
+            *steered = true;
+            let lands = arriving && moved.pos == target;
+            let driven = wheeled.drive(from, facing, moved, lands, mover, world, touched);
+            *turned = driven.turned;
+            turning = driven.turned != 0.0;
+            locomotion = Some(driven.locomotion);
+            if let Some(blocker) = driven.cut {
+                creep_on(from, to, blocker, mover, world, requests, chased);
+            }
+            // The unit its own move met, where the step it heads along didn't (it turns round, or loops), is asked
+            // to step aside as well (design change 0353: "Infantry idle in its path step aside").
+            if driven.moved.blocker != moved.blocker {
+                yielding::ask(world, from, driven.velocity, &driven.moved, false, mover, requests);
+            }
+            driven.moved
         }
         None => moved,
     };
@@ -267,7 +297,7 @@ fn follow(
     mover.locomotion = if mover.velocity == Vec2::ZERO {
         Locomotion::Stationary
     } else {
-        Locomotion::Moving
+        locomotion.unwrap_or(Locomotion::Moving)
     };
     mover.orientation = if turning {
         Orientation::Turning(target)

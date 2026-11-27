@@ -148,6 +148,14 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
             unit.mover.go_to(goal, Some(path_group(order, click)), tick);
             return Behaviour::Plain;
         }
+        // (M5-V2) `systems/controls/command_behaviors.md > ReversingToLocation`: "Same as MovingToLocation, except: Plan
+        // uses Reversing(path) instead of Moving(path)": the same move, its leg driven backwards (`Mover::reverses`).
+        OrderKind::Reverse(click) => {
+            let goal = MoveGoal::Point(order.slot.unwrap_or(click));
+            unit.mover.go_to(goal, Some(path_group(order, click)), tick);
+            unit.mover.reverse();
+            return Behaviour::Plain;
+        }
         // `systems/controls/command_behaviors.md > StoppingBehavior`, `systems/controls/command_behaviors.md >
         // HoldingPosition`: no goal. Infinite deceleration stops the unit at once.
         OrderKind::Stop | OrderKind::Hold => {}
@@ -162,7 +170,7 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
     }
     unit.mover.stop();
     match order.kind {
-        OrderKind::Move(Target::Point(_)) | OrderKind::Stop => Behaviour::Plain,
+        OrderKind::Move(Target::Point(_)) | OrderKind::Reverse(_) | OrderKind::Stop => Behaviour::Plain,
         OrderKind::Hold => Behaviour::Hold { target: None },
         OrderKind::Attack(_) => Behaviour::Attack(AttackOrder::default()),
         OrderKind::Move(Target::Object(_)) => Behaviour::Approach(Approach::default()),
@@ -225,7 +233,8 @@ fn run(
         // (`movement::glider`): GliderMovement exception, design change 0404: "**The behavior completes when the
         // glider first reaches TargetLocation** [...]: the next queued order then starts; with nothing queued it keeps
         // circling there, as when idle". (It never completed before 0404, so the orders queued behind it waited.)
-        (OrderKind::Move(Target::Point(_)), _) => unit.mover.status != MoveStatus::Moving,
+        // (M5-V2) `systems/controls/command_behaviors.md > ReversingToLocation`: "Same as MovingToLocation".
+        (OrderKind::Move(Target::Point(_)) | OrderKind::Reverse(_), _) => unit.mover.status != MoveStatus::Moving,
         // `systems/controls/command_behaviors.md > StoppingBehavior`: complete when stopped, at once with infinite
         // deceleration.
         (OrderKind::Stop, _) => true,

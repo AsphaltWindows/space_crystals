@@ -119,7 +119,7 @@ pub enum WhyUnavailable {
     /// "AttackAttributes - None").
     NotForThisType,
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
-    /// whose buildings is, an order the sim has none of (Reverse).
+    /// whose buildings is.
     NotYet,
     /// A Place button's building is still under construction (design changes 0388 and 0392: "greyed out, with a
     /// running progress bar"; "it lights up when the plate is ready").
