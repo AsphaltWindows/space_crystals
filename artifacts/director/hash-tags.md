@@ -13,7 +13,7 @@ A gap is harmless: a slice that needs no new state leaves its number unused.
 | `OrderKind` (`orders/hash.rs`) | up to 19 (18 Rebase, 19 ReturnToBase, GH1) | 20 CM; 21 GA; 22 SN; 23 GM (LayMine); 24 SP (Thrust); 25 ST1; 26 GB; 27 GH2; 28 GP; 29 SL; 30 SB; 31 ST2; 32 GL; 33–35 GS1 (PickUpSupplies, DropOffSupplies, AttachToTower); 36–37 GS2 (Load, Unload All); 38 S6a; 39 S6b; 40 SR (Relay); 41 SA; 42 SC |
 | `Sim` (`sim.rs`) | 1 held; 2 projectiles; 3 clouds | 4 SB (sludge patches); 5 SC (smoke, unless it lives in SB's patch store); 6 SA (only if the falling bomb needs state outside the projectiles' tag 2) |
 | `Mover` | 10 rise (SD) | 11 GH2; 12 SP; 13 GL; 14 ST2; 15 SA; 16 GS1; 17 GS2 |
-| `Behaviour` (`orders/state/hash.rs`) | up to 13 (13 VehicleDeploy, GA) | 14 GH2; 15 GM; 16 ST1; 17 SP; 18 GB; 19 GP; 20 GL; 21 GS1; 22 GS2; 23 ST2; 24 SR; 25 SA; 26 S6a; 27 SL; 28 SB; 29 SC; 30 S6b |
+| `Behaviour` (`orders/state/hash.rs`) | up to 13 (13 VehicleDeploy, GA) | 14 GH2; 15 GM; 16 ST1; 17 SP; 18 GB; 19 GP; 20 GL; 21 GS1; 22 GS2; 23 ST2; 24 SR; 25 SA; 26 S6a; 27 SL; 28 SB; 29 SC; 30 S6b; 31 CM (only if it adds one) |
 | `Behaviour::Enter` | sub-tag 1 descent (SD) | |
 | `Place` (`network.rs`) | 0 Network; 1 Site; 2 Building | 3 ST1 (Carrier) |
 | `Held` (`network.rs`) | 1 leaving | 2 SN (service) |
