@@ -17,6 +17,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::network::{self, EntryPath, Place};
 use crate::orders::OrderKind;
 use crate::orders::state::Behaviour;
+use crate::shape::Shape;
 use crate::sim::{Reject, Sim};
 
 impl Sim {
@@ -79,7 +80,8 @@ impl Sim {
 
     /// Unit `unit` is on an Enter order to `target`, its walk over or not (`walked`).
     /// - **The target suits it** (it stands, is its owner's and lets the unit in, [`network::admits`]) **and the unit
-    ///   has walked into the entry path** ([`EntryPath::reached`]): it goes into the network
+    ///   has walked into the entry path** ([`EntryPath::reached`], (M6-SV) by its box as it lies: a vehicle's
+    ///   Silhouette turned with its facing, `Shape::bound_half`): it goes into the network
     ///   (`SimEvent::EnteredNetwork`), or into the building's pool (`SimEvent::EnteredBuilding`) if the pool has room
     ///   ([`Sim::room`]), on its way or at the end of its walk alike, so a line never pauses. With no room, the order
     ///   ends as below, `full` (design change 0347 point 2).
@@ -96,8 +98,9 @@ impl Sim {
         let suits = self.objects.get(&target).filter(|target| {
             target.owner.is_some() && target.owner == o.owner && network::admits(target, o.kind).is_ok()
         });
-        let reached = (suits.and_then(EntryPath::of_object).zip(o.def().half_extents()))
-            .is_some_and(|(path, half)| path.reached(o.pos, half));
+        let half = o.def().silhouette().map(|_| Shape::of(o).bound_half());
+        let reached =
+            (suits.and_then(EntryPath::of_object).zip(half)).is_some_and(|(path, half)| path.reached(o.pos, half));
         let building = suits.is_some_and(|target| holding::holds(target).is_some());
         match (reached, building) {
             (true, false) => {

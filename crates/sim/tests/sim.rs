@@ -185,6 +185,8 @@ mod unit_moves;
 mod unit_orders;
 #[path = "upgrades/main.rs"]
 mod upgrades;
+#[path = "vehicle_assembly/main.rs"]
+mod vehicle_assembly;
 #[path = "vehicles/main.rs"]
 mod vehicles;
 mod vision;

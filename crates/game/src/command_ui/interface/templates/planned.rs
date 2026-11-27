@@ -19,6 +19,9 @@
 //! The Field Engineer's Construct menu holds its two buildings' slots (slice M5-N9,
 //! `factions/gdo/units/field_engineer.md > Placeholder stats`: "both greyed until designed"). The Disciple's R held its
 //! spell's, Shroud, from slice M5-N4a until slice M5-N4b (`super::super::PanelCommand::Shroud`).
+//! Slice M6-SV made the ExpandMenu's Vehicle Assembly live (`super::super::PanelCommand::Expand`), and its panel holds
+//! the three units that later slices have it train, W, E and R (`super::syndicate::vehicle_assembly`), each until its
+//! slice: M6-SB the Shadebringer, M6-SL the Laser Battery, M6-ST1 the Subterranean Transport.
 //! (M6-GK) The Deployment Center's build menus hold the slots of the eight buildings it doesn't construct yet
 //! (`factions/gdo/structures/deployment_center.md > Two build menus`), each in the game but greyed until its slice makes
 //! its entry live (`super::gdo::deployment_center`). The Field Engineer's two are in the game since then too, and stay
@@ -29,8 +32,9 @@
 /// Constructs List`), and so is the rest of it (Q0043); a unit's stats, cost and time are TBD
 /// (`factions/colonists/units/scout.md`, `factions/colonists/units/lancer.md`; the psionic unit has no section yet).
 /// The Syndicate's are the ExpandMenu's entries that aren't in the game yet (slice M4-F:
-/// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions. The Cults' were the Construct menus' buildings the
-/// Recruits didn't build yet (slice M5-J1: `sc_sim::defs::ConstructEntry::Planned`, by name), until slice M5-N6.
+/// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions; and (M6-SV) the Vehicle Assembly's units that it
+/// doesn't train yet. The Cults' were the Construct menus' buildings the Recruits didn't build yet (slice M5-J1:
+/// `sc_sim::defs::ConstructEntry::Planned`, by name), until slice M5-N6.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -51,13 +55,19 @@ pub enum Planned {
     /// The Bio Portal's E, "Psionic unit (TBD)" (`factions/colonists/structures/bio_portal.md > Bio Portal
     /// ObjectInterfaceState`).
     PsionicUnit,
+    /// (M6-SV) The Vehicle Assembly's W, E and R (`factions/syndicate/structures/vehicle_assembly.md > Placeholder
+    /// stats`: "**W** Shadebringer, **E** Laser Battery, **R** Subterranean Transport (greyed until their prerequisites
+    /// are owned)"), which it trains from slices M6-SB, M6-SL and M6-ST1 on. Their types are in the game (slice M6-SK),
+    /// so each label is its type's ([`Planned::label`]).
+    Shadebringer,
+    LaserBattery,
+    SubterraneanTransport,
     /// The ExpandMenu's expansions not in the game yet (`factions/syndicate/structures/README.md > Tech Tree
     /// Overview`; design change 0291: "**all nine expansions** are always listed, in the Tech Tree table's order, each
     /// holding its slot"), in the table's order: the sim's `sc_sim::defs::EXPAND_MENU` names them
     /// ([`Planned::expansion`]). The Optics Lab and the Chemical Plant, which were the first two, are in the game
-    /// (slice M4-K).
+    /// (slice M4-K), and so is the Vehicle Assembly, between the Vault and the Forge (slice M6-SV).
     Vault,
-    VehicleAssembly,
     Forge,
     NullChamber,
     AerospaceAssembly,
@@ -82,7 +92,7 @@ pub enum Planned {
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 30] = [
+    pub const ALL: [Planned; 32] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -97,8 +107,10 @@ impl Planned {
         Planned::Scout,
         Planned::Lancer,
         Planned::PsionicUnit,
+        Planned::Shadebringer,
+        Planned::LaserBattery,
+        Planned::SubterraneanTransport,
         Planned::Vault,
-        Planned::VehicleAssembly,
         Planned::Forge,
         Planned::NullChamber,
         Planned::AerospaceAssembly,
@@ -140,8 +152,10 @@ impl Planned {
             Planned::Scout => "Scout",
             Planned::Lancer => "Lancer",
             Planned::PsionicUnit => "Psionic unit",
+            Planned::Shadebringer => "Shadebringer",
+            Planned::LaserBattery => "Laser Battery",
+            Planned::SubterraneanTransport => "Subterranean Transport",
             Planned::Vault => "Vault",
-            Planned::VehicleAssembly => "Vehicle Assembly",
             Planned::Forge => "Forge",
             Planned::NullChamber => "Null Chamber",
             Planned::AerospaceAssembly => "Aerospace Assembly",
@@ -169,8 +183,10 @@ impl Planned {
     /// Engineer's: "FAT" the First Aid Tent, and "BKR" the Bunker, as the Seeker's "SKR", its first and last letters,
     /// "BR", being the Barracks'. An entry's type takes
     /// its label with it into the game (the Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the
-    /// Gunworks' "GS", the Garrison's "GA", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr."
-    /// (slice M4-G). (M6-GK) The Deployment Center's eight, whose types are in the game, have their types' labels.
+    /// Gunworks' "GS", the Garrison's "GA", the Vehicle Assembly's "VA", `crate::kinds`), and a command its own: the
+    /// Tunnel's Upgrade's "Upgr." (slice M4-G). (M6-SV) The Vehicle Assembly's units not trained yet are labelled by
+    /// their types, in the game already (slice M6-SK): "SBR", "LB" and "STR". (M6-GK) The Deployment Center's eight,
+    /// whose types are in the game, have their types' labels.
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -187,8 +203,10 @@ impl Planned {
             Planned::Scout => "ST",
             Planned::Lancer => "LA",
             Planned::PsionicUnit => "PU",
+            Planned::Shadebringer => "SBR",
+            Planned::LaserBattery => "LB",
+            Planned::SubterraneanTransport => "STR",
             Planned::Vault => "VT",
-            Planned::VehicleAssembly => "VA",
             Planned::Forge => "FE",
             Planned::NullChamber => "NC",
             Planned::AerospaceAssembly => "AA",
@@ -209,7 +227,15 @@ impl Planned {
     /// Whether it is a unit, of a production panel; else a building, of the Beacon's Warp In menus, the Tunnel's
     /// ExpandMenu, the Field Engineer's Construct menu or (M6-GK) the Deployment Center's build menus.
     pub fn is_unit(self) -> bool {
-        matches!(self, Planned::Scout | Planned::Lancer | Planned::PsionicUnit)
+        matches!(
+            self,
+            Planned::Scout
+                | Planned::Lancer
+                | Planned::PsionicUnit
+                | Planned::Shadebringer
+                | Planned::LaserBattery
+                | Planned::SubterraneanTransport
+        )
     }
 
     /// (M6-GK) Whether it is a building of the Deployment Center's build menus.
@@ -232,7 +258,6 @@ impl Planned {
         matches!(
             self,
             Planned::Vault
-                | Planned::VehicleAssembly
                 | Planned::Forge
                 | Planned::NullChamber
                 | Planned::AerospaceAssembly
@@ -241,9 +266,9 @@ impl Planned {
     }
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
-    /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
-    /// (`PanelCommand::Expand`); (M6-GK) "Build Factory", as the Deployment Center's buildings are constructed
-    /// (`PanelCommand::Construct`). The Field Engineer's as the design names its abilities
+    /// Furnace" or "Build Vault" ("Train Shadebringer", M6-SV), as a unit in the game is trained, a building warped in
+    /// and an expansion built (`PanelCommand::Expand`); (M6-GK) "Build Factory", as the Deployment Center's buildings
+    /// are constructed (`PanelCommand::Construct`). The Field Engineer's as the design names its abilities
     /// (`factions/gdo/units/field_engineer.md > Abilities`): "**Build Bunker**", "**Set up First Aid Tent**".
     pub fn command_name(self) -> String {
         if self == Planned::FirstAidTent {

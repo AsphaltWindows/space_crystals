@@ -18,16 +18,27 @@
 //! whose walk ended short of the path or whose target no longer suits it, with the events and the removal a
 //! behaviour may not make.
 
+use glam::Vec2;
+
 use crate::ids::ObjectId;
+use crate::math;
 use crate::mover::{MoveGoal, MoveStatus};
+use crate::shape::Shape;
 
 use super::state::Enter;
 use super::world::{Unit, World};
 
 /// An Enter order on `target` starts (`orders::start`): `unit` heads for the entry path's spot, where its box stands
-/// against the wall. With no such Tunnel or building it stands, and its walk is over at once.
+/// against the wall. With no such Tunnel or building it stands, and its walk is over at once. (M6-SV) Its box is the
+/// one it has driving in, facing the wall: a vehicle's Silhouette turned with it (slice M5-V1, `Shape::silhouette`),
+/// so that a Bike's walk ends 28 su from a north- or south-facing side, its length against it, where it can stand; a
+/// square Silhouette's is its own.
 pub(super) fn begin(target: ObjectId, unit: &mut Unit, world: &World) -> Enter {
-    if let (Some(path), Some(half)) = (world.entry_path(target), unit.kind.def().half_extents()) {
+    if let Some(path) = world.entry_path(target)
+        && unit.kind.def().silhouette().is_some()
+    {
+        let facing = math::vector_angle(-path.outward);
+        let half = Shape::silhouette(unit.kind, Vec2::ZERO, facing).bound_half();
         unit.mover.go_to(MoveGoal::Point(path.stand(half)), None, world.tick);
     }
     Enter::default()

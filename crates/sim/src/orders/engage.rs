@@ -19,8 +19,8 @@
 
 use glam::Vec2;
 
-use crate::combat::{inside_min_range, max_range, reaches};
-use crate::defs::AttackAttrs;
+use crate::combat::{inside_min_range, max_range, reaches, turret};
+use crate::defs::{AttackAttrs, MovementAttrs, TurretAttrs, UnitDef};
 use crate::elevation::Elevation;
 use crate::ids::ObjectId;
 use crate::math;
@@ -56,7 +56,9 @@ pub(super) enum Closing {
 ///   vehicle must **stop and turn its hull** to face them", `factions/cults/units/hand_of_heaven.md >
 ///   TurretAttributes`). A move would head where its path does, which at a building's corner can keep the target's
 ///   centre out of so narrow an arc all the way in (design finding, reported; the literal step 4 kept for every other
-///   turret unit).
+///   turret unit). (M6-SV) A unit that can't turn in place, with a turret whose arc is less than a full turn (the
+///   Assault Bike), stops only once the target will still be in its arc where it comes to rest ([`rests_in_arc`]):
+///   until then it drives on toward the target, turning, as out of its arc.
 /// - **Out of range**: MovingToObject towards the target (`MoveGoal::Object`; phase 5c re-aims the path as the
 ///   target moves). The approach starts only while the attack sequence leaves the base free (`combat::may_move`):
 ///   infantry finishes Firing and Cooldown first.
@@ -78,6 +80,7 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
         &target.shape,
         target.elevation,
     ) && unit.takes_aim(target.pos)
+        && rests_in_arc(unit, target.pos)
     {
         unit.halt();
         *chasing = false;
@@ -106,6 +109,41 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
         *chasing = true;
     }
     Closing::Approaching
+}
+
+/// (M6-SV) Step 2's "Locomotion = Stopping" for a unit that can't turn in place (FixedTurnRadiusMovement,
+/// `movement::wheeled`) and fights from a turret whose arc is less than a full turn: the Assault Bike (and the Raptor,
+/// once in play). Stopping, it brakes straight along its facing by Deceleration ("Stopping + Turning: invalid",
+/// `systems/combat.md > LocomotionOrientationConstraints[FixedTurnRadiusMovement]`; `Wheeled::coast`), so a target
+/// that has just come into its arc as it turns toward it slips out again as it coasts on, and step 4 sends it after
+/// the target, round and round, until its move ends as near as it gets and it gives up without firing. So it stops only
+/// where the target will still be in its arc at rest: `at` from the point it comes to rest at if it brakes now, at its
+/// speed (the coast's steps, `speed − Deceleration`, `speed − 2 × Deceleration`, … while above 0, along its facing, or
+/// against it backing up), its facing as it is. True for every other unit ([`brakes_into_arc`]), which stops where it
+/// stands. For one at rest it is the arc as it stands, `Unit::takes_aim`'s.
+fn rests_in_arc(unit: &Unit, at: Vec2) -> bool {
+    let Some((decel, attrs)) = unit.unit_def().and_then(brakes_into_arc) else {
+        return true;
+    };
+    let ahead = math::facing_vector(unit.facing);
+    let momentum = unit.mover.momentum;
+    let (mut speed, mut braking) = (momentum.length() - decel, 0.0);
+    while speed > 0.0 {
+        braking += speed;
+        speed -= decel;
+    }
+    let way = if momentum.dot(ahead) < 0.0 { -1.0 } else { 1.0 };
+    turret::in_arc(&attrs, unit.facing, unit.pos + ahead * (braking * way), at)
+}
+
+/// (M6-SV) The Deceleration (one the design leaves out reached within the tick) and the turret of a unit type that
+/// takes [`rests_in_arc`]'s rule: FixedTurnRadiusMovement, and a turret whose arc is less than a full turn
+/// (`combat::turret::full_turn`); `None` for every other type.
+fn brakes_into_arc(def: &UnitDef) -> Option<(f32, TurretAttrs)> {
+    let (MovementAttrs::FixedTurnRadius { deceleration, .. }, Some(attrs)) = (def.movement, def.turret) else {
+        return None;
+    };
+    (!turret::full_turn(&attrs)).then(|| (deceleration.unwrap_or(f32::INFINITY), attrs))
 }
 
 /// (M5-H1) `> AttackingObject`, GliderMovement exception: "Gliders cannot stop. Instead of stopping when in range, the
@@ -503,5 +541,29 @@ pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
                 *auto = Auto::default();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::defs::ObjectKind;
+
+    /// (M6-SV) The types whose units stop only where the target will still be in their turret's arc at rest
+    /// ([`brakes_into_arc`]): the wheeled ones with a turret narrower than a full turn, the Assault Bike (40°) and the
+    /// Raptor (60°, slice M6-GK's, which no player produces until slice M6-GF). Not the Seeker or the Twister, whose
+    /// turrets turn all the way round, nor a unit that turns in place (the Hand of Heaven keeps its hull aim) or flies
+    /// (a Glider strafes): every other turret unit keeps step 4 as it was.
+    #[test]
+    fn only_wheeled_units_with_a_narrow_turret_brake_into_their_arc() {
+        let taking: Vec<ObjectKind> = (ObjectKind::ALL.iter().copied())
+            .filter(|kind| (kind.def().unit.as_ref()).and_then(brakes_into_arc).is_some())
+            .collect();
+        assert_eq!(taking, [ObjectKind::Raptor, ObjectKind::AssaultBike]);
+        let bike = ObjectKind::AssaultBike.def().unit.as_ref().and_then(brakes_into_arc);
+        assert_eq!(
+            bike.map(|(decel, turret)| (decel, turret.turn_angle)),
+            Some((1.0, 40.0 * math::PI / 180.0))
+        );
     }
 }

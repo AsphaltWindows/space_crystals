@@ -149,11 +149,24 @@ impl Sim {
         pos: Vec2,
         moving: Option<ObjectId>,
     ) -> Result<(), Reject> {
+        let facing = moving.and_then(|id| self.objects.get(&id)).map_or(0.0, |o| o.facing);
+        self.check_unit_fits_facing(kind, pos, facing, moving)
+    }
+
+    /// (M6-SV) [`Sim::check_unit_fits`] for a unit of `kind` that will face `facing` (radians) at `pos`: a held unit
+    /// put back on the map facing out of the side it leaves by (plan decision T100, `Sim::eject_next`), its Silhouette
+    /// turned with that facing (`Shape::silhouette`).
+    pub(in crate::sim) fn check_unit_fits_facing(
+        &self,
+        kind: ObjectKind,
+        pos: Vec2,
+        facing: f32,
+        moving: Option<ObjectId>,
+    ) -> Result<(), Reject> {
         let def = kind.def();
         let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) else {
             return Ok(());
         };
-        let facing = moving.and_then(|id| self.objects.get(&id)).map_or(0.0, |o| o.facing);
         let shape = Shape::silhouette(kind, pos, facing);
         let half = shape.bound_half();
         let base = unit.base_def();

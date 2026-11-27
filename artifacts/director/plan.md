@@ -2490,18 +2490,32 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     A 2000-tick GDO computer game with the export matches one without it.
   - **QA:** `qa/tuning/peacekeeper_damage/` with `qa/tuning/fight.json`. Tuned, the Peacekeeper's first shot of 100 destroys the Guard; untuned, the Guard wins. `/tuning/` is in `.gitignore`.
   - 2834 tests passed, 62 ignored, in 10 programs. The goldens are unchanged, the seed sweep passes, and the 192 computer-player games are identical.
+- **M6-SV The Vehicle Assembly and the Assault Bike** (Opus; merged as `5e0d600f`, the slice squashed by the Director from three commits and a merge of master that resolved a conflict, and `36901a85`, a control fix; 0367's numbers, T100, 0440, 0445). **The Syndicate's first vehicle.**
+  - **The Vehicle Assembly:** Expand is refused at Tier 1 (TierRequirement) and without a Chemical Plant (Requires). It builds for 250 in 480 frames, from 10% HP, with the 6/54 armour and the 1%/s regeneration.
+    - It produces like the Hideout (`ExitRule::Network`), with the Bike's recipe only, reserving Tunnel Space 2 as training starts, and follows 0252's rally cases.
+    - W, E and R stay greyed until SB, SL and ST1.
+  - **The Bike leaves only by a Tier 2+ Tunnel:** a Tier 1 Tunnel refuses its Eject and Enter (NoTransit). Five queued Bikes come out one at a time without overlap.
+    - An eject checks the Silhouette turned to face out (T100: `exit_half`, `Sim::check_unit_fits_facing`), tested in four rotations. A 72x48 test def is left for ST1.
+    - **Fixed on the way:** Enter aimed for a stand computed from the unturned box, so a Bike couldn't drive into a Side A facing north or south.
+  - **The mortar:** the area rule over a group, dodging, Attack Ground, and ground-only blasts (0445). The Bike crushes nothing.
+  - **The control fix** (`engage::rests_in_arc`): a wheeled unit with a turret under 360° stops for a target in range only if the target will still be in its arc where it comes to rest. Before it, the Bike braked as the target entered its arc, coasted straight, lost it, and gave it up unfired. Only the Bike (and the Raptor, not live) takes the branch. `wheeled.rs` is untouched.
+  - **Q0183 (design): idle vehicles stall a Tunnel's exit.** Of five Bikes ejected with no order, two come out; with a rally point straight ahead, four. Pinned in `exit.rs`.
+  - **Q0184 (design): the Bike at close range,** each case pinned by a test:
+    - a target inside its 128 su turning circle can't be brought into its 40° arc, so it gives the Attack up (28 of 112 cases in a 168–224 su, 50–130° grid);
+    - firing from 48 su, its own blast hits it, as friendly fire says;
+    - Attack Ground at a spot in range but out of its arc circles the spot forever.
+  - **Notes for SB, SL and ST1:** add your recipe const to the Vehicle Assembly's `recipes` in panel order, replace your `Planned` slot in `templates/syndicate/vehicle_assembly.rs`, and shrink `SK_KINDS`. Q0183's stall will meet every vehicle out of a Tunnel.
+  - 2858 tests passed, 62 ignored, in 10 programs. The new golden `syndicate_vehicles` makes 24; no other golden moved. The seed sweep passes, the 192 computer-player games are identical, and X2's round trip passes with the kinds live.
 
 ## In progress
 - **Running:**
-  - **M6-SV The Vehicle Assembly and the Assault Bike** (Opus; brief `scratchpad/briefs/m6sv-vehicle-assembly.md`), launched at SK's merge into the free slot, ahead of its wave (W3), on 2026-11-27.
-    - **Done** (2026-11-27), with the golden `syndicate_vehicles` and the computer players' games identical. Before its merge, it merges GK, whose kind numbering changes its golden's hashes, and fixes a control bug as its own commit. The bug: a Bike braking for a target in range coasts straight, so the target slips out of its 40° arc, and the Bike gives it up without firing.
-    - **Q0183 filed:** of five Bikes ejected with no order, two come out. An idle vehicle doesn't yield (0440), and the Tunnels have no default rally point (0446).
   - **M6-GD The Drone Operator** (Opus; brief `scratchpad/briefs/m6gd-drone-operator.md`), launched at GK's merge, on 2026-11-27. It builds the second cost (Supplies) that GF, GH1, GM and GS reuse.
   - **M5-Mb M5's QA** (Opus; brief `scratchpad/briefs/m5mb-qa.md`), launched at X2's merge, on 2026-11-27, with M6 running beside it. The playtest build is the commit at its merge.
+  - **M6-GR The Radar Station, Scan and the Defense System** (Opus; brief `scratchpad/briefs/m6gr-radar-defense.md`), launched at SV's merge, on 2026-11-27.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** **GR** at SV's merge, then GF and SN (W3) as slots free.
+- **Next:** GF and SN (W3) as slots free, then W4.
   - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
-  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK and SK (W1) are merged. SV runs ahead of its wave, and GD is running. **GR** takes the next free slot, then GF and SN (W3).
+  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK, SK and SV are merged, and GD and GR are running. GF and SN (W3) come next.
   - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. `m6gr-radar-defense.md`, `m6gf-factory.md` and `m6sn-null-chamber.md` are drafted with what GK and SK landed. Mb's brief has the soak failure to bisect, and M6 running beside it.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
@@ -2962,6 +2976,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0181 | SeparationRadius for the five air units whose docs give none (the Hornet, the Supply Chopper, the operator's drone, the Phantom and the Prism): proceeding on the Silhouette's side + 8 su, the pattern of the three given radii (from M6-SK and M6-GK) | no | open |
 | Q0182 | Four GDO numbers the docs don't give: the Supply Chopper's UnitControlCost, the Outpost's Groupable, the mine's sight and armour, and the Hornet's TargetType (its dodgeable missile, single-target or a burst like the Rocketman's, 0445): proceeding on 2, true, 0 and 0/0, and SingleTarget (from M6-GK) | no | open |
 | Q0183 | Idle vehicles stall a Tunnel's exit: of five Bikes ejected with no order, two come out, since an idle vehicle doesn't yield (0440) and the Tunnels have no default rally point (0446); with a rally point straight ahead, four (from M6-SV) | no | open |
+| Q0184 | The Assault Bike at close range: a target inside its turning circle (it gives the Attack up), its own blast (it hits itself from 48 su, by Q0083), and Attack Ground out of its arc (it circles forever); options: a MinRange, a loop, giving up, other numbers (from M6-SV) | no | open |
 
 ## Design change entries
 Last triaged: 0282.
