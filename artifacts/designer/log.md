@@ -2385,3 +2385,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0154 answered from docs + placeholder permission: DragMovement numbers for Hornet, Phantom, Prism, drone (0420).
 - Q0155 (user: 3b, 4a; rest designer placeholders): Drone Operator details (0421).
 - Q0156 (user: b): Radar Station Ungroupable (0422).
+- Q0157 (user: b): low Power slows cooldowns, turret fire, rearming (0423).
