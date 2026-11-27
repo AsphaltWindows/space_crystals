@@ -15,7 +15,7 @@
 //! (map editor, new sim).
 
 use bevy::prelude::*;
-use sc_sim::{CornerPos, Map, Tile, TileLook, TilePos};
+use sc_sim::{CornerPos, Map, Tile, TileLook, TilePos, TilePresetId};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, depth_offset, drawn_at_height, view_to_world};
@@ -172,21 +172,44 @@ pub fn terrain_mesh(map: &Map) -> Mesh {
     mesh.into_mesh()
 }
 
-/// One tile: a quad if it is flat, else four shaded triangles around its center, and strata on a cliff face.
-fn terrain_tile(mesh: &mut ColorMesh, map: &Map, t: TilePos, tile: Tile) {
-    let [nw, ne, sw, se] = t.corners().map(|c| SurfacePoint::corner(map, c));
-    let heights = [nw, ne, sw, se].map(|p| p.height);
-    let (low, high) = heights
+/// The lowest and the highest of a tile's corner `heights`.
+fn height_span(heights: [f32; 4]) -> (f32, f32) {
+    heights
         .iter()
-        .fold((f32::MAX, f32::MIN), |(lo, hi), &h| (lo.min(h), hi.max(h)));
+        .fold((f32::MAX, f32::MIN), |(lo, hi), &h| (lo.min(h), hi.max(h)))
+}
+
+/// A tile's colour before its faces are shaded, and whether it is drawn as a cliff face: its preset's look at the
+/// mean of its corners' `heights` ([`tile_color`]), mixed with rock on a non-Traversible tile at least
+/// [`CLIFF_MIN_SLOPE`] levels steep.
+fn base_color(map: &Map, tile: Tile, heights: [f32; 4]) -> (Srgba, bool) {
+    let (low, high) = height_span(heights);
     let mean = heights.iter().sum::<f32>() / 4.0;
     let preset = map.presets().get(tile.preset.0 as usize);
     let traversible = preset.is_some_and(|p| p.traversible);
     let cliff = !traversible && high - low >= f32::from(CLIFF_MIN_SLOPE);
-    let mut color = tile_color(preset.map_or(TileLook::Plane, |p| p.look), mean);
-    if cliff {
-        color = color.mix(&CLIFF_ROCK, CLIFF_ROCK_AMOUNT);
+    let color = tile_color(preset.map_or(TileLook::Plane, |p| p.look), mean);
+    match cliff {
+        true => (color.mix(&CLIFF_ROCK, CLIFF_ROCK_AMOUNT), true),
+        false => (color, false),
     }
+}
+
+/// (M5-MM) The colour of tile `t` before the terrain mesh shades its faces: what the minimap paints it in, flat
+/// (`crate::hud::minimap`). A tile off the map is a flat Plane's.
+pub fn tile_base_color(map: &Map, t: TilePos) -> Srgba {
+    let heights = t.corners().map(|c| SurfacePoint::corner(map, c).height);
+    let tile = map.tile(t).unwrap_or(Tile::new(TilePresetId::PLANE));
+    base_color(map, tile, heights).0
+}
+
+/// One tile: a quad if it is flat, else four shaded triangles around its center, and strata on a cliff face.
+fn terrain_tile(mesh: &mut ColorMesh, map: &Map, t: TilePos, tile: Tile) {
+    let [nw, ne, sw, se] = t.corners().map(|c| SurfacePoint::corner(map, c));
+    let heights = [nw, ne, sw, se].map(|p| p.height);
+    let (low, high) = height_span(heights);
+    let mean = heights.iter().sum::<f32>() / 4.0;
+    let (color, cliff) = base_color(map, tile, heights);
     if high == low {
         mesh.quad([nw, ne, se, sw].map(|p| p.vertex(0.0)), color.into());
         return;

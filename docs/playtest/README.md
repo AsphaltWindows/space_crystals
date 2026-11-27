@@ -7,7 +7,7 @@ What to try in each milestone is in its own notes:
 - [M3](m3.md): the Colonists from the UI.
 - [M4](m4.md): the Syndicate from the UI.
 - [M5](m5.md): the Cults; slice M5-M writes it in full, and each slice adds what it built (so far the Airstrip and
-  the Sparrow).
+  the Sparrow, and the Minimap).
 
 ## Starting a pairing
 
@@ -62,6 +62,11 @@ removes player 2's buildings and checks that player 1 wins.
   back by themselves.
 - **F3** turns the fog of war off and on, to see everything.
 - **Tab** cycles the types in the selection (Shift + Tab the other way).
+- **The minimap**, the HUD's bottom-left panel, shows the whole map as the side you are on knows it, with the fog as
+  on the map, and the camera's view as a white outline. Left-click it, or drag on it, to move the camera there.
+  Right-click it to give the selection's right-click on that ground (a Move; Shift queues it). After A, or any command
+  that awaits a target, left-click it to aim at that ground (an Attack Move). It aims at ground only, never at a unit
+  or a building, and can't place a building: while you place one, a left-click on it only moves the camera.
 - **Debug keys**: F2 and F3 above, G for the grid, P for the units' paths. F2 and F3 work while debug commands are on,
   as they are unless you start with `--no-debug`: don't use it for a hot-seat game.
 - **The end**: a player is defeated when they own no buildings, every structure counting

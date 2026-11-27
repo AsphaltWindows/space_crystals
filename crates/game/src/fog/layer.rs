@@ -79,21 +79,11 @@ pub fn fog_alpha(state: VisibilityState) -> f32 {
 }
 
 /// The texels of a `width` × `height` map as `sight` sees it (row by row from the north-west corner, RGBA8): black,
-/// with each tile's [`fog_alpha`], its best state among the visions the sight watches. Watching none, every tile is
-/// Unexplored; without the fog, every tile is Visible.
+/// with each tile's [`fog_alpha`], its best state among the visions the sight watches ([`Sight::tile_states`]).
+/// Watching none, every tile is Unexplored; without the fog, every tile is Visible.
 pub fn fog_texels(sight: &Sight, width: u32, height: u32) -> Vec<u8> {
-    let tiles = width as usize * height as usize;
     let texel = |state| [0, 0, 0, (fog_alpha(state) * 255.0).round() as u8];
-    if !sight.is_fogged() {
-        return [texel(VisibilityState::Visible)].repeat(tiles).concat();
-    }
-    let mut states = vec![VisibilityState::Unexplored; tiles];
-    for vision in sight.visions() {
-        for (best, state) in states.iter_mut().zip(vision.states()) {
-            *best = (*best).max(state);
-        }
-    }
-    states.into_iter().flat_map(texel).collect()
+    sight.tile_states(width, height).into_iter().flat_map(texel).collect()
 }
 
 /// A texture of `texels` for a `width` × `height` map ([`FOG_SOFT_EDGES`]).

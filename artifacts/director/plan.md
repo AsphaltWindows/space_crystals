@@ -2085,6 +2085,31 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Perf:** `air_perf` A/B against master's binary: a median of 0.049 ms a tick, against master's 0.050. No regression.
   - **Docs:** `docs/playtest/m5.md` (new): the Airstrip, the Sparrow and the Colonists' anti-air gap (0356).
   - 2505 tests passed, 58 ignored.
+- **M5-MM The Minimap** (Opus; merged in `b5673277`; 0415, which the user asked to be prioritised). Client only.
+  - **Drawing** (`hud/minimap.rs`, `hud/minimap/{frame,raster,input}.rs`):
+    - a CPU-side image, one texel per physical pixel;
+    - `MinimapFrame` letterboxes the map, with one tested mapping each way (`ground_at`, `screen_at`);
+    - the terrain is baked once per map and size, from the terrain mesh's unshaded tile colours.
+    - The fog and objects come only from `Sight`, with `Sight::tile_states` now shared with the fog layer. Memory records are dimmed, and live objects pass `Sight::sees`.
+    - The layers repaint only when what they show changes, at most 15 times a second, and at once while the sim stands still, so screenshots are deterministic.
+    - The camera's outline is a UI border, placed every frame.
+  - **Perf** (release, `playtest.json` with 305 objects, fog on): a redraw takes 0.039 ms at 1920×1080 and 0.092 ms at 3840×2160. That is 0.010 and 0.023 ms a frame at 60 fps, against a 0.5 ms budget.
+  - **Clicks** (`MinimapPointer`, filled before `CommandUiSystems::Input`):
+    - a left press or drag centres the camera (`follow_minimap_press`);
+    - a right press goes through one shared `right_click` function on `MapTarget::on_ground`, the same path as the map's;
+    - in AwaitingTarget, `click_targets` claims the press and resolves it through the map's `PressedTarget` path;
+    - in AwaitingPlacement, a left click only centres the camera.
+    - No box selection, deselection or map click ever starts on the panel.
+  - **Placeholders (MM's readings):**
+    - only the map area takes presses, not the letterbox bars;
+    - the outline is the view's extent around the ground under its centre, so it isn't exact on hills;
+    - fog edges are hard, per tile;
+    - unit dots are max(2, the longer side ÷ 80) texels;
+    - the pointer stays the plain arrow over the minimap, even in AwaitingTarget.
+  - **Left out:** attack alerts, undecided in 0415.
+  - **For S7:** the panel test in `tests/commands/minimap.rs` checks that the far corner is Unexplored, which 0416's default changes.
+  - **Tests:** 10 unit tests (frames, mappings, outline, throttle, and the fog layers against real sims) and 7 harness tests (centring, dragging, right-click and Attack Move equivalence with Shift, no selection change, placement, redraw).
+  - 2522 tests passed, 59 ignored. No golden moved, and the computer players' games are unchanged.
 
     | Map | Standard as P1 vs passive | Passive vs standard as P2 | Standard vs standard |
     |---|---|---|---|
@@ -2101,11 +2126,11 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
 ## In progress
 - **Running:**
-  - **M5-MM The Minimap** (Opus; brief `scratchpad/briefs/m5mm-minimap.md`): 0415, which the user asked to be prioritised. Launched in A2a's slot.
+  - **M5-S7 Full screen, the playtest menu and the explored start** (Opus; brief `scratchpad/briefs/m5s7-window-and-playtest-menu.md`; 0413, 0414 and 0416), launched in MM's slot.
   - **M5-V2 Wheeled movement and Reverse** (Opus; brief `scratchpad/briefs/m5v2-wheeled-movement.md`, with 0353's rules), launched in V1's slot. It heads M5's critical path.
   - **M5-K The GDO's anti-air: the Arsenal and the Rocketman** (Opus; brief `scratchpad/briefs/m5k-rocketman-arsenal.md`, with HeadDisjointed, Target Lock and 0407's Verification test), launched in N7's slot.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next, as slots free:** **M5-S7** (0413, 0414 and 0416: full screen, the cursor kept in the window, the 8 px margin, the F10 menu with Restart and Quit, and the map explored at start; brief `scratchpad/briefs/m5s7-window-and-playtest-menu.md`) and A2d; V3 and N6 (after V2) → N10 and V4, then N11; then X1 → X2 → M.
+- **Next, as slots free:** A2d (brief `scratchpad/briefs/a2d-rush-and-syndicate-tunnels.md`); V3 and N6 (after V2) → N10 and V4, then N11; then X1 → X2 → M.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
@@ -2552,6 +2577,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0168 | The Prism: its panel, aiming a thrust, and orders while it launches (M6-SP, SR; from M6-P's D47) | no | open |
 | Q0169 | GDO Supplies: what they buy, and the Supply Chopper's repair on its Tower (M6-GS; from M6-P's D41) | no | open |
 | Q0170 | Orders given to a Sparrow during its takeoff run (from M5-N7's placeholder: they wait for the run's end, and Stop doesn't end it) | no | open |
+| Q0171 | Does a Shift-queued order end a Target Lock or a Shroud channel, or wait behind it? (as built for Shroud, and being built for Target Lock in M5-K: it waits, T76) | no | open |
 
 ## Design change entries
 Last triaged: 0282.
@@ -2941,7 +2967,7 @@ Last triaged: 0282.
 | 0412 **Gliders push apart at a third of the HoverCraft strength** (answers Q0152), up from a quarter (0405), the same in every activity. Spreading is expected to take roughly 10 s or more | done (**M5-N7**, `ce77e205`): six Sparrows within 10 % of 48 su in 11.4 s, against 13.4 s at a quarter | Verification: six Sparrows sent to one point drift apart while circling and end about 48 su apart, somewhat faster than at a quarter; two Sparrows side by side on one target still land near the centre |
 | 0413 **Full screen by default; the cursor stays in the window; an 8 px pan margin** (the user's playtest finding: in a window, panning up slid the cursor into the title bar). Borderless full screen at start; F11 or Alt+Enter toggles a window (keys placeholder); the cursor is confined to the window while the game is focused, full screen included; edge panning starts within 8 px of the edge (placeholder) | queued (**M5-S7**, a small slice of its own, in the first free slot after K) | Verification: launch fills the screen with no borders; F11 or Alt+Enter toggles; in a window the cursor stops at the top edge and the map keeps panning; Alt-Tab frees it; 5 px from an edge pans; on two monitors the cursor stays on the game's |
 | 0414 **A temporary playtest menu: Restart and Quit**, on F10 and at game end (the user: "when the game ends or if I press F10 I would like restart (and quit) options"). Restart replays the same map, slots, factions and computer players from 0:00; the F10 menu pauses the game and offers Resume; no confirmation (placeholders). The Director's call, as 0414 asks: a restarted game starts a new replay | queued (**M5-S7**, with 0413; brief `scratchpad/briefs/m5s7-window-and-playtest-menu.md`) | Verification: F10 mid-game shows the menu with units frozen, and F10 or Resume continues; Restart starts the same game again at 0:00; Quit closes it; a won or lost game shows the menu with the result |
-| 0415 **The Minimap**, which the user asked to be prioritised (`systems/controls/hud.md > Minimap`): the whole map with simplified terrain; objects in player colours (buildings as footprints, units as dots), patches and neutrals in a neutral colour; the fog exactly as on the main map; the camera's view as a rectangle. Left-click or drag centres the camera; right-click is the selection's ground right-click there; in AwaitingTarget a left-click targets that ground point. It targets only ground and never places (placeholders); attack alerts aren't decided | queued (**M5-MM**, its own slice, in the next free slot ahead of K; brief `scratchpad/briefs/m5mm-minimap.md`) | Verification: the whole map, player colours, neutral patches; enemies only where seen, remembered buildings as last seen, unexplored black; the rectangle follows the camera; a click moves the camera and a drag pans; a right-click moves the selection there; A then a left-click Attack Moves there |
+| 0415 **The Minimap**, which the user asked to be prioritised (`systems/controls/hud.md > Minimap`): the whole map with simplified terrain; objects in player colours (buildings as footprints, units as dots), patches and neutrals in a neutral colour; the fog exactly as on the main map; the camera's view as a rectangle. Left-click or drag centres the camera; right-click is the selection's ground right-click there; in AwaitingTarget a left-click targets that ground point. It targets only ground and never places (placeholders); attack alerts aren't decided | done (**M5-MM**, `b5673277`; attack alerts left out, as 0415 leaves them undecided) | Verification: the whole map, player colours, neutral patches; enemies only where seen, remembered buildings as last seen, unexplored black; the rectangle follows the camera; a click moves the camera and a drag pans; a right-click moves the selection there; A then a left-click Attack Moves there |
 | 0416 **The map starts Explored by default** (`core/vision.md > Starting exploration`): every tile Explored for every player, with the terrain and the neutral objects remembered as at game start and no player objects; the fog stays on. A command-line flag turns it off; Restart keeps it | queued (**M5-S7**, with 0413 and 0414; a `SimConfig` option that old replays read as off) | Verification: with no flag the map shows dimmed terrain and patches but no enemy base; with the flag it is black outside sight; a patch mined out of an enemy's sight keeps its starting amount in that enemy's memory; a restart keeps the setting |
 | 0417 **Tracked vehicles turn by a tread law** (answers Q0153 parts 1 and 3): SpinRate = 2 × MaxSpeed ÷ TrackWidth when stopped, falling linearly to 0 at MaxSpeed (maxTurnRate = SpinRate × (1 − |v| ÷ MaxSpeed)); reversing uses the same law, capped at a new ReverseMaxSpeed; turning costs no speed. TrackWidth replaces SpeedToTurnRadiusRatio, and the five tracked units get TrackWidth and ReverseMaxSpeed; the surfaced Transport takes the Laser Battery's Acceleration and Deceleration | queued (folded into **M5-V3**'s brief, which replaces T85's linear law and its corner choice) | Verification: a Hand of Heaven standing still turns 90° in about 5 frames; at full speed, ordered to a point 90° to its side, it slows first and never turns at MaxSpeed; its tightest radius is about 15 su at half speed and 60 su at 4 su/frame; reversing, it backs up at no more than 2.5 su/frame and turns by the same law |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

@@ -34,7 +34,8 @@ use super::interface::{InterfaceState, Modes, PanelCommand, commandable, recipie
 use super::resolution::{
     MapTarget, Resolved, UnitCapabilities, capabilities, object_right_click, target_resolution, unit_target_order,
 };
-use crate::input::{ActionState, Bindings, InputAction, MapClick, MapPress};
+use crate::hud::minimap::MinimapPointer;
+use crate::input::{ActionState, Bindings, InputAction, MapClick, Modifiers};
 use crate::selection::LocalControl;
 
 use outbox::OrderOutbox;
@@ -50,12 +51,40 @@ pub use crate::tuning::input::TARGETING_CLICK_ALLOWANCE_PX;
 #[derive(Resource, Default, Debug)]
 pub(super) struct TargetPress(Option<PressedTarget>);
 
+/// Where a press of the Select action went down: on the map (`Pointer::press`), or (slice M5-MM) on the minimap
+/// (`crate::hud::minimap::MinimapPointer::press`), whose clicks are on the ground alone.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum PressedOn {
+    Map,
+    Minimap,
+}
+
+/// A press of the Select action that ended this frame, on the map or on the minimap: where it went down and how far
+/// it moved.
+#[derive(Copy, Clone, Debug, PartialEq)]
+struct Released {
+    on: PressedOn,
+    screen: Vec2,
+    moved: f32,
+}
+
+impl Released {
+    /// The press that ended this frame, on the map or on the minimap: a Select press either way.
+    fn of(actions: &ActionState, minimap: &MinimapPointer) -> Option<Self> {
+        let map = actions.pointer().released.filter(|r| r.action == InputAction::Select);
+        let map = map.map(|r| (PressedOn::Map, r.screen, r.moved));
+        let minimap = minimap.released.map(|r| (PressedOn::Minimap, r.screen, r.moved));
+        map.or(minimap).map(|(on, screen, moved)| Self { on, screen, moved })
+    }
+}
+
 /// What was under a press while a target was awaited ([`TargetPress`]).
 #[derive(Copy, Clone, Debug, PartialEq)]
 struct PressedTarget {
     /// The command awaiting its target as the button went down.
     pending: PanelCommand,
-    /// Where it went down, logical pixels: the press's own (`MapPress::screen`).
+    /// Where it went down: on the map or on the minimap, at this point (logical pixels), the press's own.
+    on: PressedOn,
     screen: Vec2,
     target: MapTarget,
     /// The Queue modifier (Shift) was held as the button went down: a Shift-click, which queues its order and keeps
@@ -68,10 +97,8 @@ struct PressedTarget {
 impl PressedTarget {
     /// Whether `released`, the press that ended this frame, is this one, and a click: it moved no further than
     /// [`TARGETING_CLICK_ALLOWANCE_PX`]. A drag beyond it does nothing (design changes 0067 and 0073).
-    fn clicked(&self, released: &MapPress) -> bool {
-        released.action == InputAction::Select
-            && released.screen == self.screen
-            && released.moved <= TARGETING_CLICK_ALLOWANCE_PX
+    fn clicked(&self, released: Released) -> bool {
+        released.on == self.on && released.screen == self.screen && released.moved <= TARGETING_CLICK_ALLOWANCE_PX
     }
 }
 
@@ -124,8 +151,14 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 ///   AwaitingTarget, left-click a point in vision"): a click on a point the player sees now casts the ability there
 ///   from the one Shrine of the ActiveGroup, as one `Command::Cast`, and returns to DefaultState; a Shift-click too,
 ///   like a rally point's (`PanelCommand::queues`). A point out of vision is an invalid target.
+/// - **On the minimap** (slice M5-MM, `systems/controls/hud.md > Minimap > Using it`: "a left-click on the minimap
+///   targets that ground point (e.g. Attack Move there), as a left-click on ground would"): a press that goes down on
+///   the minimap is a targeting click on the ground point it shows there (`MapTarget::on_ground`: the designer's
+///   placeholder, ground only), by the same rules; the command flow takes it, so that it moves no camera
+///   (`crate::hud::minimap::MinimapPress::targets`).
 pub(super) fn click_targets(
     actions: Res<ActionState>,
+    mut minimap: ResMut<MinimapPointer>,
     mut pressed: ResMut<TargetPress>,
     mut control: LocalControl,
     mut outbox: OrderOutbox,
@@ -134,22 +167,37 @@ pub(super) fn click_targets(
     let awaited = control.state().interface.pending();
     if let Some(pending) = awaited
         && actions.just_pressed(InputAction::Select)
-        && let Some(press) = actions.pointer().press.filter(|p| p.action == InputAction::Select)
     {
-        let player = control.player();
-        let target = MapTarget::at(control.sim(), player, &control.objects(), press.view, press.ground);
-        pressed.0 = Some(PressedTarget {
-            pending,
-            screen: press.screen,
-            target,
-            queue: actions.held(InputAction::Queue),
-        });
+        let (sim, player) = (control.sim(), control.player());
+        let on_map = actions.pointer().press.filter(|p| p.action == InputAction::Select);
+        let press = if let Some(press) = on_map {
+            let target = MapTarget::at(sim, player, &control.objects(), press.view, press.ground);
+            Some((PressedOn::Map, press.screen, target))
+        } else if let Some(press) = minimap.press.as_mut() {
+            press.targets = true;
+            Some((
+                PressedOn::Minimap,
+                press.screen,
+                MapTarget::on_ground(sim, player, press.ground),
+            ))
+        } else {
+            None
+        };
+        if let Some((on, screen, target)) = press {
+            pressed.0 = Some(PressedTarget {
+                pending,
+                on,
+                screen,
+                target,
+                queue: actions.held(InputAction::Queue),
+            });
+        }
     }
-    if let Some(released) = actions.pointer().released
+    if let Some(released) = Released::of(&actions, &minimap)
         && let Some(click) = pressed
             .0
             .take()
-            .filter(|p| awaited == Some(p.pending) && p.clicked(&released))
+            .filter(|p| awaited == Some(p.pending) && p.clicked(released))
     {
         let pending = click.pending;
         if !give_targeted(&control, &mut outbox, click) {
@@ -163,7 +211,7 @@ pub(super) fn click_targets(
             control.update(|state| state.interface = InterfaceState::DefaultState);
         }
     }
-    if awaited.is_none() || actions.pointer().press.is_none() {
+    if awaited.is_none() || (actions.pointer().press.is_none() && minimap.press.is_none()) {
         pressed.0 = None;
     }
 }
@@ -217,9 +265,15 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
 /// DefaultState** (not to the previous menu)": a right-click anywhere, over the HUD too, then orders nothing and
 /// returns to DefaultState ([`InterfaceState::takes_map_clicks`]). A building ready to place stays ready. Escape and
 /// Back (Z) still go back one step ([`InterfaceState::back`]).
+///
+/// Slice M5-MM (`systems/controls/hud.md > Minimap > Using it`): a right-click on the minimap is "the selection's
+/// right-click on that ground point, as a right-click on ground in the main view", the same function's
+/// ([`right_click`]) on the ground point the minimap shows there (`MapTarget::on_ground`, the designer's placeholder:
+/// ground only); in AwaitingTarget and AwaitingPlacement it cancels, as anywhere.
 pub(super) fn right_click_orders(
     actions: Res<ActionState>,
     mut clicks: MessageReader<MapClick>,
+    minimap: Res<MinimapPointer>,
     bindings: Res<Bindings>,
     mut control: LocalControl,
     mut outbox: OrderOutbox,
@@ -235,29 +289,50 @@ pub(super) fn right_click_orders(
         }
         return;
     }
-    for click in clicks {
-        let state = control.state();
-        let player = control.player();
-        if !commandable(control.sim(), player, &state.selection) {
+    let (sim, player) = (control.sim(), control.player());
+    let on_map = clicks.iter().map(|click| {
+        let target = MapTarget::at(sim, player, &control.objects(), click.view, click.ground);
+        (target, click.modifiers)
+    });
+    let on_minimap =
+        (minimap.right_click).map(|click| (MapTarget::on_ground(sim, player, click.ground), click.modifiers));
+    let targets: Vec<(MapTarget, Modifiers)> = on_map.chain(on_minimap).collect();
+    for (target, modifiers) in targets {
+        if !right_click(
+            &control,
+            &mut outbox,
+            &target,
+            bindings.holds(InputAction::Queue, modifiers),
+        ) {
             return;
         }
-        let target = MapTarget::at(control.sim(), player, &control.objects(), click.view, click.ground);
-        let modes = Modes::of(control.sim(), &state.selection);
-        let mut orders: Vec<(ObjectId, OrderKind)> = Vec::new();
-        let mut rally: Option<(Target, Vec<ObjectId>)> = None;
-        for (id, object) in capabilities(&state.selection, &modes) {
-            match object_right_click(object, &target) {
-                Some(Resolved::Order(kind)) => orders.push((id, kind)),
-                // Every producer rallies on the same target: what was clicked.
-                Some(Resolved::Rally(on)) => rally.get_or_insert_with(|| (on, Vec::new())).1.push(id),
-                // No right-click uses an ability, nor casts.
-                Some(Resolved::Ability(_) | Resolved::Cast(..)) | None => {}
-            }
-        }
-        let queue = bindings.holds(InputAction::Queue, click.modifiers);
-        outbox.give_each(player, orders, queue);
-        if let Some((on, producers)) = rally {
-            outbox.produce(player, producers, ProductionCommand::SetRally(on));
+    }
+}
+
+/// One right-click on `target`, queued or not, as [`right_click_orders`] has it: each selected object's own
+/// resolution, the units' orders grouped and the producers' rally point. Whether the selection may be commanded at
+/// all: nothing is given otherwise.
+fn right_click(control: &LocalControl, outbox: &mut OrderOutbox, target: &MapTarget, queue: bool) -> bool {
+    let state = control.state();
+    let player = control.player();
+    if !commandable(control.sim(), player, &state.selection) {
+        return false;
+    }
+    let modes = Modes::of(control.sim(), &state.selection);
+    let mut orders: Vec<(ObjectId, OrderKind)> = Vec::new();
+    let mut rally: Option<(Target, Vec<ObjectId>)> = None;
+    for (id, object) in capabilities(&state.selection, &modes) {
+        match object_right_click(object, target) {
+            Some(Resolved::Order(kind)) => orders.push((id, kind)),
+            // Every producer rallies on the same target: what was clicked.
+            Some(Resolved::Rally(on)) => rally.get_or_insert_with(|| (on, Vec::new())).1.push(id),
+            // No right-click uses an ability, nor casts.
+            Some(Resolved::Ability(_) | Resolved::Cast(..)) | None => {}
         }
     }
+    outbox.give_each(player, orders, queue);
+    if let Some((on, producers)) = rally {
+        outbox.produce(player, producers, ProductionCommand::SetRally(on));
+    }
+    true
 }
