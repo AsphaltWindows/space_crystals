@@ -26,6 +26,8 @@ mod game_end;
 mod hud;
 mod minimap_alerts;
 mod pairings;
+#[path = "playtest_docs/main.rs"]
+mod playtest_docs;
 #[path = "playtest_menu/main.rs"]
 mod playtest_menu;
 mod replay;

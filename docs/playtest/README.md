@@ -6,9 +6,14 @@ What to try in each milestone is in its own notes:
 - [M2](m2.md): a GDO base, an army, a winner.
 - [M3](m3.md): the Colonists from the UI.
 - [M4](m4.md): the Syndicate from the UI.
-- [M5](m5.md): the Cults; slice M5-M writes it in full, and each slice adds what it built (so far the Airstrip and
-  the Sparrow, the Minimap and its alerts, full screen, the playtest menu and the map explored from the start, the
-  Arsenal and the Rocketman, and the Chop Shop and the Seeker).
+- [M5](m5.md): the Cults, with how to start a playtest of all four factions, what M5 leaves out, and what to try
+  with each slice's work (so far the Airstrip and the Sparrow, the Minimap and its alerts, full screen, the playtest
+  menu and the map explored from the start, the Arsenal and the Rocketman, the Chop Shop and the Seeker, and
+  crushing).
+
+Two lists are generated from the code: [the controls](controls.md), every key and every faction's command panels,
+which a test keeps current; and [the placeholders](placeholders.md), every number and rule the code marks as a
+placeholder, to regenerate before a playtest (each says how at its top).
 
 ## Starting a pairing
 

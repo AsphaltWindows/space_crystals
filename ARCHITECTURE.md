@@ -4973,6 +4973,19 @@ updates. To draw between ticks, advance by part of a tick with `TimeUpdateStrate
 `Sim` gives the same `state_hash` at every tick. `tests/replay.rs` records games through the client and plays them
 back (`AppConfig::record`, `AppConfig::playback`).
 
+**Generated docs** (slice M5-Ma, `tests/playtest_docs/`): two pages of the playtest kit are generated from the code
+between marker lines, `<!-- generated: <name>, begin; ... -->` and `<!-- generated: <name>, end -->`, the text
+around them written by hand. `docs/playtest/controls.md` is every key of the bindings table and every faction's
+panels, as `command_ui::interface::panel` builds them from the templates; its test fails when the page differs,
+naming the first line that does and the command that regenerates it, so a change to a template, a command's name or
+hint, a prerequisite or a binding regenerates it and commits it with the change. `docs/playtest/placeholders.md` lists
+every `Placeholder (` mark in the comments of `crates/` (*Tunables*), by faction and system; nothing fails when it is
+stale, and the milestone's QA regenerates it. The tests read `UPDATE_DOCS`, as the goldens read `SC_BLESS`:
+
+    UPDATE_DOCS=1 cargo test -p space_crystals --test game playtest_docs::
+
+rewrites both (`playtest_docs::controls` or `playtest_docs::placeholders` one).
+
 ## Bevy 0.20: verify, don't recall
 
 Bevy 0.20, released in October 2026, is newer than your training data, which ends around 0.18 or 0.19. Its APIs
@@ -5719,7 +5732,8 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   each with its rush's (slice A2d). Each is "Placeholder (Q0147 point N)" (2: how it plays; 3: build orders) or
   "Placeholder (not in the design: why)": the behaviour is the Director's placeholder (*Computer players*).
 - Each constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where there is one,
-  why it has its value.
+  why it has its value. `docs/playtest/placeholders.md` lists every such mark, the constants' and the rest of the
+  code's (*Client architecture*, generated docs).
 - Colours and drawing sizes stay with the drawing code. Technical constants stay where they are used: the sim's
   units of measure, hashing, file formats, and the caps and margins that only bound a computation or absorb rounding;
   the client's z offsets, frame budgets and capture timeouts.
