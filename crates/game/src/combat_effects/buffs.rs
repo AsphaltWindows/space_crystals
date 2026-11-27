@@ -4,10 +4,13 @@
 //! of it, a mark for each buff a unit has (`sc_sim::Object::buffs`), in its abilities' order, whether its bars show or
 //! not. Health regeneration's is a green cross, Energy regeneration's a violet one, the energy bar's
 //! (`super::draw`); (M5-N11) the Prayer-mobile's Inspire's a gold chevron pointing up ("+1.5 su/frame MaxSpeed"), its
-//! Suppress's a red X ("can't attack"), on every unit Suppress took in, of any player. Every player who sees the unit
-//! sees them, as its bars: **Placeholder (not in the design: who sees a buff, and its look; Q0001)**.
+//! Suppress's a red X ("can't attack"), on every unit Suppress took in, of any player; (M6-SN) the Null Chamber exit
+//! buff's a pale blue diamond, an eye's shape for its "+2 grid units SightRange" (`sc_sim::network::services`). Every
+//! player who sees the unit sees them, as its bars: **Placeholder (not in the design: who sees a buff, and its look;
+//! Q0001)**.
 
 use bevy::prelude::*;
+use sc_sim::buffs::BuffKind;
 use sc_sim::{AreaAbility, Sim};
 
 use super::hp_bar;
@@ -29,13 +32,16 @@ const ENERGY_COLOR: Color = Color::srgb(0.72, 0.45, 1.0);
 /// (M5-N11) Inspire's gold and Suppress's red (placeholders).
 const INSPIRE_COLOR: Color = Color::srgb(1.0, 0.80, 0.25);
 const SUPPRESS_COLOR: Color = Color::srgb(1.0, 0.28, 0.22);
+/// (M6-SN) The Null Chamber exit buff's pale blue (a placeholder).
+const NULL_CHAMBER_COLOR: Color = Color::srgb(0.45, 0.85, 1.0);
 const RIM_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 
-/// A buff's mark: centred on `center` (view space), of `ability`'s buff.
+/// A buff's mark: centred on `center` (view space), of the buff `ability` (`sc_sim::buffs::Buff::ability`): an
+/// ability's, or (M6-SN) the Null Chamber's.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct BuffMark {
     pub center: Vec2,
-    pub ability: AreaAbility,
+    pub ability: BuffKind,
 }
 
 /// The marks to draw: those of the buffs of each object `sight` sees, at its interpolated position (module docs), its
@@ -45,21 +51,44 @@ pub fn buff_marks(sim: &Sim, sight: &Sight, alpha: f32, tuning: &ClientTuning) -
     for o in sim.objects().filter(|o| !o.buffs.is_empty() && sight.sees(o)) {
         let bar = hp_bar(sim.map(), o, alpha, (1.0, (None, None)), &tuning.look);
         let first = bar.center + Vec2::new(bar.width / 2.0 + GAP + ARM, 0.0);
-        let shown = AreaAbility::ALL
-            .into_iter()
-            .filter(|&ability| o.buffs.iter().any(|buff| buff.ability == ability));
-        for (i, ability) in shown.enumerate() {
+        // A unit's buffs are in their kinds' order, one of each (`sc_sim::buffs::Buff`).
+        for (i, buff) in o.buffs.iter().enumerate() {
             let center = first + Vec2::new(i as f32 * (2.0 * ARM + GAP), 0.0);
-            marks.push(BuffMark { center, ability });
+            marks.push(BuffMark {
+                center,
+                ability: buff.ability,
+            });
         }
     }
     marks
 }
 
-/// Draws `mark` in its ability's colour inside a dark rim: a cross, (M5-N11) Inspire's chevron and Suppress's X.
+/// Draws `mark` in its buff's colour inside a dark rim: a cross, (M5-N11) Inspire's chevron and Suppress's X, (M6-SN)
+/// the Null Chamber's diamond.
 pub(super) fn mark_shape(mesh: &mut ColorMesh, mark: BuffMark, z: f32) {
     let center = view_to_world(mark.center);
-    match mark.ability {
+    let ability = match mark.ability {
+        BuffKind::Area(ability) => ability,
+        BuffKind::NullChamber => {
+            let corners = [
+                Vec2::new(0.0, ARM),
+                Vec2::new(ARM, 0.0),
+                Vec2::new(0.0, -ARM),
+                Vec2::new(-ARM, 0.0),
+            ]
+            .map(|corner| center + corner);
+            let sides = |from: usize| {
+                [
+                    (corners[from], corners[from + 1]),
+                    (corners[from + 1], corners[(from + 2) % 4]),
+                ]
+            };
+            strokes(mesh, sides(0), NULL_CHAMBER_COLOR, z);
+            strokes(mesh, sides(2), NULL_CHAMBER_COLOR, z);
+            return;
+        }
+    };
+    match ability {
         // (M6-GR) Scan gives no buff, so no mark: its sight is its owner's (`sc_sim::vision::scans`).
         AreaAbility::Scan => {}
         AreaAbility::HealthRegeneration => cross(mesh, center, HEALTH_COLOR, z),

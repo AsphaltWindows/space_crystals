@@ -135,6 +135,8 @@ mod movement_yield;
 mod nav;
 mod nav_grid;
 mod nav_serve;
+#[path = "null_chamber/main.rs"]
+mod null_chamber;
 #[path = "oriented/main.rs"]
 mod oriented;
 #[path = "pairings/main.rs"]

@@ -1,9 +1,9 @@
 //! Slice M6-SK's kinds through the gate (plan decision T84, design change 0367): the Syndicate's six other expansions
 //! and its seven other units, with the Laser Battery's and the Subterranean Transport's second types, are in the game,
 //! and no player makes one, each kept out until its slice by T69's rule, but the Vehicle Assembly and the Assault Bike,
-//! live since slice M6-SV (`tests/vehicle_assembly`), and the Forge, the Aerospace Assembly and the Phantom, live since
-//! slice M6-SD (`tests/air_doors`). No Tunnel builds one of the three other expansions, a Tier 3 one with the bank, the
-//! place and every prerequisite included; no building trains one of the other units, the Vehicle Assembly training
+//! live since slice M6-SV (`tests/vehicle_assembly`), the Forge, the Aerospace Assembly and the Phantom, live since
+//! slice M6-SD (`tests/air_doors`), and the Null Chamber, live since slice M6-SN (`tests/null_chamber`). No Tunnel
+//! builds one of the two other expansions, a Tier 3 one with the bank, the place and every prerequisite included; no building trains one of the other units, the Vehicle Assembly training
 //! the Assault Bike alone and the Aerospace Assembly the Phantom alone; no Tunnel ejects one, none being inside; and
 //! only the debug spawn, with debug commands on, makes one, each then an object of its kind that works, a unit moving
 //! when ordered to. A deployed Laser Battery, immobile by its def (plan decision T87), stays where it is when ordered
@@ -19,9 +19,10 @@ use sc_sim::{
 
 const P1: PlayerId = PlayerId(1);
 
-/// The three expansions still out of play, in the Tech Tree's order (`factions/syndicate/structures/README.md`): the
-/// six but the Vehicle Assembly (slice M6-SV), the Forge and the Aerospace Assembly (slice M6-SD).
-const EXPANSIONS: [ObjectKind; 3] = [ObjectKind::Vault, ObjectKind::NullChamber, ObjectKind::OrbitalCommand];
+/// The two expansions still out of play, in the Tech Tree's order (`factions/syndicate/structures/README.md`): the six
+/// but the Vehicle Assembly (slice M6-SV), the Forge and the Aerospace Assembly (slice M6-SD), and the Null Chamber
+/// (slice M6-SN).
+const EXPANSIONS: [ObjectKind; 2] = [ObjectKind::Vault, ObjectKind::OrbitalCommand];
 
 /// The seven unit types still out of play, each unit's second type after its first
 /// (`factions/syndicate/units/README.md`): the nine but the Assault Bike (slice M6-SV) and the Phantom (slice M6-SD).
@@ -69,7 +70,7 @@ fn gate(t: &TestSim, command: Command) -> Result<(), Reject> {
     t.sim().validate(&PlayerCommand { player: P1, command })
 }
 
-/// Player 1 plays the Syndicate on a flat 40 × 20 map with every prerequisite of the three expansions and of the seven
+/// Player 1 plays the Syndicate on a flat 40 × 20 map with every prerequisite of the two expansions and of the seven
 /// units' recipes, and 10 000 Space Crystals: the Tunnel [`T1`] at Tier 3 and the Hideout [`H1`], then, debug spawns
 /// in its area from tick 1, which has run, an Optics Lab (3), a Chemical Plant (4), the Vehicle Assembly [`VA`], a
 /// Forge (6), the Aerospace Assembly [`AA`], a Vault (8) and an Orbital Command (9). Auto-targeting is off.
@@ -112,7 +113,7 @@ fn full_base() -> TestSim {
     t
 }
 
-/// "Expand" (`factions/syndicate/tunnel_menus.md > ExpandMenu`): no Tunnel builds one of the three, none having an
+/// "Expand" (`factions/syndicate/tunnel_menus.md > ExpandMenu`): no Tunnel builds one of the two, neither having an
 /// expansion's tier, cost and time in its def until its slice: the gate refuses each Expand
 /// ([`Reject::CannotConstruct`]) at a Tier 3 Tunnel with every prerequisite, 10 000 Space Crystals and a free place in
 /// its area, where it takes the Optics Lab's; and the command, sent anyway, starts nothing.
@@ -210,7 +211,7 @@ fn no_tunnel_ejects_one_of_the_new_units() {
     }
 }
 
-/// Where [`only_the_debug_spawn_makes_one`] spawns each of the ten on a flat 64 × 16 map: an expansion on the
+/// Where [`only_the_debug_spawn_makes_one`] spawns each of the nine on a flat 64 × 16 map: an expansion on the
 /// tiles of row 1, 5 tiles apart, a unit at the centre of a tile of row 9, 4 tiles apart.
 fn spawn_at(i: usize, kind: ObjectKind) -> SpawnAt {
     let i = i as i32;
@@ -221,7 +222,7 @@ fn spawn_at(i: usize, kind: ObjectKind) -> SpawnAt {
     }
 }
 
-/// The editor's debug spawn makes each of the ten (`DebugCommand::Spawn`), and nothing else does: with debug
+/// The editor's debug spawn makes each of the nine (`DebugCommand::Spawn`), and nothing else does: with debug
 /// commands off, the gate refuses each ([`Reject::DebugDisabled`]); on, each comes into the game, player 1's, of its
 /// kind at its full MaxHP. Each unit but the deployed Laser Battery then moves when ordered to: 200 frames on, it is
 /// nearer its goal, 4 grid units south, by a grid unit at least, the Prism's slow drift included.

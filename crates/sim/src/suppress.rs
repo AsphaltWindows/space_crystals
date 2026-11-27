@@ -53,7 +53,7 @@ pub fn in_arc(at: Vec2, facing: f32, arc: f32, radius: f32, pos: Vec2) -> bool {
 /// buffs. What phase 5e asks of every attack before it starts one.
 #[inline]
 pub fn holds_fire(o: &Object) -> bool {
-    !o.buffs.is_empty() && (o.buffs.iter()).any(|buff| buff.ability.def().effect == BuffEffect::HoldFire)
+    !o.buffs.is_empty() && (o.buffs.iter()).any(|buff| buff.ability.effect() == Some(&BuffEffect::HoldFire))
 }
 
 #[cfg(test)]

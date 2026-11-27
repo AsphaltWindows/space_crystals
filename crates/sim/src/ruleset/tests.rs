@@ -300,3 +300,40 @@ fn ammo_and_an_airfield_are_structure_and_their_numbers_live() {
         change("HoverCraft", "brakes_by_drag")
     );
 }
+
+/// (M6-SN) The Null Chamber's service (`StructureDef::chamber`, `network::services`): its numbers apply live (the
+/// slots, the turn, and the buff's duration, sight and reduction); having one is structure, the Null Chamber's as
+/// another type's.
+#[test]
+fn a_chamber_is_structure_and_its_numbers_live() {
+    use crate::defs::{ChamberDef, StructureDef};
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    let change = |entry, field| Some(RuleField { entry, field });
+    fn structure(rules: &mut Ruleset, kind: ObjectKind) -> &mut StructureDef {
+        rules.defs.get_mut(kind).structure.as_mut().unwrap()
+    }
+    let numbers = ChamberDef {
+        slots: 2,
+        turn: 3.0,
+        duration: 10.0,
+        sight: 1.0,
+        reduction: 0.5,
+    };
+    assert_eq!(
+        changed(&|r| structure(r, ObjectKind::NullChamber).chamber = Some(numbers)),
+        None
+    );
+    assert_eq!(
+        changed(&|r| structure(r, ObjectKind::NullChamber).chamber = None),
+        change("NullChamber", "chamber")
+    );
+    assert_eq!(
+        changed(&|r| structure(r, ObjectKind::Hideout).chamber = Some(numbers)),
+        change("Hideout", "chamber")
+    );
+}

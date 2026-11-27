@@ -116,7 +116,7 @@ fn buffs(t: &TestSim, id: ObjectId) -> Vec<Buff> {
 /// The buff of `ability` cast in tick `cast`, alone.
 fn buff(ability: AreaAbility, cast: Tick, ticks: Tick) -> Vec<Buff> {
     vec![Buff {
-        ability,
+        ability: ability.into(),
         until: cast + ticks,
     }]
 }

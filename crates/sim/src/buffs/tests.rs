@@ -69,7 +69,12 @@ fn a_cast_reaches_its_owner_s_units_of_its_types_in_the_circle_and_a_recast_rest
         (ObjectKind::Gunner, P1, Vec2::new(RADIUS + 40.0, 0.0)), // 6: outside
     ]);
     assert_eq!(give(&mut objects, SHRINE, P1, HEALTH, (AT, 0.0), 10), 3);
-    let health = |until| vec![Buff { ability: HEALTH, until }];
+    let health = |until| {
+        vec![Buff {
+            ability: HEALTH.into(),
+            until,
+        }]
+    };
     assert_eq!(
         [1, 2, 3].map(|id| buffs(&objects, id)),
         [health(250), health(250), health(250)]
@@ -79,11 +84,11 @@ fn a_cast_reaches_its_owner_s_units_of_its_types_in_the_circle_and_a_recast_rest
     assert_eq!(give(&mut objects, SHRINE, P1, ENERGY, (AT, 0.0), 20), 1);
     let both = vec![
         Buff {
-            ability: HEALTH,
+            ability: HEALTH.into(),
             until: 250,
         },
         Buff {
-            ability: ENERGY,
+            ability: ENERGY.into(),
             until: 340,
         },
     ];
@@ -95,7 +100,7 @@ fn a_cast_reaches_its_owner_s_units_of_its_types_in_the_circle_and_a_recast_rest
     assert_eq!(
         buffs(&objects, 3)[0],
         Buff {
-            ability: HEALTH,
+            ability: HEALTH.into(),
             until: 340
         }
     );
@@ -129,7 +134,7 @@ fn a_buff_works_every_tick_before_its_end() {
     };
     recruit.augmentation = constitution;
     recruit.buffs = vec![Buff {
-        ability: HEALTH,
+        ability: HEALTH.into(),
         until: 300,
     }];
     let levels = Levels {
@@ -147,4 +152,68 @@ fn a_buff_works_every_tick_before_its_end() {
     let disciple = &objects[&ObjectId(2)];
     assert_eq!(energy_bonus(disciple), 4096);
     assert_eq!(energy_bonus(&objects[&ObjectId(1)]), 0);
+}
+
+/// The hash of `value` alone.
+fn hash_of(value: &impl StateHash) -> u64 {
+    let mut h = StateHasher::new();
+    value.hash(&mut h);
+    h.finish()
+}
+
+/// (M6-SN) Widening `Buff::ability` to a [`BuffKind`] (plan decision T98) left every ability's buff as it was: hashed
+/// as its ability was, so that the states with one hash as they did, and saved by its ability's name, so that the
+/// files written before load; the Null Chamber's hashes as none of them does and saves as `"NullChamber"`. The kinds
+/// keep the abilities' order, the Null Chamber's last.
+#[test]
+fn a_buff_kind_hashes_and_saves_as_its_ability_did() {
+    let mut hashes = Vec::new();
+    for ability in AreaAbility::ALL {
+        let kind = BuffKind::from(ability);
+        assert_eq!(hash_of(&kind), hash_of(&ability), "{ability:?}");
+        let saved = serde_json::to_value(kind).unwrap();
+        assert_eq!(saved, serde_json::to_value(ability).unwrap(), "{ability:?}");
+        assert_eq!(serde_json::from_value::<BuffKind>(saved).unwrap(), kind);
+        assert_eq!((kind.ability(), kind.duration()), (Some(ability), ability.duration()));
+        assert!(kind < BuffKind::NullChamber, "{ability:?}");
+        hashes.push(hash_of(&kind));
+    }
+    let chamber = BuffKind::NullChamber;
+    assert!(!hashes.contains(&hash_of(&chamber)), "a value of its own");
+    let saved = serde_json::to_value(chamber).unwrap();
+    assert_eq!(saved, serde_json::json!("NullChamber"));
+    assert_eq!(serde_json::from_value::<BuffKind>(saved).unwrap(), chamber);
+    assert_eq!((chamber.ability(), chamber.effect()), (None, None));
+    assert_eq!(chamber.duration(), 320, "20 s");
+    let buff = Buff {
+        ability: HEALTH.into(),
+        until: 240,
+    };
+    let file = serde_json::json!({ "ability": "HealthRegeneration", "until": 240 });
+    assert_eq!(serde_json::to_value(buff).unwrap(), file);
+    assert_eq!(serde_json::from_value::<Buff>(file).unwrap(), buff);
+    assert!(serde_json::from_value::<BuffKind>(serde_json::json!("Detection")).is_err());
+}
+
+/// (M6-SN) The Null Chamber's buff is held by a manned unit, every Syndicate unit (`network::services::manned`), and
+/// not by a structure nor another faction's unit.
+#[test]
+fn the_null_chamber_s_buff_affects_the_syndicate_s_units() {
+    let chamber = BuffKind::NullChamber;
+    for kind in [
+        ObjectKind::Guard,
+        ObjectKind::Agent,
+        ObjectKind::AssaultBike,
+        ObjectKind::Phantom,
+    ] {
+        assert!(chamber.affects(kind), "{kind:?}");
+    }
+    for kind in [
+        ObjectKind::Tunnel,
+        ObjectKind::NullChamber,
+        ObjectKind::Peacekeeper,
+        ObjectKind::Recruit,
+    ] {
+        assert!(!chamber.affects(kind), "{kind:?}");
+    }
 }

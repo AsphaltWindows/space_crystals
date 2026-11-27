@@ -1,9 +1,11 @@
-//! What one sight source sees (`core/vision.md`): a disc of tiles.
+//! What one sight source sees (`core/vision.md`): a disc of tiles, as far as its SightRange ([`range`]).
 
 use glam::Vec2;
 
 use super::Eye;
 use crate::elevation::{Elevation, sight_range_by};
+use crate::network::services;
+use crate::object::Object;
 use crate::ruleset::rules;
 use crate::units::{SU_PER_GU, gu};
 
@@ -15,6 +17,17 @@ pub const TILE_SIGHT_POINT: Vec2 = Vec2::splat(SU_PER_GU / 2.0);
 /// Added to the widest sight when choosing which tiles to test, so that rounding never leaves out a tile whose
 /// centre lies exactly on the boundary; the exact test decides (space units).
 const SCAN_MARGIN: f32 = 1.0;
+
+/// (M6-SN) `o`'s SightRange as its eye has it, grid units: its type's (`ObjectDef::sight_range`), and while it holds
+/// the Null Chamber exit buff what that adds (`factions/syndicate/structures/null_chamber.md > Placeholder stats`:
+/// "**+2 grid units SightRange**", `network::services::sight_bonus`). A type with none sees nothing, buffed or not.
+pub(super) fn range(o: &Object) -> f32 {
+    let sight = o.def().sight_range;
+    if sight <= 0.0 || o.buffs.is_empty() {
+        return sight;
+    }
+    sight + services::sight_bonus(o)
+}
 
 /// The tiles `eye` sees, as row-major indexes in ascending order, into `out` (cleared first). A tile is seen when
 /// its sight point ([`TILE_SIGHT_POINT`]) lies within the disc around the eye whose radius is the eye's SightRange

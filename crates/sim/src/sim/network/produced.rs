@@ -3,7 +3,7 @@
 
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
-use crate::network::{self, Held, Place};
+use crate::network::{self, Held, Place, Service};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::production::{QueueEntry, Rally};
@@ -58,6 +58,7 @@ impl Sim {
                 since,
                 entered: false,
                 leaving: None,
+                service: Service::default(),
             },
         );
         self.events.push(SimEvent::UnitProduced { producer, unit: id });

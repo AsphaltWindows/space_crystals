@@ -91,11 +91,13 @@ pub(super) fn energy(app: &App, id: u32) -> u32 {
     sim.object(ObjectId(id)).and_then(|o| o.energy).expect("an energy pool")
 }
 
-/// The abilities of the buffs object `id` has now.
+/// The abilities of the buffs object `id` has now: every one an ability's in these games.
 pub(super) fn buffs(app: &App, id: u32) -> Vec<AreaAbility> {
     let sim = app.world().resource::<SimRes>();
     let o = sim.object(ObjectId(id)).expect("on the map");
-    o.buffs.iter().map(|buff| buff.ability).collect()
+    (o.buffs.iter())
+        .map(|buff| buff.ability.ability().expect("an ability's buff"))
+        .collect()
 }
 
 /// The buffs' marks drawn now, by the units they are beside: those of the abilities of each unit's buffs.
@@ -109,7 +111,7 @@ pub(super) fn marks(app: &App) -> Vec<(u32, AreaAbility)> {
             let nearest = (sim.objects())
                 .min_by(|a, b| a.pos.distance(mark.center).total_cmp(&b.pos.distance(mark.center)))
                 .expect("an object");
-            (nearest.id.0, mark.ability)
+            (nearest.id.0, mark.ability.ability().expect("an ability's mark"))
         })
         .collect()
 }

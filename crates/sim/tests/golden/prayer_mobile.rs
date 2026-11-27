@@ -116,7 +116,7 @@ pub(crate) fn cults_prayer_mobile() -> Game {
                 STRIDE.set(0.0);
             }
             let inspire = Buff {
-                ability: AreaAbility::Inspire,
+                ability: AreaAbility::Inspire.into(),
                 until: INSPIRE + INSPIRE_TICKS,
             };
             // A buff works in the tick of its cast and every tick before its `until`, and ends with the last of them.
@@ -158,7 +158,7 @@ pub(crate) fn cults_prayer_mobile() -> Game {
             };
             if tick == SUPPRESS {
                 let suppress = Buff {
-                    ability: AreaAbility::Suppress,
+                    ability: AreaAbility::Suppress.into(),
                     until: SUPPRESS + SUPPRESS_TICKS,
                 };
                 let taken: BTreeSet<ObjectId> = (sim.objects())

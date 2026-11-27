@@ -31,15 +31,19 @@
 //! - **Which Tunnels** ([`admits`]): one whose tier's Transit lists the unit's base, at "the tier it had before the
 //!   upgrade began" while it upgrades (0249; `TunnelState::tier` is that tier until an upgrade completes, slice
 //!   M4-G): (M6-SD) an air unit at Tier 3, through the air doors.
+//! - (M6-SN) **The services** ([`services`], plan decision T98): the manned units inside take their turns in their
+//!   owner's Null Chambers ([`Held::service`]), and leave the network buffed once their turn is done.
 //!
 //! The steps that take units in and let them out are the sim's (`sim/network.rs`); the walk to the entry path, and the
 //! flight to the air entry door, are the Enter order's (`orders::enter`).
 
 mod paths;
+pub mod services;
 
 #[cfg(test)]
 pub(crate) use paths::WALL_CLEARANCE;
 pub use paths::{EntryPath, Paths, door_spot, over_door};
+pub use services::Service;
 
 use serde::{Deserialize, Serialize};
 
@@ -107,6 +111,11 @@ pub struct Held {
     /// states of games in which no unit leaves a building hash as they did before the field existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub leaving: Option<Tick>,
+    /// (M6-SN) Its turns at its network's services (plan decision T98, [`services`]): its Null Chamber turn, under way
+    /// or done, while it is inside. Saved and hashed only while it has one, so the states of games in which no unit
+    /// takes a turn hash as they did before the field existed.
+    #[serde(default, skip_serializing_if = "Service::is_none")]
+    pub service: Service,
 }
 
 impl Held {
@@ -245,6 +254,7 @@ impl StateHash for Held {
             since,
             entered,
             leaving,
+            service,
         } = self;
         object.hash(h);
         place.hash(h);
@@ -254,6 +264,11 @@ impl StateHash for Held {
         if let Some(tick) = leaving {
             h.tag(1);
             tick.hash(h);
+        }
+        // (M6-SN) The same for its services' turns.
+        if !service.is_none() {
+            h.tag(2);
+            service.hash(h);
         }
     }
 }
@@ -290,6 +305,7 @@ mod tests {
             since: 10,
             entered,
             leaving: None,
+            service: Service::default(),
         };
         assert!(!held(true).may_exit(10) && !held(true).may_exit(41) && held(true).may_exit(42));
         assert!(held(false).may_exit(10));
@@ -304,6 +320,7 @@ mod tests {
             since: 0,
             entered: true,
             leaving: None,
+            service: Service::default(),
         };
         held.object.hp = Some(40.0);
         for _ in 0..160 {

@@ -168,6 +168,24 @@ fn numbers_stay_within_the_defs_bounds() {
     );
 }
 
+/// (M6-SN) A Null Chamber turn's seconds, of a ruleset whose Null Chamber's turn is `turn`: as long as a recipe at most,
+/// in ticks (4095.9 s round to 65534, 4096 to 65536), and positive by the sign's rule.
+#[test]
+fn a_null_chamber_turn_stays_within_a_recipe_s_bound() {
+    let turn = |turn: f32| {
+        move |r: &mut Ruleset| {
+            let structure = r.defs.get_mut(ObjectKind::NullChamber).structure.as_mut().unwrap();
+            structure.chamber.as_mut().expect("a chamber").turn = turn;
+        }
+    };
+    assert_eq!(
+        checked(&turn(4096.0)),
+        Some(("NullChamber", "turn", "must be at most 65535 ticks (4095 s)"))
+    );
+    assert_eq!(checked(&turn(4095.9)), None);
+    assert_eq!(checked(&turn(0.0)), Some(("NullChamber", "turn", "must be positive")));
+}
+
 /// (M6-GD) The Drone Operator's stock in `rules`.
 fn stock(rules: &mut Ruleset) -> &mut StockDef {
     let unit = rules

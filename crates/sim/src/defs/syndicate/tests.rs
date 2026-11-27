@@ -124,11 +124,10 @@ fn the_syndicate_kinds_are_every_designed_one() {
 }
 
 /// Slice M6-SK's kinds (plan decision T84) still out of play, in the registry's order: its fifteen but those a slice
-/// has made live, the Vehicle Assembly and the Assault Bike (slice M6-SV), and the Forge, the Aerospace Assembly and
-/// the Phantom (slice M6-SD).
-const SK_KINDS: [ObjectKind; 10] = [
+/// has made live, the Vehicle Assembly and the Assault Bike (slice M6-SV), the Forge, the Aerospace Assembly and the
+/// Phantom (slice M6-SD), and the Null Chamber (slice M6-SN).
+const SK_KINDS: [ObjectKind; 9] = [
     ObjectKind::Vault,
-    ObjectKind::NullChamber,
     ObjectKind::OrbitalCommand,
     ObjectKind::Shadebringer,
     ObjectKind::LaserBattery,
@@ -140,9 +139,9 @@ const SK_KINDS: [ObjectKind; 10] = [
 ];
 
 /// Plan decision T84, after T69's rule: no player makes one of slice M6-SK's kinds still out of play ([`SK_KINDS`]),
-/// each kept out until its slice. No Tunnel builds one of the three expansions left (none has
+/// each kept out until its slice. No Tunnel builds one of the two expansions left (neither has
 /// `StructureDef::expansion`, so the gate refuses each Expand: `Reject::CannotConstruct`), and no def names one of the
-/// ten where a kind is made: no producer's recipe (`ProductionDef::recipes`; the Vehicle Assembly trains the Assault
+/// nine where a kind is made: no producer's recipe (`ProductionDef::recipes`; the Vehicle Assembly trains the Assault
 /// Bike alone since slice M6-SV, and the Aerospace Assembly the Phantom alone since slice M6-SD), no constructor's
 /// Construct or Warp In list, no worker's
 /// builds, no Deploy, no Conversion's or Riot Shield's form; nor does a faction's starting layout

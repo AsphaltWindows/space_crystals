@@ -25,7 +25,7 @@ use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::math;
 use crate::mover::Mover;
-use crate::network::{Held, Place};
+use crate::network::{Held, Place, Service};
 use crate::orders::Orders;
 use crate::tunnel;
 
@@ -143,6 +143,7 @@ impl Sim {
                 since,
                 entered,
                 leaving: None,
+                service: Service::default(),
             },
         );
         self.forget_references(&[id]);

@@ -18,12 +18,14 @@
 //!   signs don't take it); (M6-GD) a stock's purchase takes at most [`LONGEST_RECIPE`] ticks, as a recipe, and a unit
 //!   starts with at most its stock's max (`UnitDef::stock`); (M6-SD) so does an aircraft's rise and descent at an air
 //!   door (`UnitDef::air_door_ticks`), counted in fixed point as well (`Mover::rise`, `orders::state::Enter::descent`);
-//!   (M6-GA) and a vehicle deploy (`UnitDef::vehicle_deploy`, `crate::vehicle_deploy`).
+//!   (M6-SN) a Null Chamber turn (`ChamberDef::turn`, in seconds, counted in ticks in fixed point:
+//!   `network::Service::chamber`); (M6-GA) and a vehicle deploy (`UnitDef::vehicle_deploy`, `crate::vehicle_deploy`).
 
 use super::structure::{Skeleton, variant_name};
 use super::{RuleField, Ruleset};
 use crate::defs::{ObjectDef, ObjectKind};
 use crate::economy::RATIO_ONE;
+use crate::units::seconds;
 
 /// The longest recipe or research, ticks: its progress, `frames × RATIO_ONE` (`crate::construction`), fits a `u32`
 /// (`defs/tests.rs`: "short enough for their progress in fixed point").
@@ -139,6 +141,11 @@ fn def_bounds(kind: ObjectKind, def: &ObjectDef) -> Option<Invalid> {
         .is_some_and(|unit| unit.air_door_ticks > LONGEST_RECIPE)
     {
         return invalid("air_door_ticks", "must be at most 65535 ticks");
+    }
+    // (M6-SN) And so does a unit's turn in a Null Chamber, of its seconds in ticks.
+    let chamber = def.structure.as_ref().and_then(|structure| structure.chamber);
+    if chamber.is_some_and(|chamber| seconds(chamber.turn) > LONGEST_RECIPE) {
+        return invalid("turn", "must be at most 65535 ticks (4095 s)");
     }
     // (M6-GA) So does a vehicle deploy (`crate::vehicle_deploy`).
     let deploy = def.unit.as_ref().and_then(|unit| unit.vehicle_deploy);

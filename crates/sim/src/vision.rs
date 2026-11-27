@@ -102,7 +102,7 @@ struct Eye {
     player: usize,
     /// The object's centre, space units, (M5-H1) where it counts as being (`Object::map_pos`).
     at: Vec2,
-    /// Its type's SightRange, grid units; above 0.
+    /// Its type's SightRange, grid units, (M6-SN) with its buff's ([`sight::range`]); above 0.
     sight: f32,
     /// Its side of the ElevationModifier: its elevation level, or exempt (air units).
     elevation: Elevation,
@@ -200,7 +200,7 @@ impl Vision {
     /// The eye of `o`, if it is a sight source: owned by a player of the game, of a type with a SightRange.
     fn eye(&self, map: &Map, o: &Object) -> Option<Eye> {
         let owner = o.owner?;
-        let sight = o.def().sight_range;
+        let sight = sight::range(o);
         if sight <= 0.0 {
             return None;
         }

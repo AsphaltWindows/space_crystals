@@ -1,5 +1,5 @@
 //! Leaving the Tunnel Network (`crate::network`, slice M4-C): the gate's rules for a Tunnel's commands, its eject
-//! queue, and the network's step of the economy phase (regeneration, then the eject queues).
+//! queue, and the network's step of the economy phase (regeneration, (M6-SN) the services, then the eject queues).
 //!
 //! **Ejecting** ([`Sim::step_network`], `factions/syndicate/tunnel_menus.md > EjectMenu`, design changes 0250, 0251 and
 //! 0253): each Tunnel's queue lets its first unit out when the exit path's spot is clear: "Each unit appears at the
@@ -12,6 +12,9 @@
 //! come out of Side A's exit path, one after another as above, and its air units out of the Tier 3 air exit door, one
 //! every `Tunnel::air_door_interval_ticks` ("**Air units** leave through the Tier 3 **air exit door**, in parallel
 //! with ground units"). Neither lane waits for the other.
+//!
+//! (M6-SN) **Buffed** ([`Sim::leave_network`], `network::services`): a unit whose Null Chamber turn is done comes out
+//! of either lane with the Null Chamber exit buff, while its owner owns a chamber.
 
 use glam::Vec2;
 
@@ -21,7 +24,7 @@ use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::math;
-use crate::network::{self, Eject, Paths};
+use crate::network::{self, Eject, Paths, services};
 use crate::orders::{OrderKind, Target};
 use crate::progress::Progress;
 use crate::shape::Shape;
@@ -78,9 +81,11 @@ impl Sim {
     }
 
     /// The network's step of the economy phase, after the producers (module docs): every unit inside the networks
-    /// regenerates (`> Tunnel Network > Regeneration inside`, design change 0249), then each Tunnel with an eject
-    /// queue, in id order, lets the first unit of each of its two lanes out if it can: its ground lane's by Side A's
-    /// exit path ([`Sim::eject_next`]), (M6-SD) its air lane's by its air exit door ([`Sim::eject_air`]).
+    /// regenerates (`> Tunnel Network > Regeneration inside`, design change 0249), (M6-SN) the manned units take a tick
+    /// of their Null Chamber turns (`network::services::step`), then each Tunnel with an eject queue, in id order, lets
+    /// the first unit of each of its two lanes out if it can: its ground lane's by Side A's exit path
+    /// ([`Sim::eject_next`]), (M6-SD) its air lane's by its air exit door ([`Sim::eject_air`]). The turns before the
+    /// queues, so that a unit whose turn is done in a tick leaves buffed in it.
     pub(in crate::sim) fn step_network(&mut self) {
         if self.held.is_empty() {
             return;
@@ -88,6 +93,7 @@ impl Sim {
         for held in self.held.values_mut() {
             held.regenerate(Research::new(&self.players));
         }
+        services::step(&self.objects, &mut self.held);
         let queued: Vec<ObjectId> = self
             .objects
             .values()
@@ -154,7 +160,7 @@ impl Sim {
             return;
         }
         self.remove_eject(tunnel, index);
-        if !self.put_on_map(unit, stand, paths.outward) {
+        if !self.leave_network(unit, stand, paths.outward) {
             return;
         }
         self.events.push(SimEvent::LeftNetwork { unit, tunnel });
@@ -211,7 +217,7 @@ impl Sim {
             return;
         }
         self.remove_eject(tunnel, index);
-        if !self.put_on_map(unit, spot, paths.outward) {
+        if !self.leave_network(unit, spot, paths.outward) {
             return;
         }
         if let Some(state) = self.objects.get_mut(&tunnel).and_then(|o| o.tunnel.as_mut()) {
@@ -227,6 +233,20 @@ impl Sim {
         if let Some(order) = entry.order {
             self.give_order(&[unit], order, false);
         }
+    }
+
+    /// (M6-SN) Held unit `unit` comes out of the network at `pos`, facing along `facing` ([`Sim::put_on_map`]), and
+    /// holds the Null Chamber exit buff from this tick if it leaves buffed (`network::services::leaves_buffed`: its
+    /// turn done, its owner owning a chamber in operation). Returns whether it was held.
+    fn leave_network(&mut self, unit: ObjectId, pos: Vec2, facing: Vec2) -> bool {
+        let buffed = (self.held.get(&unit)).is_some_and(|held| services::leaves_buffed(held, self.objects.values()));
+        if !self.put_on_map(unit, pos, facing) {
+            return false;
+        }
+        if buffed && let Some(o) = self.objects.get_mut(&unit) {
+            services::buff(o, self.tick);
+        }
+        true
     }
 
     /// The entry at `index` of `tunnel`'s eject queue leaves it.

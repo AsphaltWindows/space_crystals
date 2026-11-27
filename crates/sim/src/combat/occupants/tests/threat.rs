@@ -45,6 +45,7 @@ fn a_garrison_threatens_what_its_units_inside_could_attack() {
                     since: 1,
                     entered: true,
                     leaving: None,
+                    service: Default::default(),
                 };
                 (ObjectId(id), held)
             })

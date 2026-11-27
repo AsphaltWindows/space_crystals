@@ -124,6 +124,30 @@ pub struct StructureDef {
     /// `factions/gdo/structures/airfield.md > Aircraft Support`: "provides a landing/reloading zone" for the aircraft
     /// assigned to it). `None` for every other structure.
     pub airfield: Option<AirfieldDef>,
+    /// (M6-SN) Its service of its owner's Tunnel Network, for a Null Chamber (plan decision T98,
+    /// `network::services`): the units it buffs at a time, each one's turn, and the buff they leave the network with.
+    /// `None` for every other structure.
+    pub chamber: Option<ChamberDef>,
+}
+
+/// (M6-SN) A Null Chamber's service of the Tunnel Network (`StructureDef::chamber`, plan decision T98,
+/// `network::services`): `factions/syndicate/structures/null_chamber.md > Null Chamber Exit Buff` and `> Placeholder
+/// stats`, "Exit buff: duration **20 s**; **+2 grid units SightRange**; **20%** damage-taken reduction; ends abruptly; no
+/// research needed. Throughput: each Null Chamber buffs **4 units at a time**, each buff taking **2 s** inside before
+/// the unit can leave buffed".
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ChamberDef {
+    /// How many units it buffs at a time: "each Null Chamber buffs **4 units at a time**".
+    pub slots: u32,
+    /// How long a unit's turn takes, seconds: "each buff taking **2 s** inside before the unit can leave buffed".
+    pub turn: f32,
+    /// How long the buff lasts once the unit is out, seconds: "duration **20 s**".
+    pub duration: f32,
+    /// What the buff adds to the unit's SightRange, grid units: "**+2 grid units SightRange**".
+    pub sight: f32,
+    /// The share of the damage the buff takes off the hits on the unit before armour: "**20%** damage-taken
+    /// reduction", "applied **before armor**: damage taken = Attack Damage × (1 − reduction) − armor".
+    pub reduction: f32,
 }
 
 /// (M6-GH1) An Airfield's support of its aircraft (`StructureDef::airfield`, plan decision T88, `crate::aircraft`).

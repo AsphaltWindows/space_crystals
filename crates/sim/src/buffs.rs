@@ -7,8 +7,8 @@
 //! infantry around it at that moment for a set duration"), Suppress's the status of a unit that can't attack
 //! (`crate::suppress`).
 //!
-//! - **The state**: `Object::buffs`, at most one [`Buff`] of each ability, with the tick it ends at. Hashed and saved
-//!   only while a unit has one.
+//! - **The state**: `Object::buffs`, at most one [`Buff`] of each ability ((M6-SN) of each [`BuffKind`]), with the tick
+//!   it ends at. Hashed and saved only while a unit has one.
 //! - **The cast** ([`give`]; `Command::Cast`, applied in the commands phase, plan decision T76: "the units "inside the
 //!   area when the ability is cast" are where the last tick left them"): every unit on the map that the ability takes
 //!   in (`AbilityDef::affects`: the caster's owner's of the types it affects, or, Suppress's, every unit), whose centre
@@ -34,6 +34,9 @@
 //! - **A change of kind** keeps the buffs whose ability affects the new kind (`Sim::change_kind`): a Recruit's Health
 //!   regeneration goes on in the Militant it is trained into, and is lost in a Seeker; (M5-N11) a unit's Suppress goes
 //!   on in any unit kind (a Peacekeeper raising its Riot Shield keeps it).
+//! - (M6-SN) **Not only abilities** (plan decision T98, [`BuffKind`]): the Null Chamber exit buff is one too, which a
+//!   unit leaves the Tunnel Network with (`network::services`); it ends as an ability's does, and its effects work
+//!   through what reads them (the unit's eye, `vision/sight.rs`, and the hits on it, `combat::pre_armor_multiplier`).
 
 use std::collections::BTreeMap;
 
@@ -41,22 +44,24 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::augmentation::Research;
-use crate::defs::{AbilityArea, AreaAbility, AttackAttrs, BuffEffect};
+use crate::defs::{AbilityArea, AreaAbility, AttackAttrs, BuffEffect, ObjectKind};
 use crate::energy;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
-use crate::network::Held;
+use crate::network::{Held, services};
 use crate::object::Object;
 use crate::suppress;
 use crate::units::{TICKS_PER_SECOND, Tick, gu};
 
-/// A buff a unit holds (`Object::buffs`): its ability's effect, until `until`.
+/// A buff a unit holds (`Object::buffs`): its ability's effect, or (M6-SN) the Null Chamber's, until `until`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Buff {
-    /// The ability whose effect it is.
-    pub ability: AreaAbility,
+    /// What it is of: the ability whose effect it is, or (M6-SN) the Null Chamber exit buff ([`BuffKind`], plan
+    /// decision T98, which widened it). `ability` in files, as it was named before.
+    pub ability: BuffKind,
     /// The first tick it no longer works in: the tick of its cast and the ability's duration in ticks
-    /// (`AreaAbility::duration`). It works in every tick before it.
+    /// (`AreaAbility::duration`); (M6-SN) the Null Chamber's, the tick its unit left the network and the buff's
+    /// duration ([`BuffKind::duration`]). It works in every tick before it.
     pub until: Tick,
 }
 
@@ -65,6 +70,119 @@ impl StateHash for Buff {
         let Buff { ability, until } = self;
         ability.hash(h);
         until.hash(h);
+    }
+}
+
+/// (M6-SN) What a buff is of ([`Buff::ability`], plan decision T98): an area ability's effect (T75), or the Null
+/// Chamber exit buff (`factions/syndicate/structures/null_chamber.md > Null Chamber Exit Buff`, `network::services`).
+/// Ordered as the abilities are, the Null Chamber's after them: a unit's buffs keep that order. In files by its name:
+/// an ability's, as every buff's was before the Null Chamber's (`"HealthRegeneration"`), and `"NullChamber"`, which no
+/// ability is called. Hashed as its ability was, and the Null Chamber's as a number past every ability's place, so that
+/// the states with an ability's buff hash as they did.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(from = "SavedKind", into = "SavedKind")]
+pub enum BuffKind {
+    /// An area ability's effect, for the ability's duration (`AreaAbility::duration`).
+    Area(AreaAbility),
+    /// "every **manned** Syndicate unit that exits the Tunnel Network through any Tunnel receives a temporary buff that
+    /// wears off over time", for the Null Chamber's duration (`ChamberDef::duration`).
+    NullChamber,
+}
+
+impl BuffKind {
+    /// The area ability whose effect it is; `None` for the Null Chamber's.
+    pub fn ability(self) -> Option<AreaAbility> {
+        match self {
+            BuffKind::Area(ability) => Some(ability),
+            BuffKind::NullChamber => None,
+        }
+    }
+
+    /// What an ability's buff does every tick it lasts (`AbilityDef::effect`); `None` for the Null Chamber's, whose two
+    /// effects their readers ask for by its kind (`network::services`).
+    #[inline]
+    pub fn effect(self) -> Option<&'static BuffEffect> {
+        self.ability().map(|ability| &ability.def().effect)
+    }
+
+    /// Whether an object of `kind` holds it, whoever's it is: an ability's of the types the ability affects
+    /// (`AreaAbility::affects`), the Null Chamber's a manned unit's (`network::services::manned`).
+    pub fn affects(self, kind: ObjectKind) -> bool {
+        match self {
+            BuffKind::Area(ability) => ability.affects(kind),
+            BuffKind::NullChamber => services::manned(kind),
+        }
+    }
+
+    /// How long it lasts, ticks: an ability's duration (`AreaAbility::duration`), the Null Chamber's
+    /// (`ChamberDef::duration`).
+    pub fn duration(self) -> Tick {
+        match self {
+            BuffKind::Area(ability) => ability.duration(),
+            BuffKind::NullChamber => services::duration(),
+        }
+    }
+}
+
+impl From<AreaAbility> for BuffKind {
+    fn from(ability: AreaAbility) -> Self {
+        BuffKind::Area(ability)
+    }
+}
+
+impl StateHash for BuffKind {
+    fn hash(&self, h: &mut StateHasher) {
+        match self {
+            // The bytes `Buff::ability` had when it was an ability (`AreaAbility`'s hash: its place in the list).
+            BuffKind::Area(ability) => ability.hash(h),
+            // Past every ability's place.
+            BuffKind::NullChamber => (1u32 << 16).hash(h),
+        }
+    }
+}
+
+/// A [`BuffKind`] as a file has it (its docs): an ability's name, or another buff's.
+#[derive(Copy, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum SavedKind {
+    Area(AreaAbility),
+    Other(OtherBuff),
+}
+
+/// The buffs that aren't an ability's, by name.
+#[derive(Copy, Clone, Serialize, Deserialize)]
+enum OtherBuff {
+    NullChamber,
+}
+
+impl From<SavedKind> for BuffKind {
+    fn from(saved: SavedKind) -> Self {
+        match saved {
+            SavedKind::Area(ability) => BuffKind::Area(ability),
+            SavedKind::Other(OtherBuff::NullChamber) => BuffKind::NullChamber,
+        }
+    }
+}
+
+impl From<BuffKind> for SavedKind {
+    fn from(kind: BuffKind) -> Self {
+        match kind {
+            BuffKind::Area(ability) => SavedKind::Area(ability),
+            BuffKind::NullChamber => SavedKind::Other(OtherBuff::NullChamber),
+        }
+    }
+}
+
+/// `o` holds a buff of `ability` until `until`: one it holds already is restarted ("**Recasting** on units that
+/// already have the effect **restarts its duration**"; (M6-SN) the Null Chamber's "exiting the Tunnel Network again
+/// instantly resets the buff to full duration"), else it is added, its buffs keeping their kinds' order.
+pub(crate) fn hold(o: &mut Object, ability: BuffKind, until: Tick) {
+    match o.buffs.iter_mut().find(|buff| buff.ability == ability) {
+        Some(buff) => buff.until = until,
+        None => {
+            o.buffs.push(Buff { ability, until });
+            o.buffs.sort_by_key(|buff| buff.ability);
+        }
     }
 }
 
@@ -120,14 +238,7 @@ pub(crate) fn give(
         (objects.values_mut()).filter(|o| reaches(ability, caster, owner, o) && in_area(ability, at, facing, o.pos));
     let mut count = 0;
     for o in reached {
-        match o.buffs.iter_mut().find(|buff| buff.ability == ability) {
-            // "Recasting on units that already have the effect restarts its duration".
-            Some(buff) => buff.until = until,
-            None => {
-                o.buffs.push(Buff { ability, until });
-                o.buffs.sort_by_key(|buff| buff.ability);
-            }
-        }
+        hold(o, BuffKind::Area(ability), until);
         count += 1;
     }
     count
@@ -137,9 +248,10 @@ pub(crate) fn give(
 /// rate (`crate::energy::step`). 0 for a unit without one.
 pub(crate) fn energy_bonus(o: &Object) -> u32 {
     (o.buffs.iter())
-        .map(|buff| match buff.ability.def().effect {
-            BuffEffect::Energy { per_second } => energy::per_tick(per_second),
-            BuffEffect::Health { .. } | BuffEffect::Inspire { .. } | BuffEffect::HoldFire | BuffEffect::Sight => 0,
+        .map(|buff| match buff.ability.effect() {
+            Some(&BuffEffect::Energy { per_second }) => energy::per_tick(per_second),
+            Some(BuffEffect::Health { .. } | BuffEffect::Inspire { .. } | BuffEffect::HoldFire | BuffEffect::Sight)
+            | None => 0,
         })
         .fold(0, u32::saturating_add)
 }
@@ -149,9 +261,10 @@ pub(crate) fn energy_bonus(o: &Object) -> u32 {
 /// `Object::movement` adds it to. 0 for a unit without one.
 pub(crate) fn max_speed_bonus(o: &Object) -> f32 {
     (o.buffs.iter())
-        .map(|buff| match buff.ability.def().effect {
-            BuffEffect::Inspire { max_speed, .. } => max_speed,
-            BuffEffect::Health { .. } | BuffEffect::Energy { .. } | BuffEffect::HoldFire | BuffEffect::Sight => 0.0,
+        .map(|buff| match buff.ability.effect() {
+            Some(&BuffEffect::Inspire { max_speed, .. }) => max_speed,
+            Some(BuffEffect::Health { .. } | BuffEffect::Energy { .. } | BuffEffect::HoldFire | BuffEffect::Sight)
+            | None => 0.0,
         })
         .fold(0.0, |sum, extra| sum + extra)
 }
@@ -168,12 +281,12 @@ pub(crate) fn max_speed_bonus(o: &Object) -> f32 {
 /// building fires as its lender's, as the Augmentations leave it (`combat::occupants`). **Placeholder (not in the
 /// design)**. Every other unit's weapon is `attrs` unchanged.
 pub(crate) fn inspired(o: &Object, own: &AttackAttrs, attrs: AttackAttrs) -> AttackAttrs {
-    let faster = (o.buffs.iter()).find_map(|buff| match buff.ability.def().effect {
-        BuffEffect::Inspire {
+    let faster = (o.buffs.iter()).find_map(|buff| match buff.ability.effect() {
+        Some(&BuffEffect::Inspire {
             attack_cycle,
             faster_attacks,
             ..
-        } if faster_attacks.contains(&o.kind) => Some(attack_cycle),
+        }) if faster_attacks.contains(&o.kind) => Some(attack_cycle),
         _ => None,
     });
     let theirs = o.def().unit.as_ref().and_then(|unit| unit.attack.as_ref());
@@ -191,7 +304,7 @@ pub(crate) fn inspired(o: &Object, own: &AttackAttrs, attrs: AttackAttrs) -> Att
 /// One tick of `o`'s buffs, tick `tick`: their HP (module docs), then those whose last tick it is end.
 fn step_object(o: &mut Object, research: Research, tick: Tick) {
     for buff in &o.buffs {
-        if let BuffEffect::Health { per_second } = buff.ability.def().effect {
+        if let Some(&BuffEffect::Health { per_second }) = buff.ability.effect() {
             let (Some(hp), Some(max)) = (o.hp, o.max_hp_with(research)) else {
                 continue;
             };

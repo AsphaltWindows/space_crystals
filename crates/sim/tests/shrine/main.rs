@@ -290,7 +290,10 @@ fn buffs(t: &TestSim, unit: ObjectId) -> Vec<Buff> {
 
 /// A Health or Energy regeneration buff, until `until`.
 fn buff(ability: AreaAbility, until: Tick) -> Vec<Buff> {
-    vec![Buff { ability, until }]
+    vec![Buff {
+        ability: ability.into(),
+        until,
+    }]
 }
 
 /// The casts so far, as `(tick, caster, ability, at)`.

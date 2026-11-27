@@ -516,7 +516,7 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | W → R | VT | Build Vault | greyed: "Not available yet" |
 | W → A | VA | Build Vehicle Assembly | place it; Requires a Chemical Plant; needs a Tier 2 Tunnel |
 | W → S | FE | Build Forge | place it; Requires a Vehicle Assembly; needs a Tier 2 Tunnel |
-| W → D | NC | Build Null Chamber | greyed: "Not available yet" |
+| W → D | NC | Build Null Chamber | place it; Requires a Hideout; needs a Tier 2 Tunnel |
 | W → F | AA | Build Aerospace Assembly | place it; Requires a Forge; needs a Tier 3 Tunnel |
 | W → X | OC | Build Orbital Command | greyed: "Not available yet" |
 | W → C | LT | Build Laser Turret | place it; Requires an Optics Lab |

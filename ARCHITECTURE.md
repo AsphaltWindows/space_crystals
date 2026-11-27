@@ -380,7 +380,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   states without a held unit, the goldens among them, are as they were. Inside, a unit regenerates 1% of its MaxHP
   a second (`TunnelDef::regen_per_second`, placeholder, 0249; `crate::regeneration`, the rule of the expansions'
   regeneration too since slice M5-N8) and may leave `TRANSIT_DELAY_TICKS` (32, placeholder, 0245) after it walked in, a
-  unit produced inside at once (0246; `Held::may_exit`). **Measured** (`tests/agents_perf.rs`, ignored, release; slice
+  unit produced inside at once (0246; `Held::may_exit`). (Slice M6-SN) A manned unit takes its turns at its owner's
+  Null Chambers there, `Held::service` (*The Null Chamber* below), hashed (tag 2) and saved only while it has one.
+  **Measured** (`tests/agents_perf.rs`, ignored, release; slice
   M4-M): 4 Tunnels with 4 Agents each on two shared fields and 60 Guards cycling through Enter and Eject, a mean of
   0.043 ms and a p99 of 0.067 ms a whole sim tick; then 40 Grenadiers shelling a Tunnel field, 0.070 and 0.090 ms (load
   average 0.3 to 0.6).
@@ -678,6 +680,29 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   clocks). Each door lets one aircraft through every `Tunnel::air_door_interval_ticks` (design change 0251's 8;
   `TunnelState::air_out`, `TunnelState::air_in`). `network::door_lift` is how far up out of a door a unit is, which the
   client draws (`object_render/flight.rs`). Tests: `tests/air_doors/`, the golden `syndicate_air`.
+- **The Null Chamber** (`network/services.rs`, `sim/network/ejects.rs`; slice M6-SN, plan decision T98;
+  `factions/syndicate/structures/null_chamber.md > Null Chamber Exit Buff`, design change 0424): a Tier 2 Tunnel's
+  expansion behind a Hideout, its service's numbers its def's (`StructureDef::chamber`, a `ChamberDef`: 4 slots, a 2 s
+  turn, a 20 s buff, +2 GU of sight, a 20% reduction, Placeholders; `Ruleset::check` bounds the turn as a recipe).
+  **The turns** (`services::step`, in `Sim::step_network` after the regeneration and before the eject queues): while a
+  player owns a chamber in operation (not a site; one left neutral serves no one), the manned units in their network
+  (`services::manned`: the Syndicate's unit types; satellites, `UnitDef::satellite`, are slice M6-SC's) take their
+  turns first come first served, by owner, `Held::since` (the tick it came in; a produced unit's, its production's)
+  and id: the first so many whose turn isn't done, the slots of all the player's chambers together, each take a tick
+  of it (`Service::chamber`, a `Progress` of the turn's ticks), the others waiting with what of theirs is done. So a
+  unit in, or finished, in tick E takes ticks E to E+31 and may leave buffed at E+32, as the transit delay lets it; a
+  chamber finished in tick C serves in C. A turn done is kept while the unit stays inside, with no chamber left too
+  (Placeholder). **Side by side** (0424, Q0158): each service has a queue and a field of its own in `Service`, hashed
+  under a tag of its own (the chamber's 0); the EjectMenu takes the unit inside longest, done or not. **The buff**
+  (`Sim::leave_network`, both lanes: Side A's exit path and the air exit door): a unit whose turn is done, out while
+  its owner owns a chamber in operation, holds `BuffKind::NullChamber` from that tick for 320 ticks (`buffs::hold`, a
+  restart if it had one): +2 GU in its eye (`vision/sight.rs`'s `range`, `services::sight_bonus`; the auto-targeting
+  scan and the AttackMove reach keep the type's SightRange, a Placeholder) and the hits on it × 0.8 before armour
+  (`services::damage_factor` in `combat::pre_armor_multiplier`). `buffs::step` drops it as any buff, in the 319th tick
+  after the exit's. Detection, the design's first effect, isn't built (0267). The step returns at once while no unit
+  waits or no player owns a chamber: `tests/agents_perf.rs` (no chamber) measured the same A/B against master (mean
+  0.090 ms a tick with the network, 0.125 ms shelled; load 3). Tests: `tests/null_chamber/`, the golden
+  `syndicate_null_chamber`.
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
   a Beacon warping in a building, a Legionnaire converting its weapon, a Peacekeeper raising or lowering its Riot
   Shield) stays the same object, its id included.
@@ -1140,14 +1165,17 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      unit's purchase under way advances a frame, whatever its owner's Power, and one whose frames are done adds its
      item to the stock (`SimEvent::StockBought`).
    - The Tunnel Network, `Sim::step_network` (slice M4-C, `sim/network.rs`): part of the economy phase, right after
-     the producers. Every held unit regenerates; then each Tunnel with an eject queue, in id order, lets its first
-     unit out onto the exit spot if that is clear of tiles, footprints and units of its layer (`Sim::check_unit_fits`,
-     the rule of every unit put on the map), else the queue waits: no other spot, no minimum gap (design change
-     0250), one unit a tick at most. The unit keeps its id (`Sim::put_on_map`, `SimEvent::LeftNetwork`) and gets its
-     order through `Sim::give_order`: its rally's, or a Move 1 grid unit straight out. After the producers, so that a
-     unit finished in the tick with a surface rally comes out in it; after 5d, so that it never moves in the tick it
-     appears; before 5f, which sees it. **Old ids come back** (plan decision T35): nothing after this step may take
-     `first_new` for "everything that arrived this tick".
+     the producers. Every held unit regenerates; (slice M6-SN) the manned units take a tick of their Null Chamber
+     turns (`network::services::step`, *The Null Chamber*); then each Tunnel with an eject queue, in id order, lets
+     its first unit out onto the exit spot if that is clear of tiles, footprints and units of its layer
+     (`Sim::check_unit_fits`, the rule of every unit put on the map), else the queue waits: no other spot, no minimum
+     gap (design change 0250), one unit a tick at most. The unit keeps its id (`Sim::put_on_map`,
+     `SimEvent::LeftNetwork`; buffed if its turn is done, `Sim::leave_network`) and gets its order through
+     `Sim::give_order`: its rally's, or a Move 1 grid unit straight out. After the producers, so that a unit finished
+     in the tick with a surface rally comes out in it; the turns before the queues, so that a unit whose turn is done
+     in a tick leaves buffed in it; after 5d, so that it never moves in the tick it appears; before 5f, which sees it.
+     **Old ids come back** (plan decision T35): nothing after this step may take `first_new` for "everything that
+     arrived this tick".
    - Buildings that hold units, `Sim::step_holding` (slice M5-F1, `sim/holding.rs`): part of the economy phase,
      right after the Tunnel Network. Each building with units ready to leave (`Held::leaving`: ejected, or the unit of
      a pool building's finished entry, slice M5-F2), in id order, lets the one ready first out into its exit doorway
@@ -1305,6 +1333,9 @@ ticks spent in it. Hashed and serialized like all state.
   energy step, up to the MaxEnergy), wherever the unit goes, into a building too (a Placeholder), and the unit keeps it
   through a change of kind its ability still affects. Units inside a building or a Tunnel Network aren't in the area,
   and the buff stays when its caster is gone (a Placeholder). Hashed (tag 9) and saved only while a unit has one.
+  (Slice M6-SN) `Buff::ability` is a `BuffKind`: an area ability's (`BuffKind::Area`), or a buff no cast gives, the
+  Null Chamber exit buff's (`BuffKind::NullChamber`, *The Null Chamber*; `BuffKind::duration` and `affects` in place
+  of an `AbilityDef`'s, `effect()` `None`); an area ability's hashes and saves as the ability did, so no state moved.
   F1 (*Movement and collision > Invariants*) checks them. The client marks each buff a seen unit has beside its HP
   bar's place (`combat_effects/buffs.rs`, *Client architecture*).
 - **Inspire and Suppress** (`buffs.rs`, `suppress.rs`, `defs/cults/units/prayer_mobile.rs`; slice M5-N11,
@@ -1665,7 +1696,8 @@ or `Visible` for each player, and each player remembers the structures and resou
 
 - **Sources**: every object with an owner and a SightRange above 0 (units and structures; an Extraction Plate has
   none); vision goes to its owner. Each sees a disc around its centre (a structure's: its footprint's centre): a
-  tile is seen when its centre (`TILE_SIGHT_POINT`) lies within the SightRange, boundary included, with the
+  tile is seen when its centre (`TILE_SIGHT_POINT`) lies within the SightRange (its type's, and, slice M6-SN, the Null
+  Chamber exit buff's 2 GU while the unit holds it: `vision/sight.rs`'s `range`), boundary included, with the
   ElevationModifier between the object's elevation and the tile's level at its centre (`elevation::sight_range`: +1
   GU towards lower tiles, −1 towards higher, none for air). No line of sight: terrain blocks nothing.
 - **Incremental stamps**: each source keeps its `Eye` (owner, centre, SightRange, elevation) and the sorted tiles
@@ -4125,6 +4157,18 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `ruleset/check/tests.rs`'s. In the client, `command_ui/interface/tests/syndicate.rs` (the AA's Q, W, E, X and C,
   the Phantom's F greyed by tier), the ExpandMenu's tests above (its S and F), `object_render/tunnel.rs` (the doors
   drawn where the sim has them) and `object_render/flight.rs` (the rise and the descent drawn).
+- **Null Chamber tests** (slice M6-SN) are `crates/sim/tests/null_chamber/`, under the invariants and the held store's
+  checks after every tick: `main` (its def's numbers, its turn as long as the transit delay), `building` (refused at
+  Tier 1 and without a Hideout, its 200 Space Crystals and 480 frames, no turn while it is a site, a turn in the tick
+  it is finished), `turns` (a turn from the tick of the entry, and of a training's end; six Guards in at once with one
+  chamber, four done at 2 s and all six at 4 s, and ejected at 3 s four out buffed and two not; the first in served
+  whatever their ids; two chambers' eight slots; a turn done kept inside, but no buff once no chamber is left),
+  `buff` (a Guard's sight of 5 + 2, and a hit of 10 dealing 7, × 0.8 before its armour of 1; every hit up to the
+  319th tick after the exit reduced and none after; a restart, and a second exit without a turn; another player's
+  chamber gives none; a Phantom out of the air exit door buffed) and `saves` (turns under way saved at six points and
+  replayed; `Held::service` saved and hashed only while set). `buffs/tests.rs` checks that `BuffKind` hashes and
+  saves as the abilities did, `ruleset/check/tests.rs` the turn's bound. In the client, the ExpandMenu's tests above
+  (its D).
 - **Airfield tests** (slice M6-GH1) are `crates/sim/tests/airfield/`, under the invariants: `training` (the
   Hornet's 150 Space Crystals and 2 Supplies, refused with 1, refunded on a cancel; a new Hornet over its Airfield,
   assigned, hovering, or facing its rally point and flying there), `assignment` (the limit of 4 with the queue; a
@@ -4347,8 +4391,9 @@ these.
   each it has left (`HpBar::ammo`, from `sc_sim::aircraft`; `AMMO_FILL`, a placeholder look), shown with the HP bar,
   (slice M5-N5) a mark of each buff a unit the local player sees has, a cross in a dark rim right of its HP bar's
   place, whether the bar shows or not, green for Health regeneration and violet for Energy regeneration, in
-  `AreaAbility::ALL`'s order (`combat_effects/buffs.rs`, `buff_marks`; who sees a buff and its look are
-  Placeholders, Q0001; (M5-N11) Inspire's a gold chevron, Suppress's a red X), (slice M5-N11) where a cast round its
+  `Object::buffs`' order, their `BuffKind`s' (`combat_effects/buffs.rs`, `buff_marks`; who sees a buff and its look are
+  Placeholders, Q0001; (M5-N11) Inspire's a gold chevron, Suppress's a red X; (M6-SN) the Null Chamber exit buff's a
+  pale blue diamond), (slice M5-N11) where a cast round its
   caster or ahead of it was seen, for `feedback.cast_ticks` (16), Inspire's gold ring of its radius over a faint disc
   and Suppress's red wedge along `SimEvent::Cast::facing`, fading (`combat_effects/casts.rs`, `CastFlash`; a placeholder
   look; under the blasts, as each shows only while its point's tile is Visible), and a fading marker for each
@@ -5562,8 +5607,8 @@ unchecked.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
   `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs`,
-  `syndicate_air.rs`, `artillery.rs` and `main.rs`, the recording and the comparison in `harness.rs`): twenty-nine
-  games, a 3v3 duel,
+  `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs` and `main.rs`, the recording and the comparison in
+  `harness.rs`): thirty games, a 3v3 duel,
   a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5577,7 +5622,8 @@ unchecked.
   M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below),
   `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
   M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below), `syndicate_air` (slice
-  M6-SD, below) and `gdo_artillery` (slice M6-GA, below), are blessed as replays
+  M6-SD, below), `gdo_artillery` (slice M6-GA, below) and `syndicate_null_chamber` (slice M6-SN, below), are blessed
+  as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5708,7 +5754,14 @@ unchecked.
   behind it dropped as it deploys (`SimEvent::OrderDropped`). Deployed, it shells three Militants on Hold 10 grid units
   off, out of its own sight, which a Peacekeeper on Hold spots: five shells, 104 frames apart, kill the first (its
   Attack) and the third, which it picks by itself; the second, out of the Peacekeeper's sight, it never fires at. It
-  undeploys in tick 1400, holds a Move given meanwhile, mobile again 48 frames on, and drives off on it. The
+  undeploys in tick 1400, holds a Move given meanwhile, mobile again 48 frames on, and drives off on it. In
+  `syndicate_null_chamber` (to 1:02.6, on an open test map, debug commands on for player 1's Tier 2 and its 200 Space
+  Crystals, auto-targeting off) a Tunnel expands a Null Chamber behind its Hideout while five Guards walk in; finished
+  at tick 482, it serves them four at a time (none done before it, four 2 s after it, the fifth 2 s later), and the
+  five, ejected at 562, come out buffed in the order they went in, each until its exit's tick plus 320. Three of the
+  GDO's Peacekeepers on Hold attack a sixth Guard, which stayed out, and two buffed ones, and the six kill them: a hit
+  takes 7 HP of a buffed Guard and 9 of the other (`during`: 8 and 6 of them), and each buff ends in the 319th tick
+  after its Guard's exit. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -6159,7 +6212,10 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
     (`combat_effects/buffs.rs`). (M5-N11) A unit casts one as a spell, `SpellDef::Cast` in its `UnitDef::spells`,
     with the area its `AbilityDef::area` says (round it or ahead of it); its effect, a `BuffEffect`, is read where it
     counts (`buffs::max_speed_bonus`, `buffs::inspired`, `suppress::holds_fire`); the client's `templates::cast_slot`
-    puts its key, and `combat_effects/casts.rs` draws the cast.
+    puts its key, and `combat_effects/casts.rs` draws the cast. (M6-SN) A buff no cast gives is a `BuffKind` variant
+    of its own, with its duration and the kinds it affects (`BuffKind::duration`, `affects`), given by
+    `buffs::hold`, hashed as a number no ability's takes and saved by a name of its own (`buffs::SavedKind`), and a
+    mark in `combat_effects/buffs.rs`.
 12. **Workers** (M3-H, M3-H2, M3-H3, M3-K2a): a `WorkerDef` (its carry capacity, mining and drop-off times and
     reaches, search radius and `pass_through`), the Gather and Drop Off orders (`orders/gather.rs`, the gate in
     `sim/workers.rs`), the timed work and the bank credit (`economy/gathering.rs`, `SimEvent::ResourcesDelivered`),
@@ -6182,6 +6238,10 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
     (`Sim::forget_references`), a defeated player's units, the state hash and saves, `testing::dangling_references`,
     the client's control groups. A new kind of holder (a transport) gives `Place` a variant and matches it
     everywhere `Place` is matched. The client reads the store for its menus (`Sim::network_counts`, `next_out`).
+    (M6-SN) **A network service** (the Null Chamber's; the Vault's next, M6-SB): a field of its own in
+    `network::Service`, hashed under a tag of its own only while set, its queue in `network::services::step` (design
+    change 0424: services run side by side, each in its own queue), and what it gives on the way out in
+    `Sim::leave_network`; the EjectMenu's order is untouched.
 16. **Sites** (M4-E, M4-F, M4-S1, M4-S2, plan decision T31): a structure built where it stands is the object from its
     first frame, with `Object::construction` while it is a site (*Object model > Sites*): a worker's
     (`StructureDef::site`, the builder held at `Place::Site`) or a Tunnel's expansion (`StructureDef::expansion`,

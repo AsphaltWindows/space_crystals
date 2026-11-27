@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): twenty-nine small games, defined below and in
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): thirty small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
 //! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
@@ -29,8 +29,9 @@
 //! Twisters parking round its rally point, then fighting Recruits and Sparrows), `syndicate_air.rs` (an Aerospace
 //! Assembly's three Phantoms out of a Tier 3 Tunnel's air exit door, rising, fighting a Sparrow and two Peacekeepers,
 //! and back in by its air entry door), `artillery.rs` (a Factory's Artillery Rig deploying where its Move ends, holding
-//! an Attack given meanwhile and dropping a Shift-Move, shelling Militants a Peacekeeper spots, and undeploying) and
-//! below (the Riot Shield game), and every test is below.
+//! an Attack given meanwhile and dropping a Shift-Move, shelling Militants a Peacekeeper spots, and undeploying),
+//! `syndicate_null_chamber.rs` (a Null Chamber built while five Guards wait inside, their turns four at a time, and
+//! their buff against three Peacekeepers' hits) and below (the Riot Shield game), and every test is below.
 
 mod air;
 mod altar;
@@ -50,6 +51,7 @@ mod shrine;
 mod shroud;
 mod syndicate;
 mod syndicate_air;
+mod syndicate_null_chamber;
 mod syndicate_vehicles;
 mod temple;
 mod units;
@@ -312,4 +314,9 @@ fn golden_syndicate_air() {
 #[test]
 fn golden_gdo_artillery() {
     golden("gdo_artillery", artillery::gdo_artillery);
+}
+
+#[test]
+fn golden_syndicate_null_chamber() {
+    golden("syndicate_null_chamber", syndicate_null_chamber::syndicate_null_chamber);
 }

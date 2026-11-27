@@ -23,6 +23,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::math::{self, PI};
+use crate::network::services;
 use crate::object::Object;
 use crate::riot_shield;
 use crate::ruleset::rules;
@@ -143,10 +144,10 @@ pub fn resolve(hit: &Hit, shields: Option<f32>) -> Taken {
 ///   off while the unit's centre is on a Rugged tile (a placeholder reading: the design doesn't say which tile counts
 ///   for a unit standing on several);
 /// - the Peacekeeper's raised Riot Shield (`factions/gdo/units/peacekeeper.md > Riot Shield`): "a 50% pre-armor
-///   reduction ... multiplying with other pre-armor reductions" (`riot_shield::damage_factor`).
-///
-/// TODO: the Null Chamber exit buff (`factions/syndicate/structures/null_chamber.md`)
-/// multiplies in here.
+///   reduction ... multiplying with other pre-armor reductions" (`riot_shield::damage_factor`);
+/// - (M6-SN) the Null Chamber exit buff (`factions/syndicate/structures/null_chamber.md > Null Chamber Exit Buff`:
+///   "**Percentage damage-taken reduction**, applied **before armor**: damage taken = Attack Damage × (1 − reduction) −
+///   armor"; `network::services::damage_factor`), 0.8 while the unit holds it.
 pub fn pre_armor_multiplier(map: &Map, o: &Object) -> f32 {
     let bonus = o
         .def()
@@ -157,7 +158,7 @@ pub fn pre_armor_multiplier(map: &Map, o: &Object) -> f32 {
             map.tile_preset(TilePos::containing(o.pos))
                 .is_some_and(|preset| preset.rugged)
         });
-    bonus.map_or(1.0, |bonus| 1.0 - bonus) * riot_shield::damage_factor(o)
+    bonus.map_or(1.0, |bonus| 1.0 - bonus) * riot_shield::damage_factor(o) * services::damage_factor(o)
 }
 
 /// `systems/combat.md > DirectionalArmor`: the multiplier on a hit against a unit facing `facing`, from an attack

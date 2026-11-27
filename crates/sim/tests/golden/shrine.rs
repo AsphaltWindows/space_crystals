@@ -133,14 +133,14 @@ pub(crate) fn cults_shrine() -> Game {
                 assert_eq!(buffs(sim, id), [], "tick {tick}: Agent #{id}");
             }
             let heal = Buff {
-                ability: AreaAbility::HealthRegeneration,
+                ability: AreaAbility::HealthRegeneration.into(),
                 until: HEAL + HEAL_TICKS,
             };
             // A buff works in the tick of its cast and every tick before its `until`, and ends with the last of them.
             let healing = (HEAL..HEAL + HEAL_TICKS).contains(&tick);
             let heal_held = (HEAL..HEAL + HEAL_TICKS - 1).contains(&tick);
             let boost = Buff {
-                ability: AreaAbility::EnergyRegeneration,
+                ability: AreaAbility::EnergyRegeneration.into(),
                 until: BOOST + BOOST_TICKS,
             };
             let boosted = (BOOST..BOOST + BOOST_TICKS).contains(&tick);
