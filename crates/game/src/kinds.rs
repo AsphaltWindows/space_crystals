@@ -85,6 +85,8 @@ pub fn of(kind: ObjectKind) -> &'static ClientKind {
         ObjectKind::PrayerMobile => &cults::prayer_mobile::KIND,
         ObjectKind::CareerCampus => &gdo::career_campus::KIND,
         ObjectKind::FieldEngineer => &gdo::field_engineer::KIND,
+        ObjectKind::Arsenal => &gdo::arsenal::KIND,
+        ObjectKind::Rocketman => &gdo::rocketman::KIND,
     }
 }
 

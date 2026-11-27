@@ -308,6 +308,7 @@ mod tests {
             elapsed: 1,
             location: None,
             turret: None,
+            target_lock: None,
         });
         // Unit c holds its position and engaged b by itself; the idle unit d went for b on its own.
         let d = sim.insert_object(

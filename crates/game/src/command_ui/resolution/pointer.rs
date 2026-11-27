@@ -73,7 +73,8 @@ impl PointerDisplay {
             OrderKind::Repair(_) => PointerDisplay::Repair,
             OrderKind::Gather(_) => PointerDisplay::GatherResources,
             OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
-            OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,
+            // (M5-K) A Target Lock's click, R's (`systems/controls/hud.md` has no row for it): placeholder, Attack.
+            OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::TargetLock(_) => PointerDisplay::Attack,
             OrderKind::Patrol(_) => PointerDisplay::Patrol,
             OrderKind::AttackGround(_) => PointerDisplay::AttackGround,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud => PointerDisplay::Inactive,

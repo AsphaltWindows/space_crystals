@@ -11,7 +11,10 @@
 //! Grenadier's grenade, slice M4-U), and the blasts where they land ([`blasts`], `SimEvent::Blast`). (M5-N2) The shots
 //! of the units inside a Garrison leave from its footprint's edge nearest their targets, where the sim says they do
 //! (`SimEvent::Attacked::from`), each in the style of the weapon it fires there ([`occupant_form`]). (M5-N5) Beside
-//! the HP bar's place of each unit with a buff, a mark of each of its buffs ([`buffs`]).
+//! the HP bar's place of each unit with a buff, a mark of each of its buffs ([`buffs`]). (M5-K) A missile flies flat
+//! from its shooter's muzzle to its target's body, nose first ([`ShotStyle::Missile`]), a homing one along the path the
+//! sim steers it ([`projectiles::homing_missiles`]), and where a single-target projectile lands an impact puff shows
+//! ([`blasts`]); on the target of each Target Lock of the player's own units, a reticle ([`locks`]).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
@@ -46,6 +49,7 @@
 pub mod blasts;
 pub mod buffs;
 mod draw;
+pub mod locks;
 pub mod projectiles;
 
 use bevy::prelude::*;
@@ -55,7 +59,7 @@ use sc_sim::{Map, Object, ObjectId, ObjectKind, PlayerId, SU_PER_GU, Sim, SimEve
 use crate::ClientSystems;
 use crate::coords::drawn_at_height;
 use crate::fog::Sight;
-use crate::object_render::{body_height, flight_lift};
+use crate::object_render::{body_height, flies, flight_lift};
 use crate::sim_driver::SimRes;
 use crate::viewer_events::{FilterEvents, Perception, Sighting, ViewerEvents};
 use draw::{draw_effects, spawn_effects_mesh};
@@ -106,8 +110,13 @@ pub enum ShotStyle {
     RedLaser,
     /// A grenade (`factions/syndicate/units/grenadier.md`, slice M4-U): no laser, and no shot either: a projectile,
     /// drawn in flight as a lobbed grenade, its fuse lit ([`projectiles`]), that takes effect by its blast, never as
-    /// a shot (`SimEvent::Attacked`). Placeholder look (Q0001).
+    /// a `SimEvent::Attacked`). Placeholder look (Q0001).
     Grenade,
+    /// (M5-K) A missile (`factions/gdo/units/rocketman.md`): no tracer either, a projectile, drawn in flight nose first
+    /// with its exhaust lit, flying flat from its shooter's muzzle to its target's body ([`projectiles`]), and up to an
+    /// aircraft's flight; a homing one along the path the sim steers it ([`projectiles::homing_missiles`]). It takes
+    /// effect where it lands, an impact puff showing there ([`blasts`]). Placeholder look (Q0001).
+    Missile,
 }
 
 impl ShotStyle {
@@ -329,6 +338,8 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
             _ => None,
         })
     };
+    // (M5-K) The kind of an object of the game, or one gone in these ticks.
+    let kind_of = |id: ObjectId| sim.object(id).map(|o| o.kind).or_else(|| Some(fallen(id)?.0));
     // The form a shooter fired in (`sc_sim::conversion::form`), whose weapon it was, and its owner; (M5-N2) a unit's
     // inside a building, from which it fires ([`occupant_form`]).
     let shooter_of = |id: ObjectId| match (sim.object(id), sim.held_unit(id)) {
@@ -350,7 +361,7 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
         };
         if let Some((attacker, target, from, to)) = shot {
             let shooter = shooter_of(attacker);
-            let target_kind = target.and_then(|id| sim.object(id).map(|o| o.kind).or_else(|| Some(fallen(id)?.0)));
+            let target_kind = target.and_then(kind_of);
             effects.tracers.push(Tracer {
                 tick,
                 attacker,
@@ -367,12 +378,15 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
             });
         }
         match *event {
+            // (M5-K) Not a homing projectile, whose flight follows its target: its launch says only where it set off
+            // for (`SimEvent::ProjectileLaunched::homing`).
             SimEvent::ProjectileLaunched {
                 shooter,
                 target,
                 from,
                 to,
                 lands_at,
+                homing: false,
             } => {
                 let thrower = shooter_of(shooter);
                 effects.flights.push(Flight {
@@ -384,10 +398,41 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                     from,
                     to,
                     lands_at,
+                    lift: (
+                        thrower.map_or(0.0, |(form, _)| flight_lift(form)),
+                        target.and_then(kind_of).map_or(0.0, flight_lift),
+                    ),
                     seen,
                 });
             }
-            SimEvent::Blast { at, radius } => effects.blasts.push(Blast { tick, at, radius, seen }),
+            SimEvent::Blast { at, radius } => {
+                // (M5-K) Where a single-target projectile struck: in the air, on an aircraft. A missile that flew
+                // straight lands where its flight was aimed, at its target's flight then; a homing one on its target,
+                // which stands, or fell, right there.
+                let struck = || {
+                    let landed = (effects.flights.iter()).find(|f| f.lands_at == tick && f.to == at);
+                    let aircraft =
+                        |kind: ObjectKind, pos: Vec2| (flies(kind) && pos.distance(at) < 1.0).then_some(kind);
+                    landed.map(|f| f.lift.1).or_else(|| {
+                        (sim.objects().find_map(|o| aircraft(o.kind, o.pos)))
+                            .or_else(|| {
+                                events.sightings().find_map(|(_, event, _)| match *event {
+                                    SimEvent::Died { kind, pos, .. } => aircraft(kind, pos),
+                                    _ => None,
+                                })
+                            })
+                            .map(flight_lift)
+                    })
+                };
+                let lift = if radius > 0.0 { 0.0 } else { struck().unwrap_or(0.0) };
+                effects.blasts.push(Blast {
+                    tick,
+                    at,
+                    radius,
+                    lift,
+                    seen,
+                });
+            }
             SimEvent::Died { kind, owner, pos, .. } => effects.deaths.push(DeathMarker {
                 tick,
                 kind,

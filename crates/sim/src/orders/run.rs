@@ -11,8 +11,8 @@ use super::shroud as channel;
 use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Patrol};
 use super::world::{Unit, World};
 use super::{
-    ActiveOrder, Order, OrderKind, Orders, Target, assist, attack_ground, build, engage, enter, gather, repair, travel,
-    turret,
+    ActiveOrder, Order, OrderKind, Orders, Target, assist, attack_ground, build, engage, enter, gather, repair,
+    target_lock, travel, turret,
 };
 use crate::deploy;
 use crate::ids::ObjectId;
@@ -93,7 +93,9 @@ pub(super) fn update_unit(
             orders.current = None;
         }
         let Some(order) = orders.queue.pop_front() else {
-            // No order left: the unit keeps its last move's outcome, and looks after itself.
+            // No order left: the unit keeps its last move's outcome, and looks after itself. (M5-K) A Target Lock left
+            // without its order ends (`target_lock`).
+            unit.end_target_lock();
             engage::idle(unit, &mut orders.auto, world);
             return;
         };
@@ -140,6 +142,13 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         }
         _ => unit.engage(None),
     }
+    // (M5-K) `factions/gdo/units/rocketman.md > Target Lock`: "The lock (or the locking in progress) breaks when [...]
+    // the Rocketman is given **any** order": every order's start ends a Target Lock under way, and a Target Lock's
+    // begins its own (`target_lock`).
+    match order.kind {
+        OrderKind::TargetLock(target) => target_lock::start(unit, target),
+        _ => unit.end_target_lock(),
+    }
     match order.kind {
         // `systems/controls/command_behaviors.md > MovingToLocation`: the unit goes to its own destination (the magic
         // box); the group's path field is anchored on the clicked point.
@@ -165,8 +174,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
         OrderKind::AttackGround(_) => {}
         OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => {}
-        // (M5-N4b) A channel holds the unit where it stands (`super::shroud`).
-        OrderKind::Shroud => {}
+        // (M5-N4b) A channel holds the unit where it stands (`super::shroud`); (M5-K) so does a lock.
+        OrderKind::Shroud | OrderKind::TargetLock(_) => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -208,8 +217,9 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         // (M5-N8) `factions/cults/units/recruit.md > Repair`: to its own spot beside a building, or after a vehicle.
         OrderKind::Repair(target) => Behaviour::Repair(repair::begin(target, world)),
         // (M5-N4b) `factions/cults/units/disciple.md > Spells > Shroud`: nothing to keep from tick to tick but the
-        // order's start (`ActiveOrder::since`).
-        OrderKind::Shroud => Behaviour::Plain,
+        // order's start (`ActiveOrder::since`). (M5-K) A Target Lock's state is the attack's
+        // (`crate::combat::AttackState::target_lock`).
+        OrderKind::Shroud | OrderKind::TargetLock(_) => Behaviour::Plain,
     }
 }
 
@@ -274,6 +284,8 @@ fn run(
         // (M5-N4b) Channelling where it stands, its energy drained, until another order or its energy can't pay a
         // tick's drain (`super::shroud`). Its state, the plain one, is any.
         (OrderKind::Shroud, _) => channel::run(unit, first),
+        // (M5-K) Standing, locking and firing, until the lock breaks (`target_lock`). Its state, the plain one, is any.
+        (OrderKind::TargetLock(_), _) => target_lock::run(unit),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)

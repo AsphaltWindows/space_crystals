@@ -54,6 +54,7 @@ pub(crate) static FIELD_ENGINEER: ObjectDef = ObjectDef {
         }),
         spells: &[],
         separation_radius: None,
+        target_lock: None,
     }),
     structure: None,
     default_settings: None,

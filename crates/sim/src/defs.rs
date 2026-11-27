@@ -48,8 +48,8 @@ pub use syndicate::{CELLS_PER_TUNNEL_SPACE, EJECT_MENU_ORDER, EXPAND_MENU, Expan
 pub use units::{
     AttackAttrs, AttackType, Augmentable, ContactStep, ConversionDef, Domain, DropOffChoice, FullyConnectedSubtype,
     LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest, RepairDef, RepairPayment, RepairTargets,
-    Resource, ReverseSpeed, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,
-    WorkerDef,
+    Resource, ReverseSpeed, RiotShieldDef, TargetDomain, TargetLockDef, TargetType, TurretAttrs, UnitBase, UnitBaseDef,
+    UnitDef, WorkerDef,
 };
 
 /// The kind registry's macro: from the list of kinds below, each with its def, it makes [`ObjectKind`],
@@ -182,6 +182,11 @@ kind_registry! {
     CareerCampus => gdo::structures::career_campus::CAREER_CAMPUS,
     /// `factions/gdo/units/field_engineer.md`
     FieldEngineer => gdo::units::field_engineer::FIELD_ENGINEER,
+    /// `factions/gdo/structures/arsenal.md` (slice M5-K: design change 0356's two placeholders, the Rocketman's
+    /// prerequisite first)
+    Arsenal => gdo::structures::arsenal::ARSENAL,
+    /// `factions/gdo/units/rocketman.md`
+    Rocketman => gdo::units::rocketman::ROCKETMAN,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
 //! What an attack sequence does as its Firing ends (`super::end`; `systems/combat.md > Firing`): a single-target hit
-//! ([`fire`]), a TailDisjointed strike at the spot locked ([`strike`]) or a DoublyDisjointed projectile's launch
-//! ([`launch`]).
+//! ([`fire`]), a TailDisjointed strike at the spot locked ([`strike`]) or a projectile's launch ([`launch`]), a
+//! DoublyDisjointed one's to the spot locked, (M5-K) a HeadDisjointed one's at its target.
 
 use glam::Vec2;
 
@@ -16,10 +16,8 @@ use crate::units::gu;
 
 /// `systems/combat.md > Firing`: the attack's effect takes place, at the end of the phase (a placeholder reading:
 /// the design says only "during" it; TailDisjointed attacks apply theirs at its end). A FullyConnected attack can't
-/// miss (`> FullyConnected`): it lands on the target wherever the target is now.
-///
-/// TODO(attack types): a HeadDisjointed attack launches a projectile that tracks its target instead (`>
-/// HeadDisjointed`); no unit has one, and it lands like this, as one single-target hit.
+/// miss (`systems/combat.md > FullyConnected`): it lands on the target wherever the target is now. (M5-K) A
+/// HeadDisjointed attack launches its projectile instead ([`launch`]).
 pub(super) fn fire(shooter: &Shooter, t: &TargetView, hits: &mut Vec<Hit>, events: &mut Vec<SimEvent>) {
     hit(shooter, t, hits);
     events.push(SimEvent::Attacked {
@@ -103,30 +101,25 @@ pub(super) fn strike(
     }
 }
 
-/// (M5-O3) What a single-target TailDisjointed shot at the spot `at` strikes ([`strike`]): an object whose shape covers
-/// the point (`Shape::distance_to` is 0 inside it and on its edge), a unit's Silhouette or a structure's footprint (a
-/// Gunner may be ordered to attack a structure), that the attack can target at all (`systems/combat.md >
-/// ValidTarget` 3: its TargetDomain allows it; not the shooter itself), whoever owns it (design change 0304: "whatever
-/// unit stands at the spot then is hit instead (any owner)"), the shooter's owner's own included. None: it misses.
-///
-/// Placeholder (not in the design: it doesn't say which of two objects at the spot a single-target shot hits, and two
-/// can be there, their edges touching across the point): the one it was aimed at, `target`, while it covers the spot,
-/// so that a target that stands still is always hit; else the first in id order.
+/// (M5-O3) What a single-target TailDisjointed shot at the spot `at` strikes ([`strike`]): an object that covers the
+/// point and that the attack can target at all (`systems/combat.md > ValidTarget` 3: its TargetDomain allows it; not
+/// the shooter itself), a structure too (a Gunner may be ordered to attack one), whoever owns it (design change 0304:
+/// "whatever unit stands at the spot then is hit instead (any owner)"), the shooter's owner's own included; of
+/// several, the one it was aimed at, `target`, while it covers the spot (`Targets::at_the_spot`). None: it misses.
 pub(super) fn at_the_spot<'t>(
     shooter: &Shooter,
     at: Vec2,
     target: Option<ObjectId>,
     targets: &'t Targets,
 ) -> Option<&'t TargetView> {
-    let covers = |t: &&TargetView| shooter.can_target(t) && t.shape.distance_to(at) == 0.0;
-    let aimed = target.and_then(|id| targets.get(id)).filter(covers);
-    aimed.or_else(|| targets.all().iter().find(covers))
+    targets.at_the_spot(at, target, |t| shooter.can_target(t))
 }
 
 /// (M4-O) `systems/combat.md > DoublyDisjointed`: "The Firing phase is short and spawns a projectile which travels to
 /// the location the target was at at the end of the Aiming phase": at the end of Firing, from the shooter's centre
 /// (`Shooter::muzzle`) to `at`, the location locked (plan decision T48). `target`: the object it was aimed at, if
-/// any.
+/// any. (M5-K) A HeadDisjointed attack's (`systems/combat.md > HeadDisjointed`: "spawns a projectile which tracks the
+/// target") leaves for `at`, its target's centre, and homes in on `target` (`super::super::projectiles::Homing`).
 pub(super) fn launch(
     shooter: &Shooter,
     at: Vec2,

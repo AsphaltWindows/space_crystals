@@ -7,7 +7,8 @@ use super::*;
 /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104): a
 /// selected Deployment Center shows Q Basic Construction, and W Advanced Construction unavailable while none of its
 /// buildings is in the game. Q, or a click on its button, opens BuildMenu[Basic]: Q Generator, W Barracks, E Extraction
-/// Facility, D Career Campus (slice M5-N9; greyed: "Requires a Barracks"), the other slots hidden, and Z Back. Back
+/// Facility, S Arsenal (slice M5-K) and D Career Campus (slice M5-N9; both greyed: "Requires a Barracks"), the other
+/// slots hidden, and Z Back. Back
 /// and Esc return to DefaultState (`factions/gdo/structures/deployment_center.md > BuildMenu (instance idle)`:
 /// "Escape: returns to DefaultState (StateOnlyTransition). Right-click does its normal right-click and the menu stays
 /// open", design change 0400): a right-click on the ground does the Deployment Center's, nothing, and the menu stays
@@ -45,6 +46,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
             (q(), c(Construct(GENERATOR)), Common, "GN"),
             (w(), c(Construct(BARRACKS_KIND)), Common, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Common, "EF"),
+            (s(), c(Construct(ARSENAL)), Disabled, "AL"),
             (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
         ]
@@ -146,6 +148,7 @@ fn a_construction_is_cancelled_with_a_full_refund() {
             (q(), c(Construct(GENERATOR)), Disabled, "GN"),
             (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
+            (s(), c(Construct(ARSENAL)), Disabled, "AL"),
             (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (X, c(CancelConstruction), Common, "Cancel"),
@@ -161,18 +164,28 @@ fn a_construction_is_cancelled_with_a_full_refund() {
 
 /// `factions/gdo/structures/deployment_center.md > Constructs`: "Career Campus: 150 Space Crystals, 320 frames (20
 /// seconds) (placeholder). Requires: player owns at least one Barracks", BuildMenu[Basic]'s D (design change 0328;
-/// slice M5-N9). Without a Barracks, D is greyed, says "Requires a Barracks" when pressed and sends nothing; with one
-/// (a debug spawn), D constructs a Career Campus for 150 Space Crystals, and the menu closes.
+/// slice M5-N9), and (slice M5-K) "Arsenal: 150 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player
+/// owns at least one Barracks", its S (design change 0356). Without a Barracks, each is greyed, says "Requires a
+/// Barracks" when pressed and sends nothing; with one (a debug spawn), each constructs its building for 150 Space
+/// Crystals, and the menu closes.
 #[test]
-fn d_constructs_a_career_campus_once_a_barracks_stands() {
+fn d_and_s_construct_a_career_campus_and_an_arsenal_once_a_barracks_stands() {
+    for (key, at, kind, label) in [(KeyD, d(), CAREER_CAMPUS, "CC"), (KeyS, s(), ARSENAL, "AL")] {
+        constructs_once_a_barracks_stands(key, at, kind, label);
+    }
+}
+
+/// [`d_and_s_construct_a_career_campus_and_an_arsenal_once_a_barracks_stands`]'s game for `kind`, in BuildMenu[Basic]'s
+/// slot `at` (hotkey `key`), labelled `label`.
+fn constructs_once_a_barracks_stands(key: KeyCode, at: CommandSlot, kind: ObjectKind, label: &str) {
     use ButtonLook::{Common, Disabled};
     let mut app = construction_game(1000);
     select(&mut app, DC);
     tap(&mut app, &[], KeyQ);
-    let construct = PanelButton::Command(PanelCommand::Construct(CAREER_CAMPUS));
-    let shown = |app: &mut App| buttons(app).into_iter().find(|b| b.0 == d());
-    assert_eq!(shown(&mut app), Some((d(), construct, Disabled, "CC")));
-    tap(&mut app, &[], KeyD);
+    let construct = PanelButton::Command(PanelCommand::Construct(kind));
+    let shown = |app: &mut App| buttons(app).into_iter().find(|b| b.0 == at);
+    assert_eq!(shown(&mut app), Some((at, construct, Disabled, label)));
+    tap(&mut app, &[], key);
     assert_eq!(feedback(&app), Some("Requires a Barracks"));
     assert_eq!(constructions(&app), []);
 
@@ -186,12 +199,14 @@ fn d_constructs_a_career_campus_once_a_barracks_stands() {
     updates(&mut app, 2);
     assert!(structure_at(&app, BARRACKS_KIND, TilePos::new(27, 17)).is_some());
     assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Basic));
-    assert_eq!(shown(&mut app), Some((d(), construct, Common, "CC")));
-    tap(&mut app, &[], KeyD);
-    let campus = ConstructionCommand::Construct(CAREER_CAMPUS);
-    assert_eq!(constructions(&app), [(P1, vec![DC], campus)]);
+    assert_eq!(shown(&mut app), Some((at, construct, Common, label)));
+    tap(&mut app, &[], key);
+    assert_eq!(
+        constructions(&app),
+        [(P1, vec![DC], ConstructionCommand::Construct(kind))]
+    );
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     updates(&mut app, 1);
     assert_eq!(bank(&app), 1000 - 150);
-    assert_eq!(constructor(&app, DC).current(), Some(CAREER_CAMPUS));
+    assert_eq!(constructor(&app, DC).current(), Some(kind));
 }

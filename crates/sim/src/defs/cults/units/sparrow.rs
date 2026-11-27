@@ -85,6 +85,7 @@ pub(crate) static SPARROW: ObjectDef = ObjectDef {
         // Q0148 part 3; was 32, design change 0328). How slowly is its Glider base's
         // (`UnitBaseDef::separation_strength`).
         separation_radius: Some(48.0),
+        target_lock: None,
     }),
     structure: None,
     default_settings: None,

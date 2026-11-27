@@ -100,6 +100,11 @@ impl StateHash for OrderKind {
                 h.tag(15);
                 p.hash(h);
             }
+            // (M5-K) A new tag, hashed only while a unit carries the order.
+            OrderKind::TargetLock(target) => {
+                h.tag(16);
+                target.hash(h);
+            }
         }
     }
 }

@@ -27,6 +27,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
             elapsed: 2,
             location: None,
             turret: None,
+            target_lock: None,
         }),
         riot_shield: None,
         extractor: None,
@@ -144,6 +145,7 @@ fn a_conversion_interrupts_an_aim_or_a_reload_and_holds_the_unit() {
                 elapsed: 0,
                 location: None,
                 turret: None,
+                target_lock: None,
             })
         );
         let mover = o.mover.as_ref().unwrap();

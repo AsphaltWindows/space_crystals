@@ -226,6 +226,9 @@ pub enum Reject {
     /// (M5-V2) None of the units a Reverse names can back up (`systems/controls/commands.md > Reverse`: "Only available
     /// to bases with CanReverse = true"; `UnitDef::can_reverse`).
     CannotReverse,
+    /// (M5-K) A Target Lock's target is the issuing player's own, or nobody's, as the player knows it
+    /// (`factions/gdo/units/rocketman.md > Target Lock`: "The player orders Target Lock on one enemy unit").
+    NotAnEnemy(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -303,6 +306,7 @@ impl fmt::Display for Reject {
             Reject::NotEnoughEnergy => write!(f, "none of the units has the energy the spell needs"),
             Reject::OutOfSight => write!(f, "the point is out of sight"),
             Reject::CannotReverse => write!(f, "none of the units can reverse"),
+            Reject::NotAnEnemy(id) => write!(f, "object {} isn't an enemy's", id.0),
         }
     }
 }

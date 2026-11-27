@@ -229,6 +229,27 @@ impl Targets {
     pub(super) fn all(&self) -> &[TargetView] {
         &self.0
     }
+
+    /// (M5-O3, M5-K) What a single-target shot whose effect lands at the spot `at` hits: an object whose shape covers
+    /// the point (`Shape::distance_to` is 0 inside it and on its edge), a unit's Silhouette or a structure's footprint,
+    /// that the attack may hit (`hits`: its TargetDomain allows it, and it isn't the shooter), whoever owns it. None:
+    /// it misses. A TailDisjointed strike's (`super::phases`; `systems/combat.md > TailDisjointed`: "**Structures
+    /// count too** (Q0126): whatever object (unit or structure) covers the locked point is hit; if several do, the
+    /// one the shot was aimed at, if it still covers the point, otherwise any one of them (Director's choice)"), and a
+    /// single-target DoublyDisjointed projectile's as it lands (`super::projectiles`; `systems/combat.md >
+    /// DoublyDisjointed`: "The effect applies to whatever units are at the target location when the projectile
+    /// arrives", in the same words). Of several, the one it was aimed at, `aimed`, while it covers the spot, so that a
+    /// target that stands still is always hit; else the first in id order.
+    pub(super) fn at_the_spot(
+        &self,
+        at: Vec2,
+        aimed: Option<ObjectId>,
+        hits: impl Fn(&TargetView) -> bool,
+    ) -> Option<&TargetView> {
+        let covers = |t: &&TargetView| hits(t) && t.shape.distance_to(at) == 0.0;
+        let aimed = aimed.and_then(|id| self.get(id)).filter(covers);
+        aimed.or_else(|| self.0.iter().find(covers))
+    }
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@ mod garrison;
 mod gathering;
 mod recruit;
 mod repair;
+mod rocketman;
 mod shrine;
 mod temple;
 
@@ -17,7 +18,8 @@ fn id(n: u32) -> ObjectId {
 const P: Vec2 = Vec2::new(300.0, 200.0);
 
 /// `target` under the cursor at [`P`], as the player knows it: an object destructible or not, in `domain`, an enemy
-/// if it is under the cursor as one. Neither a patch to gather nor a drop-off ([`patch`], [`own_node`]).
+/// if it is under the cursor as one, which the player sees now. Neither a patch to gather nor a drop-off ([`patch`],
+/// [`own_node`]).
 fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
     let id = target.object().expect("an object");
     MapTarget {
@@ -38,6 +40,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             repair: None,
         }),
         seen: true,
+        visible: true,
     }
 }
 
