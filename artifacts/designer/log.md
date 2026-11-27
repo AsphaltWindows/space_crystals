@@ -2388,3 +2388,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0157 (user: b): low Power slows cooldowns, turret fire, rearming (0423).
 - Q0158 (user: 1a, 2a): services parallel; eject stays inside-longest (0424).
 - Q0159 (user: 1b, 2a, 3a): Shadebringer trail rules (0425).
+- Q0160 (user): mines are deployed units, selectable; hover passes over; no blast when destroyed; buying queues (0426).
