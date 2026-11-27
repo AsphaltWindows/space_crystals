@@ -1,15 +1,18 @@
 //! The Airstrip — `factions/cults/structures/airstrip.md`.
 
-use crate::defs::structures::{BuilderGoes, ExitRule, HoldsDef, SiteDef, SitePrice, StructureDef, SymmetryType};
+use crate::defs::structures::{
+    BuilderGoes, ExitRule, HoldsDef, ProductionDef, Recipe, SiteDef, SitePrice, StructureDef, SymmetryType,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
 
 /// `factions/cults/structures/airstrip.md`: the "Tier 3 major building of the Tech/Weaponry branch. A makeshift runway
-/// where Recruits are turned into aircraft". Its numbers, its site and its pool's capacity only (slice M5-G2, plan
-/// decision T69): its production (`> Production`, the Sparrow, which "**takes off from the Airstrip**"; plan decision
-/// T71's runway) comes with its slice, which adds it to the Recruits' builds, so it trains nothing and Recruits don't
-/// build it yet. Its numbers are the design's "Placeholder stats".
+/// where Recruits are turned into aircraft". Its numbers, its site and its pool (slice M5-G2, plan decision T69), and
+/// (M5-N7) its production: the Sparrow, trained of a pooled Recruit as at the Armory, which "**takes off from the
+/// Airstrip**" along its runway (plan decision T71's `ExitRule::Runway`). Its numbers are the design's "Placeholder
+/// stats". The Advanced aircraft (`> Production`: "a large paratrooper plane and an airship/zeppelin [...] require the
+/// player to own a Scrap Hangar") are TBD, and so not here.
 pub(crate) static AIRSTRIP: ObjectDef = ObjectDef {
     kind: ObjectKind::Airstrip,
     name: "Airstrip",
@@ -40,8 +43,32 @@ pub(crate) static AIRSTRIP: ObjectDef = ObjectDef {
         build_radius_extension: 0,
         power: 0,
         seeds_build_area: false,
-        // Its aircraft: with its production's slice.
-        production: None,
+        // `> Production`: "**Production works like the Armory** [...]: Recruits enter an internal pool, orders are serial
+        // and queueable and reserve the aircraft's number of Recruits, which are consumed on completion. A finished
+        // aircraft **takes off from the Airstrip** to its RallyPoint"; "a finished aircraft is placed **directly on the
+        // runway** and takes off along it toward C (the exception to exit-opposite-entrance, Q0104)": over its B end,
+        // the end the Recruits walk in at, toward C (`ExitRule::Runway`). Of the Recruits inside (`sim/producers/pool.rs`),
+        // so it recruits nothing; its queue is bounded by its capacity ("so at most 10 orders queued").
+        production: Some(ProductionDef {
+            exits: ExitRule::Runway {
+                from: SideLetter::B,
+                toward: SideLetter::C,
+            },
+            recipes: &[
+                // "**Sparrow**: 1 Recruit, 75 Space Crystals, 320 frames (20 seconds)", the one aircraft it builds so
+                // far ("**Q: Build Sparrow**"): 1 Recruit, the Sparrow's Unit Control cost (`QueueEntry::units_reserved`).
+                // It has no TechPrerequisite of its own (`factions/cults/units/sparrow.md`: "Cost: Airstrip, 1 Recruit,
+                // 75 Space Crystals, 320 frames").
+                Recipe {
+                    kind: ObjectKind::Sparrow,
+                    cost: 75,
+                    frames: 320,
+                    requires: &[],
+                },
+            ],
+            recruitment: None,
+            augment: &[],
+        }),
         mining: None,
         onto: None,
         constructs: &[],
@@ -56,8 +83,8 @@ pub(crate) static AIRSTRIP: ObjectDef = ObjectDef {
         popup: None,
         // "EntranceSide B (Recruits walk in)"; "InternalRecruitCapacity 10, counting reserved Recruits; so at most 10
         // orders queued (bounded by capacity: reserved units count toward it; Q0104)", the pool buildings' rule (design
-        // change 0347 point 5, slice M5-F2's). Its aircraft take off "along it toward C" (plan decision T71's
-        // `ExitRule::Runway`, with its production). **Placeholder (not in the design: where its ejected and released
+        // change 0347 point 5, slice M5-F2's); and `systems/controls/commands.md > Enter`: Recruits only. Its aircraft
+        // take off "along it toward C" (`production`). **Placeholder (not in the design: where its ejected and released
         // Recruits come out)**: the exit doorway of side C, the end its aircraft take off toward, opposite its entrance
         // as every pool building's exit is (`factions/cults/structures/README.md > Choosing Recruits, Release and
         // Eject All`: "every unreserved unit leaves, one at a time through the exit").
@@ -97,8 +124,9 @@ mod tests {
 
     /// 2 tall and 4 wide (a runway), ABAC, MaxHP 400, PointArmor 1, FullArmor 8 (the building armour rule's n = 1),
     /// SightRange 4, not Groupable (design change 0348), behind a Chop Shop. Its pool: Recruits walk in at side B, 10 of
-    /// them, reserved ones counted, and come out of side C (placeholder); it trains nothing yet. Recruits will build it
-    /// from outside for 250 Space Crystals in 640 frames with one of them, from 10% HP.
+    /// them, reserved ones counted, and come out of side C (placeholder). It trains the Sparrow of one Recruit for 75
+    /// Space Crystals in 320 frames, which takes off along its runway from B toward C. Recruits build it from outside
+    /// for 250 Space Crystals in 640 frames with one of them, from 10% HP.
     #[test]
     fn the_airstrip_follows_the_design() {
         let structure = assert_structure(
@@ -116,7 +144,34 @@ mod tests {
             [ObjectKind::ChopShop],
             "TechPrerequisite: a Chop Shop"
         );
-        assert_eq!((structure.production, structure.drop_off), (None, None));
+        assert_eq!(structure.drop_off, None);
+        let production = structure.production.expect("it trains aircraft");
+        assert_eq!(
+            production.exits,
+            ExitRule::Runway {
+                from: SideLetter::B,
+                toward: SideLetter::C
+            }
+        );
+        assert_eq!(
+            production.recipes,
+            [Recipe {
+                kind: ObjectKind::Sparrow,
+                cost: 75,
+                frames: 320,
+                requires: &[]
+            }]
+        );
+        assert_eq!((production.recruitment, production.augment), (None, &[][..]));
+        assert_eq!(
+            ObjectKind::Sparrow
+                .def()
+                .unit
+                .as_ref()
+                .and_then(|u| u.unit_control_cost),
+            Some(1),
+            "1 Recruit"
+        );
         let holds = structure.holds.expect("its pool");
         assert_eq!(
             (holds.entrance, holds.exit),

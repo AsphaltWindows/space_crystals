@@ -13,7 +13,7 @@ GDO expansion vehicle produced at the Factory once the player owns Advanced Mech
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 64x48 space units; MaxHP 300; PointArmor 2, FullArmor 2; SightRange 6 grid units; Groupable true; UnitControlCost 2.
-- SpeedTurnRadiusMovement: MaxSpeed 4 su/frame; Acceleration 0.4; Deceleration 1; SpeedToTurnRadiusRatio 8.
+- SpeedTurnRadiusMovement: MaxSpeed 4 su/frame; Acceleration 0.4; Deceleration 1; TrackWidth 36 su; ReverseMaxSpeed 2 (Q0153; spins about 12.7° a frame).
 - **No weapon** (as assumed). **Deploy 64 frames (4 s)**; it follows the vehicle deploy model: an order that **can't be cancelled** once started (the Artillery Rig's rules; user, 2026-11-27).
 - Cost: Factory, 300 Space Crystals, 480 frames.
 - Panel: Q Move, X Stop, **R: Deploy into Outpost** (targeted: a location; it drives there and deploys).

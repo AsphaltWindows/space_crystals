@@ -5,8 +5,10 @@
 //! order ([`altar`], slice M5-N1b); the Disciple's, the BasicCombatUnit's with its spell in R ([`disciple`], slice
 //! M5-N4a, the spell slice M5-N4b's); the Temple's, its research keys, its releases of one Recruit and its Eject All
 //! ([`temple`], slice M5-N3); the Shrine's, its two casts, its releases of one Recruit and its Eject All ([`shrine`],
-//! slice M5-N5). The Recruitment Hall's is the Production template (slice M5-C).
+//! slice M5-N5); the Airstrip's, the pool buildings' with its Sparrow's Q named "Build Sparrow" ([`airstrip`], slice
+//! M5-N7). The Recruitment Hall's is the Production template (slice M5-C).
 
+pub mod airstrip;
 pub mod altar;
 pub mod armory;
 pub mod construct_menu;

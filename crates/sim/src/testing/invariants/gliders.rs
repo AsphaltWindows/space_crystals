@@ -11,7 +11,8 @@
 //! It also holds the exemptions the Gliders and the soft separation need from I3, I5 and I7 (`super::check_units`):
 //! a Glider moves, and has momentum, without a goal, and an air unit is pushed apart from another by at most
 //! [`SEPARATION_PUSH_SU`] a tick, beyond its own move ((M5-H2) its base's share of it,
-//! `UnitBaseDef::separation_strength`: a Glider's is a quarter, design change 0405).
+//! `UnitBaseDef::separation_strength`: a Glider's is (M5-N7) a third, design change 0412; a quarter from design change
+//! 0405).
 
 use std::collections::BTreeMap;
 

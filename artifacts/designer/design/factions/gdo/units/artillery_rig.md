@@ -36,7 +36,7 @@ GDO artillery vehicle produced at the Factory; requires Advanced Mechanics. Has 
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 64x48 space units; MaxHP 180; PointArmor 3, FullArmor 3; SightRange 6 grid units; Groupable true; UnitControlCost 3.
-- SpeedTurnRadiusMovement: MaxSpeed 4 su/frame; Acceleration 0.4; Deceleration 1; SpeedToTurnRadiusRatio 8.
+- SpeedTurnRadiusMovement: MaxSpeed 4 su/frame; Acceleration 0.4; Deceleration 1; TrackWidth 36 su; ReverseMaxSpeed 2 (Q0153; spins about 12.7° a frame).
 - **Deploy 48 frames (3 s), Undeploy 48 frames.**
 - Deployed attack: Damage **300** total over the circle (AoEDamage); AoERadius **64 su (1 GU)**; Range **12 grid units**; MinRange **3 grid units**; AimDuration 16, FiringDuration **16** (the shell's flight: the gap in which targets can leave the locked area), CooldownDuration 8, ReloadDuration 64 frames (one shell per 104 frames, 6.5 s).
 - Turret TurnRate 3°/frame.

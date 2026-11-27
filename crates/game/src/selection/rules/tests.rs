@@ -5,7 +5,17 @@ use sc_sim::ObjectKind;
 
 /// Units in a row along y = 100, 50 su apart: object `n` at x = 50·n.
 fn row(units: &[(u32, ObjectKind, Relation)]) -> Selectables {
-    let unit = |&(n, kind, relation): &(u32, ObjectKind, Relation)| Selectable {
+    Selectables::from_objects(
+        units
+            .iter()
+            .map(|&(n, kind, relation)| in_row(n, kind, relation))
+            .collect(),
+    )
+}
+
+/// Object `n` of a [`row`], finished.
+fn in_row(n: u32, kind: ObjectKind, relation: Relation) -> Selectable {
+    Selectable {
         id: ObjectId(n),
         kind,
         unfinished: false,
@@ -13,8 +23,7 @@ fn row(units: &[(u32, ObjectKind, Relation)]) -> Selectables {
         drawn: at(n),
         rect: Rect::from_center_half_size(at(n), Vec2::splat(12.0)),
         depth: at(n).y,
-    };
-    Selectables::from_objects(units.iter().map(unit).collect())
+    }
 }
 
 const PK: ObjectKind = ObjectKind::Peacekeeper;
@@ -139,6 +148,68 @@ fn ctrl_shift_clicks_add_the_own_units_of_that_type_on_screen() {
     assert!(!state.click(&objects, at(1), CTRL_SHIFT, false, visible));
     assert!(!state.click(&objects, at(1), SHIFT, true, visible));
     assert_eq!(ids(&state), [4]);
+}
+
+/// (M5-N7) `systems/controls/selection.md > MapClickSelection > Own buildings too` (design change 0410): the modified
+/// clicks take own buildings as they take own units; 0410's Verification. A Shift-click adds a second Recruitment Hall
+/// to a selected one, one group, and a second one takes it off. A double-click on a Hall with three on screen, one
+/// under construction, selects the two finished ones; one on the unfinished Hall only that one. Recruits and a
+/// Shift-clicked Storage are two groups. A Ctrl-click on one of two Armories (Ungroupable, design change 0348 point
+/// 5) selects both, each its own group, which Tab cycles. An enemy's Hall stays out, and alone when clicked.
+#[test]
+fn modified_clicks_take_own_buildings_too() {
+    use Relation::{Enemy, Own};
+    const HALL: ObjectKind = ObjectKind::RecruitmentHall;
+    const ARMORY: ObjectKind = ObjectKind::Armory;
+    const RECRUIT: ObjectKind = ObjectKind::Recruit;
+    let mut site = in_row(3, HALL, Own);
+    site.unfinished = true;
+    let objects = Selectables::from_objects(vec![
+        in_row(1, HALL, Own),
+        in_row(2, HALL, Own),
+        site,
+        in_row(4, RECRUIT, Own),
+        in_row(5, RECRUIT, Own),
+        in_row(6, ObjectKind::Storage, Own),
+        in_row(7, ARMORY, Own),
+        in_row(8, ARMORY, Own),
+        in_row(9, HALL, Enemy),
+    ]);
+    let visible = Rect::new(0.0, 0.0, 500.0, 300.0);
+    let mut state = ControlState::default();
+    // Shift-click: toggles an own building.
+    state.click(&objects, at(1), PLAIN, false, visible);
+    assert!(state.click(&objects, at(2), SHIFT, false, visible));
+    assert_eq!(
+        (ids(&state), state.selection.groups().len()),
+        (vec![1, 2], 1),
+        "one group"
+    );
+    assert!(state.click(&objects, at(2), SHIFT, false, visible));
+    assert_eq!(ids(&state), [1], "Shift-clicked again: removed");
+    // Double-click and Ctrl-click: the own buildings of its type on screen, finished or not as it is.
+    assert!(state.click(&objects, at(1), PLAIN, true, visible));
+    assert_eq!(ids(&state), [1, 2], "the finished Halls, not the site nor the enemy's");
+    assert!(state.click(&objects, at(3), CTRL, false, visible));
+    assert_eq!(ids(&state), [3], "the unfinished Hall, another type");
+    assert!(state.click(&objects, at(1), CTRL_SHIFT, false, visible));
+    assert_eq!(ids(&state), [1, 2, 3], "Ctrl+Shift adds the finished ones");
+    // Units and a building mix, as own objects do.
+    state.click(&objects, at(4), CTRL, false, visible);
+    assert!(state.click(&objects, at(6), SHIFT, false, visible));
+    assert_eq!((ids(&state), state.selection.groups().len()), (vec![4, 5, 6], 2));
+    // Ungroupable: each Armory its own group, which Tab cycles.
+    assert!(state.click(&objects, at(7), CTRL, false, visible));
+    assert_eq!((ids(&state), state.selection.groups().len()), (vec![7, 8], 2));
+    let instance = |state: &ControlState| state.selection.active().and_then(|key| key.instance);
+    assert_eq!(instance(&state), Some(ObjectId(7)));
+    assert!(state.cycle_groups(true));
+    assert_eq!(instance(&state), Some(ObjectId(8)));
+    assert!(state.cycle_groups(true));
+    assert_eq!(instance(&state), Some(ObjectId(7)));
+    // Another player's building: alone, whatever the modifiers (0048).
+    assert!(state.click(&objects, at(9), CTRL_SHIFT, false, visible));
+    assert_eq!(ids(&state), [9]);
 }
 
 /// `systems/controls/selection.md > BoxSelection` (design changes 0049, 0051 and 0053): a plain box replaces

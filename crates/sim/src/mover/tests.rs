@@ -108,6 +108,51 @@ fn a_glider_s_orbit_and_strafing_run_are_kept_only_while_set() {
     assert_eq!((mover.orbit, mover.strafe), (None, None));
 }
 
+/// (M5-N7) A Glider's takeoff run (`Mover::takeoff`, `sim::holding::takeoff`): hashed, and written to files, only
+/// while set (plan decision T82), its end and its direction each in the hash; neither a new leg nor a stop ends it
+/// (an order given on the run waits for its end, `movement::glider`).
+#[test]
+fn a_glider_s_takeoff_run_is_kept_only_while_set_and_outlasts_new_legs() {
+    use crate::hash::{StateHash, StateHasher};
+    let hash = |mover: &Mover| {
+        let mut h = StateHasher::new();
+        mover.hash(&mut h);
+        h.finish()
+    };
+    let mut mover = Mover::default();
+    let (plain, file) = (hash(&mover), serde_json::to_string(&mover).unwrap());
+    assert!(!file.contains("takeoff"), "{file}");
+    let run = Takeoff {
+        end: Vec2::new(768.0, 704.0),
+        along: Vec2::new(-1.0, 0.0),
+    };
+    mover.takeoff = Some(run);
+    let taking_off = hash(&mover);
+    assert_ne!(taking_off, plain);
+    mover.takeoff = Some(Takeoff {
+        end: Vec2::new(768.0, 705.0),
+        ..run
+    });
+    assert_ne!(hash(&mover), taking_off, "its end");
+    mover.takeoff = Some(Takeoff {
+        along: Vec2::new(0.0, 1.0),
+        ..run
+    });
+    assert_ne!(hash(&mover), taking_off, "its direction");
+    mover.takeoff = Some(run);
+    let saved = serde_json::to_string(&mover).unwrap();
+    assert_eq!(serde_json::from_str::<Mover>(&saved).unwrap(), mover);
+    let over = Mover {
+        takeoff: None,
+        ..mover.clone()
+    };
+    assert_eq!(hash(&over), plain);
+    mover.go_to(MoveGoal::Point(Vec2::new(5.0, 6.0)), None, 7);
+    assert_eq!(mover.takeoff, Some(run));
+    mover.stop();
+    assert_eq!(mover.takeoff, Some(run));
+}
+
 /// Design change 0024, `docs/movement.md > 5.6`: three repaths per leg, after waits of 8, 16 and 32 ticks.
 #[test]
 fn counted_repaths_are_capped_and_wait() {

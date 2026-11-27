@@ -260,7 +260,7 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     // `Produces`: units of the producer's own faction, each listed once, each taking time, out of sides its
     // SymmetryType has: a `Side` rule's letter names exactly one side (the Barracks' B), a `Sides` rule's several (the
     // Recruitment Hall's four A sides, slice M5-C), each open letter of a `Centre` rule at least one (plan decision
-    // T19; the portals' energy doorway, design change 0145). A producer that recruits by itself has one recipe, what
+    // T19; the portals' energy doorway, design change 0145), a `Runway`'s two ends one each (slice M5-N7). A producer that recruits by itself has one recipe, what
     // it recruits, and an area at least as large as its footprint (plan decision T57).
     if let Some(production) = &structure.production {
         let letters = structure.symmetry.letters();
@@ -278,6 +278,26 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
             ExitRule::Network => assert!(structure.underground, "{name}: produces into the network"),
             // (M5-N2) Everyone out at once: the Garrison's door, which produces nothing.
             ExitRule::AtOnce(_) => panic!("{name}: a producer releases its units one at a time"),
+            // (M5-N7) Off a runway, from one end to the other: two sides its SymmetryType letters once each, opposite
+            // each other (`production::Runway`), at a building that trains its aircraft of the units it holds
+            // (`holds_are_consistent`).
+            ExitRule::Runway { from, toward } => {
+                assert_eq!(
+                    (count(from), count(toward)),
+                    (1, 1),
+                    "{name}: a runway {from:?} to {toward:?}"
+                );
+                let side = |letter| letters.iter().position(|&l| l == letter);
+                assert_eq!(
+                    side(from).map(|i| (i + 2) % 4),
+                    side(toward),
+                    "{name}: a runway from end to end"
+                );
+                assert!(
+                    structure.holds.is_some(),
+                    "{name}: a runway's aircraft of no one inside"
+                );
+            }
         }
         if let Some(recruitment) = production.recruitment {
             let (w, h) = def.tile_size().expect("a structure has tiles");

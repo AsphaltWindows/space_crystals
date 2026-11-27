@@ -1,7 +1,9 @@
 //! The state hash of the mover and its parts (`hash.rs`): every field, destructured, so that a new one doesn't
 //! compile until it is hashed.
 
-use super::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState, Side, Sidestep, StepAside, Strafe};
+use super::{
+    Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState, Side, Sidestep, StepAside, Strafe, Takeoff,
+};
 use crate::hash::{StateHash, StateHasher};
 use crate::nav::PathGroup;
 
@@ -106,6 +108,7 @@ impl StateHash for Mover {
             step_aside,
             orbit,
             strafe,
+            takeoff,
         } = self;
         goal.hash(h);
         status.hash(h);
@@ -169,6 +172,13 @@ impl StateHash for Mover {
             range.hash(h);
             // Fieldless enum: the discriminant is the declaration index.
             h.tag(*pass as u8);
+        }
+        // (M5-N7) Likewise only while a Glider is on its takeoff run: games without a runway hash as before the field
+        // existed.
+        if let Some(Takeoff { end, along }) = takeoff {
+            h.tag(8);
+            end.hash(h);
+            along.hash(h);
         }
     }
 }

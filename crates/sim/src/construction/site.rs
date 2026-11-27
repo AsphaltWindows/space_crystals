@@ -405,8 +405,8 @@ mod tests {
     /// The Agent builds the Tunnel, alone (the Laser Turret no more: design change 0359); the Recruit the Recruitment
     /// Hall, the Storage and the Armory (slice M5-E), the Gunworks, the Machine Shop and the Scrap Hangar (slice
     /// M5-G2), the Garrison (slice M5-N2), the Altar (slice M5-N1b), the Temple (slice M5-N3), the Cathedral (slice
-    /// M5-N4a) and the Shrine (slice M5-N5), a group sharing the build, and assists them; nothing else builds anything
-    /// (the Drone deploys).
+    /// M5-N4a), the Shrine (slice M5-N5) and the Airstrip (slice M5-N7), a group sharing the build, and assists them;
+    /// nothing else builds anything (the Drone deploys).
     /// The Cults' other buildings have their sites, but no one builds them until their slices.
     #[test]
     fn the_agent_and_the_recruit_build_their_own() {
@@ -422,6 +422,7 @@ mod tests {
             ObjectKind::Gunworks,
             ObjectKind::MachineShop,
             ObjectKind::ScrapHangar,
+            ObjectKind::Airstrip,
         ];
         for &builder in ObjectKind::ALL {
             for &kind in ObjectKind::ALL {

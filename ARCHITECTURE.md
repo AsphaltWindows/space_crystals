@@ -2128,7 +2128,14 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   Locomotion always Moving. Without a goal it circles its `Mover::orbit` at IdleSpeed on 1 grid unit
   (`tuning::air::IDLE_CIRCLE_GU`); with a point it arrives within that circle and circles the point from then on;
   an Attack or an Attack Ground makes a strafing run (`Mover::strafe`, `Pass`: toward the target, over it,
-  on until out of range, back at full speed), set by `orders::engage::close_in` and `orders::attack_ground`. Ask
+  on until out of range, back at full speed), set by `orders::engage::close_in` and `orders::attack_ground`. (slice
+  M5-N7, design change 0408) **Where a pass ends** is the one range check measured from the glider's edge to the
+  target's **centre** (`Shape::distance_to`, `Strafe::range`): the loop is the same size whatever the target, about
+  490 su for the Sparrow; firing and every other range check stay edge to edge. (slice M5-N7) **A takeoff run**
+  (`Mover::takeoff`, `Takeoff`; hashed and saved only while set): an aircraft its building lets out flies straight
+  along the runway, never turning, until its centre is past the runway's end (`Takeoff::is_over`); neither a new leg
+  nor a stop ends it, so an order given meanwhile waits for the end (Placeholder (not in the design: a takeoff run
+  cut short)). Ask
   `UnitDef::glides` (or a behaviour's `orders::world::Unit::glides`) whether a unit is a Glider. **Never make a Glider
   stand**: `Mover::stop` and `finish` clear its goal, orbit and run, and it circles where it is from its next flight;
   (slice M5-H2, design change 0404) a Move's order completes as it arrives, and the next queued order starts there
@@ -2148,8 +2155,9 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   SeparationRadius (`UnitDef::separation_radius`: the Sparrow's 48 su, (slice M5-H2) design change 0405, was 32)
   nearer than the larger radius is pushed apart, each by half of what the pair lacks, a unit's whole push in a tick
   capped at `tuning::air::SEPARATION_PUSH_SU` (2 su, a placeholder). (M5-H2) Each unit takes its own base's share of
-  its pushes and of the cap (`UnitBaseDef::separation_strength`): a HoverCraft all of it, a Glider a quarter (design
-  change 0405: "Gliders push apart slowly"). The pairs come from a `space::Layer` of the air units, in id order, and
+  its pushes and of the cap (`UnitBaseDef::separation_strength`): a HoverCraft all of it, a Glider (slice M5-N7) a
+  third (design change 0412; a quarter from design change 0405: "Gliders push apart slowly"). The pairs come from a
+  `space::Layer` of the air units, in id order, and
   the pushes are summed and applied together; nothing blocks them. A HoverCraft is kept on the map (design change
   0045), a Glider isn't. A push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and
   a unit at rest stays at rest. Units spawned in the tick are pushed against but not pushed.
@@ -2761,6 +2769,17 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
     footprint, are open (**the Director's reading**). The Robo Portal (AAAA) is open all round; the Bio Portal
     (AABB) from its top-left corner's direction clockwise round to its bottom-right one unturned, turning and
     flipping with it. The Heavy and Star Portals' arcs will come from their sides the same way.
+  - **A runway** (slice M5-N7, plan decision T71; `production::Runway`, `production/exit/runway.rs`;
+    `ExitRule::Runway { from: B, toward: C }`, the Airstrip's; `factions/cults/structures/airstrip.md > Placeholder
+    stats`: "a finished aircraft is placed **directly on the runway** and takes off along it toward C"): only for a
+    building that holds units (`defs_are_consistent`: `from` and `toward` opposite sides, the holder's exit a side
+    doorway on `toward`). Its trained aircraft takes off the moment its training is finished, in the holding step
+    (`Sim::step_holding`, `sim/holding/takeoff.rs`: `Sim::takes_off`, `Sim::take_off`), never waiting for the doorway
+    ("Aircraft [...] are not covered by this rule", `core/entities.md > Structure Type > Exit Doorway`): it appears
+    wholly over the runway against the `from` end, facing along it, at its IdleSpeed, on its takeoff run, with its
+    rally's order, or with none circling 2 grid units past the `toward` end (`Mover::orbit`,
+    `tuning::air::RUNWAY_CIRCLE_PAST_GU`). `exit_rule` gives such a building its holder's exit, so its ejected and
+    released units, and the door arrows, use the side doorway as any pool building's.
   - **No doorway: into the Tunnel Network** (slice M4-C, `ExitRule::Network`, the Hideout's;
     `factions/syndicate/structures/README.md > Rally Point Behavior`, design changes 0252 and 0253;
     `Sim::release_into_network`): the finished unit comes into the game held in its owner's network
@@ -3761,7 +3780,10 @@ these.
   tag), a dark track in its mesh and a `SiteProgress` child stretched to its share done (`place_site_progress`,
   `Progress::ratio`), to everyone who sees it. A record of one is drawn as a site too (`MeshKey::of_record`, slice
   M4-I2), dimmed, its bar fixed at the progress last seen (`LastKnown::site`, `SiteProgress::remembered`, which
-  `place_site_progress` leaves alone): the site may have grown or been finished since. **A structure that attacks**
+  `place_site_progress` leaves alone): the site may have grown or been finished since. **A runway** (`Look::Runway`,
+  `object_render/runway.rs`; the Airstrip, slice M5-N7, a placeholder) is a structure's footprint with a dark strip
+  down its longer axis, an end bar at each end and a dashed centre line clear of the tag, drawn alike at both ends
+  (which is B and which C, the door arrows show). **A structure that attacks**
   (`Look::Turret`, `object_render/turret.rs`; the Laser Turret, slice M4-S1, a placeholder) is a structure's footprint
   with a round head on its roof and, once finished, a `TurretBarrel` child turned by the object's facing
   (`place_barrels`, interpolated as a unit's facing tick), which the sim snaps to what it fires at; a record of one
@@ -4089,9 +4111,12 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   records to add.
 - **Rules** (`selection/rules.rs`, pure and unit tested): map clicks, boxes, portrait clicks, control group keys and
   Tab on a `ControlState`, under the Constraints: another player's object or a resource is only ever selected alone,
-  and any click on one selects it alone (design change 0048). On an own unit a click selects it, Shift toggles it,
-  Ctrl or a double-click selects its type on screen, and Ctrl + Shift adds that type (0052). A box selects what its
-  tiers give, and Shift + box adds that (0049). The add inputs all go through `ControlState::add_to_selection`: they
+  and any click on one selects it alone (design change 0048). On an own object, a unit or (slice M5-N7, design change
+  0410) a building, a click selects it, Shift toggles it, Ctrl or a double-click selects its type on screen, and Ctrl
+  + Shift adds that type (0052); "its type" is its SelectionGroup's (`Selectables::own_on_screen` by `GroupType`), so
+  an unfinished building takes only the unfinished ones of its kind, and units and buildings may mix. A box selects
+  what its tiers give, one own building at most, even of a groupable type (design change 0411: several Halls are
+  selected with a double-click, a Ctrl- or Shift-click, or Shift + box), and Shift + box adds that (0049). The add inputs all go through `ControlState::add_to_selection`: they
   remove nothing and add nothing the Constraints forbid, so they do nothing while another player's or a neutral
   object is selected (0053). A plain click on empty ground or an empty box clears the selection; a modified click
   there or an empty Shift + box changes nothing (0051). Control groups take only own objects: Assign and Add with
@@ -4584,8 +4609,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   green or red by its own problems, red throughout when the footprint breaks a whole rule (0093), an outline
   green or red for the verdict, and an arrow at each doorway (0390, `door_arrows.rs`: `door_arrows` from the type's
   defs and its sides as placed, in at `HoldsDef::entrance`, out at each exit side of `exit_rule`, two-way where they
-  are one door, out of each open side of a portal, in and out at a Tunnel's two paths, `network::Paths`; the same
-  arrows show on the selected buildings, `selection/doors.rs`, 0394); five `Text2d` labels carry the side letters
+  are one door, out of each open side of a portal, in and out at a Tunnel's two paths, `network::Paths`, in at an
+  Airstrip's B and out at its C along the runway, a placeholder reading, slice M5-N7; the same arrows show on the
+  selected buildings, `selection/doors.rs`, 0394); five `Text2d` labels carry the side letters
   (0079) and the building's tag, never
   hidden and never culled, only emptied (Bevy lays a `Text2d` out only while a camera saw a sprite or a text the frame
   before, and drops a change made in a frame without one: a text that changes must keep one in view). It lies
@@ -4792,8 +4818,8 @@ unchecked.
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
-  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs` and `main.rs`, the recording and the
-  comparison in `harness.rs`): eighteen games, a 3v3
+  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs` and `main.rs`, the recording
+  and the comparison in `harness.rs`): nineteen games, a 3v3
   duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -4803,7 +4829,7 @@ unchecked.
   `colonists_vs_gdo` (slice M3-K1, below), the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
   M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
   M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below), `cults_shroud` (slice
-  M5-N4b, below) and `cults_shrine` (slice M5-N5, below), are blessed as replays
+  M5-N4b, below), `cults_shrine` (slice M5-N5, below) and `cults_air` (slice M5-N7, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -4865,7 +4891,12 @@ unchecked.
   regeneration over the two Militants left, both wounded: each heals 0.125 HP a tick after the tick's hits for 240
   ticks, up to its MaxHP, the Agents in the circle get nothing, and the two kill the Agents; at tick 1072 it casts
   Energy regeneration on a Disciple, whose energy rises 1.5 a second for 320 ticks (`during`, every tick, with the
-  Shrine's energy). The
+  Shrine's energy). In `cults_air` (to 1:30, on a test map, debug commands on for the three Sparrows' 225 Space
+  Crystals) three Recruits go into an Airstrip, which queues three Sparrows: each takes off in its tick, the Recruit
+  inside the longest first, over the runway's B end on its takeoff run (`during`), and circles the rally point; at
+  tick 1080 the three attack-move onto a Militant and a Guard behind it (spawned for player 2, the Syndicate: the two
+  infantry that hit air), and strafe them: they kill the Militant, which outranges them and takes one with it, and hit
+  the Guard, which kills the other two; every hit of the game is a Sparrow's on them or theirs on a Sparrow. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -5156,9 +5187,9 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
    `ClientKind`, with
    - its label, two letters of its own (`kinds::tests::every_label_is_its_own` checks them against every other
      label, the planned buttons' too);
-   - its look (`object_render::Look`): a unit's body shape and whether it carries its label, a structure, or a
-     structure that attacks (`Look::Turret`). A new shape adds a `Look` or `UnitShape` variant and its drawing, in
-     `object_render/`;
+   - its look (`object_render::Look`): a unit's body shape and whether it carries its label, a structure, a
+     structure that attacks (`Look::Turret`), or one whose aircraft take off along it (`Look::Runway`, slice M5-N7). A
+     new shape adds a `Look` or `UnitShape` variant and its drawing, in `object_render/`;
    - its shots' style (`combat_effects::ShotStyle`) if it has a weapon, none if not
      (`kinds::tests::every_kind_module_fits_its_def` checks both against its def);
    - its panel template. A shared one: `PanelTemplate::of(InterfaceTemplate::BasicCombatUnit)`, or `Production` for a
@@ -5252,7 +5283,9 @@ examples.
    type's sides.
    A doorway with a rally point gives the new unit its own right-click order at release (`orders::resolution`).
    `ExitRule::Network` is a producer with no doorway (the Hideout, slice M4-C): its units go into the held store
-   (item 15), and a rally point brings them out of a Tunnel.
+   (item 15), and a rally point brings them out of a Tunnel. `ExitRule::Runway` is a holder's that trains aircraft
+   (the Airstrip, slice M5-N7): they take off along the runway between its two sides, its ground units leaving by
+   the holder's exit; the client draws it as `Look::Runway`.
 
 The faction's own mechanics come next, each only if it has them (M3's and M4's in brackets):
 

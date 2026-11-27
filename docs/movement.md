@@ -75,8 +75,8 @@
 - **The Sparrow sees 8 grid units, a Glider's Move completes on arrival, and Gliders push apart slowly** (slice
   M5-H2; design changes 0403, 0404 and 0405, answering Q0148): a lone Sparrow's loops keep a small target in its own
   sight, so its Attack goes on pass after pass (the tests of 8); a Move ends where 6.9's Glider arrives, so the orders
-  queued after it start; and 6.10's push is a base's own, a Glider's a quarter of a HoverCraft's, with the Sparrow's
-  SeparationRadius at 48 su. Its changes are marked **(M5-H2)**. The code is the Sparrow's def
+  queued after it start; and 6.10's push is a base's own, a Glider's a quarter of a HoverCraft's (**(M5-N7)** a third
+  from design change 0412), with the Sparrow's SeparationRadius at 48 su. Its changes are marked **(M5-H2)**. The code is the Sparrow's def
   (`crates/sim/src/defs/cults/units/sparrow.rs`), `crates/sim/src/orders/run.rs`, the unit bases
   (`defs/units/bases.rs`, `UnitBaseDef::separation_strength`) and `movement/air.rs`.
 - **Silhouettes turn with the facing** (slice M5-V1; plan decision T78; design change 0033, answering G6;
@@ -932,7 +932,12 @@ space unit a tick at most. Six Sparrows sent to one point, 4.4 su apart at close
 within 10 % of 48 su of each other from 13.4 s, within 1 % from 20 s and within 0.01 su from 29 s (at the full push:
 3.4, 9.8 and 17.2 s). Two Sparrows strafing one target from side by side, which meet over it at every pass, land
 their hits as a lone Sparrow does, each pass within 6 su of the target's centre, pushed across their heading by 28 su
-over the first pass and 4 su at most over each later one (at the full push: 62 and 13 su).
+over the first pass and 4 su at most over each later one (at the full push: 62 and 13 su). **(M5-N7)** Design change
+0412 ("**a third** of the HoverCraft strength [...]; was a quarter"; spreading "roughly 10 s or more"): a Glider
+takes a third, two thirds of a space unit a tick at most. The six Sparrows are within 10 % of 48 su from 11.4 s,
+within 1 % from 17.4 s and within 0.01 su from 26.1 s; the two strafing side by side pass within 4.2 su of the
+target's centre, 7 hits a pass, pushed across their heading by 34 su over the first pass and 2.3 su at most over
+each later one (with 0408's pass end; at a quarter, measured alike: 28 and 1.9 su).
 
 ## 7. Numbers: f32, not fixed point
 
@@ -1042,7 +1047,8 @@ over the first pass and 4 su at most over each later one (at the full push: 62 a
   apart (**(M5-H2)** drift apart while circling, to 48 su, and two Sparrows strafing one target stay on their lines:
   design change 0405's Verification); under a Shroud cloud an anti-air attack's hits land in full. Separation: only
   pairs within the radius, a HoverCraft kept on the map, ground units never pushed, (M5-H2) a unit of the Glider base
-  pushed by a quarter of a HoverCraft's push, and each unit of a pair by its own base's share. The soak
+  pushed by a quarter of a HoverCraft's push (**(M5-N7)** a third, design change 0412), and each unit of a pair by
+  its own base's share. The soak
   (`robustness.rs`) spawns Sparrows and gives them orders, and checks G1.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:

@@ -31,15 +31,21 @@ fn middle(origin: TilePos) -> Vec2 {
     origin.corner() + Vec2::splat(128.0)
 }
 
-/// 0395's Verification: "Box-select 2 Halls and set a rally point: both send new Recruits there." A box selects one
-/// own building (`systems/controls/selection.md > BoxSelection > Priority tiers`: "Own buildings — single-select"), so
-/// the second Hall joins the first with a Shift + box. The two are one SelectionGroup, whose C, Set Rally Point, and
-/// its click on the ground give both the rally point, one command; each Hall's next Recruit walks there.
+/// Design change 0411's Verification (Q0151 part 2; it rewrites 0395's "Box-select 2 Halls" as "Double-click a Hall
+/// with 2 on screen"): "Box over 2 Halls: one Hall selected. Double-click one of them: both selected, one group; set a
+/// rally point: both use it." A box selects one own building, groupable ones too
+/// (`systems/controls/selection.md > BoxSelection > Priority tiers`), the one nearest its centre; a double-click on a
+/// Hall selects both (design change 0410, `> MapClickSelection > Own buildings too`). The two are one SelectionGroup,
+/// whose C, Set Rally Point, and its click on the ground give both the rally point, one command; each Hall's next
+/// Recruit walks there.
 #[test]
 fn two_selected_halls_both_send_their_recruits_to_the_rally_point() {
     let mut app = halls_game();
-    click(&mut app, middle(HALLS_AT[0]), &[]);
-    add_box(&mut app, middle(HALLS_AT[1]));
+    // Over both Halls, its centre nearer the first.
+    let (first, second) = (middle(HALLS_AT[0]), middle(HALLS_AT[1]));
+    drag(&mut app, first - 160.0, second + Vec2::new(-80.0, 160.0));
+    assert_eq!(selected(&app), [HALLS[0]], "a box selects one Hall");
+    double_click(&mut app, first);
     assert_eq!(selected(&app), HALLS);
     let states = app.world().resource::<ControlStates>();
     let selection = states.selection(P1);
@@ -73,6 +79,19 @@ fn two_selected_halls_both_send_their_recruits_to_the_rally_point() {
         assert_eq!(object_kind(&app, recruit), ObjectKind::Recruit);
         until(&mut app, 400, |app| pos(app, recruit).distance(RALLY_AT) < 96.0);
     }
+}
+
+/// A double-click on the map at the view point `view`: two clicks, a frame apart. Then a [`pause`].
+fn double_click(app: &mut App, view: Vec2) {
+    let screen = screen_at(app, view);
+    input(app).cursor = Some(screen);
+    for _ in 0..2 {
+        input(app).mouse.press(MouseButton::Left);
+        app.update();
+        input(app).mouse.release(MouseButton::Left);
+        app.update();
+    }
+    pause(app);
 }
 
 /// The kind of object `id`.

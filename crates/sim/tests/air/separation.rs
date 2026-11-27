@@ -2,9 +2,10 @@
 //! a gentle repulsion force that prevents stacking but does not hard-block"; "SeparationRadius — per unit type,
 //! circular, the distance at which air-to-air repulsion activates. Must be larger than the unit's Silhouette", the
 //! Sparrow's 48 su; and (M5-H2) "**Gliders push apart slowly** (user, 2026-11-27; Q0148): gliders do separate, but with
-//! a **much weaker** repulsion than other air units (placeholder: a quarter of the HoverCraft strength), so they drift
-//! apart gradually, mostly while circling, and their attack runs and loops are barely bent" (design change 0405,
-//! answering Q0148 part 3). The two tests are 0405's Verification.
+//! a **much weaker** repulsion than other air units (**a third** of the HoverCraft strength, user, 2026-11-26, Q0152,
+//! to try; was a quarter), so they drift apart gradually, mostly while circling, and their attack runs and loops are
+//! barely bent" (design change 0405, answering Q0148 part 3; (M5-N7) a third from design change 0412, answering Q0152).
+//! The two tests are 0405's Verification, as 0412 states it.
 
 use super::*;
 
@@ -19,13 +20,14 @@ fn closest_pair(t: &TestSim, ids: &[u32]) -> f32 {
     closest
 }
 
-/// Design change 0405's Verification: "Six Sparrows sent to one point drift apart over a few seconds while circling,
-/// and end about 48 su apart." Six Sparrows in a row 50 su apart, each sent to one point on its own (no group
-/// destinations: the same point for all), arrive in a crowd, 4.4 su apart at closest after 2.5 s. Pushed by a quarter
-/// of a HoverCraft's push (`UnitBaseDef::separation_strength`), they part gradually as they circle the point: the
-/// closest pair is last under 90 % of the SeparationRadius at 13.4 s, under 99 % at 20 s and more than 0.01 su short
-/// of it at 28.8 s, and they all end on the point's idle circle, idle. (At a HoverCraft's full push, measured once,
-/// those were 3.4, 9.8 and 17.2 s.)
+/// Design change 0412's Verification: "Six Sparrows sent to one point drift apart while circling and end about 48 su
+/// apart, somewhat faster than at a quarter", and "spreading is expected to take roughly 10 s or more" (in place of
+/// 0405's "over a few seconds"). Six Sparrows in a row 50 su apart, each sent to one point on its own (no group
+/// destinations: the same point for all), arrive in a crowd, 2.8 su apart at closest in their first 4 s. Pushed by a
+/// third of a HoverCraft's push (`UnitBaseDef::separation_strength`), they part gradually as they circle the point: the
+/// closest pair is last under 90 % of the SeparationRadius at 11.4 s, under 99 % at 17.4 s and more than 0.01 su short
+/// of it at 26.1 s, and they all end on the point's idle circle, idle. (At a quarter, design change 0405's, measured
+/// once: 13.4, 20 and 28.8 s; at a HoverCraft's full push: 3.4, 9.8 and 17.2 s.)
 #[test]
 fn six_sparrows_sent_to_one_point_drift_apart_while_circling_and_end_about_48_su_apart() {
     let goal = Vec2::new(1280.0, 1280.0);
@@ -144,15 +146,17 @@ fn passes(hits: &[Hit], attacker: u32, track: &[Step]) -> Vec<(Tick, u32, f32, f
     passes
 }
 
-/// Design change 0405's Verification: "Two Sparrows making passes on the same target stay on their lines", read as:
-/// every pass still runs over the target as a lone Sparrow's does, and the separation pushes it little across its
-/// heading. Two Sparrows side by side 60 su apart, 880 su west of a Hand of Heaven that a Militant keeps in sight (as
-/// in `super::strafing`), each ordered on its own to Attack it, converge on it at every pass, the worst case: they meet
-/// over it, 1 su apart at closest. Over 60 s each makes the 7 passes a lone Sparrow makes, each landing 7 hits and
-/// passing within 6 su of the target's centre (alone: 6 or 7 hits, within 4.4 su). On the first approach each keeps
-/// within 12 su of the lone Sparrow's line until it is over the target; the pushes across its heading add up to 28 su
-/// over the first pass, from the order to 2 s after its last hit, and to 4 su at most over each later one, its loop
-/// included. (At a HoverCraft's full push, measured once: 21 su off the line, pushes of 62 su and up to 13 su.)
+/// Design change 0412's Verification: "Two Sparrows passing side by side on one target still land their hits near the
+/// target's centre; runs are only slightly bent" (0405's "stay on their lines"), read as: every pass still runs over
+/// the target as a lone Sparrow's does, and the separation pushes it little across its heading. Two Sparrows side by
+/// side 60 su apart, 880 su west of a Hand of Heaven that a Militant keeps in sight (as in `super::strafing`), each
+/// ordered on its own to Attack it, converge on it at every pass, the worst case: they meet over it, 1.5 su apart at
+/// closest. Over 60 s each makes the 7 passes a lone Sparrow makes, each landing 7 hits and passing within 4.2 su of
+/// the target's centre (alone: 6 or 7 hits, within 3.6 su). On the first approach each keeps within 14 su of the lone
+/// Sparrow's line until it is over the target; the pushes across its heading add up to 34 su over the first pass, from
+/// the order to 2 s after its last hit, and to 2.3 su at most over each later one, its loop included. (At a quarter,
+/// design change 0405's, measured once: 11.5 su off the line, pushes of 28 su and up to 1.9 su, the passes within 4.3
+/// su; at a HoverCraft's full push: 21 su off the line, pushes of 62 su and up to 13 su.)
 #[test]
 fn two_sparrows_making_passes_on_one_target_stay_on_their_lines() {
     let starts = [Vec2::new(400.0, 1250.0), Vec2::new(400.0, 1310.0)];
@@ -173,7 +177,7 @@ fn two_sparrows_making_passes_on_one_target_stay_on_their_lines() {
         }
         for (n, &(last, count, closest, pushed)) in pair.iter().enumerate() {
             assert!(count >= 6 && closest < 6.0, "{k}, the pass ending {last}: {pair:?}");
-            let most = if n == 0 { 28.0 } else { 4.0 };
+            let most = if n == 0 { 36.0 } else { 4.0 };
             assert!(
                 pushed <= most,
                 "{k}, the pass ending {last}: pushed {pushed} su across: {pair:?}"
@@ -187,6 +191,6 @@ fn two_sparrows_making_passes_on_one_target_stay_on_their_lines() {
             .expect("a first pass");
         let off = (alone[..=over].iter().zip(track))
             .fold(0.0_f32, |off, (l, p)| off.max(l.heading.perp_dot(p.pos - l.pos).abs()));
-        assert!(off <= 12.0, "{k}: {off} su off the lone Sparrow's line");
+        assert!(off <= 15.0, "{k}: {off} su off the lone Sparrow's line");
     }
 }

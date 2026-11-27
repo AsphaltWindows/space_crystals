@@ -126,6 +126,32 @@ fn every_exit_side_has_an_arrow_out_and_every_entrance_one_in() {
     }
 }
 
+/// (M5-N7) The Airstrip's arrows lie along its runway (design changes 0390 and 0394; `factions/cults/structures/
+/// airstrip.md > Placeholder stats`: "EntranceSide B (Recruits walk in); [...] takes off along it toward C"): in at
+/// the middle of B, its entrance, and out at the middle of C, the end its Sparrows take off toward (the module's
+/// placeholder reading), both short sides of its 4 × 2; turned clockwise, B faces south and C north.
+#[test]
+fn an_airstrip_goes_in_at_b_and_out_at_c_along_its_runway() {
+    use SideLetter::{B, C};
+    let airstrip = ObjectKind::Airstrip;
+    // Tiles (3, 2) to (6, 3): x 192 to 448, y 128 to 256.
+    assert_eq!(
+        doors(airstrip, BuildingOrientation::default()),
+        [
+            (Way::In, B, Vec2::new(448.0, 192.0)),
+            (Way::Out, C, Vec2::new(192.0, 192.0))
+        ]
+    );
+    // Tiles (3, 2) to (4, 5): x 192 to 320, y 128 to 384.
+    assert_eq!(
+        doors(airstrip, turned(Rotation::R90)),
+        [
+            (Way::Out, C, Vec2::new(256.0, 128.0)),
+            (Way::In, B, Vec2::new(256.0, 384.0))
+        ]
+    );
+}
+
 /// A portal's units leave its centre through an open side (`factions/colonists/structures/README.md > Portal Exits
 /// (energy doorway)`): an arrow out at the middle of each, the Robo Portal's four (AAAA) and the Bio Portal's two, its
 /// top and right unturned (AABB: "top and right open in the default orientation, rotating with the building"), its

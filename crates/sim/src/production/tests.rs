@@ -217,7 +217,8 @@ fn a_rally_on_an_object_that_is_gone_is_cleared() {
 
 /// (M5-S6) The types that have a RallyPoint, which an unfinished building of theirs takes too (design change 0396: "A
 /// building that will produce or release units"): those that train, recruit or augment units and let them out, the
-/// Hideout into the Tunnel Network; not the Temple, which researches (slice M5-N3), nor the Garrison, which lets its
+/// Hideout into the Tunnel Network, (M5-N7) the Airstrip off its runway; not the Temple, which researches (slice
+/// M5-N3), nor the Garrison, which lets its
 /// units out but "has no rally point" (`factions/cults/structures/garrison.md > Placeholder stats > Panel`), nor any
 /// other structure or unit.
 #[test]
@@ -235,6 +236,7 @@ fn the_types_that_produce_or_release_units_take_a_rally_point() {
         Armory,
         Altar,
         Cathedral,
+        Airstrip,
     ];
     expected.sort_unstable();
     assert_eq!(taking, expected);

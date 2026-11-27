@@ -150,11 +150,6 @@ impl Selectable {
     pub fn is_own(&self) -> bool {
         self.relation == Relation::Own
     }
-
-    /// `> MapClickSelection`: the modified clicks (toggle, same type) apply to own units.
-    pub fn is_own_unit(&self) -> bool {
-        self.is_own() && self.category() == Category::Unit
-    }
 }
 
 /// `> BoxSelection > Priority tiers`, highest first.
@@ -278,12 +273,15 @@ impl Selectables {
             .unwrap_or_default()
     }
 
-    /// `> MapClickSelection > Ctrl-click`: the own units of `kind` currently on screen, the world view `visible`
-    /// (view space). Placeholder bound, unspecified: a unit counts as on screen while any part of its drawn box is.
-    pub fn own_units_on_screen(&self, kind: ObjectKind, visible: Rect) -> Vec<ObjectId> {
+    /// `> MapClickSelection > Ctrl-click`: the own objects of type `group` currently on screen, the world view
+    /// `visible` (view space): (M5-N7) own buildings as own units (design change 0410, `> MapClickSelection > Own
+    /// buildings too`), and "of that type" by the SelectionGroup rule, so an unfinished building is of another type
+    /// than the finished ones of its kind ([`GroupType`]). Placeholder bound, unspecified: an object counts as on
+    /// screen while any part of its drawn box is.
+    pub fn own_on_screen(&self, group: GroupType, visible: Rect) -> Vec<ObjectId> {
         self.objects
             .iter()
-            .filter(|o| o.kind == kind && o.is_own_unit() && overlaps(o.rect, visible))
+            .filter(|o| o.is_own() && o.group_type() == group && overlaps(o.rect, visible))
             .map(|o| o.id)
             .collect()
     }
@@ -438,7 +436,37 @@ mod tests {
             object(5, ObjectKind::Guard, Relation::Own, Vec2::new(70.0, 50.0)),
         ]);
         let visible = Rect::new(0.0, 0.0, 400.0, 300.0);
-        assert_eq!(objects.own_units_on_screen(pk, visible), [ObjectId(1), ObjectId(2)]);
+        let peacekeepers = GroupType {
+            kind: pk,
+            unfinished: false,
+        };
+        assert_eq!(objects.own_on_screen(peacekeepers, visible), [ObjectId(1), ObjectId(2)]);
+    }
+
+    /// (M5-N7) Design change 0410: own buildings count as own units do, an unfinished one as another type than the
+    /// finished ones of its kind (`> MapClickSelection > Own buildings too`).
+    #[test]
+    fn own_buildings_on_screen_are_of_their_kind_finished_or_not() {
+        let hall = ObjectKind::RecruitmentHall;
+        let mut unfinished = object(3, hall, Relation::Own, Vec2::new(150.0, 50.0));
+        unfinished.unfinished = true;
+        let objects = Selectables::from_objects(vec![
+            object(1, hall, Relation::Own, Vec2::new(50.0, 50.0)),
+            object(2, hall, Relation::Own, Vec2::new(100.0, 50.0)),
+            unfinished,
+            object(4, hall, Relation::Enemy, Vec2::new(200.0, 50.0)),
+        ]);
+        let visible = Rect::new(0.0, 0.0, 400.0, 300.0);
+        let finished = GroupType {
+            kind: hall,
+            unfinished: false,
+        };
+        let sites = GroupType {
+            unfinished: true,
+            ..finished
+        };
+        assert_eq!(objects.own_on_screen(finished, visible), [ObjectId(1), ObjectId(2)]);
+        assert_eq!(objects.own_on_screen(sites, visible), [ObjectId(3)]);
     }
 
     /// (M5-H1) An air unit is picked where its body is drawn, 48 su above its ground point

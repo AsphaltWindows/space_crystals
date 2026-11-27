@@ -15,7 +15,9 @@
 //!   Acceleration or Deceleration in a tick (`None`: at once, as for the other models). It wants MaxSpeed while it has
 //!   a goal ("When given orders, the unit accelerates to max speed") and IdleSpeed while it circles. One that hasn't
 //!   flown yet starts at IdleSpeed: **Placeholder (not in the design: a Glider that comes into the game in the air, as
-//!   a debug spawn does, is flying at IdleSpeed)**; the Airstrip's takeoff is slice N7's.
+//!   a debug spawn does, is flying at IdleSpeed)**. (M5-N7) Out of a runway it appears flying at IdleSpeed too
+//!   (`factions/cults/units/sparrow.md > Flight rules`: "Takeoff: it appears over the runway's B end facing C at
+//!   IdleSpeed and speeds up along the runway"; `production::Runway`).
 //! - **Its turn** in a tick is at most MaxCentripetalAcceleration / v radians at the speed v it flies in that tick
 //!   (`systems/combat.md > LocomotionOrientationConstraints[GliderMovement]`: "Moving + Turning: maxTurnRate =
 //!   f(currentSpeed, MaxCentripetalAcceleration)", "Moving + Maintaining: valid"), so its tightest circle at v has a
@@ -37,11 +39,18 @@
 //!   reaching, it slows down for, to IdleSpeed, until it can turn onto it: **Placeholder (not in the design: how a
 //!   Glider reaches a point just beside it)**.
 //! - **A strafing run** (`Mover::strafe`, [`Pass`]): it flies at its goal at MaxSpeed and never arrives. Once the
-//!   goal is behind it (more than 90° off its heading) it has passed it, and holds its course until the gap to the goal
-//!   is more than the run's range; then it turns back toward the goal at MaxSpeed, its tightest turn at that speed,
+//!   goal is behind it (more than 90° off its heading) it has passed it, and holds its course until the goal's centre
+//!   is farther than the run's range from its Silhouette's edge (design change 0408: "the pass ends when the
+//!   **target's centre** is out of weapon range, measured from the glider's edge to the target's centre"; a ground
+//!   location is a point anyway); then it turns back toward the goal at MaxSpeed, its tightest turn at that speed,
 //!   and the next pass begins once the goal is ahead of it again (`factions/cults/units/sparrow.md > Flight rules`:
-//!   "Strafing: after a pass it flies on until the target is out of range, then loops back at full speed"). A run
-//!   begins as a turn toward the goal, wherever the goal is ("1. Fly toward TargetObject").
+//!   "Strafing: after a pass it flies on until the target's **centre** is out of range [...], then loops back at full
+//!   speed"). The loop is the same size whatever the target. Only this check measures to the centre: its fire, and
+//!   every other range check, measure edge to edge (`systems/combat.md > Range Measurement`). A run begins as a turn
+//!   toward the goal, wherever the goal is ("1. Fly toward TargetObject").
+//! - (M5-N7) **A takeoff run** (`Mover::takeoff`): out of a runway, it flies straight on at MaxSpeed, speeding up from
+//!   IdleSpeed, until its centre is past the runway's end, whatever its goal; then its goal, or its orbit past the
+//!   runway's end, takes it on (`production::Runway`).
 //! - **The map's edge**: nothing keeps it on the map (`systems/units.md > Air Collision`: "Gliders may unavoidably
 //!   travel a little outside the map edge while turning or circling"; `factions/cults/units/sparrow.md > Flight
 //!   rules`: "Map edge: it may overshoot the edge as far as its turn needs (no extra cap)"). Its goals and orbits are
@@ -81,7 +90,7 @@ enum Aim {
     Circle(Vec2),
     /// This point, at MaxSpeed; `slows`: unless it lies inside the Glider's turn (a goal it arrives at, not a run).
     At { at: Vec2, slows: bool },
-    /// Straight on, at MaxSpeed: past the goal of its strafing run.
+    /// Straight on, at MaxSpeed: past the goal of its strafing run, and (M5-N7) along its runway.
     Straight,
 }
 
@@ -146,7 +155,13 @@ impl Glider {
         map: &Map,
     ) {
         let heading = math::facing_vector(*facing);
-        let aim = self.aim(*pos, heading, half, mover, chased, map);
+        if mover.takeoff.is_some_and(|run| run.is_over(*pos)) {
+            mover.takeoff = None;
+        }
+        let aim = match mover.takeoff {
+            Some(_) => Aim::Straight,
+            None => self.aim(*pos, heading, half, mover, chased, map),
+        };
         let speed = if mover.momentum == Vec2::ZERO {
             self.idle_speed
         } else {
@@ -161,7 +176,8 @@ impl Glider {
         let toward = match aim {
             Aim::Circle(centre) => circling(*pos, heading, centre, speed),
             Aim::At { at, .. } => at - *pos,
-            Aim::Straight => heading,
+            // No turn at all, not even the rounding of its facing's way through a vector and back.
+            Aim::Straight => Vec2::ZERO,
         };
         *turned = 0.0;
         if toward != Vec2::ZERO {
@@ -181,22 +197,19 @@ impl Glider {
     }
 
     /// What it flies at this tick (module docs), settling its goal: arrived, or lost, it circles; on a strafing run, it
-    /// moves on to the run's next part.
+    /// moves on to the run's next part. Not on its takeoff run, which flies straight on whatever its goal.
     fn aim(&self, pos: Vec2, heading: Vec2, half: Vec2, mover: &mut Mover, chased: Option<&Chased>, map: &Map) -> Aim {
         let shape = Shape::rect(pos, half);
         let goal = match (mover.goal, chased) {
             (MoveGoal::None, _) => None,
-            (MoveGoal::Point(at), _) => Some((at, shape.distance_to(at), pos.distance(at) <= Self::idle_radius())),
-            (MoveGoal::Object { reach, .. }, Some(target)) => {
-                let gap = shape.gap(&target.shape);
-                Some((target.pos, gap, gap <= reach))
-            }
+            (MoveGoal::Point(at), _) => Some((at, pos.distance(at) <= Self::idle_radius())),
+            (MoveGoal::Object { reach, .. }, Some(target)) => Some((target.pos, shape.gap(&target.shape) <= reach)),
             (MoveGoal::Object { .. }, None) => {
                 mover.finish(MoveStatus::TargetLost);
                 None
             }
         };
-        let Some((at, gap, arrived)) = goal else {
+        let Some((at, arrived)) = goal else {
             return Aim::Circle(*mover.orbit.get_or_insert_with(|| map.clamp_point(pos)));
         };
         let Some(strafe) = &mut mover.strafe else {
@@ -208,10 +221,12 @@ impl Glider {
             return Aim::Circle(at);
         };
         let ahead = (at - pos).dot(heading) > 0.0;
+        // Design change 0408: from its edge to the goal's centre, an object's or a point's.
+        let out_of_range = shape.distance_to(at) > strafe.range;
         strafe.pass = match strafe.pass {
             Pass::Toward if ahead => Pass::Run,
             Pass::Run if !ahead => Pass::On,
-            Pass::On if gap > strafe.range => Pass::Toward,
+            Pass::On if out_of_range => Pass::Toward,
             pass => pass,
         };
         match strafe.pass {
