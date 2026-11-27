@@ -24,6 +24,8 @@ While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. Each pi
 - This is the **first sight-blocking mechanic** in the game: elsewhere vision is a plain radius (core/vision.md).
 - **Units inside the smoke can't see anything** (user, 2026-11-25): a unit standing in smoke provides no vision at all, not even of the smoke around it.
 - **Structures too** (user, 2026-11-25): the smoke blocks **buildings'** sight the same way as units'. Only satellites see through it.
+- **Firing from smoke still reveals** (user, 2026-11-26; Q0167): an attacker inside or behind smoke that damages your unit or structure is revealed to you as one in the fog is (core/vision.md > Attacks from outside vision): the reveal isn't sight, so smoke doesn't block it. Smoke hides movement, not firing.
+- **Smoke blocks Scan** (user, 2026-11-26; Q0167): a Radar Station's Scan shows nothing **inside** smoke (only satellites see through it). A Scan has no viewpoint, so "behind" the smoke doesn't apply to it: outside the smoke it sees normally.
 - Smoke duration and width: placeholders below.
 
 ## Both at once

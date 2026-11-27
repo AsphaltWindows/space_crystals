@@ -5,7 +5,7 @@ GDO air-to-air fighter produced at the Airfield once the player owns Propulsion 
 ## Faction - GlobalDefenseOrganization
 ## Produced at - Airfield
 ## TechPrerequisite - player owns at least one Propulsion Labs (see core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites)
-## UnitBase - Glider (must keep moving; circles when idle; wider turns at higher speed)
+## UnitBase - Glider (must keep moving; circles when idle; wider turns at higher speed; with **vertical landing and take-off at the Airfield**, Q0162: factions/gdo/structures/airfield.md > Returning and rearming)
 
 ## AttackAttributes:
 - Weapon: air-to-air missiles

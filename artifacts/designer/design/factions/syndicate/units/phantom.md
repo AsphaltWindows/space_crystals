@@ -22,6 +22,7 @@
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 44x44 space units; MaxHP 70; PointArmor 1, FullArmor 1; SightRange 8 grid units; TunnelSpaceCost 2.
 - HoverCraft (DragMovement; designer placeholder 2026-11-26, Q0154; "relatively manoeuvrable": more drag and more sideways thrust than the Hornet, so it starts, stops and strafes quicker): ForwardAcceleration 0.78; OmniDirectionalAcceleration 0.3; DragRatio 0.12 (top speed 9 su/frame); TurnRate 10°/frame.
+- **At the air doors** (designer placeholder, 2026-11-26; Q0165, following "rises vertically"): it **descends** into the entry door and **rises** out of the exit door over **16 frames (1 s) each**, as a Hornet lands and takes off at the Airfield, and it can be hit during both **as an air unit**. At the doors' rate (one aircraft per 8 frames) up to two Phantoms rise at once.
 - Turret: TurnAngle **75°** total; TurnRate 8°/frame.
 - Laser: Damage 12; Range 5 grid units; Aim 2, Firing 1, Cooldown 3, Reload 10 frames (12 damage per second before armor).
 - Cost: Aerospace Assembly, 175 Space Crystals, 320 frames.
