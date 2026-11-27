@@ -1,0 +1,5 @@
+[{"tick": 1, "player": 1, "command": {"Debug": {"SetResources": {"player": 1, "crystals": 1000, "supplies": 0}}}},
+ {"tick": 1, "player": 1, "command": {"Debug": {"Spawn": {"kind": "Armory", "owner": 1, "at": {"Tile": {"x": 14, "y": 9}}}}}},
+ {"tick": 400, "player": 1, "command": {"Order": {"units": [20, 21, 23, 24, 31], "kind": {"Enter": 30}, "queue": false}}},
+ {"tick": 555, "player": 1, "command": {"Production": {"objects": [30], "command": {"TrainFrom": {"kind": "Militant", "from": "Plain"}}}}},
+ {"tick": 561, "player": 1, "command": {"Debug": {"Remove": {"id": 30}}}}]

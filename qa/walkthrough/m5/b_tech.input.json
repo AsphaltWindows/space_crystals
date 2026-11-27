@@ -1,0 +1,7 @@
+[{"tick": 1050, "cursor": [640, 200], "press": ["MouseMiddle"]},
+ {"tick": 1050, "cursor": [640, 400]},
+ {"tick": 1050, "cursor": [640, 400], "release": ["MouseMiddle"]},
+ {"tick": 1300, "cursor": [640, 400], "press": ["MouseMiddle"]},
+ {"tick": 1300, "cursor": [640, 200]},
+ {"tick": 1300, "cursor": [640, 200], "release": ["MouseMiddle"]},
+ {"tick": 1415, "cursor": [640.0, 285.1], "tap": ["MouseLeft"]}]

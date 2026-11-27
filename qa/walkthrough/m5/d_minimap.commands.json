@@ -1,0 +1,2 @@
+[{"tick": 100, "player": 2, "command": {"Debug": {"Spawn": {"kind": "Peacekeeper", "owner": 2, "at": {"Point": [384, 600]}}}}},
+ {"tick": 101, "player": 2, "command": {"Order": {"units": [30], "kind": {"Attack": 23}, "queue": false}}}]
