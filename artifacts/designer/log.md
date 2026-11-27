@@ -2406,3 +2406,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Supply costs: Drone Operator 1, Twister 1 (0441).
 - Supply Chopper unit transport designed (0442): lands to load/unload instantly, takes off itself, passengers die with it.
 - Minimap alerts: off-screen damage ping, throttle, Space jumps to latest (0443).
+- Session pause (2026-11-26): all Director questions through Q0172 answered (0406–0443). User away to think about unit designs.
