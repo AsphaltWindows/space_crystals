@@ -1161,6 +1161,8 @@ Read-only: `movement/glider.rs`.
 **After:** GH2. **Model:** Opus, about 2.5 h. Fable is the fallback if the landing approach won't settle.
 
 #### GS: The Supply Tower and the Supply Chopper (Opus; gated on D41)
+> **Split (2026-11-27):** Q0169's answers (0435, 0436) settled D41, and 0442 added the transport. GS1 builds the supply loop below; GS2 builds 0442's transport, after GS1 and ST1.
+
 
 **Goal.**
 - The Deployment Center builds the Supply Tower (with a Radar Station).
@@ -1992,9 +1994,10 @@ W11  MQ                                        -> M6's playtest
 
   All of them merge before W1.
 - **Dependencies inside M6:**
-  - GK → {GR, GD, GF, GB, GH1}, then GF → {GA, GM}, GA → {GP, SL, ST2}, GD → GM, and GH1 → GH2 → {GL, GS};
+  - GK → {GR, GD, GF, GB, GH1}, then GF → {GA, GM}, GA → {GP, SL, ST2}, GD → GM, and GH1 → GH2 → {GL, GS1};
+  - **GS split** (2026-11-27, at its brief): GS1 (the supply loop) after GH2, and GS2 (the Chopper's transport, 0442) after GS1 and ST1, whose carrier it reuses;
   - SK → {SV, SN}, then SV → {SB, SL, SD, ST1}, SB → {SC, SA}, SD → {ST1, SP, SA}, {SL, SP} → SR, and ST1 → ST2;
-  - GR → GS, and GM → ST2 (the burrowed Transport passes through mines).
+  - GR → GS1, and GM → ST2 (the burrowed Transport passes through mines).
 - **The critical path:**
   - **Capacity** is the binding constraint: 28 M6 slices after X1 (29 with MQa), beside X2 and M, at three builds a
     wave.
