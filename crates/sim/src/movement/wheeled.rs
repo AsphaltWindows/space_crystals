@@ -27,7 +27,11 @@
 //! 4. **Blocked** (design change 0035): if the move or the turn met a tile or a unit, "the blocked portion of the
 //!    movement is dropped ... and its velocity is set to 0": the unit starts again from rest in its next tick. Pressed
 //!    against an obstacle it moves one tick's acceleration a tick (the Seeker 1 su) and turns as far as that takes it,
-//!    so it creeps and turns out of the contact ("It creeps, but it keeps making its turn").
+//!    so it creeps and turns out of the contact ("It creeps, but it keeps making its turn"). A turn cut where a corner
+//!    meets what it is pressed against is made all the same, its blocked part dropped: the unit backs off the way it
+//!    came by the least that frees it, at most what its corners sweep in (`World::back_off`), so that nose first
+//!    against a wall it pivots about the corner that touches it. Only a turn that backing off doesn't free stays cut
+//!    (a unit beside it).
 //!
 //! The integration is the design's order, the speed before the move by it (semi-implicit, as DragMovement's): from
 //! rest the Seeker covers 1, 2, 3 … su in its first ticks and is at full speed, 8 su, in its 8th; braking from it, it
@@ -37,7 +41,10 @@
 //! the way to its steering waypoint, a lane past oncoming units, the way round a blocker, along a wall. It turns to
 //! head along that step (its back along it, backing up), and wants the step's length as its speed, which is at most
 //! the **approach speed** ([`Wheeled::approach`]). Where it can make that step exactly this tick, it is its move as
-//! the rules gave it (they found it free, and an arrival lands exactly on the goal).
+//! the rules gave it (they found it free, and an arrival lands exactly on the goal). Where the rules' step is a slide
+//! along tiles or nothing, the unit heads along the step it asked of them instead, into what blocks it: "running into
+//! the wall every frame", as DragMovement's creep (`docs/movement.md > 6.7`), so that it keeps turning towards its
+//! way as it scrapes, where a slide's step would turn it into the wall.
 //!
 //! **Braking and arrival**: the approach speed is the highest from which braking by Deceleration still stops the unit
 //! within the path that remains (`drag::approach_speed`, without drag): the steps back from the goal are 1, 2, 3 …
@@ -50,7 +57,9 @@
 //! behind it) is reached by a **forward loop**"): a waypoint inside the circle the unit turns on towards it can't be
 //! reached by turning, so the unit drives straight on until it lies outside it, then turns towards it at full lock,
 //! round and onto it ([`Wheeled::steer`]). A point straight behind it is outside both its circles: it turns round on
-//! one. Backing up, the same on the circles it backs along. "Predictable, not optimal" (T79): no reversing by itself
+//! one. Backing up, the same on the circles it backs along. Only the goal is reached so: a waypoint on the way to it
+//! that lies inside the circle is passed, the path going on from there (`super::follow`). A loop that the way ahead
+//! blocks presses on towards the waypoint, its turn's blocked parts dropped, rather than into what blocks it. "Predictable, not optimal" (T79): no reversing by itself
 //! (0353 point 2: "never by itself, e.g. no automatic three-point turns"), no planned manoeuvres.
 //!
 //! **Without a goal** ([`Wheeled::coast`]) a unit that still has momentum brakes to rest along its facing, moving
@@ -146,17 +155,23 @@ impl Wheeled {
         if self.reverses { -ahead } else { ahead }
     }
 
-    /// The forward loop (module docs; design change 0353 point 3): where a unit facing `facing` steers for its
-    /// steering waypoint `to` away. At it, unless it lies inside the circle of MinimumTurnRadius the unit would turn on
-    /// towards it (the one on its side of the way the unit drives): then straight on, as far as it is, and `true`.
-    pub(super) fn steer(&self, facing: f32, to: Vec2) -> (Vec2, bool) {
+    /// Whether the point `to` away from a unit facing `facing` lies inside the circle of MinimumTurnRadius it would
+    /// turn on towards it (the one on its side of the way the unit drives): no turn reaches it from here.
+    pub(super) fn inside(&self, facing: f32, to: Vec2) -> bool {
         let travel = self.travel(facing);
         // Its right, clockwise on screen.
         let right = Vec2::new(-travel.y, travel.x);
         let side = to.dot(right);
         let centre = right * self.radius.copysign(side);
-        if side != 0.0 && (to - centre).length_squared() < self.radius * self.radius {
-            (travel * to.length(), true)
+        side != 0.0 && (to - centre).length_squared() < self.radius * self.radius
+    }
+
+    /// The forward loop (module docs; design change 0353 point 3): where a unit facing `facing` steers for its
+    /// steering waypoint `to` away. At it, unless it lies inside its turning circle ([`Wheeled::inside`]): then
+    /// straight on, as far as it is, and `true`.
+    pub(super) fn steer(&self, facing: f32, to: Vec2) -> (Vec2, bool) {
+        if self.inside(facing, to) {
+            (self.travel(facing) * to.length(), true)
         } else {
             (to, false)
         }
@@ -181,12 +196,16 @@ impl Wheeled {
     }
 
     /// Steps 1 to 4 (module docs) for a unit on its way: `probe` is the step from `from` that the shared rules gave a
-    /// unit without momentum, at the approach speed. `lands` is set when that step lands exactly on the goal. The unit
-    /// turns to head along the step and wants its length as its speed. If it can make that step exactly in this tick
-    /// (it heads along it, at its length), the step is its move as the rules gave it; one that lands it on its goal is
-    /// made also from a little faster, the rounding of the braking ([`Wheeled::approach`]), and leaves it at rest.
-    /// Otherwise it moves by its speed along its heading, as far as tiles and units allow ([`World::shuffle`]). A move
-    /// that met something, or a turn cut short, leaves it no momentum (design change 0035). `touched` is scratch.
+    /// unit without momentum, at the approach speed, for the step `asked` of them. `lands` is set when that step lands
+    /// exactly on the goal. The unit turns to head along the step and wants its length as its speed. If it can make
+    /// that step exactly in this tick (it heads along it, at its length), the step is its move as the rules gave it;
+    /// one that lands it on its goal is made also from a little faster, the rounding of the braking
+    /// ([`Wheeled::approach`]), and leaves it at rest. Otherwise it moves by its speed along its heading, as far as
+    /// tiles and units allow ([`World::shuffle`]). A move that met something, or a turn cut short, leaves it no
+    /// momentum (design change 0035). Where the rules' step is a slide along tiles, or none (blocked), the unit heads
+    /// for the step it asked for, as `super::drag` does: "running into the wall every frame", it creeps and turns
+    /// towards its way at single-tick acceleration, its turns' blocked parts dropped, until it is free. `touched` is
+    /// scratch.
     #[expect(
         clippy::too_many_arguments,
         reason = "the unit's state, split into the borrows the step holds"
@@ -195,13 +214,16 @@ impl Wheeled {
         &self,
         from: Vec2,
         facing: &mut f32,
+        asked: Vec2,
         probe: Moved,
         lands: bool,
         mover: &mut Mover,
         world: &mut World,
         touched: &mut Vec<usize>,
     ) -> Driven {
-        let step = probe.pos - from;
+        // The rules' step, unless it is a slide or nothing: then the step asked of them.
+        let ruled = !probe.slid && probe.pos != from;
+        let step = if ruled { probe.pos - from } else { asked };
         let want = step.length();
         let start = *facing;
         let speed = self.next_speed(speed_of(mover.momentum, math::facing_vector(start)), want);
@@ -229,9 +251,11 @@ impl Wheeled {
         }
         let angle = math::wrap_angle(*facing - start);
         let done = turn.is_none_or(|turn| turn.done) && !turned.cut;
-        // The rules' step, if the unit makes it as they gave it: free in the shape it now has.
+        // The rules' step, if the unit makes it as they gave it: free in the shape it now has, and driven the way the
+        // leg goes (not while it brakes to set off the other way).
         let exact = done
-            && !probe.slid
+            && ruled
+            && !stopping
             && (speed.abs() == want || (lands && speed.abs() >= want))
             && (angle == 0.0 || world.clear(from, step, touched));
         let locomotion = if stopping {

@@ -169,6 +169,8 @@ mod unit_moves;
 mod unit_orders;
 #[path = "upgrades/main.rs"]
 mod upgrades;
+#[path = "vehicles/main.rs"]
+mod vehicles;
 mod vision;
 mod vision_memory;
 #[path = "warp_in/main.rs"]

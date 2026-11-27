@@ -64,7 +64,8 @@ fn orders_after(act: impl FnOnce(&mut App)) -> Vec<Given> {
 fn same_orders(a: &[Given], b: &[Given]) -> bool {
     let same_kind = |a: OrderKind, b: OrderKind| match (a, b) {
         (OrderKind::Move(sc_sim::Target::Point(p)), OrderKind::Move(sc_sim::Target::Point(q)))
-        | (OrderKind::AttackMove(p), OrderKind::AttackMove(q)) => near(p, q),
+        | (OrderKind::AttackMove(p), OrderKind::AttackMove(q))
+        | (OrderKind::Reverse(p), OrderKind::Reverse(q)) => near(p, q),
         _ => a == b,
     };
     a.len() == b.len()
@@ -208,6 +209,52 @@ fn a_targeting_click_on_the_minimap_is_the_map_s_click_on_that_ground() {
         assert_eq!(camera(app), VIEW_CENTER);
     });
     assert_eq!(dragged, []);
+}
+
+/// (M5-V2) Where player 1's Seeker of [`seeker_orders_after`] stands, in the world view.
+const SEEKER_AT: Vec2 = Vec2::new(1200.0, 900.0);
+
+/// The orders a fresh game of player 1's Seeker, a Cults WheeledVehicle (CanReverse), gives after `act`, with the
+/// Seeker selected by a click and W awaiting its Reverse's target.
+fn seeker_orders_after(act: impl FnOnce(&mut App)) -> Vec<Given> {
+    let scenario = ScenarioBuilder::new(&vec![".".repeat(64); 48].join("\n"))
+        .faction(PlayerId(1), Faction::Cults)
+        .faction(PlayerId(2), Faction::Gdo)
+        .spawn(ObjectKind::Seeker, Some(PlayerId(1)), SpawnAt::Point(SEEKER_AT))
+        .build();
+    let mut app = game_of(scenario);
+    click(&mut app, SEEKER_AT, &[]);
+    assert_eq!(selected(&app), [1]);
+    tap(&mut app, &[], KeyW);
+    assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Reverse));
+    act(&mut app);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    updates(&mut app, 2);
+    orders(&app)
+}
+
+/// (M5-V2) W: Reverse awaits a ground point (`systems/controls/interface.md > AwaitingTarget[Reverse] resolution`:
+/// "Left-click Ground: issues Reverse command to that location"), so a left-click on the minimap gives the Seeker the
+/// same Reverse as a click on that ground point in the world view, and moves no camera.
+#[test]
+fn a_reverse_s_click_on_the_minimap_is_the_map_s_click_on_that_ground() {
+    let mut point = Vec2::ZERO;
+    let on_minimap = seeker_orders_after(|app| {
+        let screen = frame(app).screen_at(GROUND);
+        point = frame(app).ground_at(screen);
+        click_with(app, MouseButton::Left, screen, &[]);
+        assert_eq!(camera(app), VIEW_CENTER, "a targeting click moves no camera");
+    });
+    let on_map = seeker_orders_after(|app| click(app, point, &[]));
+    assert!(same_orders(&on_minimap, &on_map), "{on_minimap:?} against {on_map:?}");
+    assert!(
+        matches!(&on_minimap[..], [order] if order.units == [1] && !order.queue),
+        "{on_minimap:?}"
+    );
+    assert!(
+        matches!(on_minimap[0].kind, OrderKind::Reverse(p) if near(p, GROUND)),
+        "{on_minimap:?}"
+    );
 }
 
 /// "A press on the minimap belongs to the minimap": with nothing selected a click there selects nothing, and with

@@ -5,7 +5,7 @@
 //! where off its long side it would still reach the box facing east.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::{ObjectId, ObjectKind, OrderKind, Shape, SimEvent, Target, Tick, Vec2, combat, gu};
+use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, Shape, SimEvent, Target, Tick, Vec2, combat, gu};
 
 use super::{P1, P2, SEEKER};
 
@@ -18,25 +18,38 @@ fn field() -> String {
     format!("{}\n", ".".repeat(24)).repeat(24)
 }
 
-/// The Seeker (#1) comes in facing east 64 su south of [`AT`] and is sent there: it turns north and drives. From tick
-/// 21 it holds there, and a Militant of player 2 (#2) comes in at `militant`, holding from tick 22. The game runs to
-/// tick 40. The ticks of the Militant's attacks.
-fn attacks_on_a_seeker_facing_north(militant: Vec2) -> (TestSim, Vec<Tick>) {
+/// The Seeker (#1) comes in facing east, 64 su west and 364 su south of [`AT`], and is sent there. (M5-V2) It can't
+/// turn in place (`systems/units.md > FixedTurnRadiusMovement`): it turns left on its 64 su circle as it sets off and
+/// drives north onto the point, where it stands facing north to within 0.01 rad.
+fn a_seeker_facing_north() -> TestSim {
     let mut t = ScenarioBuilder::new(&field()).start();
-    t.spawn_unit_at(1, ObjectKind::Seeker, P1, AT + Vec2::new(0.0, 64.0))
+    t.spawn_unit_at(1, ObjectKind::Seeker, P1, AT + Vec2::new(-64.0, 364.0))
         .order_at(2, P1, &[SEEKER], OrderKind::Move(Target::Point(AT)), false)
-        .run_until(20);
+        .run_until(3);
+    while t.status(SEEKER.0) == MoveStatus::Moving {
+        t.step();
+        assert!(t.sim().tick() < 200, "{:?}", t.mover(SEEKER.0));
+    }
     let seeker = t.sim().object(SEEKER).unwrap();
     assert_eq!(seeker.pos, AT);
     assert!(
-        (seeker.facing + core::f32::consts::FRAC_PI_2).abs() < 1e-6,
+        (seeker.facing + core::f32::consts::FRAC_PI_2).abs() < 0.01,
         "facing north: {}",
         seeker.facing
     );
-    t.order_at(21, P1, &[SEEKER], OrderKind::Hold, false)
-        .spawn_unit_at(21, ObjectKind::Militant, P2, militant)
-        .order_at(22, P2, &[MILITANT], OrderKind::Hold, false)
-        .run_until(40);
+    t
+}
+
+/// [`a_seeker_facing_north`], then a Militant of player 2 (#2) comes in where `place` puts it, given the Seeker's
+/// shape, and both hold for 18 ticks. The ticks of the Militant's attacks.
+fn attacks_on_a_seeker_facing_north(place: impl Fn(&Shape) -> Vec2) -> (TestSim, Vec<Tick>) {
+    let mut t = a_seeker_facing_north();
+    let militant = place(&Shape::of(t.sim().object(SEEKER).unwrap()));
+    let tick = t.sim().tick() + 1;
+    t.order_at(tick, P1, &[SEEKER], OrderKind::Hold, false)
+        .spawn_unit_at(tick, ObjectKind::Militant, P2, militant)
+        .order_at(tick + 1, P2, &[MILITANT], OrderKind::Hold, false)
+        .run_until(tick + 19);
     let ticks = t
         .events()
         .iter()
@@ -44,6 +57,22 @@ fn attacks_on_a_seeker_facing_north(militant: Vec2) -> (TestSim, Vec<Tick>) {
         .map(|&(tick, _)| tick)
         .collect();
     (t, ticks)
+}
+
+/// Where a Militant stands `gap` off `seeker`, on the line from its centre along `away`: found by halving, the gap
+/// between their shapes growing as the Militant goes out.
+fn off(seeker: &Shape, away: Vec2, gap: f32) -> Vec2 {
+    let at = |d: f32| AT + away * d;
+    let (mut near, mut far) = (0.0, 2.0 * gu(4.0));
+    for _ in 0..60 {
+        let mid = (near + far) * 0.5;
+        if Shape::silhouette(ObjectKind::Militant, at(mid), 0.0).gap(seeker) < gap {
+            near = mid;
+        } else {
+            far = mid;
+        }
+    }
+    at(far)
 }
 
 /// The gap between the Militant's shape and the Seeker's, and whether the Militant may attack it now.
@@ -58,12 +87,12 @@ fn measured(t: &TestSim) -> (f32, bool) {
 /// further it doesn't, though the box the Seeker has facing east, 8 su wider on that side, would be in range.
 #[test]
 fn a_militant_fires_at_a_turned_seeker_from_4_grid_units_off_its_long_side() {
-    let east_of = |gap: f32| Vec2::new(AT.x + 20.0 + gap + 12.0, AT.y);
-    let (t, ticks) = attacks_on_a_seeker_facing_north(east_of(gu(4.0) - 0.5));
+    let east = Vec2::new(1.0, 0.0);
+    let (t, ticks) = attacks_on_a_seeker_facing_north(|seeker| off(seeker, east, gu(4.0) - 0.5));
     let (gap, may) = measured(&t);
     assert!((gap - (gu(4.0) - 0.5)).abs() < 1e-3, "{gap}");
     assert!(may && !ticks.is_empty(), "{ticks:?}");
-    let (t, ticks) = attacks_on_a_seeker_facing_north(east_of(gu(4.0) + 6.0));
+    let (t, ticks) = attacks_on_a_seeker_facing_north(|seeker| off(seeker, east, gu(4.0) + 6.0));
     let (gap, may) = measured(&t);
     assert!((gap - (gu(4.0) + 6.0)).abs() < 1e-3, "{gap}");
     let facing_east = Shape::rect(AT, Vec2::new(28.0, 20.0));
@@ -80,8 +109,8 @@ fn a_militant_fires_at_a_turned_seeker_from_4_grid_units_off_its_long_side() {
 /// it doesn't.
 #[test]
 fn a_militant_fires_at_a_turned_seeker_from_4_grid_units_off_its_short_side() {
-    let north_of = |gap: f32| Vec2::new(AT.x, AT.y - 28.0 - gap - 12.0);
-    let (t, ticks) = attacks_on_a_seeker_facing_north(north_of(gu(4.0) - 0.5));
+    let north = Vec2::new(0.0, -1.0);
+    let (t, ticks) = attacks_on_a_seeker_facing_north(|seeker| off(seeker, north, gu(4.0) - 0.5));
     let (gap, may) = measured(&t);
     assert!((gap - (gu(4.0) - 0.5)).abs() < 1e-3, "{gap}");
     let facing_east = Shape::rect(AT, Vec2::new(28.0, 20.0));
@@ -91,7 +120,7 @@ fn a_militant_fires_at_a_turned_seeker_from_4_grid_units_off_its_short_side() {
         "the unturned box would be out of range"
     );
     assert!(may && !ticks.is_empty(), "{ticks:?}");
-    let (t, ticks) = attacks_on_a_seeker_facing_north(north_of(gu(4.0) + 6.0));
+    let (t, ticks) = attacks_on_a_seeker_facing_north(|seeker| off(seeker, north, gu(4.0) + 6.0));
     let (gap, may) = measured(&t);
     assert!((gap - (gu(4.0) + 6.0)).abs() < 1e-3, "{gap}");
     assert!(!may && ticks.is_empty(), "{ticks:?}");

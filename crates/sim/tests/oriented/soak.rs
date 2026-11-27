@@ -134,7 +134,7 @@ fn seeker_outcomes(seed: u64) -> (u32, u32) {
 
 /// A measurement, not a check: the Seekers' arrived and failed moves over seeds 1 to 8 of the soak below, the figure
 /// slices M5-V1 and M5-V2 report. (M5-V1, its Seekers turning without limit: 403 arrived and 105 failed; with turning
-/// off, 548 and 19.)
+/// off, 548 and 19. M5-V2, wheeled: 157 arrived and 295 failed.)
 #[test]
 #[ignore = "a measurement: run in release with --nocapture"]
 fn seeker_outcomes_over_eight_seeds() {
@@ -157,6 +157,11 @@ fn seeker_outcomes_over_eight_seeds() {
 /// a turned Silhouette doesn't slide past another as two boxes do. The orders cross the two players' units again and
 /// again, and enemies never make way, so many more of the Seekers' moves fail than of the others'; the bound is loose.
 /// (At the end of slice M5-V1, seeds 1 and 2: 30 of the Seekers' moves arrived and 16 failed, and 54 and 6.)
+///
+/// (M5-V2) Wheeled, a Seeker jams for good where its turn is cut and nothing makes way: it can't turn in place, it
+/// backs up only on a Reverse (design change 0353), and neither an enemy nor an idle vehicle steps aside. With the
+/// scattered single tiles and 72 units on 32 × 32 tiles, many of its moves end that way, more of them failed than
+/// arrived (seeds 1 and 2: 11 arrived and 22 failed, and 23 and 32): the bound asks only that they get somewhere.
 #[test]
 fn seekers_among_other_units_under_random_orders_keep_the_invariants() {
     let give_up = GIVE_UP_TICKS + 4 * STUCK_GRACE_TICKS;
@@ -199,10 +204,7 @@ fn seekers_among_other_units_under_random_orders_keep_the_invariants() {
         }
         println!("seed {seed}: the Seekers turned {turns} times; {arrived} of their moves arrived, {failed} failed");
         assert!(turns > 1000, "seed {seed}: the Seekers turned {turns} times");
-        assert!(
-            arrived >= 20 && failed <= arrived,
-            "seed {seed}: {arrived} arrived, {failed} failed"
-        );
+        assert!(arrived >= 8, "seed {seed}: {arrived} arrived, {failed} failed");
         if seed == 1 {
             let (mut again, _) = soak(seed);
             again.check_invariants(false).run_until(TICKS);

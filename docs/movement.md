@@ -86,6 +86,12 @@
   were, to the bit. Its changes are marked **(V1)**. The code is `crates/sim/src/shape.rs`, `movement/space.rs`
   (`Body::oriented`, `space::Face`), `movement/collide.rs`, `movement/collide/turn.rs` (`World::turn`),
   `movement/follow.rs` (`creep_on`) and `movement/collide/contact.rs`.
+- **Wheeled vehicles can't turn in place, and back up on W** (slice M5-V2; plan decision T79; design changes 0035,
+  0323 and 0353, answering Q0119; `systems/units.md > FixedTurnRadiusMovement`): 6.11 is FixedTurnRadiusMovement,
+  the forward loop, the Reverse order, turn and graze, and the vehicles' yielding, with the invariant W1. Its
+  changes are marked **(M5-V2)**. The code is `crates/sim/src/movement/wheeled.rs`, `movement/model.rs`,
+  `movement/collide/turn.rs` (`World::back_off`), `movement/collide/contact.rs` (`ContactStep::Graze`),
+  `movement/yielding.rs`, `orders/run.rs` and `sim/gate/orders.rs` (`OrderKind::Reverse`).
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -505,8 +511,8 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
        tick's step along the face. Which step a base takes is data on its def (`UnitBaseDef::contact_step`):
        `Sideways` for the bases 0323 names and for the Mech (0325; its turn to the side first isn't built, there
        is no Mech) and for the DrillUnit (0338); `Diagonal`, the step as it was, for the WheeledVehicle until slice
-       M5-V2 builds its "turn and graze". The technical decisions, each the simplest
-       predictable rule (0223):
+       M5-V2 built its "turn and graze" (`Graze`, 6.11), now for the air bases alone, which ground collision never
+       reaches. The technical decisions, each the simplest predictable rule (0223):
        - **Straight sideways is along the blocker's face**, as every sidestep here: for a unit that meets the face
          squarely that is 90° to its heading; the quarter turn of a leaning heading leans into the blocker on one
          side and is never free there. **Its own width** is its box's extent along that face. **(V1)** At a
@@ -939,6 +945,66 @@ within 1 % from 17.4 s and within 0.01 su from 26.1 s; the two strafing side by 
 target's centre, 7 hits a pass, pushed across their heading by 34 su over the first pass and 2.3 su at most over
 each later one (with 0408's pass end; at a quarter, measured alike: 28 and 1.9 su).
 
+**6.11 FixedTurnRadiusMovement. (M5-V2)** `systems/units.md > FixedTurnRadiusMovement` ("Unit cannot turn in place.
+Turns at a fixed minimum radius regardless of speed. Can stop and reverse"), `systems/units.md > WheeledVehicle`;
+plan decision T79; design changes 0035, 0323 and 0353. The code is `movement/wheeled.rs` (the model's numbers alone
+in `movement/wheeled/tests.rs`), the game's tests `crates/sim/tests/vehicles/` with the Seeker (MinimumTurnRadius
+64 su; ForwardMaxSpeed 8, ForwardAcceleration 1, ReverseMaxSpeed 3, ReverseAcceleration 0.5, Deceleration 1) and the
+Prayer-mobile (ForwardMaxSpeed 6). Like 6.7 it replaces only 6.3's "desired direction → velocity and facing" step;
+the probe, yielding requests and the stuck clock are the shared ones.
+- **A signed speed**, carried as `Mover::momentum` (the latest displacement: its length the speed, the side of the
+  facing it points to the sign), forward, or backwards on a leg of the Reverse order (`Mover::reverses`). Each tick,
+  in the design's order ("1. Velocity … 2. Displacement … 3. Blocked"):
+  1. **Speed** towards the speed wanted, up by at most ForwardAcceleration (ReverseAcceleration backing up), down by
+     Deceleration, capped by the top speed of the way the leg drives times `speed_factor`. Moving the other way, it
+     brakes to rest first (`Locomotion::Stopping`) and only then sets off.
+  2. **Turn** towards the step wanted by at most `|speed| / MinimumTurnRadius`, this tick's speed
+     (`systems/combat.md > LocomotionOrientationConstraints[FixedTurnRadiusMovement]`); none while Stationary or
+     Stopping. The aim in phase 5e has no TurnRate of its own (`movement::turn_rate` is 0): only the drive turns the
+     unit. A Silhouette turns as far as it stays free (`World::turn`).
+  3. **Displacement**: the speed along the heading halfway through the turn (each tick the chord of its arc: a turn
+     at full lock lies on a circle of MinimumTurnRadius, 0.04 su wider at the Seeker's 8 su), the whole move if it
+     is free, else per axis (`World::shuffle`).
+  4. **Blocked** (0035): a move or turn that met a tile or a unit leaves no momentum; pressed against it the unit
+     starts from rest every tick, creeping at single-tick acceleration (the Seeker 1 su) while it keeps turning. A
+     turn cut where a corner meets what it is pressed against is made all the same, the unit backed off the way it
+     came by the least that frees it, at most the depth its corners sweep (`World::back_off`): nose first against a
+     wall it pivots about the corner that touches it. A turn backing off doesn't free (a unit beside it) stays cut.
+- **Numbers that follow**: from rest 1, 2 … 8 su, full speed in the 8th tick; a Stop at full speed brakes 7 + 6 + … +
+  1 = 28 su and is at rest in its 8th tick (the slice's brief said "about 32–36 su": that is the braking distance
+  counted with the tick at full speed, 36 su, below); a 90° turn at full speed follows its 64 su circle within 2 su.
+- **What it wants**: 6.3's step at the approach speed, as a probe; it heads along it and wants its length, and a step
+  it can make exactly is its move as the rules gave it. **Where the probe's step is a slide along tiles or nothing**,
+  it heads along the step it asked for, into what blocks it (as 6.7's creep), so it keeps turning towards its way as
+  it scrapes instead of being turned into the wall by the slide.
+- **Braking and arrival**: the approach speed is the highest from which braking by Deceleration stops within the path
+  left (`drag::approach_speed` without drag): from full speed the Seeker begins to brake 36 su before its goal (T79's
+  v² / (2 × Deceleration) reached in the step at full speed, then 28 su of braking), and lands exactly on the goal at
+  rest. It doesn't slow for corners.
+- **The forward loop** (0353 point 3): a goal inside the circle the unit would turn on towards it is reached by
+  driving straight on until it lies outside, then turning onto it at full lock (`Wheeled::steer`); a waypoint on the
+  way, not the goal, that lies inside the circle is passed (the path goes on from there). A loop the way ahead blocks
+  presses on towards the waypoint. Never a three-point turn by itself (0353 point 2).
+- **The Reverse order** (`systems/controls/commands.md > Reverse`, W; `systems/controls/command_behaviors.md >
+  ReversingToLocation`): `OrderKind::Reverse(point)`, a Move to a point that backs up (`Mover::reverses`, hashed only
+  while set): the leg drives tail first at ReverseMaxSpeed and ReverseAcceleration, turning by `|speed| / r` too, and
+  a unit going forward brakes to rest first. The gate keeps only the units that can (`UnitDef::can_reverse`: the
+  base's CanReverse and a movement model with a reverse speed, `MovementAttrs::reverse_speed`, today
+  FixedTurnRadiusMovement alone; a TrackedVehicle can't take it until slice M5-V3 adds its arm, design change 0417)
+  and refuses it if none can (`Reject::CannotReverse`). A group's Reverse takes the magic box as a Move does (6.4).
+- **Yielding** (0353 point 1): an idle vehicle doesn't yield, it stands as on Hold Position; own idle infantry yield
+  to a moving vehicle as to any unit (a unit the vehicle's own move meets, where the probe's step didn't, is asked as
+  well). **Turn and graze** (0323, `ContactStep::Graze`, `movement/collide/contact.rs`): no step aside; at a blocker
+  the step is a whole step along its face, the side committed for 16 ticks, and the vehicle turns along it and scrapes
+  past.
+- **Invariant W1** (`testing/invariants/momentum.rs`): a FixedTurnRadiusMovement unit turns in a tick by at most the
+  speed it can have in it (the momentum it carried in and one tick's acceleration or braking) over its radius.
+- **The soak with turned shapes** (`tests/oriented/soak.rs`, seeds 1 to 8): 157 of the Seekers' moves arrived and 295
+  failed (M5-V1, turning without limit: 403 and 105). The invariants hold and every move ends; the failures are
+  jams the design makes, where a Seeker's turn is cut and nothing makes way: it can't turn in place, backs up only on
+  a Reverse, and neither an enemy nor an idle vehicle steps aside, among scattered single tiles and 72 units on
+  32 × 32 tiles.
+
 ## 7. Numbers: f32, not fixed point
 
 **Decision: keep `f32` under the current rules, and keep every discrete decision in the pathfinder in integers.**
@@ -996,6 +1062,9 @@ each later one (with 0408's pass end; at a quarter, measured alike: 28 and 1.9 s
     `Object::map_pos` is on the map. One stopped after its flight in the tick (its Attack's target died in 5e) shows
     no move, Stationary, without a goal or a circle, and keeps its speed. A test breaks each rule on purpose.
   - **I2** is unchanged: it holds for ground boxes, and an air unit has none.
+  **(M5-V2)** **W1**: a FixedTurnRadiusMovement unit turns in a tick by at most `(|momentum| + a) / MinimumTurnRadius`,
+  `momentum` what it carried into the tick and `a` the largest of its accelerations and Deceleration: never in place
+  (`testing/invariants/momentum.rs`; 6.11). I3's bound for it is its ForwardMaxSpeed.
   **(D)** The switch (`TestSim::check_invariants`) is on by default, so every test that uses a `TestSim` runs them;
   `sc_sim::testing::invariants` has the checker for tests that step a bare `Sim`.
 - **Scenario tests** (`crates/sim/tests/movement_*.rs`, inline ASCII maps): straight move arrives exactly at

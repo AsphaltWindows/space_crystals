@@ -10,8 +10,10 @@ fn seeker_movement() -> MovementAttrs {
 }
 
 fn seeker(reverses: bool) -> Wheeled {
-    let mut mover = Mover::default();
-    mover.reverses = reverses;
+    let mover = Mover {
+        reverses,
+        ..Mover::default()
+    };
     Wheeled::of(&seeker_movement(), &mover).expect("a FixedTurnRadiusMovement unit")
 }
 
@@ -41,7 +43,10 @@ fn these_are_the_seeker_s_numbers() {
         }
     );
     // Backing up: ReverseMaxSpeed 3, ReverseAcceleration 0.5; Deceleration either way.
-    assert_eq!((seeker(true).top, seeker(true).accel, seeker(true).decel), (3.0, 0.5, 1.0));
+    assert_eq!(
+        (seeker(true).top, seeker(true).accel, seeker(true).decel),
+        (3.0, 0.5, 1.0)
+    );
     // The other models have none.
     let walker = MovementAttrs::TurnRate {
         turn_rate: 1.0,
@@ -128,14 +133,21 @@ fn a_waypoint_inside_the_turning_circle_is_steered_past_straight_on() {
     let facing = 0.0;
     // 30 su to its right: within 64 su of the right circle's centre, (0, 64).
     assert_eq!(model.steer(facing, Vec2::new(0.0, 30.0)), (Vec2::new(30.0, 0.0), true));
-    assert_eq!(model.steer(facing, Vec2::new(10.0, -40.0)).1, true, "on its left");
+    assert!(model.steer(facing, Vec2::new(10.0, -40.0)).1, "on its left");
     // Outside the circles: steered at.
     let ahead = Vec2::new(100.0, 0.0);
     assert_eq!(model.steer(facing, ahead), (ahead, false));
     let behind = Vec2::new(-20.0, 0.0);
-    assert_eq!(model.steer(facing, behind), (behind, false), "straight behind is outside both");
+    assert_eq!(
+        model.steer(facing, behind),
+        (behind, false),
+        "straight behind is outside both"
+    );
     let wide = Vec2::new(0.0, 130.0);
     assert_eq!(model.steer(facing, wide), (wide, false), "beyond the circle's far side");
     // Backing up the circles are the same, the way it drives the other.
-    assert_eq!(seeker(true).steer(facing, Vec2::new(0.0, 30.0)), (Vec2::new(-30.0, 0.0), true));
+    assert_eq!(
+        seeker(true).steer(facing, Vec2::new(0.0, 30.0)),
+        (Vec2::new(-30.0, 0.0), true)
+    );
 }

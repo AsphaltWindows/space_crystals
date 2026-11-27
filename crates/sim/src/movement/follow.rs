@@ -159,6 +159,16 @@ fn follow(
     while usize::from(mover.next) < last_index && pos.distance(mover.path[usize::from(mover.next)]) <= step {
         mover.next += 1;
     }
+    // (M5-V2) A wheeled unit passes a waypoint on its way, not its goal, that lies inside its turning circle: no turn
+    // reaches it from where the unit is, and its path goes on from there (`Wheeled::inside`). Only its goal is
+    // reached by a forward loop (design change 0353).
+    if let Some(Model::Wheeled(wheeled)) = model {
+        while usize::from(mover.next) < last_index
+            && wheeled.inside(*facing, mover.path[usize::from(mover.next)] - *pos)
+        {
+            mover.next += 1;
+        }
+    }
     // (M3-G2) Past the last waypoint of a detour round standing units: the rest is the path as it was planned.
     if mover.detour_end <= mover.next {
         mover.detour_end = 0;
@@ -171,6 +181,7 @@ fn follow(
     let to = target - *pos;
     let dist = to.length();
     // (M5-V2) The forward loop: a wheeled unit steers straight on while its waypoint lies inside its turning circle.
+    let aim = to;
     let (to, looping) = match model {
         Some(Model::Wheeled(wheeled)) if dist > 0.0 => wheeled.steer(*facing, to),
         _ => (to, false),
@@ -257,7 +268,10 @@ fn follow(
         Some(Model::Wheeled(wheeled)) => {
             *steered = true;
             let lands = arriving && moved.pos == target;
-            let driven = wheeled.drive(from, facing, moved, lands, mover, world, touched);
+            // A loop the way ahead blocks can't be driven: the unit turns towards its waypoint as it presses on, its
+            // turns' blocked parts dropped (design change 0035), rather than into what blocks it.
+            let asked = if looping { aim * (d.length() / dist) } else { d };
+            let driven = wheeled.drive(from, facing, asked, moved, lands, mover, world, touched);
             *turned = driven.turned;
             turning = driven.turned != 0.0;
             locomotion = Some(driven.locomotion);

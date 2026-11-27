@@ -17,6 +17,7 @@
 //! `clouds`), (M5-N5) the buff invariant F1 (no unit holds two buffs of an ability, each ends within its ability's
 //! duration and only a kind the ability affects holds it, held units too: `buffs`), (M5-H1) the Glider invariant G1 (a
 //! Glider in flight never stops, keeps within its IdleSpeed and MaxSpeed, and counts as being on the map: `gliders`),
+//! (M5-V2) the wheeled invariant W1 (a FixedTurnRadiusMovement unit turns by its speed, never in place: `momentum`),
 //! and an ASCII picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
@@ -69,7 +70,7 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1", "W1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -299,6 +300,13 @@ impl Invariants {
             let moved = o.pos.distance(o.prev_pos);
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));
+            }
+            // (M5-V2) W1: a wheeled unit turns by its speed, never in place (`momentum::turns_by_its_speed`).
+            let wheeled = o.movement(sim.research()).zip(before);
+            if let Some(message) =
+                wheeled.and_then(|(movement, b)| momentum::turns_by_its_speed(&movement, o.facing, b))
+            {
+                return fail("W1", message);
             }
             if let Some(before) = before
                 && before.pos != o.prev_pos
