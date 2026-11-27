@@ -2410,7 +2410,12 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 ## In progress
 - **Running:**
   - **M5-X1b SetRules** (the same agent, after X1a): `DebugCommand::SetRules`, refused for a structural change (`Reject::RulesStructural`) or past 64 generations (`RulesFull`), applied as the next tick starts, with `RulesChanged`; HP that follows a new MaxHP; the generation in saves and replays; `tests/rules.rs`.
-  - **M6-GK The GDO kinds** (Opus; brief `scratchpad/briefs/m6gk-gdo-kinds.md`), launched at X1a's merge, on 2026-11-27. It adds the struct-update defaults (T84).
+  - **M6-GK The GDO kinds** (Opus; brief `scratchpad/briefs/m6gk-gdo-kinds.md`), launched at X1a's merge, on 2026-11-27.
+    - **Its first commit is merged early** (`774dae2b`, GK's `c76c8765` with a merge of master's bookkeeping), so that SK and every later slice write `..<Struct>::NONE` from the start:
+      - `defs/units.rs` split into `units/attack.rs` and `units/worker.rs`, all re-exported;
+      - `ObjectDef::NONE`, `UnitDef::NONE` and `StructureDef::NONE` in `defs/defaults.rs` (T84), and every def literal ends with `..<Struct>::NONE`;
+      - `Ruleset::BUILTIN`'s JSON byte-identical (GK's check). 2750 tests passed, 62 ignored; the goldens unchanged, the seed sweep passes, and the 192 computer-player games are identical.
+    - **Conventions shared with SK** (the Director's): a deployed kind is immobile by its def (MaxSpeed and ReverseMaxSpeed 0, exempted by name in `unit_is_consistent`'s `IMMOBILE` list, T87). An air unit whose doc gives no SeparationRadius takes its Silhouette's side + 8 su (Q0181).
   - **M6-SK The Syndicate kinds** (Opus; brief `scratchpad/briefs/m6sk-syndicate-kinds.md`), beside GK. Its block goes after GK's in the registry.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
 - **Next:** X2 after X1b, then **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
