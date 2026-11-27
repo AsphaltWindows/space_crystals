@@ -276,6 +276,16 @@ impl Vision {
         }
     }
 
+    /// (Slice M5-S7, design change 0416) `core/vision.md > Starting exploration`: "every tile starts **Explored** for
+    /// every player instead of Unexplored". The sim calls it at the start of a game that starts explored
+    /// (`SimConfig::start_explored`, `Sim::settle_start`), before [`Vision::seed`] gives every player its records of
+    /// the neutral objects and the first look: Explored is history, so it is hashed and saved as any explored tile is.
+    pub(crate) fn explore_all(&mut self) {
+        for player in &mut self.players {
+            player.explore_all();
+        }
+    }
+
     /// The end of the tick, after every phase that changes objects (`Sim::step`): each player's records of the
     /// structures and resources it sees now take their current state, stamped with `tick` (`core/vision.md >
     /// Explored`: a record keeps the last state the player saw). The objects the player owns are never recorded.

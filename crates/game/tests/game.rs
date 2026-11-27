@@ -25,6 +25,8 @@ mod fog_memory;
 mod game_end;
 mod hud;
 mod pairings;
+#[path = "playtest_menu/main.rs"]
+mod playtest_menu;
 mod replay;
 #[path = "selection/main.rs"]
 mod selection;

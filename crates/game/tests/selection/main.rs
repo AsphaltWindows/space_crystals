@@ -7,6 +7,7 @@
 mod draw_order;
 mod groups;
 mod map;
+mod menu;
 mod panels;
 mod state;
 

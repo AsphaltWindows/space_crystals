@@ -106,20 +106,27 @@ pub enum InputAction {
     ReplaySlower,
     /// Replay playback: the next faster speed.
     ReplayFaster,
+    /// (Slice M5-S7, design change 0413) `core/camera.md > Window Mode`: switches the window between borderless full
+    /// screen and a window (`crate::platform`). The design's placeholder keys: F11, and Alt + Enter.
+    ToggleFullscreen,
+    /// (Slice M5-S7, design change 0414) `core/game_rules.md > Playtest menu (temporary)`: opens the playtest menu
+    /// during a game, which pauses it, and closes it again (`crate::playtest_menu`). The design's key: F10.
+    PlaytestMenu,
     /// The map editor's input (`ARCHITECTURE.md > Map editor`).
     Editor(EditorInput),
 }
 
 impl InputAction {
     /// The input context whose bindings fire the action, or `None` for both: the camera's pans and grab, the grid,
-    /// Cancel (Esc cancels in the game and in the editor alike), the play-test switch, which must work in the
-    /// editor and in its play-tests, and the placement keys ([`InputAction::is_placement`]), which turn the
-    /// structure being placed in the editor and in the game's AwaitingPlacement alike. Every other action belongs
-    /// to the game or to the editor.
+    /// Cancel (Esc cancels in the game and in the editor alike), the window's full-screen toggle, the play-test
+    /// switch, which must work in the editor and in its play-tests, and the placement keys
+    /// ([`InputAction::is_placement`]), which turn the structure being placed in the editor and in the game's
+    /// AwaitingPlacement alike. Every other action belongs to the game or to the editor.
     pub fn context(self) -> Option<InputContext> {
         use InputAction as A;
         match self {
             A::PanLeft | A::PanRight | A::PanUp | A::PanDown | A::GrabPan | A::ToggleGrid | A::Cancel => None,
+            A::ToggleFullscreen => None,
             A::Editor(EditorInput::PlayTest) => None,
             placement if placement.is_placement() => None,
             A::Editor(_) => Some(InputContext::Editor),
@@ -131,6 +138,20 @@ impl InputAction {
     /// Whether the action's bindings fire in `context`.
     pub fn works_in(self, context: InputContext) -> bool {
         self.context().is_none_or(|c| c == context)
+    }
+
+    /// (Slice M5-S7) Whether the action reaches the client's systems while a modal UI holds the input
+    /// ([`super::Modal`]: the playtest menu, while game input is blocked): the window's full-screen toggle and the
+    /// menu's own key, which work whatever holds the input, and the debug keys, which change only what the client
+    /// shows (whose view, the fog), so that at the end of a hot-seat game each player still sees their own result under
+    /// the menu (`crate::hud::outcome`). Every other action is the modal UI's alone
+    /// ([`super::ActionState::modal_pressed`]).
+    pub fn passes_modal(self) -> bool {
+        use InputAction as A;
+        matches!(
+            self,
+            A::ToggleFullscreen | A::PlaytestMenu | A::DebugSwitchPlayer | A::DebugToggleFog
+        )
     }
 
     /// Whether the action turns the structure being placed. Its bindings take a press only while one is

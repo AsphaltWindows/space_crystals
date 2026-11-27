@@ -7,7 +7,7 @@ What to try in each milestone is in its own notes:
 - [M3](m3.md): the Colonists from the UI.
 - [M4](m4.md): the Syndicate from the UI.
 - [M5](m5.md): the Cults; slice M5-M writes it in full, and each slice adds what it built (so far the Airstrip and
-  the Sparrow, and the Minimap).
+  the Sparrow, the Minimap, and full screen, the playtest menu and the map explored from the start).
 
 ## Starting a pairing
 
@@ -19,6 +19,12 @@ or `--scenario`. There is no start screen.
   `syndicate`, `cults` and `colonists` (any case).
 - `--map <file.json>` starts a map file; `--scenario <name>` starts a built-in map, `dev_skirmish` by default.
 - `--player 2` starts on player 2's side. `cargo run -- --help` lists every flag.
+- **The window**: the game opens in borderless full screen on the monitor it starts on; `--windowed` opens it in a
+  window (`--window-size 1600x900` sets its size). **F11** or **Alt+Enter** switches between the two. While the game
+  is the active window the cursor stays inside it, so the camera pans with the cursor at the screen edge (within 8
+  pixels of it); Alt+Tab to another window frees the cursor, and clicking back into the game holds it again.
+- **The map starts explored**: from 0:00 you see its terrain and its crystal patches dimmed, as you would after
+  scouting it, but no other player's base, which you still have to find. `--unexplored` starts it black, as before.
 
 **Playtest on `maps/playtest.json`.** It has `dev_skirmish`'s terrain: player 1 starts top left, player 2 bottom
 right, and a plateau with two ramps lies between them. Each base stands beside an 8-patch crystal line, the reference
@@ -61,6 +67,10 @@ removes player 2's buildings and checks that player 1 wins.
 - **The game doesn't pause** while you switch: the side you left goes on doing what you told it, and its units fight
   back by themselves.
 - **F3** turns the fog of war off and on, to see everything.
+- **F10** opens the playtest menu and pauses the game: **Resume** (or F10 again) goes on, **Restart** starts the same
+  game over from 0:00 (the same map, factions and computer players, the map explored or not as at launch), and
+  **Quit** closes the game. Nothing asks you to confirm. While it is open, the game takes no input; F2 and F3 still
+  work.
 - **Tab** cycles the types in the selection (Shift + Tab the other way).
 - **The minimap**, the HUD's bottom-left panel, shows the whole map as the side you are on knows it, with the fog as
   on the map, and the camera's view as a white outline. Left-click it, or drag on it, to move the camera there.
@@ -71,7 +81,7 @@ removes player 2's buildings and checks that player 1 wins.
   as they are unless you start with `--no-debug`: don't use it for a hot-seat game.
 - **The end**: a player is defeated when they own no buildings, every structure counting
   (`core/game_rules.md > Defeat Condition`), and the last one standing wins. The game stops and shows VICTORY or
-  DEFEAT; F2 shows the other side's.
+  DEFEAT, with the playtest menu under it: Restart or Quit. F2 shows the other side's.
 
 ## Playing against the computer
 
@@ -153,6 +163,9 @@ The replay records the computers' commands with yours.
 - Every game is recorded to `replays/<date>_<time>_<map>.json` (UTC, under the folder you ran `cargo run` from),
   written as the game starts, every 10 seconds of game time, when it ends and when you quit. `--record <file.json>`
   records to that file instead, and `--no-record` turns it off.
+- Each game keeps its own replay: a game restarted from the playtest menu (F10) is recorded to a new file, with the
+  time of its start, or with `--record game.json` to `game.restart1.json`, `game.restart2.json`, … beside it. The
+  game before it is written complete first.
 - `cargo run -- --replay <file.json>` plays a recording back: Space pauses and resumes, `.` plays one tick, `-` and
   `=` change the speed, F2 switches the player and F3 the fog.
 - The top bar shows the tick, in a game and in a replay.

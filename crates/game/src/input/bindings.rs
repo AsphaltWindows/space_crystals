@@ -280,6 +280,11 @@ impl Default for Bindings {
             (A::ReplayStep, Press(key(KeyCode::Period))),
             (A::ReplaySlower, Press(key(KeyCode::Minus))),
             (A::ReplayFaster, Press(key(KeyCode::Equal))),
+            // (M5-S7) The design's placeholder keys: `core/camera.md > Window Mode` ("F11 or Alt+Enter") and
+            // `core/game_rules.md > Playtest menu (temporary)` (F10).
+            (A::ToggleFullscreen, Press(key(KeyCode::F11))),
+            (A::ToggleFullscreen, Press(key(KeyCode::Enter).with(Modifiers::ALT))),
+            (A::PlaytestMenu, Press(key(KeyCode::F10))),
         ];
         for group in ControlGroup::all() {
             let digit = key(group.digit_key());

@@ -11,6 +11,9 @@
 //! - [`MapClick`] and [`SelectionBox`] messages report the pointer actions' clicks and boxes on the map, never over
 //!   the UI.
 //! - While a text field has the keyboard ([`TextFocus`]), keys type text and fire no binding.
+//! - (Slice M5-S7) While a modal UI holds the input ([`Modal`]: the playtest menu), the frame's presses are its own
+//!   ([`ActionState::modal_pressed`]): the other systems see only the actions that pass it
+//!   ([`InputAction::passes_modal`]), no press, click or box on the map, and the cursor over the UI.
 //! - Tests and scripts drive all of it through [`InjectedInput`], a virtual keyboard and mouse, without winit.
 //!
 //! Timing (double taps, double-clicks) runs on `Time<Real>`, which tests advance with `TimeUpdateStrategy`.
@@ -55,6 +58,8 @@ pub struct ActionState {
     cursor: Option<Vec2>,
     modifiers: Modifiers,
     pointer: Pointer,
+    /// (M5-S7) The actions pressed this frame while a modal UI holds the input ([`Modal`]); empty otherwise.
+    modal_pressed: BTreeSet<InputAction>,
 }
 
 impl ActionState {
@@ -104,6 +109,14 @@ impl ActionState {
     pub fn pointer(&self) -> &Pointer {
         &self.pointer
     }
+
+    /// (M5-S7) Whether `action` was pressed this frame while a modal UI holds the input ([`Modal`]): what that UI reads,
+    /// a click being a press of [`InputAction::Select`] at [`ActionState::cursor`]. The other systems don't see it,
+    /// unless the action passes the modal UI ([`InputAction::passes_modal`]), when it is [`ActionState::just_pressed`]
+    /// too.
+    pub fn modal_pressed(&self, action: InputAction) -> bool {
+        self.modal_pressed.contains(&action)
+    }
 }
 
 /// A virtual keyboard and mouse for tests and scripts, read every frame together with the real devices. Press and
@@ -142,6 +155,17 @@ pub struct RawInput {
     pub enabled: bool,
 }
 
+/// (Slice M5-S7) Whether a modal UI holds the input: the playtest menu while it is open (`crate::playtest_menu`;
+/// `core/game_rules.md > Playtest menu (temporary)`, where game input is blocked). The input layer then gives the
+/// frame's presses to that UI alone ([`ActionState::modal_pressed`]) and the other systems only the actions that pass
+/// it ([`InputAction::passes_modal`]), held or pressed: no pan, selection, command, control group or camera key, no
+/// wheel, no edge pan; the pointer is over the UI, so no press, click or box starts on the map, and one under way when
+/// the UI takes the input ends without a click or a box. What the systems were shown held ends when it takes the
+/// input; what is still held when it lets go comes back held, never pressed, so the click that closes it does nothing
+/// else. Set by its owner; the input of a frame follows the setting of the frame before.
+#[derive(Resource, Default, Debug, PartialEq, Eq)]
+pub struct Modal(pub bool);
+
 /// Whether a structure is being placed, as the placement's owner last reported it: the map editor while its
 /// placement tools hold a structure (`crate::editor::input::report_placing`, in the editor only), the game while the
 /// local player places a building in AwaitingPlacement (`crate::command_ui`, in the game modes only). While it is,
@@ -165,6 +189,7 @@ impl Plugin for ActionInputPlugin {
             .init_resource::<InjectedInput>()
             .init_resource::<Bindings>()
             .init_resource::<Placing>()
+            .init_resource::<Modal>()
             .insert_resource(RawInput {
                 enabled: self.raw_input,
             })
@@ -208,6 +233,7 @@ struct Devices<'w, 's> {
     text_focus: TextFocus<'w, 's>,
     mode: Option<Res<'w, ClientMode>>,
     placing: Option<Res<'w, Placing>>,
+    modal: Option<Res<'w, Modal>>,
 }
 
 impl Devices<'_, '_> {
@@ -262,6 +288,8 @@ struct BindingTracking {
     taps: TapTracker,
     /// A text field had the keyboard in the last frame.
     typed: bool,
+    /// The actions held in the last frame, those a modal UI took included ([`Modal`]).
+    held: BTreeSet<InputAction>,
 }
 
 /// Turns this frame's buttons and wheel into actions through the bindings of the mode's input context
@@ -287,7 +315,10 @@ fn read_actions(
     let typed = std::mem::replace(&mut tracking.typed, typing);
     let keyboard = !typing && !typed;
     let window = devices.window.single().ok();
-    let previous = std::mem::take(&mut state.held);
+    // What was held in the last frame, and what the systems were shown held: they differ while a modal UI holds the
+    // input, which takes the rest ([`Modal`]).
+    let previous = std::mem::take(&mut tracking.held);
+    let shown_before = std::mem::take(&mut state.held);
     state.just_pressed.clear();
     state.just_released.clear();
     {
@@ -347,9 +378,23 @@ fn read_actions(
     if injected.cursor.is_some() {
         state.cursor = injected.cursor;
     }
-    // Actions that start or stop being held (modifiers, the screen edge, injected) start and end here too.
+    // Actions that start being held (modifiers, the screen edge, injected) start here too.
     state.just_pressed.extend(state.held.difference(&previous).copied());
-    state.just_released.extend(previous.difference(&state.held).copied());
+    tracking.held = state.held.clone();
+    state.modal_pressed.clear();
+    if devices.modal.as_deref().is_some_and(|m| m.0) {
+        // A modal UI holds the input: the presses are its own, and the systems see only what passes it.
+        state.modal_pressed = std::mem::take(&mut state.just_pressed);
+        state.just_pressed = (state.modal_pressed.iter().copied())
+            .filter(|a| a.passes_modal())
+            .collect();
+        state.held.retain(|a| a.passes_modal());
+        state.wheel = None;
+    }
+    // What the systems no longer see held ends: released, or taken by a modal UI.
+    state
+        .just_released
+        .extend(shown_before.difference(&state.held).copied());
     injected.keys.clear();
     injected.mouse.clear();
 }
@@ -379,5 +424,33 @@ mod tests {
         assert_eq!(at(0.0, 300.0), vec![InputAction::PanLeft]);
         assert_eq!(at(799.0, 599.0), vec![InputAction::PanRight, InputAction::PanDown]);
         assert_eq!(at(400.0, 2.0), vec![InputAction::PanUp]);
+    }
+
+    /// (M5-S7) Design change 0413's Verification: "Hold the cursor 5 px from an edge (not touching): the map pans",
+    /// within the 8 px margin (`core/camera.md > Panning > Arrow keys and screen edge`); 9 px from it, it doesn't. A
+    /// cursor `d` px from an edge stands on the pixel `d` from it: `d` from the left and top, `size - 1 - d` from the
+    /// right and bottom.
+    #[test]
+    fn the_map_pans_5_px_from_an_edge_and_not_9() {
+        assert_eq!(EDGE_PAN_MARGIN_PX, 8.0);
+        let size = Vec2::new(1280.0, 720.0);
+        let at = |x, y| edge_pan_actions(Vec2::new(x, y), size).collect::<Vec<_>>();
+        let (right, bottom) = (size.x - 1.0, size.y - 1.0);
+        for d in [5.0, 9.0] {
+            let pans = d < EDGE_PAN_MARGIN_PX;
+            let expect = |action| if pans { vec![action] } else { vec![] };
+            assert_eq!(at(d, 360.0), expect(InputAction::PanLeft), "{d} px from the left");
+            assert_eq!(
+                at(right - d, 360.0),
+                expect(InputAction::PanRight),
+                "{d} px from the right"
+            );
+            assert_eq!(at(640.0, d), expect(InputAction::PanUp), "{d} px from the top");
+            assert_eq!(
+                at(640.0, bottom - d),
+                expect(InputAction::PanDown),
+                "{d} px from the bottom"
+            );
+        }
     }
 }

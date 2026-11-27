@@ -412,9 +412,13 @@ fn leaving_the_fastest_pace_runs_no_burst_of_ticks() {
 fn playback_switches_the_player_and_the_fog_even_without_debug_commands() {
     for debug in [false, true] {
         let mut scenario = skirmish();
-        scenario.setup.config = SimConfig { debug };
+        let config = SimConfig {
+            debug,
+            start_explored: false,
+        };
+        scenario.setup.config = config;
         let mut app = playback(sim_recording(scenario, 50));
-        assert_eq!(app.world().resource::<SimRes>().config(), SimConfig { debug });
+        assert_eq!(app.world().resource::<SimRes>().config(), config);
         select(&mut app, 1);
         let selection_in_use = |app: &App| {
             let player = app.world().resource::<LocalPlayer>().0;

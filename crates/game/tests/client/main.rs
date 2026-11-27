@@ -9,6 +9,7 @@ mod input;
 mod qa;
 mod recording;
 mod visuals;
+mod window;
 
 use std::collections::{BTreeMap, BTreeSet};
 

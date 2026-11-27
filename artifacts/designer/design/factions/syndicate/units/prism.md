@@ -29,3 +29,6 @@ It sees through Shadebringer smoke (Shadebringer > Cover).
 - **Thrust charges: 3**; each moves it **3 grid units** over 1 s in a chosen direction.
 - Relay ranges: Laser Battery > Placeholder stats.
 - Cost: Aerospace Assembly, 250 Space Crystals, 480 frames.
+- **Panel** (designer placeholder, 2026-11-26; Q0168): **Q** Move, **R** Thrust, **X** Stop; while **armed** (a relay target, Laser Battery > Relay) also **A** Attack (A is Attack on every unit that can attack).
+- **Thrust** (R, targeted; Q0168): left-click a point; the Prism thrusts **toward it**, always the full 3 grid units whatever the distance. Like any command it **queues with Shift** (systems/controls/commands.md), so thrusts can be chained along a path; each uses a charge when it starts. Greyed with no charges left.
+- **Orders during launch and unfolding** (Q0168): **held**, as in the vehicle deploy model (factions/gdo/units/artillery_rig.md): the last order given during the 4 s is carried out once it has unfolded.

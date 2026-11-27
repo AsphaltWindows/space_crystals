@@ -7,6 +7,8 @@
 //!   held, and none once its player is defeated or the game is over (`sc_ai::Ai::think`). The step records them with
 //!   every other command ([`crate::sim_driver::RecordedInputs`]), so the replay plays them back. A replay's playback
 //!   never has computer players: its recorded commands are theirs (`crate::cli` refuses `--ai` with `--replay`).
+//! - **A restart** (slice M5-S7, the playtest menu's Restart, `crate::playtest_menu`) makes new computer players from
+//!   the same slots and profiles, for the new game at its tick 0 ([`AiPlayers::start`]), as the launch did.
 //! - **The local player's input**: while the local player is a computer player's, the command flow's input
 //!   (`CommandUiSystems::Input`: keyboard, mouse and the command panel) doesn't run, so the client gives that player no
 //!   command; selecting and looking still work. The debug player switch (F2) still changes the local player, and the top
@@ -14,7 +16,7 @@
 
 use bevy::prelude::*;
 use sc_ai::{Ai, Profile};
-use sc_sim::PlayerId;
+use sc_sim::{PlayerId, Scenario};
 
 use crate::command_ui::CommandUiSystems;
 use crate::qa::inject_commands;
@@ -34,6 +36,20 @@ pub struct AiPlayers {
 }
 
 impl AiPlayers {
+    /// A computer player for each of `slots`, for the game of `scenario` that `sim` runs, from its start. The command
+    /// line checked the slots against the game (`sc_ai::can_play`); one that can't play it anyway is left out, and
+    /// logged.
+    pub fn start(slots: &[AiSlot], scenario: &Scenario, sim: &SimRes) -> Self {
+        let mut players = Vec::new();
+        for slot in slots {
+            match Ai::new(scenario, sim, slot.player, slot.profile) {
+                Ok(ai) => players.push(ai),
+                Err(error) => error!("--ai: {error}"),
+            }
+        }
+        Self { players }
+    }
+
     /// Whether a computer player plays `player`.
     pub fn controls(&self, player: PlayerId) -> bool {
         self.get(player).is_some()
@@ -64,15 +80,8 @@ impl Plugin for AiPlayersPlugin {
     fn build(&self, app: &mut App) {
         let world = app.world();
         let (sim, scenario) = (world.resource::<SimRes>(), &world.resource::<LoadedScenario>().0);
-        let mut players = Vec::new();
-        for slot in &self.slots {
-            // The command line checked the slots against the game (`sc_ai::can_play`).
-            match Ai::new(scenario, sim, slot.player, slot.profile) {
-                Ok(ai) => players.push(ai),
-                Err(error) => error!("--ai: {error}"),
-            }
-        }
-        app.insert_resource(AiPlayers { players })
+        let players = AiPlayers::start(&self.slots, scenario, sim);
+        app.insert_resource(players)
             .configure_sets(Update, CommandUiSystems::Input.run_if(local_player_is_human))
             .add_systems(FixedUpdate, think.before(StepSim).after(inject_commands));
     }

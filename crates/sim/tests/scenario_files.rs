@@ -126,7 +126,7 @@ fn scenarios_are_a_map_and_a_setup() {
                 slot: SlotId(1),
             }],
             seed: 7,
-            config: SimConfig { debug: true },
+            config: SimConfig::DEBUG,
         },
     };
     let json = serde_json::to_value(&scenario).unwrap();

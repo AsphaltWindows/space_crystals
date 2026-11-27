@@ -15,7 +15,7 @@ use bevy::picking::hover::HoverMap;
 use bevy::picking::pointer::PointerId;
 use bevy::prelude::*;
 
-use super::{ActionState, EditorInput, InjectedInput, InputAction, Modifiers, RawInput};
+use super::{ActionState, EditorInput, InjectedInput, InputAction, Modal, Modifiers, RawInput};
 use crate::camera::{CameraView, CameraZoom, ViewportInsets, cursor_offset, cursor_to_view, view_rect};
 use crate::coords::ground_under;
 use crate::platform::SurfaceSize;
@@ -174,6 +174,7 @@ impl PointerTracking {
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn track_pointer(
     raw: Res<RawInput>,
+    modal: Res<Modal>,
     injected: Res<InjectedInput>,
     world: WorldView,
     hover: UiHover,
@@ -195,7 +196,8 @@ pub(super) fn track_pointer(
         raw.enabled && hover.over_ui_node()
     };
     let in_view = screen.and_then(|s| world.view_at(s));
-    let over_ui = screen.is_some() && (over_node || in_view.is_none());
+    // (M5-S7) While a modal UI holds the input, the pointer is over it.
+    let over_ui = screen.is_some() && (over_node || in_view.is_none() || modal.0);
     let view = in_view.filter(|_| !over_ui);
     let ground_at = |view| ground_under(world.sim.map(), view);
     let ground = view.map(ground_at);
@@ -217,6 +219,10 @@ pub(super) fn track_pointer(
             )),
             _ => None,
         };
+    }
+    if modal.0 {
+        // A modal UI took the input: the press on the map ends, without a click or a box.
+        tracking.press = None;
     }
     let last_screen = tracking.last_screen;
     if let Some((press, _)) = &mut tracking.press {

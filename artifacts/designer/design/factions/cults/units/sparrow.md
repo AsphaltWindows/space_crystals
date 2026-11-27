@@ -26,7 +26,7 @@
 - **Idle circle**: radius **1 grid unit (64 su)** at IdleSpeed (placeholder; Q0120: at its centripetal limit an idle circle would be only 32 su, nearly a spin, so idle circling uses a gentler turn).
 - **Flight rules** (user, 2026-11-26; Q0120):
   - **Map edge**: it may overshoot the edge as far as its turn needs (no extra cap).
-  - **Takeoff**: it appears over the runway's B end facing C at IdleSpeed and speeds up along the runway.
+  - **Takeoff** (user, 2026-11-26; Q0162: "should appear on the runway and automatically take off"): it appears **on the runway** at its B end facing C and **takes off by itself**, speeding up along the runway and lifting off. It is an air target from the moment it appears (as GDO aircraft taking off).
   - **No rally point**: it circles 2 grid units past the runway's C end.
   - **Strafing**: after a pass it flies on until the target's **centre** is out of range (user, 2026-11-26; Q0149; systems/controls/command_behaviors.md > GliderMovement exception), then loops back at full speed. The loop is therefore the same size for every target, and SightRange 8 keeps even buildings in sight for a lone Sparrow.
   - **Stop**: it circles where it is. **Hold Position**: it circles there and fires only at what comes into range, without chasing.

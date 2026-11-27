@@ -38,11 +38,26 @@ pub struct SimConfig {
     /// `Command::Debug` is accepted (development and QA, `ARCHITECTURE.md > Commands, events and replays`). Off
     /// by default: a real match never offers debug commands.
     pub debug: bool,
+    /// (Slice M5-S7, design change 0416) The map starts explored (`core/vision.md > Starting exploration`): every
+    /// tile starts Explored for every player, the fog of war still on, and each remembers the terrain and the neutral
+    /// objects as at the start (their records, `Vision::seed`), none of the players' objects. Off here, and in files
+    /// that don't have it (the replays recorded before it existed, which then replay as recorded); the client turns
+    /// it on for the games it launches, as the design's default is on (`--unexplored` turns it off). Left out of files
+    /// and of the hash while off.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub start_explored: bool,
 }
 
 impl SimConfig {
     /// Debug commands on: development, QA and tests.
-    pub const DEBUG: SimConfig = SimConfig { debug: true };
+    pub const DEBUG: SimConfig = SimConfig {
+        debug: true,
+        start_explored: false,
+    };
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// The whole game state. Serde (de)serializes all of it, e.g. as a JSON state dump or a

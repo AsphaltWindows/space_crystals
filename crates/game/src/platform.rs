@@ -3,6 +3,11 @@
 //!
 //! Every other plugin reads [`RenderSurface`] (what cameras render to) and [`SurfaceSize`] (its size), so none of
 //! them cares which of the three is active.
+//!
+//! (Slice M5-S7, design change 0413) A game opens in borderless full screen, F11 or Alt + Enter switches between full
+//! screen and a window, and the cursor stays in the window while it has the focus ([`window`]).
+
+pub mod window;
 
 use std::time::Duration;
 
@@ -12,8 +17,13 @@ use bevy::input::InputPlugin;
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::render_resource::TextureFormat;
-use bevy::window::{ExitCondition, PresentMode, PrimaryWindow, WindowCloseRequested, WindowRef, WindowResolution};
+use bevy::window::{
+    ExitCondition, PresentMode, PrimaryWindow, WindowCloseRequested, WindowFocused, WindowMode, WindowRef,
+    WindowResolution,
+};
 use bevy::winit::WinitPlugin;
+
+use window::{WindowedSize, confine_cursor, toggle_fullscreen};
 
 /// Present while closing the window needs a confirmation: the map editor asks a second time when there are unsaved
 /// changes, and exits itself. Without it, a close request (`WindowCloseRequested`) exits the app at once.
@@ -74,6 +84,43 @@ pub struct PlatformPlugin {
     pub reproducible: bool,
     /// Run frames back to back instead of pacing them (`--fast`).
     pub unpaced: bool,
+    /// (M5-S7) Open the window in borderless full screen (`core/camera.md > Window Mode`): a game's default, not with
+    /// `--windowed`. Never in a reproducible run, whose window keeps its size ([`PlatformPlugin::primary_window`]).
+    pub fullscreen: bool,
+}
+
+impl PlatformPlugin {
+    /// The window [`DisplayMode::Window`] opens, `None` in the other modes: `size`, in borderless full screen when
+    /// [`PlatformPlugin::fullscreen`] asks for it and the run isn't reproducible ([`window`]).
+    pub fn primary_window(&self) -> Option<Window> {
+        if self.display != DisplayMode::Window {
+            return None;
+        }
+        let size = self.size.max(UVec2::ONE);
+        let mut resolution = WindowResolution::new(size.x, size.y);
+        if self.reproducible {
+            resolution = resolution.with_scale_factor_override(1.0);
+        }
+        // QA and `--fast` runs don't wait for vsync: they want frames back to back, and with the display asleep X11
+        // paces a vsynced window at one frame per second.
+        let present_mode = if self.reproducible || self.unpaced {
+            PresentMode::AutoNoVsync
+        } else {
+            PresentMode::AutoVsync
+        };
+        let mode = if self.fullscreen && !self.reproducible {
+            window::FULL_SCREEN
+        } else {
+            WindowMode::Windowed
+        };
+        Some(Window {
+            title: "Space Crystals".into(),
+            resolution,
+            present_mode,
+            mode,
+            ..default()
+        })
+    }
 }
 
 impl Plugin for PlatformPlugin {
@@ -84,29 +131,16 @@ impl Plugin for PlatformPlugin {
             ..default()
         };
         let frame_wait = if self.unpaced { Duration::ZERO } else { FRAME_WAIT };
+        // In every mode, so that tests can give a headless app a window of their own.
+        app.insert_resource(WindowedSize(size))
+            .add_systems(Update, (toggle_fullscreen, confine_cursor));
         match self.display {
             DisplayMode::Window => {
-                let mut resolution = WindowResolution::new(size.x, size.y);
-                if self.reproducible {
-                    resolution = resolution.with_scale_factor_override(1.0);
-                }
-                // QA and `--fast` runs don't wait for vsync: they want frames back to back, and with the display
-                // asleep X11 paces a vsynced window at one frame per second.
-                let present_mode = if self.reproducible || self.unpaced {
-                    PresentMode::AutoNoVsync
-                } else {
-                    PresentMode::AutoVsync
-                };
-                let window = Window {
-                    title: "Space Crystals".into(),
-                    resolution,
-                    present_mode,
-                    ..default()
-                };
+                let window = self.primary_window();
                 app.add_plugins(
                     DefaultPlugins
                         .set(WindowPlugin {
-                            primary_window: Some(window),
+                            primary_window: window,
                             close_when_requested: false,
                             ..default()
                         })
@@ -147,8 +181,10 @@ impl Plugin for PlatformPlugin {
             DisplayMode::Headless => {
                 app.add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(frame_wait)))
                     .add_plugins((TransformPlugin, AssetPlugin::default(), InputPlugin))
-                    // No window ever asks to close, but tests send the message to drive the editor's confirmation.
+                    // No window ever asks to close, but tests send the message to drive the editor's confirmation;
+                    // nor is one ever focused, but tests give the app a window of their own and focus it.
                     .add_message::<WindowCloseRequested>()
+                    .add_message::<WindowFocused>()
                     .add_systems(Update, exit_on_close_request)
                     .init_asset::<Mesh>()
                     .init_asset::<ColorMaterial>()
