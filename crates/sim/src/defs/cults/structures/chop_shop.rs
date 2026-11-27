@@ -1,15 +1,20 @@
 //! The Chop Shop — `factions/cults/structures/chop_shop.md`.
 
-use crate::defs::structures::{BuilderGoes, ExitRule, HoldsDef, SiteDef, SitePrice, StructureDef, SymmetryType};
+use crate::defs::structures::{
+    BuilderGoes, ExitRule, HoldsDef, ProductionDef, Recipe, SiteDef, SitePrice, StructureDef, SymmetryType,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
 
 /// `factions/cults/structures/chop_shop.md`: the "Tier 2 major building of the Tech/Weaponry branch. A scavenger's
-/// garage where Recruits are turned into vehicles". Its numbers, its site and its pool's capacity only (slice M5-G2,
-/// plan decision T69): its production (`> Production`, the Seeker and the Hand of Heaven, of several Recruits each;
-/// plan decision T71) comes with its slice, which adds it to the Recruits' builds, so it trains nothing and Recruits
-/// don't build it yet. Its numbers are the design's "Placeholder stats".
+/// garage where Recruits are turned into vehicles". Its numbers, its site and its pool (slice M5-G2, plan decision
+/// T69), and (M5-N6) its production: the Seeker, trained of two pooled Recruits as the Armory trains a Militant of one
+/// (plan decision T71: one pool path for every such building, `sim/producers/pool.rs`), which drives out of the exit
+/// doorway on side C. Recruits build it (`factions/cults/units/recruit.md > Constructs`) once their player owns an
+/// Armory. Its numbers are the design's "Placeholder stats". The Hand of Heaven (`> Production`: "missile platform; 3
+/// Recruits") is slice M5-N10's, and the Prayer-mobile (`factions/cults/units/prayer_mobile.md`) has no numbers yet,
+/// so neither is here.
 pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
     kind: ObjectKind::ChopShop,
     name: "Chop Shop",
@@ -39,8 +44,30 @@ pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
         build_radius_extension: 0,
         power: 0,
         seeds_build_area: false,
-        // Its vehicles: with its production's slice.
-        production: None,
+        // `> Production`: "**Production works like the Armory** (user, 2026-11-26; factions/cults/structures/armory.md >
+        // Training): Recruits enter and join an internal pool; orders are queueable and serial; queuing an order
+        // deducts its Space Crystals cost and **reserves the vehicle's number of Recruits** from the pool (an order
+        // can only be queued if enough unreserved Recruits are inside); when it finishes, they are consumed and the
+        // vehicle exits to the RallyPoint". Of the Recruits inside (`sim/producers/pool.rs`), so it recruits nothing;
+        // out of its exit side, C ("EntranceSide B, ExitSide C (like the Armory)"), as its pool's units are; its queue
+        // bounded by its capacity ("so at most 5 Seekers queued").
+        production: Some(ProductionDef {
+            exits: ExitRule::Side(SideLetter::C),
+            recipes: &[
+                // "**Seeker**: 2 Recruits, 75 Space Crystals, 320 frames (20 seconds)" ("**Q: Build Seeker**"): its 2
+                // Recruits are the Seeker's Unit Control cost (`QueueEntry::units_reserved`;
+                // `factions/cults/units/seeker.md`: "consumes **2 Recruits**; Unit Control cost **2**"). It has no
+                // TechPrerequisite of its own ("Cost: Chop Shop, 2 Recruits, 75 Space Crystals, 320 frames").
+                Recipe {
+                    kind: ObjectKind::Seeker,
+                    cost: 75,
+                    frames: 320,
+                    requires: &[],
+                },
+            ],
+            recruitment: None,
+            augment: &[],
+        }),
         mining: None,
         onto: None,
         constructs: &[],
@@ -92,8 +119,8 @@ mod tests {
 
     /// 3×3, ABAC, MaxHP 450, PointArmor 1, FullArmor 9 (the building armour rule's n = 1), SightRange 4, not Groupable
     /// (design change 0348), behind an Armory. Its pool: Recruits walk in at side B and come out of side C, 10 of them,
-    /// reserved ones counted; it trains nothing yet. Recruits will build it from outside for 200 Space Crystals in 640
-    /// frames with one of them, from 10% HP.
+    /// reserved ones counted. It trains the Seeker of two Recruits for 75 Space Crystals in 320 frames, out of side C.
+    /// Recruits build it from outside for 200 Space Crystals in 640 frames with one of them, from 10% HP.
     #[test]
     fn the_chop_shop_follows_the_design() {
         let structure = assert_structure(
@@ -107,7 +134,21 @@ mod tests {
         );
         assert_eq!(ObjectKind::ChopShop.def().name, "Chop Shop");
         assert_eq!(structure.requires, [ObjectKind::Armory], "TechPrerequisite: an Armory");
-        assert_eq!((structure.production, structure.drop_off), (None, None));
+        assert_eq!(structure.drop_off, None);
+        let production = structure.production.expect("it trains vehicles");
+        assert_eq!(production.exits, ExitRule::Side(SideLetter::C));
+        assert_eq!(
+            production.recipes,
+            [Recipe {
+                kind: ObjectKind::Seeker,
+                cost: 75,
+                frames: 320,
+                requires: &[]
+            }]
+        );
+        assert_eq!((production.recruitment, production.augment), (None, &[][..]));
+        let seeker = ObjectKind::Seeker.def().unit.as_ref();
+        assert_eq!(seeker.and_then(|u| u.unit_control_cost), Some(2), "2 Recruits");
         let holds = structure.holds.expect("its pool");
         assert_eq!(
             (holds.entrance, holds.exit),

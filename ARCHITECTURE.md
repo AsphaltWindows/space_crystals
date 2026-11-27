@@ -278,11 +278,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Sparrow, the Hand of Heaven and the Prayer-mobile; one def module each, with its design file's "Placeholder stats",
   its `site` and its `requires`. `defs/cults/tests.rs` lists them and checks the list against the design folder (every
   structure of `factions/cults/structures/README.md > Tech Tree Overview`, every file of `factions/cults/units/`). Each
-  of the others' slices adds its behaviour: the Chop Shop, the Airstrip and the Cathedral hold 10 Recruits already
-  (`HoldsDef`, design change 0347 point 5: an editor-placed one can be entered, with no panel yet, so no Eject All),
-  and the Recruits build none of the six left until their slices (the Construct menus hold their slots, *Client
-  architecture > The Recruit's panel*); slice M5-N2 made the Garrison live (*Object model > Buildings that hold units
-  > The Garrison*). The units' `MovementAttrs` (the Seeker's and the Prayer-mobile's
+  of the others' slices adds its behaviour: the Chop Shop, the Airstrip and the Cathedral held 10 Recruits from slice
+  M5-G2 (`HoldsDef`, design change 0347 point 5: an editor-placed one could be entered, with no panel yet), and the
+  Recruits built none of the six left until their slices (the Construct menus held their slots, *Client architecture
+  > The Recruit's panel*); slice M5-N2 made the Garrison live (*Object model > Buildings that hold units > The
+  Garrison*), and slice M5-N6 the Chop Shop, the last (*Production > The Chop Shop*). The units' `MovementAttrs` (the Seeker's and the Prayer-mobile's
   `FixedTurnRadius`, the Hand of Heaven's `SpeedTurnRadius`, the Sparrow's `Glider`) are their models' since slices
   M5-H1 (the Glider) and M5-V2 (the FixedTurnRadius); the Hand of Heaven's is data that nothing reads yet, a model the
   movement doesn't build stepping without a turn limit until slice M5-V3 (*Movement and collision > Movement models*),
@@ -2244,7 +2244,8 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   which must have neither a goal nor an order, a unit walking out of an exit doorway, **(M3-G)** a DragMovement
   unit braking off the momentum it had (it must be `Stopping`, its velocity its momentum, and slower than a tick
   before; no other model may ever have momentum), and an idle unit that overlapped another a tick earlier, or was
-  evacuated in the tick, moving off it (design changes 0126 and 0349), and (M5-H1) a Glider, which flies and has
+  evacuated in the tick, or (M5-N6) that an evacuee came out on (`overlaps::landed_on`: a unit in the doorway of the
+  building that went, I1's exception 3), moving off it (design changes 0126 and 0349), and (M5-H1) a Glider, which flies and has
   momentum without a goal, and an air unit with a SeparationRadius pushed off another, by at most
   `SEPARATION_PUSH_SU` ((M5-H2) its base's share of it; which I3 allows it beyond its speed too). (M5-H1) G1
   (`gliders`): every Glider that was in the game a tick earlier flies at a speed between its IdleSpeed and MaxSpeed,
@@ -2763,6 +2764,27 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   and Augmentations, no weapon, an Attack refused beside a Militant's; `temple.rs`; `saves.rs`) and
   `crates/sim/tests/energy/` (the regeneration exact to the tick, held units', the hash and the saves), each tick under
   the invariants.
+- **The Chop Shop** (slice M5-N6; `factions/cults/structures/chop_shop.md`, `factions/cults/units/seeker.md`, design
+  changes 0330, 0332, 0337, 0347, 0348 and 0353): the pool path as data (`defs/cults/structures/chop_shop.rs`: Recruits
+  in at B, 10 of them counting the reserved, out of side C, `ExitRule::Side(C)`; its one recipe, the Seeker, 75 Space
+  Crystals and 320 frames). An entry reserves the Seeker's Unit Control cost, 2 Recruits of the kind
+  (`QueueEntry::units_reserved`), so 10 Recruits allow 5 entries and one free Recruit is `NoRecruit`. **Out**, the
+  first is the Seeker (`Sim::train`), at full HP with no Augmentation, and the second leaves the game into it, its
+  lineage appended: a point of the Seeker's Unit Control at each Recruit's Hall, half of it orphaned once one Hall
+  goes. **A vehicle in a side doorway** turns its box with the door: the half of its silhouette facing out
+  (`producers::exit_half`) is what `Sim::held_spot`, `Sim::release_unit` and the evacuation's `footprint_spot` place,
+  so a Seeker out of a north or south side is 28 su deep along its way out, not 20. It comes out half inside, facing
+  out, and the movement's doorway walk drives it straight out (`movement/doorway.rs`, slice M5-V2), to its rally point
+  or, with none, to a stop just clear of the doorway; an idle vehicle doesn't yield (0353), so the next Seeker stands
+  in the doorway behind it and the queue waits until the player moves the first (**the implementer's reading**, a jam
+  for the playtest notes). Recruits build it while their player owns an Armory, and it is the Machine Shop's and the
+  Airstrip's TechPrerequisite. Tests: `crates/sim/tests/chop_shop/` (`training.rs`: 0319's NoRecruit, the price, the
+  frames and the rally point, the queue of 5, X, Release and Eject All, the right-click; `exit.rs`: the four
+  orientations, no rally point, the doorway behind a stopped Seeker; `seeker.rs`: full HP and no Augmentation, the Unit
+  Control; `combat.rs`: a Militant killed on the move, the DirectionalArmor's three sides, Rugged terrain;
+  `destruction.rs`; `normal_game.rs`: an Armory, a Chop Shop and a Seeker from the Cults' start, the Machine Shop and
+  the Airstrip no longer greyed; `saves.rs`) and `tests/repair/vehicles.rs` (the Seeker repaired by the real recipe),
+  each tick under the invariants.
 - **Research** (slice M5-N3, plan decisions T70 and T74 as design changes 0335 to 0338 amend them;
   `core/tech_and_research.md > Research`, `factions/cults/structures/temple.md`; `defs/cults/research.rs`,
   `defs/structures/research.rs`, `sim/producers/research.rs`): the technologies are data (`Tech`, its `TechDef`: name,
@@ -2881,7 +2903,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 - **On an unfinished building** (slice M5-S6, design change 0396: "A building that will produce or release units can
   have its RallyPoint set while it is still under construction or transformation, for every faction"): a type takes
   one if it has one finished (`production::takes_rally`: a `ProductionDef` and no `ResearchDef`, so the Barracks, the
-  portals, the Hideout, the Recruitment Hall, the Armory, the Altar and the Cathedral; not the Temple, the Garrison,
+  portals, the Hideout, the Recruitment Hall, the Armory, the Altar, the Cathedral, the Airstrip (slice M5-N7) and the
+  Chop Shop (slice M5-N6); not the Temple, the Garrison,
   whose panel has none, nor the Shrine), a site, an expansion's included, or under Warp In. Its functions held back
   (`Object::production` is `None`), it holds a `Production` with the rally alone while one is set, and `None` again
   once it is cleared, so a game that sets none keeps its hashes (the goldens'). The gate's `SetRally` takes the
@@ -4028,7 +4051,8 @@ its `accepts` order,
 staff, "Staff: 3 / 6", those not on their way out, `Sim::staff`, and their kinds as the pool's, a placeholder too; a
 Shrine, slice M5-N5, its participants alike, "Participants: 8 / 8", a placeholder, beside its energy, "Energy 40 / 200",
 the body's line of any pool); its
-queue line names the entries, "Queue: Militant, Release (2 / 10)", of its capacity, and a
+queue line names the entries and the units they reserve of its capacity, "Queue: Militant, Release (2 / 10)" (slice
+M5-N6: a Seeker's entry reserves two, so the Chop Shop's two are "Queue: Seeker, Seeker (4 / 10)"), and a
 Release under way is "Releasing Recruit: 50%", an Altar's order "Augmenting Militant (Enhanced Constitution): 45%",
 its queue line naming its orders, a Temple's research "Researching Enhanced Constitution Level 1: 45%", its queue
 line naming the technologies, of its research queue, "Queue: Enhanced Constitution Level 1 (1 / 5)", and no rally
@@ -4671,9 +4695,11 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `PanelCommand::Assist`, D `PanelCommand::Repair` (slice M5-N8) and X Stop. Recruits are Groupable: every
   command goes to all the selected Recruits, the one ActiveGroup (Tab stops on them once). **The Construct menus**
   (`templates/cults/construct_menu.rs`) are the sim's `defs::CONSTRUCT_MENU`, the one table of their fixed slots: a
-  type in the game is its `PanelCommand::Build(kind)`, greyed by the gate (its TechPrerequisite, the bank), one not
-  yet built by the Recruits its `Planned` entry, found by name (`Planned::construct`), so a slice that brings a
-  building changes the sim's table only (slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar
+  type in the game is its `PanelCommand::Build(kind)`, greyed by the gate (its TechPrerequisite, the bank); one not
+  yet built by the Recruits (`ConstructEntry::Planned`) held its slot as a `Planned` entry, found by name, until slice
+  M5-N6 made the last of them, the Chop Shop, live (greyed "Requires an Armory"), and the client has no placeholder
+  for one now (`construct_menu::command`: `None`, the sim's tests ruling one out) (slice M5-G2 made the Gunworks, the
+  Machine Shop and the Scrap Hangar
   `Build`s, greyed "Requires an Armory", "Requires a Chop Shop" and "Requires an Airstrip" until those stand, and
   slice M5-N2 the Garrison's D, greyed "Requires an Armory"); Z is Back. A Build enters `AwaitingPlacement` with
   **`Builder::Recruits { queued }`** (`Placing::recruits`): one ghost for the group, judged by
@@ -4996,8 +5022,8 @@ unchecked.
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
-  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs` and `main.rs`,
-  the recording and the comparison in `harness.rs`): twenty games, a 3v3
+  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`
+  and `main.rs`, the recording and the comparison in `harness.rs`): twenty-one games, a 3v3
   duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5007,8 +5033,8 @@ unchecked.
   `colonists_vs_gdo` (slice M3-K1, below), the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
   M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
   M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below), `cults_shroud` (slice
-  M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below) and `gdo_anti_air` (slice
-  M5-K, below), are blessed as replays
+  M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
+  M5-K, below) and `cults_vehicles` (slice M5-N6, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5081,7 +5107,13 @@ unchecked.
   Rocketmen, each out in its tick (`during`); at tick 820 they walk within range of two Sparrows of player 2's, spawned
   on Hold, circling, and fire normal missiles, which the Sparrows dodge, every one; at tick 1000 the three lock onto
   one Sparrow and, Shift-queued, onto the other, and each falls to three locked missiles; every missile of the game is
-  a Rocketman's at a Sparrow, normal before the locks and locked after. The
+  a Rocketman's at a Sparrow, normal before the locks and locked after. In `cults_vehicles` (to 1:15, on a test map,
+  debug commands on for the two Seekers' 150 Space Crystals) four Recruits go into a Chop Shop, which queues two
+  Seekers, each of the two Recruits inside the longest of those left: each comes out in its tick half inside the
+  middle of side C, facing west, the first of its Recruits, the second gone (`during`), and drives to the rally point;
+  at tick 760 the two attack-move onto two Militants and two Guards behind them (player 2's, the Syndicate), firing
+  their turrets on the move: they kill the Militants, a Guard kills one Seeker, and the other kills both Guards; every
+  hit of the game is a Seeker's on them or theirs on a Seeker. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): twenty small games, defined below and in
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): twenty-one small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
 //! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
@@ -19,7 +19,8 @@
 //! Disciples' clouds over Militants under fire, joining and splitting), `shrine.rs` (a manned Shrine's heal over
 //! Militants mid-fight and its boost of a Disciple's energy), `air.rs` (an Airstrip's three Sparrows taking off and
 //! strafing a Militant and a Guard), `anti_air.rs` (an Arsenal placed, three Rocketmen trained and two circling
-//! Sparrows shot down by Target Locks) and below (the Riot Shield game), and every test is below.
+//! Sparrows shot down by Target Locks), `vehicles.rs` (a Chop Shop's two Seekers driving out and fighting two Militants
+//! and two Guards) and below (the Riot Shield game), and every test is below.
 
 mod air;
 mod altar;
@@ -34,6 +35,7 @@ mod shroud;
 mod syndicate;
 mod temple;
 mod units;
+mod vehicles;
 
 use std::collections::BTreeMap;
 
@@ -247,4 +249,9 @@ fn golden_cults_air() {
 #[test]
 fn golden_gdo_anti_air() {
     golden("gdo_anti_air", anti_air::gdo_anti_air);
+}
+
+#[test]
+fn golden_cults_vehicles() {
+    golden("cults_vehicles", vehicles::cults_vehicles);
 }

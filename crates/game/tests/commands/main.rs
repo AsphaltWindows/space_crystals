@@ -47,7 +47,8 @@
 //! the cast's point in vision under the Cast pointer, an invalid target out of vision, the buffs and their marks, A's
 //! release of one participant and Eject All): `shrine`, on another. The Airstrip (slice M5-N7: Recruits right-clicked
 //! in, its door arrows along the runway, its KindMenu's Build Sparrow, and the Sparrow taking off): `airstrip`, on
-//! another.
+//! another. The Chop Shop (slice M5-N6: Recruits right-clicked in, its door arrows, its KindMenu's Build Seeker, greyed
+//! with one Recruit free, the Seeker driving out of side C, and its W, Reverse): `chop_shop`, on another.
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
 //! over Recruits and Militants, the group's placement with its Shift chain, and, slice M5-S4, a Hall placed flush
@@ -74,6 +75,7 @@ mod airstrip;
 mod altar;
 mod armory;
 mod cathedral;
+mod chop_shop;
 mod click_allowance;
 mod colonists;
 mod computer;

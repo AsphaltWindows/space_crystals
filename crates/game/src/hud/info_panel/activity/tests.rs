@@ -1,4 +1,5 @@
 mod armory;
+mod chop_shop;
 mod garrison;
 
 use sc_sim::testing::ScenarioBuilder;

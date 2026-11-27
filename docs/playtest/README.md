@@ -7,7 +7,8 @@ What to try in each milestone is in its own notes:
 - [M3](m3.md): the Colonists from the UI.
 - [M4](m4.md): the Syndicate from the UI.
 - [M5](m5.md): the Cults; slice M5-M writes it in full, and each slice adds what it built (so far the Airstrip and
-  the Sparrow, the Minimap and its alerts, and full screen, the playtest menu and the map explored from the start).
+  the Sparrow, the Minimap and its alerts, full screen, the playtest menu and the map explored from the start, the
+  Arsenal and the Rocketman, and the Chop Shop and the Seeker).
 
 ## Starting a pairing
 

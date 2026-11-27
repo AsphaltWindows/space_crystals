@@ -6,11 +6,13 @@
 //! M5-N4a, the spell slice M5-N4b's); the Temple's, its research keys, its releases of one Recruit and its Eject All
 //! ([`temple`], slice M5-N3); the Shrine's, its two casts, its releases of one Recruit and its Eject All ([`shrine`],
 //! slice M5-N5); the Airstrip's, the pool buildings' with its Sparrow's Q named "Build Sparrow" ([`airstrip`], slice
-//! M5-N7). The Recruitment Hall's is the Production template (slice M5-C).
+//! M5-N7); the Chop Shop's, the pool buildings' with its Seeker's Q named "Build Seeker" ([`chop_shop`], slice M5-N6).
+//! The Recruitment Hall's is the Production template (slice M5-C).
 
 pub mod airstrip;
 pub mod altar;
 pub mod armory;
+pub mod chop_shop;
 pub mod construct_menu;
 pub mod disciple;
 pub mod garrison;

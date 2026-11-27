@@ -2,6 +2,7 @@ mod agent;
 mod airstrip;
 mod altar;
 mod cathedral;
+mod chop_shop;
 mod colonists;
 mod construction;
 mod cults;

@@ -167,7 +167,9 @@ pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
 /// idle producer without a rally point, nor for a structure that doesn't produce. A Recruitment Hall's Recruit is
 /// "Recruiting", and the Hall shows no queue: it makes one Recruit at a time, by itself (slice M5-C). A pool building's
 /// TrainingQueue (`factions/cults/structures/armory.md > ArmoryInstanceState`) shows its entries by name, a Release as
-/// "Release", of its capacity, which bounds it (design change 0347 point 5); a Release under way is "Releasing" its unit
+/// "Release", and the units they reserve of its capacity, which bounds them (design change 0347 point 5; Q0104: the
+/// capacity counts the reserved units, so the Chop Shop's two Seekers are "4 / 10", slice M5-N6); a Release under way
+/// is "Releasing" its unit
 /// (slice M5-F2). An Altar's AugmentationQueue (`factions/cults/augmentation.md > Altar > AltarInstanceState`) shows its
 /// orders by name, "Enhanced Constitution", "Improved Metabolism" and "Both", and the one under way is "Augmenting" its
 /// unit, with the order: "Augmenting Militant (Enhanced Constitution): 45%" (slice M5-N1b; placeholder wording). A
@@ -211,9 +213,10 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
             names.join(", ")
         };
         let queued = production.queue.len();
+        let reserved: usize = production.reserved.iter().map(Vec::len).sum();
         let research = structure.def().structure.as_ref().and_then(|s| s.research.as_ref());
         match holding::holds(structure).filter(|_| holding::trains(structure.kind)) {
-            Some(holds) => lines.push(format!("Queue: {} ({queued} / {})", entries(), holds.capacity)),
+            Some(holds) => lines.push(format!("Queue: {} ({reserved} / {})", entries(), holds.capacity)),
             None => match research {
                 Some(research) => lines.push(format!("Queue: {} ({queued} / {})", entries(), research.queue)),
                 None if !recruits => lines.push(format!("Queue: {queued} / {QUEUE_LIMIT}")),

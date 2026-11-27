@@ -65,21 +65,20 @@ fn the_recruits_panel_shows_every_letter() {
 /// (design change 0398) opens the Basic menu, Q Recruitment Hall greyed for the bank, W Storage, A Armory (a Storage
 /// stands), S Gunworks (an Armory stands; slice M5-G2), D Garrison (an Armory stands; slice M5-N2) and X Altar (a
 /// Storage stands; slice M5-N1b), whose placement X enters and Z leaves for the menu; each Build's hint names its
-/// price. Z goes back; E opens the Advanced menu: S Machine Shop and F Scrap Hangar (slice M5-G2), D Airstrip (slice
-/// M5-N7), X Temple (slice M5-N3), C Cathedral (slice M5-N4a) and V Shrine (slice M5-N5) greyed by the gate for their
-/// TechPrerequisites, a Chop Shop, an Airstrip, an Altar and a Temple, which they name when pressed; A Chop Shop greyed
-/// as not in the game yet (0327's Verification: "W then A places a Chop Shop (greyed without an Armory)", E then A
-/// since 0398: its Build comes with its slice).
+/// price. Z goes back; E opens the Advanced menu: A Chop Shop (slice M5-N6), which an Armory allows and whose placement
+/// A enters (0327's Verification: "W then A places a Chop Shop (greyed without an Armory)", E then A since 0398) and Z
+/// leaves for the menu; S Machine Shop and F Scrap Hangar (slice M5-G2), D Airstrip (slice M5-N7), X Temple (slice
+/// M5-N3), C Cathedral (slice M5-N4a) and V Shrine (slice M5-N5) greyed by the gate for their TechPrerequisites, a Chop
+/// Shop, an Airstrip, an Altar and a Temple, which they name when pressed.
 #[test]
 fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
-    use ButtonLook::{Back, Common, Disabled, Unavailable};
+    use ButtonLook::{Back, Common, Disabled};
     use PanelCommand::Build;
     let mut app = recruit_game(250);
     select_units(&mut app, &RECRUITS);
     tap(&mut app, &[], KeyW);
     assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Basic));
     let cmd = PanelButton::Command;
-    let planned = |entry| cmd(PanelCommand::Planned(entry));
     assert_eq!(
         buttons(&mut app),
         [
@@ -114,7 +113,7 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
     tap(&mut app, &[], KeyE);
     assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Advanced));
     let entries = [
-        (a(), planned(Planned::ChopShop), Unavailable, "CS"),
+        (a(), cmd(Build(ObjectKind::ChopShop)), Common, "CS"),
         (s(), cmd(Build(ObjectKind::MachineShop)), Disabled, "MS"),
         (d(), cmd(Build(ObjectKind::Airstrip)), Disabled, "AP"),
         (f(), cmd(Build(ObjectKind::ScrapHangar)), Disabled, "SH"),
@@ -125,8 +124,8 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
     let mut expected = entries.to_vec();
     expected.insert(4, (z(), PanelButton::Back, Back, "Back"));
     assert_eq!(buttons(&mut app), expected);
-    assert_eq!(hint_over(&mut app, a()).as_deref(), Some("A: Build Chop Shop"));
     let hints = [
+        (a(), "A: Build Chop Shop (200 Space Crystals)"),
         (s(), "S: Build Machine Shop (150 Space Crystals)"),
         (d(), "D: Build Airstrip (250 Space Crystals)"),
         (f(), "F: Build Scrap Hangar (200 Space Crystals)"),
@@ -138,7 +137,10 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
         assert_eq!(hint_over(&mut app, at).as_deref(), Some(hint));
     }
     tap(&mut app, &[], KeyA);
-    assert_eq!(said(&app), Some(NOT_YET_TEXT));
+    let placing = interface(&app).placing().map(|placing| placing.kind);
+    assert_eq!(placing, Some(ObjectKind::ChopShop));
+    tap(&mut app, &[], KeyZ);
+    assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Advanced));
     tap(&mut app, &[], KeyS);
     assert_eq!(said(&app), Some("Requires a Chop Shop"));
     tap(&mut app, &[], KeyD);
