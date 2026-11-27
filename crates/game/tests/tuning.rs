@@ -16,7 +16,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use sc_sim::testing::ScenarioBuilder;
-use sc_sim::{Command, DebugCommand, ObjectId, ObjectKind, PlayerId, Scenario, SpawnAt, Tick, TilePos};
+use sc_sim::{Command, DebugCommand, ObjectId, ObjectKind, PlayerId, Ruleset, Scenario, SpawnAt, Tick, TilePos};
 use space_crystals::command_ui::feedback::TargetFeedback;
 use space_crystals::data::{TuningData, export};
 use space_crystals::hud::TopBarNote;
@@ -225,12 +225,12 @@ fn a_change_mid_game_changes_the_fight_from_its_tick_on() {
 #[test]
 fn a_refused_file_shows_in_the_feedback_line_and_the_game_goes_on() {
     let _one = one_at_a_time();
-    let barracks = |first: &str| {
-        let recipes = format!(
-            r#"[{first}, {{"kind": "Rocketman", "cost": 100, "frames": 160, "requires": ["Arsenal"]}},
-            {{"kind": "FieldEngineer", "cost": 75, "frames": 160, "requires": ["CareerCampus"]}}]"#
-        );
-        format!(r#"{{"structure": {{"production": {{"recipes": {recipes}}}}}}}"#)
+    // The Barracks' recipes, a list that a patch gives whole, the first one's cost negative.
+    let barracks = || {
+        let rules = serde_json::to_value(Ruleset::builtin_ref()).expect("the rules serialize");
+        let mut recipes = rules["defs"]["Barracks"]["structure"]["production"]["recipes"].clone();
+        recipes[0]["cost"] = serde_json::json!(-50);
+        serde_json::json!({"structure": {"production": {"recipes": recipes}}}).to_string()
     };
     let cases = [
         (
@@ -246,7 +246,7 @@ fn a_refused_file_shows_in_the_feedback_line_and_the_game_goes_on() {
         ),
         (
             "defs/gdo/structures/barracks.json",
-            barracks(r#"{"kind": "Peacekeeper", "cost": -50, "frames": 80, "requires": []}"#),
+            barracks(),
             "defs/gdo/structures/barracks.json: structure.production.recipes[0].cost: must be positive",
         ),
         (

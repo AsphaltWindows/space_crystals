@@ -5884,8 +5884,9 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   zoom, the tuned width over the built-in one (`camera::follow_view_width`); the editor runs on the built-in feel.
 - **The data files** (`crates/game/src/data/`, slice M5-X2, `docs/tuning.md`): `--export-data <dir>` writes the
   ruleset and the client's feel as JSON files that mirror their modules (`data/layout.rs`: `defs/<faction>/{units,
-  structures}/<kind>.json`, `defs/<faction>.json`, `defs/bases/<base>.json`, `tuning/<system>.json`,
-  `client/<module>.json`), each pretty-printed in its fields' order. `--tuning <dir>` (a game's, with debug commands
+  structures}/<kind>.json`, or `defs/<faction>/<kind>.json` for a kind that is neither, the GDO's Mine;
+  `defs/<faction>.json`, `defs/bases/<base>.json`, `tuning/<system>.json`, `client/<module>.json`), each
+  pretty-printed in its fields' order. `--tuning <dir>` (a game's, with debug commands
   on) reads each file as an RFC 7386 merge patch over its counterpart (`data/patch.rs`) and refuses a directory whole,
   naming the file and the member: an unknown file or member, a value of the wrong kind, a number out of its sign,
   structure (`Ruleset::structural_diff`), a number not finite, or one `Ruleset::check` refuses (`data/load.rs`). The

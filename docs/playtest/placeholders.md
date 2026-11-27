@@ -18,7 +18,22 @@ data files). Regenerate it before a playtest:
 
 <!-- generated: placeholders, begin; regenerate it, don't edit it -->
 
-240 marks.
+252 marks.
+
+## GDO (12)
+
+- **Q0001** The GDO's mine (`factions/gdo/units/twister.md > Mines`, design change 0366, slice M6-GK): "closer to a permanently deployed unit" (design change 0426), so drawn as a unit's body, small and untagged: an octagon of its 16 su Silhouette, its label, "ME", the first and last letters of its one-word name, on its portrait only. Placeholder (Q0001): its look and its hiding ("hidden underground") are slice M6-GM's, which has a Twister lay it; it has no panel ("no commands in its panel yet"). (`crates/game/src/kinds/gdo/mine.rs`)
+- `sight_range: 0.0`: Placeholder (not in the design: a mine's SightRange): 0, as a map resource's: it is hidden underground. (`crates/sim/src/defs/gdo/mine.rs`)
+- `NONE`: Placeholder (not in the design: a mine's armour): none. (`crates/sim/src/defs/gdo/mine.rs`)
+- `groupable: true`: Placeholder (not in the design: the Outpost's Groupable): true, as every GDO building that constructs nothing (only the constructors, the Deployment Center and the Extraction Facility, and the Radar Station aren't). (`crates/sim/src/defs/gdo/structures/outpost.rs`)
+- `SingleTarget`: Placeholder (not in the design: the Dragonfly's TargetType): SingleTarget, its Damage a missile's. (`crates/sim/src/defs/gdo/units/dragonfly.rs`)
+- **Q0181** `separation_radius: Some(32.0)`: Placeholder (Q0181): SeparationRadius 32 su, its Silhouette's side and 8 su, as the Sparrow's and the Dragonfly's 48 on their 40 (`systems/units.md > Air Collision`: "Must be larger than the unit's Silhouette"). (`crates/sim/src/defs/gdo/units/drone_operator.rs`)
+- `SingleTarget`: Placeholder (not in the design: the Hornet's TargetType): SingleTarget, its Damage a missile's. (`crates/sim/src/defs/gdo/units/hornet.rs`)
+- **Q0181** `separation_radius: Some(56.0)`: Placeholder (Q0181): SeparationRadius 56 su, its Silhouette's side and 8 su, as the Sparrow's and the Dragonfly's 48 on their 40 (`systems/units.md > Air Collision`: "Must be larger than the unit's Silhouette"). (`crates/sim/src/defs/gdo/units/hornet.rs`)
+- `SingleTarget`: Placeholder (not in the design: the Raptor's TargetType): SingleTarget, its Damage a missile's. (`crates/sim/src/defs/gdo/units/raptor.rs`)
+- `unit_control_cost: Some(2)`: Placeholder (not in the design: the Supply Chopper's UnitControlCost): 2, a vehicle's (the Raptor's, the Twister's, the Hornet's); `factions/gdo/overview.md > Unit Control`: "Each GDO unit has a Unit Control cost". (`crates/sim/src/defs/gdo/units/supply_chopper.rs`)
+- **Q0181** `separation_radius: Some(68.0)`: Placeholder (Q0181): SeparationRadius 68 su, its Silhouette's side and 8 su, as the Sparrow's and the Dragonfly's 48 on their 40 (`systems/units.md > Air Collision`: "Must be larger than the unit's Silhouette"). (`crates/sim/src/defs/gdo/units/supply_chopper.rs`)
+- `SingleTarget`: Placeholder (not in the design: the Twister's TargetType): SingleTarget, a machine gun's (the Seeker's and the Sparrow's). (`crates/sim/src/defs/gdo/units/twister.rs`)
 
 ## Syndicate (8)
 

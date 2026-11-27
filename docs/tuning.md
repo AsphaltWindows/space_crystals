@@ -21,6 +21,7 @@ the Rust struct's order, so it reads like its module.
 |---|---|---|
 | `defs/<faction>/units/<unit>.json` | a unit's def | `crates/sim/src/defs/<faction>/units/<unit>.rs` |
 | `defs/<faction>/structures/<building>.json` | a building's def | `crates/sim/src/defs/<faction>/structures/<building>.rs` |
+| `defs/<faction>/<object>.json` | a def that is neither a unit nor a building: the GDO's Mine | `crates/sim/src/defs/<faction>/<object>.rs` |
 | `defs/map/<object>.json` | a def of no faction: the Crystal Patch, the Supply Delivery Station | `crates/sim/src/defs/map/<object>.rs` |
 | `defs/<faction>.json` | a faction's own rules: the caps; the Cults' augmentations, techs and abilities | `crates/sim/src/defs/<faction>.rs` |
 | `defs/bases/<base>.json` | a unit base: `light_infantry`, `mech`, `glider`, ... | `crates/sim/src/defs/units/bases.rs` |
@@ -31,6 +32,8 @@ File names are the kinds in snake case: the Peacekeeper's def is `defs/gdo/units
 kind turns into shares its kind's module, but has a file of its own beside it:
 
 - `peacekeeper_shielded.json` (from `peacekeeper.rs`);
+- `artillery_rig_deployed.json` (from `artillery_rig.rs`);
+- `operator_drone.json` (from `drone_operator.rs`);
 - `laser_battery_deployed.json` (from `laser_battery.rs`);
 - `subterranean_transport_burrowed.json` (from `subterranean_transport.rs`).
 

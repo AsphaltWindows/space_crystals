@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use sc_sim::{ObjectKind, Ruleset};
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::layout::{Part, snake_case};
 use super::load::builtin;
@@ -67,9 +67,10 @@ fn a_merge_patch_merges_objects_and_replaces_the_rest() {
 }
 
 /// The layout mirrors the def modules (`super::layout`): every kind's file lies in its def module's folder of the
-/// registry (`sc_sim::defs`'s `kind_registry!`), named after the kind, which is its module's own file but for the
-/// forms that share another kind's module (`PeacekeeperShielded` in `peacekeeper.rs`), each beside it. Every kind,
-/// unit base, faction, tuning module and client module has its file, and no two share one.
+/// registry (`sc_sim::defs`'s `kind_registry!`; the GDO's Mine, neither a unit nor a building, in `gdo/`), named after
+/// the kind, which is its module's own file but for the forms that share another kind's module (`PeacekeeperShielded`
+/// in `peacekeeper.rs`), each beside it. Every kind, unit base, faction, tuning module and client module has its file,
+/// and no two share one.
 #[test]
 fn the_files_mirror_the_def_modules_and_cover_every_part() {
     let layout = &builtin().layout;
@@ -102,6 +103,8 @@ fn the_files_mirror_the_def_modules_and_cover_every_part() {
         shared,
         [
             "PeacekeeperShielded",
+            "ArtilleryRigDeployed",
+            "OperatorDrone",
             "LaserBatteryDeployed",
             "SubterraneanTransportBurrowed"
         ],
@@ -251,22 +254,23 @@ fn a_zero_speed_and_a_negative_cost_are_refused() {
         refusal("zero_speed", "defs/gdo/units/peacekeeper.json", speed).to_string(),
         "defs/gdo/units/peacekeeper.json: unit.movement.TurnRate.max_speed: must be positive"
     );
-    let recipes = |first: &str| {
+    // The Barracks' recipes, a list that a patch gives whole, with the first one's `member` at `value`.
+    let recipes = |member: &str, value: Value| {
         let mut barracks = builtin().rules["defs"]["Barracks"]["structure"]["production"]["recipes"].clone();
-        barracks[0] = serde_json::from_str(first).expect("JSON");
+        barracks[0][member] = value;
         json!({"structure": {"production": {"recipes": barracks}}}).to_string()
     };
-    let cost = recipes(r#"{"kind": "Peacekeeper", "cost": -50, "frames": 80, "requires": []}"#);
+    let cost = recipes("cost", json!(-50));
     assert_eq!(
         refusal("negative_cost", "defs/gdo/structures/barracks.json", &cost).to_string(),
         "defs/gdo/structures/barracks.json: structure.production.recipes[0].cost: must be positive"
     );
-    let frames = recipes(r#"{"kind": "Peacekeeper", "cost": 50, "frames": 70000, "requires": []}"#);
+    let frames = recipes("frames", json!(70000));
     assert_eq!(
         refusal("frames", "defs/gdo/structures/barracks.json", &frames).to_string(),
         "defs/gdo/structures/barracks.json: structure.production.recipes[0].frames: must be at most 65535 ticks"
     );
-    let cheaper = recipes(r#"{"kind": "Peacekeeper", "cost": 40, "frames": 80, "requires": []}"#);
+    let cheaper = recipes("cost", json!(40));
     let read = data("cheaper", "defs/gdo/structures/barracks.json", &cheaper);
     let production = (read.rules.def(ObjectKind::Barracks).structure.as_ref()).and_then(|s| s.production.as_ref());
     assert_eq!(

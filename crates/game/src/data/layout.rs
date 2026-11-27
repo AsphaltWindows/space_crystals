@@ -2,9 +2,10 @@
 //! them (plan decision T66):
 //!
 //! - `defs/<faction>/units/<object>.json` and `defs/<faction>/structures/<object>.json`: an object type's def
-//!   (`Ruleset::defs`), by its faction and whether it is a unit, its file named after the kind in snake case
-//!   (`Peacekeeper`'s `defs/gdo/units/peacekeeper.json`); a type of no faction's in `defs/map/<object>.json`. So each
-//!   file mirrors its def module, `crates/sim/src/defs/<faction>/{units,structures}/<object>.rs` and
+//!   (`Ruleset::defs`), by its faction and whether it is a unit or a building, its file named after the kind in snake
+//!   case (`Peacekeeper`'s `defs/gdo/units/peacekeeper.json`); (M6-GK) one that is neither, the GDO's Mine, in its
+//!   faction's folder, `defs/gdo/mine.json`; a type of no faction's in `defs/map/<object>.json`. So each file mirrors
+//!   its def module, `crates/sim/src/defs/<faction>/{units,structures}/<object>.rs`, `defs/<faction>/<object>.rs` and
 //!   `crates/sim/src/defs/map/<object>.rs` (the kind registry, `sc_sim::defs`), but for the forms a kind turns into,
 //!   which have a file of their own beside the module they share (`peacekeeper_shielded.json`);
 //! - `defs/<faction>.json`: a faction's own rules (`Ruleset::factions`: the Cults' with their technologies and
@@ -43,12 +44,13 @@ impl Layout {
             let faction = def.get("faction").and_then(Value::as_str).map(snake_case);
             let path = match faction {
                 Some(faction) => {
-                    let folder = if def.get("unit").is_some_and(|unit| !unit.is_null()) {
-                        "units"
-                    } else {
-                        "structures"
+                    let has = |part: &str| def.get(part).is_some_and(|part| !part.is_null());
+                    let folder = match (has("unit"), has("structure")) {
+                        (true, _) => "units/",
+                        (false, true) => "structures/",
+                        (false, false) => "",
                     };
-                    format!("defs/{faction}/{folder}/{}.json", snake_case(kind))
+                    format!("defs/{faction}/{folder}{}.json", snake_case(kind))
                 }
                 None => format!("defs/map/{}.json", snake_case(kind)),
             };
