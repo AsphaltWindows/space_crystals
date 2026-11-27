@@ -73,6 +73,7 @@ pub(crate) const PHANTOM_RECIPE: Recipe = Recipe {
     cost: 175,
     frames: 320,
     requires: &[ObjectKind::OpticsLab],
+    supplies: 0,
 };
 
 /// W: the Specter, behind a Vault and a Chemical Plant, for slice M6-SA.
@@ -82,6 +83,7 @@ pub(crate) const SPECTER_RECIPE: Recipe = Recipe {
     cost: 200,
     frames: 400,
     requires: &[ObjectKind::Vault, ObjectKind::ChemicalPlant],
+    supplies: 0,
 };
 
 /// E: the Prism, behind an Orbital Command, for slice M6-SP.
@@ -91,6 +93,7 @@ pub(crate) const PRISM_RECIPE: Recipe = Recipe {
     cost: 250,
     frames: 480,
     requires: &[ObjectKind::OrbitalCommand],
+    supplies: 0,
 };
 
 #[cfg(test)]

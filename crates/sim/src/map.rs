@@ -259,6 +259,17 @@ impl Map {
         crate::units::clamp_to_map(p, self.width, self.height)
     }
 
+    /// (M6-GK) The point nearest to `p` at which a box of half extents `half` lies on the map: `p` itself where it
+    /// does. Where a HoverCraft is held (`systems/units.md > Air Collision > Map edge`: "HoverCraft stay inside the
+    /// map"; design change 0045: "clamp HoverCraft to the map"): by its own move (`movement::step`), by the push of the
+    /// soft separation (`movement::air`), at the end of its path (`paths::serve`) and by the gate (`Sim::check_unit_fits`).
+    /// A box wider than the map lies across its middle.
+    pub fn clamp_box(&self, p: Vec2, half: Vec2) -> Vec2 {
+        let size = Vec2::new(self.width as f32, self.height as f32) * crate::units::SU_PER_GU;
+        let half = half.min(size / 2.0);
+        p.clamp(half, size - half)
+    }
+
     fn index(&self, p: TilePos) -> Option<usize> {
         self.in_bounds(p)
             .then(|| p.y as usize * self.width as usize + p.x as usize)

@@ -20,7 +20,9 @@
 //! - `attack_move`: an AttackMove strafes what it meets on the way and ends in idle circling over its destination
 //!   (`systems/controls/command_behaviors.md > AttackMovingToLocation`, GliderMovement exception);
 //! - `edge`: circling near the map's edge takes it past the edge, where it stays visible and attackable as at the
-//!   nearest edge tile; a click past the edge sends it to the edge (`systems/units.md > Air Collision`);
+//!   nearest edge tile; a click past the edge sends it to the edge (`systems/units.md > Air Collision`). (M6-GK) A
+//!   HoverCraft, a Hornet, stays inside the map ("HoverCraft stay inside the map"): the gate puts it only where its box
+//!   lies on the map, its own move is held there, and sent to a corner or an edge it arrives with its box on the map;
 //! - `separation`: six Sparrows sent to one point circle it without stacking (`systems/units.md > Air Collision`:
 //!   SeparationRadius); (M5-H2) design change 0405's Verification: pushed by (M5-N7) a third of a HoverCraft's push
 //!   (design change 0412: "Gliders push apart slowly", a quarter before), they drift apart while they circle it and

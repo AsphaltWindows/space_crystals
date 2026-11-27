@@ -54,12 +54,12 @@
 //! `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124).
 //!
 //! A Deployment Center (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`,
-//! design change 0104) opens BuildMenu\[Basic\] (Q) and BuildMenu\[Advanced\] (W, unavailable while none of its
-//! buildings is in the game); a menu's entry constructs its building and returns to DefaultState; once the building
-//! is ready, its entry enters AwaitingPlacement; X cancels the construction, or the building ready to place. An
-//! Extraction Facility (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`)
-//! does the same with its plate from DefaultState: Q builds it, then places it. Their commands go to the one
-//! instance whose state the panel shows ([`recipients`]).
+//! design change 0104) opens BuildMenu\[Basic\] (Q) and BuildMenu\[Advanced\] (W), every building in its slot, those
+//! it doesn't construct yet greyed (slice M6-GK); a menu's entry constructs its building and returns to DefaultState;
+//! once the building is ready, its entry enters AwaitingPlacement; X cancels the construction, or the building ready
+//! to place. An Extraction Facility (`factions/gdo/economy.md > ExtractionFacility >
+//! ObjectInterfaceState[ExtractionFacility]`) does the same with its plate from DefaultState: Q builds it, then places
+//! it. Their commands go to the one instance whose state the panel shows ([`recipients`]).
 //!
 //! The Colonists build by transforming (slice M3-J1, design change 0124). A Beacon (`factions/colonists/economy.md >
 //! Beacon > Beacon ObjectInterfaceState`) opens Warp In (Basic) (Q) and Warp In (Advanced) (W) like the Deployment

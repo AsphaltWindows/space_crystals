@@ -4,7 +4,7 @@
 use sc_sim::{ConstructionCommand, Constructor};
 
 use super::*;
-use crate::command_ui::feedback::unavailable_text;
+use crate::command_ui::feedback::{NOT_YET_TEXT, unavailable_text};
 
 const DC: ObjectKind = ObjectKind::DeploymentCenter;
 const EF: ObjectKind = ObjectKind::ExtractionFacility;
@@ -26,14 +26,17 @@ fn busy(kind: ObjectKind, constructor: Constructor) -> Conditions {
 }
 
 /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104):
-/// DefaultState opens BuildMenu[Basic] (Q) and BuildMenu[Advanced] (W, unavailable: none of its buildings is in the
-/// game yet); the idle Basic menu constructs a Generator (Q), a Barracks (W), an Extraction Facility (E), an Arsenal
-/// (S, slice M5-K) or a Career Campus (D, slice M5-N9), its other slots hidden; Z is Back; X shows only while something
-/// is constructed or ready.
+/// DefaultState opens BuildMenu[Basic] (Q) and BuildMenu[Advanced] (W); the idle Basic menu constructs a Generator
+/// (Q), a Barracks (W), an Extraction Facility (E), an Arsenal (S, slice M5-K) or a Career Campus (D, slice M5-N9),
+/// and (slice M6-GK) holds the slots of its Supply Tower (R), Radar Station (A) and Defense System (F), greyed "Not
+/// available yet" with their labels and names; Z is Back; X shows only while something is constructed or ready. The
+/// Advanced menu holds the slots of its five, all greyed: the Factory (Q), Advanced Mechanics (W), the Airfield (E),
+/// Propulsion Labs (R) and the Industrial Powerplant (A).
 #[test]
 fn the_deployment_center_opens_its_build_menus() {
     use ButtonLook::{Back, Common, Disabled, Group, Unavailable};
     use PanelCommand::{BuildMenu as Menu, Construct};
+    let planned = |planned| PanelButton::Command(PanelCommand::Planned(planned));
     let dc = Selection::new([(id(1), DC)]);
     let idle = Conditions::default().with_constructor(Constructor::Idle);
     let default = panel(&dc, InterfaceState::DefaultState, &idle);
@@ -43,12 +46,12 @@ fn the_deployment_center_opens_its_build_menus() {
         shown(&default),
         [
             (q, command(Menu(BuildMenu::Basic)), Common),
-            (w, command(Menu(BuildMenu::Advanced)), Unavailable),
+            (w, command(Menu(BuildMenu::Advanced)), Common),
         ]
     );
     assert_eq!([q, w].map(|s| default.get(s).unwrap().label()), ["Basic", "Adv."]);
     assert_eq!(press(&default, q), SlotPress::OpenMenu(BuildMenu::Basic));
-    assert_eq!(press(&default, w), SlotPress::Nothing, "nothing to build in it yet");
+    assert_eq!(press(&default, w), SlotPress::OpenMenu(BuildMenu::Advanced));
 
     let basic = InterfaceState::BuildMenu(BuildMenu::Basic);
     let menu = panel(&dc, basic, &idle);
@@ -58,15 +61,27 @@ fn the_deployment_center_opens_its_build_menus() {
             (q, command(Construct(GENERATOR)), Common),
             (w, command(Construct(BARRACKS)), Common),
             (e, command(Construct(EF)), Common),
+            (slot(0, 3), planned(Planned::SupplyTower), Unavailable),
+            (slot(1, 0), planned(Planned::RadarStation), Unavailable),
             (slot(1, 1), command(Construct(ObjectKind::Arsenal)), Common),
             (slot(1, 2), command(Construct(ObjectKind::CareerCampus)), Common),
+            (slot(1, 3), planned(Planned::DefenseSystem), Unavailable),
             (CommandSlot::BACK, PanelButton::Back, Back),
         ]
     );
     assert_eq!([q, w, e].map(|s| menu.get(s).unwrap().label()), ["GN", "BR", "EF"]);
     assert_eq!(
-        [slot(1, 1), slot(1, 2)].map(|s| menu.get(s).unwrap().label()),
-        ["AL", "CC"]
+        [slot(0, 3), slot(1, 0), slot(1, 1), slot(1, 2), slot(1, 3)].map(|s| menu.get(s).unwrap().label()),
+        ["SPT", "RS", "AL", "CC", "DS"]
+    );
+    for s in [slot(0, 3), slot(1, 0), slot(1, 3)] {
+        assert_eq!(menu.get(s).unwrap().why.map(unavailable_text), Some(NOT_YET_TEXT));
+        assert_eq!(press(&menu, s), SlotPress::Nothing);
+    }
+    let names = [slot(0, 3), slot(1, 0), slot(1, 3)].map(|s| menu.get(s).unwrap().name());
+    assert_eq!(
+        names,
+        ["Build Supply Tower", "Build Radar Station", "Build Defense System"]
     );
     assert_eq!(
         press(&menu, q),
@@ -82,7 +97,23 @@ fn the_deployment_center_opens_its_build_menus() {
     assert!(still_valid(basic, &dc, true, &idle));
     assert!(!still_valid(basic, &dc, false, &idle), "not commandable");
     let advanced = InterfaceState::BuildMenu(BuildMenu::Advanced);
-    assert!(!still_valid(advanced, &dc, true, &idle), "unavailable");
+    assert!(still_valid(advanced, &dc, true, &idle));
+    let menu = panel(&dc, advanced, &idle);
+    assert_eq!(
+        shown(&menu),
+        [
+            (q, planned(Planned::Factory), Unavailable),
+            (w, planned(Planned::AdvancedMechanics), Unavailable),
+            (e, planned(Planned::Airfield), Unavailable),
+            (slot(0, 3), planned(Planned::PropulsionLabs), Unavailable),
+            (slot(1, 0), planned(Planned::IndustrialPowerplant), Unavailable),
+            (CommandSlot::BACK, PanelButton::Back, Back),
+        ]
+    );
+    let labels = [q, w, e, slot(0, 3), slot(1, 0)].map(|s| menu.get(s).unwrap().label());
+    assert_eq!(labels, ["FY", "AM", "AD", "PL", "IP"]);
+    assert_eq!(press(&menu, q), SlotPress::Nothing);
+    assert_eq!(menu.get(q).unwrap().name(), "Build Factory");
     // A Peacekeeper beside the Deployment Center (the Peacekeepers' group comes first: Tab to the Deployment
     // Center): its commands are group commands.
     let mut mixed = Selection::new([(id(1), DC), (id(2), PK)]);

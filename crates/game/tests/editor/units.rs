@@ -30,7 +30,9 @@ fn mode(app: &App) -> ClientMode {
 
 /// Both Peacekeeper types (design change 0173), like the Legionnaires' two forms: a map may place a Peacekeeper
 /// (Shielded), its shield up from the start; the Field Engineer (slice M5-N9) and the Rocketman (slice M5-K) after
-/// them, in the order of the kinds.
+/// them, in the order of the kinds, then slice M6-GK's ten, which a map may place though no building makes them yet,
+/// the Artillery Rig's two types and the Drone Operator's drone among them. (The GDO's mine is in a group of its own,
+/// "GDO mines".)
 /// The Syndicate's Agent follows its Guard (slice M4-A), and its Grenadier the Agent (slice M4-U), in the order of the
 /// kinds, then slice M6-SK's nine, which a map may place though no building makes them yet, each unit's second type
 /// after its first. The Cults' come between the Syndicate's and the Colonists', in `Faction::ALL`'s order: slice M5-A's three,
@@ -52,7 +54,17 @@ fn the_palette_lists_the_units_of_each_faction() {
                     PK,
                     ObjectKind::PeacekeeperShielded,
                     ObjectKind::FieldEngineer,
-                    ObjectKind::Rocketman
+                    ObjectKind::Rocketman,
+                    ObjectKind::Raptor,
+                    ObjectKind::Twister,
+                    ObjectKind::Prospector,
+                    ObjectKind::ArtilleryRig,
+                    ObjectKind::ArtilleryRigDeployed,
+                    ObjectKind::Hornet,
+                    ObjectKind::Dragonfly,
+                    ObjectKind::DroneOperator,
+                    ObjectKind::OperatorDrone,
+                    ObjectKind::SupplyChopper
                 ]
             ),
             (

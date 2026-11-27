@@ -165,6 +165,10 @@ impl Sim {
             if !shape.clear_on(grid) {
                 return Err(Reject::Blocked);
             }
+        } else if !unit.glides() && self.map.clamp_box(pos, half) != pos {
+            // (M6-GK) No grid holds a HoverCraft's box on the map, as a ground unit's holds its own: the map does
+            // (`systems/units.md > Air Collision > Map edge`: "HoverCraft stay inside the map"). A Glider may be past it.
+            return Err(Reject::Blocked);
         }
         // The grids catch up with this tick's spawns and removals only in phase 5b: footprints are checked
         // directly too, so a unit can't be put on a station spawned earlier in the tick.

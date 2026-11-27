@@ -223,7 +223,9 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
 }
 
 /// Every object stays where the sim's rules allow it. Units (`docs/movement.md > 8`): I2, a ground unit's box
-/// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick, (M5-H1) an
+/// overlaps no blocked tile and stays inside the map, and (M6-GK) a HoverCraft's stays inside the map too
+/// (`systems/units.md > Air Collision > Map edge`: "HoverCraft stay inside the map"; design change 0045); I3, no unit
+/// moves more than its top speed in a tick, (M5-H1) an
 /// air unit that keeps apart from others more than that and the push of their soft separation (`SEPARATION_PUSH_SU`,
 /// (M5-H2) its base's share of it, `UnitBaseDef::separation_strength`).
 /// A Glider may fly past the map's edge, and counts as being at the nearest edge tile (`Object::map_pos`): that is on
@@ -269,6 +271,13 @@ fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
                     None => shape.clear_on(grid),
                 };
                 assert!(clear, "I2 in tick {tick}: {o:?}");
+            } else if !unit.glides() {
+                // (M6-GK) A HoverCraft, which no grid holds, keeps its box on the map by itself (`Map::clamp_box`).
+                assert_eq!(
+                    map.clamp_box(o.pos, half),
+                    o.pos,
+                    "I2 in tick {tick}, off the map: {o:?}"
+                );
             }
             let moved = o.pos.distance(o.prev_pos);
             let base = unit.base_def();
@@ -596,7 +605,7 @@ fn any_spawn_settings_are_handled() {
                     delivery_size: value(),
                     delivery_interval: value(),
                 }),
-                // Units and structures have no per-object values.
+                // Units, structures and (M6-GK) the mine have no per-object values.
                 ObjectKind::Peacekeeper
                 | ObjectKind::Guard
                 | ObjectKind::DeploymentCenter
@@ -644,6 +653,29 @@ fn any_spawn_settings_are_handled() {
                 | ObjectKind::FieldEngineer
                 | ObjectKind::Arsenal
                 | ObjectKind::Rocketman
+                | ObjectKind::Factory
+                | ObjectKind::Airfield
+                | ObjectKind::AdvancedMechanics
+                | ObjectKind::PropulsionLabs
+                | ObjectKind::IndustrialPowerplant
+                | ObjectKind::RadarStation
+                | ObjectKind::DefenseSystem
+                | ObjectKind::MissileTurret
+                | ObjectKind::Outpost
+                | ObjectKind::Bunker
+                | ObjectKind::FirstAidTent
+                | ObjectKind::SupplyTower
+                | ObjectKind::Raptor
+                | ObjectKind::Twister
+                | ObjectKind::Prospector
+                | ObjectKind::ArtilleryRig
+                | ObjectKind::ArtilleryRigDeployed
+                | ObjectKind::Hornet
+                | ObjectKind::Dragonfly
+                | ObjectKind::DroneOperator
+                | ObjectKind::OperatorDrone
+                | ObjectKind::SupplyChopper
+                | ObjectKind::Mine
                 | ObjectKind::Vault
                 | ObjectKind::VehicleAssembly
                 | ObjectKind::Forge

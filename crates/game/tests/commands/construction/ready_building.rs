@@ -24,14 +24,18 @@ fn a_ready_generator_is_placed_where_the_ghost_is_green() {
     assert_eq!(activity(&mut app).as_deref(), Some("Generator ready to place"));
     tap(&mut app, &[], KeyQ);
     let c = PanelButton::Command;
+    let [supply_tower, radar_station, defense_system] = not_yet_basic();
     assert_eq!(
         buttons(&mut app),
         [
             (q(), c(PlaceReady(GENERATOR)), Common, "Place"),
             (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
+            supply_tower,
+            radar_station,
             (s(), c(Construct(ARSENAL)), Disabled, "AL"),
             (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
+            defense_system,
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (X, c(CancelReady), Common, "Cancel"),
         ]

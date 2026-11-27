@@ -19,6 +19,10 @@
 //! The Field Engineer's Construct menu holds its two buildings' slots (slice M5-N9,
 //! `factions/gdo/units/field_engineer.md > Placeholder stats`: "both greyed until designed"). The Disciple's R held its
 //! spell's, Shroud, from slice M5-N4a until slice M5-N4b (`super::super::PanelCommand::Shroud`).
+//! (M6-GK) The Deployment Center's build menus hold the slots of the eight buildings it doesn't construct yet
+//! (`factions/gdo/structures/deployment_center.md > Two build menus`), each in the game but greyed until its slice makes
+//! its entry live (`super::gdo::deployment_center`). The Field Engineer's two are in the game since then too, and stay
+//! greyed until slice M6-GB.
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
@@ -63,11 +67,22 @@ pub enum Planned {
     /// in its order (`super::gdo::field_engineer::CONSTRUCT_MENU`).
     Bunker,
     FirstAidTent,
+    /// (M6-GK) The buildings of the Deployment Center's build menus that it doesn't construct yet
+    /// (`factions/gdo/structures/deployment_center.md > Constructs`), in its Constructs order: each in the game (plan
+    /// decision T84), its entry held until its slice (`sc_sim::defs::PLANNED_RECIPES`).
+    SupplyTower,
+    Factory,
+    RadarStation,
+    AdvancedMechanics,
+    Airfield,
+    PropulsionLabs,
+    IndustrialPowerplant,
+    DefenseSystem,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 22] = [
+    pub const ALL: [Planned; 30] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -90,6 +105,14 @@ impl Planned {
         Planned::OrbitalCommand,
         Planned::Bunker,
         Planned::FirstAidTent,
+        Planned::SupplyTower,
+        Planned::Factory,
+        Planned::RadarStation,
+        Planned::AdvancedMechanics,
+        Planned::Airfield,
+        Planned::PropulsionLabs,
+        Planned::IndustrialPowerplant,
+        Planned::DefenseSystem,
     ];
 
     /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
@@ -125,6 +148,14 @@ impl Planned {
             Planned::OrbitalCommand => "Orbital Command",
             Planned::Bunker => "Bunker",
             Planned::FirstAidTent => "First Aid Tent",
+            Planned::SupplyTower => "Supply Tower",
+            Planned::Factory => "Factory",
+            Planned::RadarStation => "Radar Station",
+            Planned::AdvancedMechanics => "Advanced Mechanics",
+            Planned::Airfield => "Airfield",
+            Planned::PropulsionLabs => "Propulsion Labs",
+            Planned::IndustrialPowerplant => "Industrial Powerplant",
+            Planned::DefenseSystem => "Defense System",
         }
     }
 
@@ -139,7 +170,7 @@ impl Planned {
     /// "BR", being the Barracks'. An entry's type takes
     /// its label with it into the game (the Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the
     /// Gunworks' "GS", the Garrison's "GA", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr."
-    /// (slice M4-G).
+    /// (slice M4-G). (M6-GK) The Deployment Center's eight, whose types are in the game, have their types' labels.
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -164,13 +195,36 @@ impl Planned {
             Planned::OrbitalCommand => "OC",
             Planned::Bunker => "BKR",
             Planned::FirstAidTent => "FAT",
+            Planned::SupplyTower => "SPT",
+            Planned::Factory => "FY",
+            Planned::RadarStation => "RS",
+            Planned::AdvancedMechanics => "AM",
+            Planned::Airfield => "AD",
+            Planned::PropulsionLabs => "PL",
+            Planned::IndustrialPowerplant => "IP",
+            Planned::DefenseSystem => "DS",
         }
     }
 
     /// Whether it is a unit, of a production panel; else a building, of the Beacon's Warp In menus, the Tunnel's
-    /// ExpandMenu or the Field Engineer's Construct menu.
+    /// ExpandMenu, the Field Engineer's Construct menu or (M6-GK) the Deployment Center's build menus.
     pub fn is_unit(self) -> bool {
         matches!(self, Planned::Scout | Planned::Lancer | Planned::PsionicUnit)
+    }
+
+    /// (M6-GK) Whether it is a building of the Deployment Center's build menus.
+    pub fn is_constructed(self) -> bool {
+        matches!(
+            self,
+            Planned::SupplyTower
+                | Planned::Factory
+                | Planned::RadarStation
+                | Planned::AdvancedMechanics
+                | Planned::Airfield
+                | Planned::PropulsionLabs
+                | Planned::IndustrialPowerplant
+                | Planned::DefenseSystem
+        )
     }
 
     /// Whether it is an expansion of the Tunnel's ExpandMenu.
@@ -188,7 +242,8 @@ impl Planned {
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
     /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
-    /// (`PanelCommand::Expand`). The Field Engineer's as the design names its abilities
+    /// (`PanelCommand::Expand`); (M6-GK) "Build Factory", as the Deployment Center's buildings are constructed
+    /// (`PanelCommand::Construct`). The Field Engineer's as the design names its abilities
     /// (`factions/gdo/units/field_engineer.md > Abilities`): "**Build Bunker**", "**Set up First Aid Tent**".
     pub fn command_name(self) -> String {
         if self == Planned::FirstAidTent {
@@ -197,7 +252,7 @@ impl Planned {
             format!("Build {}", self.name())
         } else if self.is_unit() {
             format!("Train {}", self.name())
-        } else if self.is_expansion() {
+        } else if self.is_expansion() || self.is_constructed() {
             format!("Build {}", self.name())
         } else {
             format!("Warp In {}", self.name())

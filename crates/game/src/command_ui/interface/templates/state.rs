@@ -24,7 +24,8 @@ pub(super) fn constructs(kind: ObjectKind) -> bool {
 /// menu (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`: every building of the design's
 /// menu, those not in the game unavailable), a Recruit's Construct menu (slice M5-J1, the same:
 /// `cults::construct_menu`), a Field Engineer's (slice M5-N9, its buildings not in the game yet:
-/// `gdo::field_engineer::menu`), else the Deployment Center's menu, its buildings to construct.
+/// `gdo::field_engineer::menu`), else the Deployment Center's menu, its buildings to construct and (slice M6-GK) the
+/// ones it will, greyed (`gdo::deployment_center::menu`).
 pub fn menu_grid(kind: ObjectKind, menu: BuildMenu) -> [Option<PanelCommand>; 12] {
     if colonists::warps_in(kind) {
         colonists::beacon::warp_in_menu(menu)
@@ -33,7 +34,7 @@ pub fn menu_grid(kind: ObjectKind, menu: BuildMenu) -> [Option<PanelCommand>; 12
     } else if InterfaceTemplate::of(kind) == Some(InterfaceTemplate::FieldEngineer) {
         gdo::field_engineer::menu(menu)
     } else {
-        menu.entries().map(|entry| entry.map(PanelCommand::Construct))
+        *menu.entries()
     }
 }
 

@@ -61,6 +61,7 @@ pub(crate) const AIRSTRIP: ObjectDef = ObjectDef {
                     cost: 75,
                     frames: 320,
                     requires: &[],
+                    supplies: 0,
                 },
             ],
             recruitment: None,
@@ -144,7 +145,8 @@ mod tests {
                 kind: ObjectKind::Sparrow,
                 cost: 75,
                 frames: 320,
-                requires: &[]
+                requires: &[],
+                supplies: 0,
             }]
         );
         assert_eq!((production.recruitment, production.augment), (None, &[][..]));

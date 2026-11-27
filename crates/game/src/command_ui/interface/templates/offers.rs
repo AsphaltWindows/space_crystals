@@ -91,9 +91,9 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// its own buildings (its `Constructs` list), from its Place slot too if it has one (the Deployment Center's E:
 /// `super::place_slot`), and its Cancels, a Beacon the buildings of its Constructs List; a
 /// building or a unit that isn't in the game is offered by no one (design change 0124: "shown but unavailable"). A
-/// build menu is offered while it shows something, so the Deployment Center's W, Advanced Construction, shows
-/// unavailable: none of its buildings exists yet, and they are hidden (design change 0104: "greyed placeholders"); the
-/// Beacon's Warp In (Advanced) opens, on its unavailable buildings. A type whose DefaultState opens the EjectMenu, the
+/// build menu is offered while it shows something: the Deployment Center's W, Advanced Construction, opens on its
+/// greyed buildings, none of which it constructs yet (slice M6-GK), as the Beacon's Warp In (Advanced) opens, on its
+/// unavailable buildings. A type whose DefaultState opens the EjectMenu, the
 /// Tunnel, offers its tiles, and one that opens the ExpandMenu, the Tunnel, the expansions in the game
 /// (`sc_sim::defs::EXPAND_MENU`), each a type a Tunnel builds (`StructureDef::expansion`). A pool building offers its
 /// KindMenus' trainings and Releases (slice M5-F2), an Altar its AugmentMenus' tiles, orders and Releases (slice

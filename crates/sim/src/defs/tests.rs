@@ -89,6 +89,30 @@ fn every_kind_keeps_its_place_and_name() {
         // Slice M5-K (design change 0356).
         "Arsenal",
         "Rocketman",
+        // Slice M6-GK (design change 0366, plan decision T84): the GDO's other kinds.
+        "Factory",
+        "Airfield",
+        "AdvancedMechanics",
+        "PropulsionLabs",
+        "IndustrialPowerplant",
+        "RadarStation",
+        "DefenseSystem",
+        "MissileTurret",
+        "Outpost",
+        "Bunker",
+        "FirstAidTent",
+        "SupplyTower",
+        "Raptor",
+        "Twister",
+        "Prospector",
+        "ArtilleryRig",
+        "ArtilleryRigDeployed",
+        "Hornet",
+        "Dragonfly",
+        "DroneOperator",
+        "OperatorDrone",
+        "SupplyChopper",
+        "Mine",
         // Slice M6-SK (plan decision T84): the Syndicate's kinds of design change 0367.
         "Vault",
         "VehicleAssembly",
@@ -129,7 +153,11 @@ fn defs_are_consistent() {
                     w.is_finite() && w > 0.0 && h.is_finite() && h > 0.0,
                     "{name}: {w}×{h} su"
                 );
-                assert_eq!(def.category, Category::Unit, "{name}: only units have silhouettes");
+                // (M6-GK) And the mine, "closer to a permanently deployed unit" (design change 0426).
+                assert!(
+                    matches!(def.category, Category::Unit | Category::Mine),
+                    "{name}: only units and mines have silhouettes"
+                );
             }
         }
         assert!(
@@ -164,6 +192,12 @@ fn defs_are_consistent() {
             assert_eq!(def.faction, None, "{name}: resources belong to no faction");
             assert_eq!(def.sight_range, 0.0, "{name}: resources provide no vision");
             assert_eq!(def.armor, Armor::NONE, "{name}: resources have no armour");
+        }
+        if def.category == Category::Mine {
+            // (M6-GK) `factions/gdo/units/twister.md > Mines`: a Twister's, which "enemies can attack and kill", and
+            // its owner "can select", "like a unit" (design change 0426).
+            assert_eq!(def.faction, Some(Faction::Gdo), "{name}: the GDO's mine");
+            assert!(def.destructible && def.selectable, "{name}: a mine");
         }
         // `core/map_editor.md > Per-object Resource Values`: the map resources have them, each its own kind's, and
         // valid; no other type has any.
@@ -443,11 +477,12 @@ fn tunnel_is_consistent(def: &ObjectDef, structure: &StructureDef) {
 
 /// The unit types that can't move, immobile by their defs (plan decision T87: "The deployed kind is immobile by its
 /// def, so "can't move" and "never yields" follow from the existing rules"): a MaxSpeed of 0, and a ReverseMaxSpeed of
-/// 0 for a model that has one, so that `Mover::can_move` answers false. Slice M6-SK's deployed Laser Battery
-/// (`factions/syndicate/units/laser_battery.md > Deploy (ability)`: "**Deployed**: **cannot move**"); slice M6-GK adds
-/// the deployed Artillery Rig. A named list until the pairs' deploying exists: slices M6-GA and M6-SL may replace it by
-/// a rule read from `UnitDef::vehicle_deploy` (the kind a deploy leads into).
-const IMMOBILE: &[ObjectKind] = &[ObjectKind::LaserBatteryDeployed];
+/// 0 for a model that has one, so that `Mover::can_move` answers false. Slice M6-GK's deployed Artillery Rig
+/// (`factions/gdo/units/artillery_rig.md > Modes`: "**Deployed:** cannot move") and slice M6-SK's deployed Laser
+/// Battery (`factions/syndicate/units/laser_battery.md > Deploy (ability)`: "**Deployed**: **cannot move**"), in the
+/// registry's order. A named list until the pairs' deploying exists: slices M6-GA and M6-SL may replace it by a rule
+/// read from `UnitDef::vehicle_deploy` (the kind a deploy leads into).
+const IMMOBILE: &[ObjectKind] = &[ObjectKind::ArtilleryRigDeployed, ObjectKind::LaserBatteryDeployed];
 
 /// `defs_are_consistent` for a unit type: its movement attributes are its base's model, and it has a collision box. It
 /// moves, at a top speed above 0, unless it is one of the [`IMMOBILE`] types, whose top speeds are 0.

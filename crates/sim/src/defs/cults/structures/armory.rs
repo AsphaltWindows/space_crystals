@@ -49,6 +49,7 @@ pub(crate) const ARMORY: ObjectDef = ObjectDef {
                     cost: 20,
                     frames: 32,
                     requires: &[],
+                    supplies: 0,
                 },
                 // "**Gunner** (SpaceCrystalsCost: 40, TrainingTime: 32 frames). TechPrerequisite: player owns at least
                 // one Gunworks", checked as it is queued and never again (`core/tech_and_research.md > Tech
@@ -58,6 +59,7 @@ pub(crate) const ARMORY: ObjectDef = ObjectDef {
                     cost: 40,
                     frames: 32,
                     requires: &[ObjectKind::Gunworks],
+                    supplies: 0,
                 },
             ],
             recruitment: None,

@@ -39,30 +39,35 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
                 cost: 100,   // Generator: 100 Space Crystals,
                 frames: 240, // 240 frames (15 seconds)
                 requires: &[],
+                supplies: 0,
             },
             Recipe {
                 kind: ObjectKind::Barracks,
                 cost: 200,   // Barracks: 200 Space Crystals,
                 frames: 160, // 160 frames (10 seconds)
                 requires: &[],
+                supplies: 0,
             },
             Recipe {
                 kind: ObjectKind::ExtractionFacility,
                 cost: 200,   // Extraction Facility: 200 Space Crystals,
                 frames: 320, // 320 frames (20 seconds)
                 requires: &[],
+                supplies: 0,
             },
             Recipe {
                 kind: ObjectKind::Arsenal,
                 cost: 150,     // Arsenal: 150 Space Crystals,
                 frames: 320,   // 320 frames (20 seconds) (placeholder).
                 requires: &[], // Requires: player owns at least one Barracks (the Arsenal's own)
+                supplies: 0,
             },
             Recipe {
                 kind: ObjectKind::CareerCampus,
                 cost: 150,     // Career Campus: 150 Space Crystals,
                 frames: 320,   // 320 frames (20 seconds) (placeholder).
                 requires: &[], // Requires: player owns at least one Barracks (the Career Campus's own)
+                supplies: 0,
             },
         ],
         requires: &[], // No TechPrerequisite: none declared
@@ -97,6 +102,7 @@ mod tests {
             cost,
             frames,
             requires: &[],
+            supplies: 0,
         };
         assert_eq!(
             structure.constructs,

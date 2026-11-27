@@ -1,14 +1,28 @@
 //! The GDO's structures — `factions/gdo/structures/` (the Deployment Center, the Barracks, the Career Campus, the
-//! Arsenal) and the economy buildings of `factions/gdo/economy.md` (the Generator, the Extraction Facility, the
-//! Extraction Plate), one module each.
+//! Arsenal, and since slice M6-GK the rest: the Factory, the Airfield, Advanced Mechanics, Propulsion Labs, the
+//! Industrial Powerplant, the Radar Station, the Defense System, the Missile Turret, the Outpost, the Bunker and the
+//! First Aid Tent) and the economy buildings of `factions/gdo/economy.md` (the Generator, the Extraction Facility, the
+//! Extraction Plate and (M6-GK) the Supply Tower), one module each.
 
+pub(crate) mod advanced_mechanics;
+pub(crate) mod airfield;
 pub(crate) mod arsenal;
 pub(crate) mod barracks;
+pub(crate) mod bunker;
 pub(crate) mod career_campus;
+pub(crate) mod defense_system;
 pub(crate) mod deployment_center;
 pub(crate) mod extraction_facility;
 pub(crate) mod extraction_plate;
+pub(crate) mod factory;
+pub(crate) mod first_aid_tent;
 pub(crate) mod generator;
+pub(crate) mod industrial_powerplant;
+pub(crate) mod missile_turret;
+pub(crate) mod outpost;
+pub(crate) mod propulsion_labs;
+pub(crate) mod radar_station;
+pub(crate) mod supply_tower;
 
 /// A GDO structure's stat block (`factions/gdo/structures/*.md`, `factions/gdo/economy.md`): size (w × h in the
 /// default orientation), SymmetryType, MaxHP, PointArmor and FullArmor, SightRange, Groupable, BuildRadiusExtension
@@ -53,4 +67,18 @@ fn assert_stat_block(
     );
     assert!(def.unit.is_none() && def.needs_flat_ground, "{kind:?}");
     structure
+}
+
+/// (M6-GK) A held entry of `crate::defs::PLANNED_RECIPES` for a building, `kind` at `cost` Space Crystals and `frames`
+/// frames: no Requires of its own (a building's TechPrerequisite is its def's) and no Supplies ("No GDO building or
+/// research costs Supplies yet", `factions/gdo/overview.md > Supplies`).
+#[cfg(test)]
+fn held(kind: crate::defs::ObjectKind, cost: u32, frames: u32) -> crate::defs::Recipe {
+    crate::defs::Recipe {
+        kind,
+        cost,
+        frames,
+        requires: &[],
+        supplies: 0,
+    }
 }

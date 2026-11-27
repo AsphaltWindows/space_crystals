@@ -43,15 +43,12 @@ fn follows_the_rule(kind: ObjectKind, squares: u32) -> bool {
     armor.full == armor.point * squares as f32
 }
 
-/// 0264: every building follows the rule but the listed exceptions, and no listed exception follows it. Today all 35
-/// do: the GDO's Deployment Center 1/16, Generator 1/4, Barracks 1/6, Extraction Facility 1/9, Extraction Plate 2/2,
-/// Career Campus 1/4 (slice M5-N9, `factions/gdo/structures/career_campus.md`) and Arsenal 1/4 (slice M5-K,
-/// `factions/gdo/structures/arsenal.md`); the Colonists' Beacon 0/0, Egress Node
-/// 0/0, Robo Portal 1/16 and Bio Portal 1/9; the Syndicate's Tunnel 1/16, Hideout 6/24, Optics Lab 6/24 and Chemical
-/// Plant 6/24 (slice M4-K), its Laser Turret, raised, 1/1 (slice M4-S1;
-/// `factions/syndicate/structures/laser_turret.md`: "building armor rule, 1x1"), and its six other expansions
-/// (slice M6-SK, [`every_expansion_has_point_armor_six`]); the Cults' thirteen
-/// ([`the_cults_buildings_follow_the_rule`]).
+/// 0264: every building follows the rule but the listed exceptions, and no listed exception follows it. Today all 47
+/// do: the GDO's nineteen ([`the_gdo_buildings_follow_the_rule`]); the Colonists' Beacon 0/0, Egress Node 0/0, Robo
+/// Portal 1/16 and Bio Portal 1/9; the Syndicate's Tunnel 1/16, Hideout 6/24, Optics Lab 6/24 and Chemical Plant 6/24
+/// (slice M4-K), its Laser Turret, raised, 1/1 (slice M4-S1; `factions/syndicate/structures/laser_turret.md`:
+/// "building armor rule, 1x1"), and its six other expansions (slice M6-SK, [`every_expansion_has_point_armor_six`]);
+/// the Cults' thirteen ([`the_cults_buildings_follow_the_rule`]).
 #[test]
 fn every_building_has_full_armor_n_times_its_size() {
     let all = buildings();
@@ -76,7 +73,9 @@ fn every_building_has_full_armor_n_times_its_size() {
     let mut kinds: Vec<ObjectKind> = all.iter().map(|b| b.0).collect();
     kinds.sort_by_key(|k| k.def().name);
     let expected = [
+        ObjectKind::AdvancedMechanics,
         ObjectKind::AerospaceAssembly,
+        ObjectKind::Airfield,
         ObjectKind::Airstrip,
         ObjectKind::Altar,
         ObjectKind::Armory,
@@ -84,35 +83,90 @@ fn every_building_has_full_armor_n_times_its_size() {
         ObjectKind::Barracks,
         ObjectKind::Beacon,
         ObjectKind::BioPortal,
+        ObjectKind::Bunker,
         ObjectKind::CareerCampus,
         ObjectKind::Cathedral,
         ObjectKind::ChemicalPlant,
         ObjectKind::ChopShop,
+        ObjectKind::DefenseSystem,
         ObjectKind::DeploymentCenter,
         ObjectKind::EgressNode,
         ObjectKind::ExtractionFacility,
         ObjectKind::ExtractionPlate,
+        ObjectKind::Factory,
+        ObjectKind::FirstAidTent,
         ObjectKind::Forge,
         ObjectKind::Garrison,
         ObjectKind::Generator,
         ObjectKind::Gunworks,
         ObjectKind::Hideout,
+        ObjectKind::IndustrialPowerplant,
         ObjectKind::LaserTurret,
         ObjectKind::MachineShop,
+        ObjectKind::MissileTurret,
         ObjectKind::NullChamber,
         ObjectKind::OpticsLab,
         ObjectKind::OrbitalCommand,
+        ObjectKind::Outpost,
+        ObjectKind::PropulsionLabs,
+        ObjectKind::RadarStation,
         ObjectKind::RecruitmentHall,
         ObjectKind::RoboPortal,
         ObjectKind::ScrapHangar,
         ObjectKind::Shrine,
         ObjectKind::Storage,
+        ObjectKind::SupplyTower,
         ObjectKind::Temple,
         ObjectKind::Tunnel,
         ObjectKind::Vault,
         ObjectKind::VehicleAssembly,
     ];
-    assert_eq!(kinds, expected, "the 35 buildings of today");
+    assert_eq!(kinds, expected, "the 47 buildings of today");
+}
+
+/// Slice M6-GK's acceptance, "The armour rule holds for the 12 GDO buildings" of design change 0366, and the GDO's
+/// seven before them: each of the faction's nineteen at its design's PointArmor and FullArmor, in the registry's order.
+/// The Deployment Center 1/16, the Generator 1/4, the Barracks 1/6 on its 2x3, the Extraction Facility 1/9, the
+/// Extraction Plate 2/2 (`factions/gdo/economy.md`), the Career Campus 1/4 (slice M5-N9) and the Arsenal 1/4 (slice
+/// M5-K); then the Factory 1/9, the Airfield 1/9, Advanced Mechanics 1/4, Propulsion Labs 1/4, the Industrial
+/// Powerplant 1/9, the Radar Station 1/4, the Defense System 1/4, the Missile Turret 2/2 on its 1x1
+/// (`factions/gdo/structures/missile_turret.md`: "PointArmor 2, FullArmor 2"), the Outpost 1/9, the Bunker 2/8 on its
+/// 2x2 (`factions/gdo/structures/bunker.md`: "PointArmor 2, FullArmor 8"), both at n = 2, the First Aid Tent 1/4 and
+/// the Supply Tower 1/9 (`factions/gdo/economy.md > SupplyTower`).
+#[test]
+fn the_gdo_buildings_follow_the_rule() {
+    let rows = [
+        (ObjectKind::DeploymentCenter, 1.0, 16.0),
+        (ObjectKind::Generator, 1.0, 4.0),
+        (ObjectKind::Barracks, 1.0, 6.0),
+        (ObjectKind::ExtractionFacility, 1.0, 9.0),
+        (ObjectKind::ExtractionPlate, 2.0, 2.0),
+        (ObjectKind::CareerCampus, 1.0, 4.0),
+        (ObjectKind::Arsenal, 1.0, 4.0),
+        (ObjectKind::Factory, 1.0, 9.0),
+        (ObjectKind::Airfield, 1.0, 9.0),
+        (ObjectKind::AdvancedMechanics, 1.0, 4.0),
+        (ObjectKind::PropulsionLabs, 1.0, 4.0),
+        (ObjectKind::IndustrialPowerplant, 1.0, 9.0),
+        (ObjectKind::RadarStation, 1.0, 4.0),
+        (ObjectKind::DefenseSystem, 1.0, 4.0),
+        (ObjectKind::MissileTurret, 2.0, 2.0),
+        (ObjectKind::Outpost, 1.0, 9.0),
+        (ObjectKind::Bunker, 2.0, 8.0),
+        (ObjectKind::FirstAidTent, 1.0, 4.0),
+        (ObjectKind::SupplyTower, 1.0, 9.0),
+    ];
+    let gdo: Vec<(ObjectKind, f32, f32)> = (buildings().into_iter())
+        .filter(|&(kind, _, _)| kind.def().faction == Some(sc_sim::Faction::Gdo))
+        .map(|(kind, _, _)| (kind, kind.def().armor.point, kind.def().armor.full))
+        .collect();
+    assert_eq!(gdo, rows, "every GDO building, in the registry's order");
+    for (kind, squares, _) in buildings() {
+        if kind.def().faction == Some(sc_sim::Faction::Gdo) {
+            assert!(follows_the_rule(kind, squares), "{kind:?}");
+            assert!(!EXCEPTIONS.iter().any(|e| e.0 == kind), "{kind:?}: no exception");
+        }
+    }
 }
 
 /// The plan addendum's G2 acceptance: "Every Cults building follows the rule (n = 2 for the Garrison) with no exception

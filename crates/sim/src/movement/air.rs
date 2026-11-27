@@ -13,8 +13,9 @@
 //! no unit's push depends on another's. Nothing blocks: a push moves the unit whatever is there (air units collide with
 //! nothing). Two units on the very same point part along the x axis, the lower id to the west. A Glider may be pushed
 //! past the map's edge, as it may fly there (`super::glider`); any other air unit (a HoverCraft) stays on the map
-//! (design change 0045: "clamp HoverCraft to the map"). A push is no part of the unit's own move: its velocity and
-//! momentum stay what its movement gave it, and a unit without a goal stays at rest, pushed.
+//! (design change 0045: "clamp HoverCraft to the map"), its box held inside the edge (`Map::clamp_box`), as its own
+//! move is (`super::step`, slice M6-GK). A push is no part of the unit's own move: its velocity and momentum stay what
+//! its movement gave it, and a unit without a goal stays at rest, pushed.
 //!
 //! The pairs come from a spatial index: the movement's own grid ([`Layer`]), each air unit listed in the cell of its
 //! centre, so that a unit looks only at the cells within the largest radius of it. Units spawned in this tick are
@@ -30,7 +31,6 @@ use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::object::Object;
 use crate::ruleset::rules;
-use crate::units::SU_PER_GU;
 
 /// An air unit with a SeparationRadius, as the moves left it.
 #[derive(Copy, Clone, Debug)]
@@ -122,7 +122,6 @@ pub(super) fn separate(
             pushes[j as usize] -= push * b.strength;
         }
     }
-    let size = Vec2::new(map.width() as f32, map.height() as f32) * SU_PER_GU;
     for (flyer, push) in flyers.iter().zip(pushes.iter()) {
         if !flyer.moves || *push == Vec2::ZERO {
             continue;
@@ -133,8 +132,7 @@ pub(super) fn separate(
         let push = push.clamp_length_max(tuning.separation_push_su * flyer.strength);
         let mut to = o.pos + push;
         if !(o.def().unit.as_ref()).is_some_and(UnitDef::glides) {
-            let half = o.def().half_extents().unwrap_or(Vec2::ZERO).min(size / 2.0);
-            to = to.clamp(half, size - half);
+            to = map.clamp_box(to, o.def().half_extents().unwrap_or(Vec2::ZERO));
         }
         o.pos = to;
     }

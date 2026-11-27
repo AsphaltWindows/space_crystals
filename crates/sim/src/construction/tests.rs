@@ -231,6 +231,7 @@ fn progress_saturates() {
         cost: 0,
         frames: u32::MAX / RATIO_ONE,
         requires: &[],
+        supplies: 0,
     };
     let mut progress = longest.frames * RATIO_ONE - RATIO_ONE;
     assert!(advance(&mut progress, RATIO_ONE, &longest));
