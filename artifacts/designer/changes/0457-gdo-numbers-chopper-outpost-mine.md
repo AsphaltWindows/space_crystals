@@ -10,7 +10,7 @@
 ## What changed and why
 1. **Supply Chopper:** UnitControlCost **2**, as assumed (designer placeholder).
 2. **Outpost:** Groupable **true**, as assumed (designer placeholder). It has no commands, so this has no effect yet.
-3. **Mine** (user's numbers): **SightRange 1 grid unit**, **PointArmor 12, FullArmor 12**. This changes GK's assumption of 0 and 0/0. A mine sees a small circle around itself and shrugs off small-arms fire: weak hits do only the minimum damage against 40 HP.
+3. **Mine** (user's numbers): **SightRange 1 grid unit**, **PointArmor 12, FullArmor 12**. This changes GK's assumption of 0 and 0/0. The user's reason: **mines shouldn't be easy to clear**. A mine sees a small circle around itself and shrugs off small-arms fire: weak hits do only the minimum damage against 40 HP.
 4. **Raptor, Dragonfly, Twister:** SingleTarget, confirmed from the docs (homing missiles and a FullyConnected gun).
 
 ## Implementation impact
