@@ -13,6 +13,7 @@ const TUNNEL: ObjectKind = ObjectKind::Tunnel;
 const HIDEOUT: ObjectKind = ObjectKind::Hideout;
 const OPTICS_LAB: ObjectKind = ObjectKind::OpticsLab;
 const CHEMICAL_PLANT: ObjectKind = ObjectKind::ChemicalPlant;
+const VEHICLE_ASSEMBLY: ObjectKind = ObjectKind::VehicleAssembly;
 const TURRET: ObjectKind = ObjectKind::LaserTurret;
 
 /// What the panel's `slot` says when pressed greyed out, if it is.
@@ -23,9 +24,9 @@ fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
 /// Design change 0291's verification, "The ExpandMenu shows nine expansion slots and then the turret": the Tech Tree's
 /// expansions in its order take Q, W, E, R, A, S, D, F and X (design change 0257: "entries take the grid slots in order
 /// (Q, W, E, R, A, S, …)", Z being Back), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice
-/// M4-K), the six not in the game yet greyed, and the Laser Turret the tenth, C (slice M4-S2), greyed by its gate
-/// with its prerequisite while the player owns no Optics Lab. Each says what it builds and, greyed,
-/// why; Q, W and E enter their placements, and Z goes back to DefaultState.
+/// M4-K), the Vehicle Assembly in A (slice M6-SV), the five not in the game yet greyed, and the Laser Turret the
+/// tenth, C (slice M4-S2), greyed by its gate with its prerequisite while the player owns no Optics Lab. Each says
+/// what it builds and, greyed, why; Q, W, E and A enter their placements, and Z goes back to DefaultState.
 #[test]
 fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     use ButtonLook::{Back, Common, Unavailable};
@@ -41,7 +42,7 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
             (slot(0, 1), c(Expand(OPTICS_LAB)), Common),
             (slot(0, 2), c(Expand(CHEMICAL_PLANT)), Common),
             (slot(0, 3), c(P(Vault)), Unavailable),
-            (slot(1, 0), c(P(VehicleAssembly)), Unavailable),
+            (slot(1, 0), c(Expand(VEHICLE_ASSEMBLY)), Common),
             (slot(1, 1), c(P(Forge)), Unavailable),
             (slot(1, 2), c(P(NullChamber)), Unavailable),
             (slot(1, 3), c(P(AerospaceAssembly)), Unavailable),
@@ -79,6 +80,7 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     assert_eq!(press(&menu, slot(0, 1)), SlotPress::AwaitExpansion(OPTICS_LAB));
     assert_eq!(press(&menu, slot(0, 2)), SlotPress::AwaitExpansion(CHEMICAL_PLANT));
     assert_eq!(press(&menu, slot(0, 3)), SlotPress::Nothing);
+    assert_eq!(press(&menu, slot(1, 0)), SlotPress::AwaitExpansion(VEHICLE_ASSEMBLY));
     assert_eq!(press(&menu, slot(2, 2)), SlotPress::AwaitExpansion(TURRET));
     // The turret's own gate greys it (slice M4-S2): its Optics Lab, as the Agent's D says it.
     let no_lab = Conditions::default().refusing(Expand(TURRET), Reject::Requires(OPTICS_LAB));
@@ -89,6 +91,28 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     );
     assert_eq!(why_text(&without_a_lab, slot(2, 2)), Some("Requires an Optics Lab"));
     assert_eq!(press(&without_a_lab, slot(2, 2)), SlotPress::Nothing);
+    // (M6-SV) The Vehicle Assembly's gate greys it the same way: a Tier 1 Tunnel ("Tier Requirement - 2"), and no
+    // Chemical Plant owned ("TechPrerequisite - player owns at least one Chemical Plant").
+    let expand = Expand(VEHICLE_ASSEMBLY);
+    for (reject, says) in [
+        (
+            Reject::TierRequirement {
+                kind: VEHICLE_ASSEMBLY,
+                tier: 2,
+            },
+            "This Tunnel's tier is too low",
+        ),
+        (Reject::Requires(CHEMICAL_PLANT), "Requires a Chemical Plant"),
+    ] {
+        let refused = panel(
+            &tunnel,
+            InterfaceState::ExpandMenu,
+            &Conditions::default().refusing(expand, reject),
+        );
+        assert_eq!(refused.get(slot(1, 0)).map(|s| s.look), Some(ButtonLook::Disabled));
+        assert_eq!(why_text(&refused, slot(1, 0)), Some(says), "{reject:?}");
+        assert_eq!(press(&refused, slot(1, 0)), SlotPress::Nothing);
+    }
     assert_eq!(press(&menu, CommandSlot::BACK), SlotPress::Back);
     assert_eq!(InterfaceState::ExpandMenu.back(&tunnel), InterfaceState::DefaultState);
     assert_eq!(InterfaceState::ExpandMenu.pending(), None);

@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): twenty-three small games, defined below and in
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): twenty-four small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
 //! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
@@ -22,8 +22,9 @@
 //! Sparrows shot down by Target Locks), `vehicles.rs` (a Chop Shop's two Seekers driving out and fighting two Militants
 //! and two Guards), `hand_of_heaven.rs` (a Chop Shop's Hand of Heaven shelling a Deployment Center from beyond its own
 //! sight, a Recruit spotting, and driving off as its last missile flies), `prayer_mobile.rs` (a Prayer-mobile's
-//! Inspire on a group of Recruits, and another's Suppress over a fight) and below (the Riot Shield game), and every
-//! test is below.
+//! Inspire on a group of Recruits, and another's Suppress over a fight), `syndicate_vehicles.rs` (a Vehicle Assembly's
+//! three Assault Bikes out of the Tunnel Network, shelling a group of Guards) and below (the Riot Shield game), and
+//! every test is below.
 
 mod air;
 mod altar;
@@ -38,6 +39,7 @@ mod prayer_mobile;
 mod shrine;
 mod shroud;
 mod syndicate;
+mod syndicate_vehicles;
 mod temple;
 mod units;
 mod vehicles;
@@ -269,4 +271,9 @@ fn golden_hand_of_heaven() {
 #[test]
 fn golden_cults_prayer_mobile() {
     golden("cults_prayer_mobile", prayer_mobile::cults_prayer_mobile);
+}
+
+#[test]
+fn golden_syndicate_vehicles() {
+    golden("syndicate_vehicles", syndicate_vehicles::syndicate_vehicles);
 }

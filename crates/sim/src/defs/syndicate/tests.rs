@@ -123,15 +123,14 @@ fn the_syndicate_kinds_are_every_designed_one() {
     assert_eq!(named(Category::Unit), units, "the units of the Files list");
 }
 
-/// Slice M6-SK's kinds (plan decision T84), in the registry's order.
-const SK_KINDS: [ObjectKind; 15] = [
+/// Slice M6-SK's kinds (plan decision T84) still out of play, in the registry's order: its fifteen but those a slice
+/// has made live, the Vehicle Assembly and the Assault Bike (slice M6-SV).
+const SK_KINDS: [ObjectKind; 13] = [
     ObjectKind::Vault,
-    ObjectKind::VehicleAssembly,
     ObjectKind::Forge,
     ObjectKind::NullChamber,
     ObjectKind::AerospaceAssembly,
     ObjectKind::OrbitalCommand,
-    ObjectKind::AssaultBike,
     ObjectKind::Shadebringer,
     ObjectKind::LaserBattery,
     ObjectKind::LaserBatteryDeployed,
@@ -142,13 +141,14 @@ const SK_KINDS: [ObjectKind; 15] = [
     ObjectKind::Prism,
 ];
 
-/// Plan decision T84, after T69's rule: no player makes one of slice M6-SK's kinds, each kept out until its slice. No
-/// Tunnel builds one of the six expansions (none has `StructureDef::expansion`, so the gate refuses each Expand:
-/// `Reject::CannotConstruct`), and no def names one of the fifteen where a kind is made: no producer's recipe
-/// (`ProductionDef::recipes`; the Vehicle Assembly and the Aerospace Assembly produce nothing yet), no constructor's
-/// Construct or Warp In list, no worker's builds, no Deploy, no Conversion's or Riot Shield's form; nor does a
-/// faction's starting layout (`StartingConditions`). Their numbers wait beside their defs, each for its slice: the
-/// expansions' `*_EXPANSION` and the producers' `*_RECIPE`s (`syndicate::structures`).
+/// Plan decision T84, after T69's rule: no player makes one of slice M6-SK's kinds still out of play ([`SK_KINDS`]),
+/// each kept out until its slice. No Tunnel builds one of the five expansions left (none has `StructureDef::expansion`,
+/// so the gate refuses each Expand: `Reject::CannotConstruct`), and no def names one of the thirteen where a kind is
+/// made: no producer's recipe (`ProductionDef::recipes`; the Vehicle Assembly trains the Assault Bike alone since
+/// slice M6-SV, and the Aerospace Assembly nothing yet), no constructor's Construct or Warp In list, no worker's
+/// builds, no Deploy, no Conversion's or Riot Shield's form; nor does a faction's starting layout
+/// (`StartingConditions`). Their numbers wait beside their defs, each for its slice: the expansions' `*_EXPANSION` and
+/// the producers' `*_RECIPE`s (`syndicate::structures`).
 #[test]
 fn no_player_makes_one_of_the_new_kinds() {
     let made = |kind: ObjectKind| -> Vec<ObjectKind> {
@@ -179,7 +179,10 @@ fn no_player_makes_one_of_the_new_kinds() {
         let named: Vec<ObjectKind> = made(kind).into_iter().filter(|made| SK_KINDS.contains(made)).collect();
         assert_eq!(named, Vec::<ObjectKind>::new(), "{kind:?} makes slice M6-SK's");
     }
-    for kind in &SK_KINDS[..6] {
+    for kind in SK_KINDS
+        .iter()
+        .filter(|kind| kind.def().category == Category::Structure)
+    {
         let structure = kind.def().structure.as_ref().expect("an expansion");
         assert_eq!(
             (structure.expansion, structure.production.as_ref()),
@@ -202,8 +205,8 @@ fn no_player_makes_one_of_the_new_kinds() {
 /// change 0367's "Placeholder stats"): `name`, an underground Syndicate structure of `side` × `side` tiles, MaxHP
 /// `max_hp`, the expansions' armour (n = 6: PointArmor 6, FullArmor 6 × its squares), no sight and Groupable (design
 /// change 0254), slopes allowed (design change 0005), SymmetryType AAAA (plan decision T29: not given), behind
-/// `requires`, as the Tech Tree Overview's table has it; no Tunnel builds it and it produces nothing until its slice
-/// (plan decision T84).
+/// `requires`, as the Tech Tree Overview's table has it; while it is out of play ([`SK_KINDS`]), no Tunnel builds it
+/// and it produces nothing until its slice (plan decision T84), whose own test checks what it makes live.
 pub(super) fn assert_expansion(kind: ObjectKind, name: &str, side: u32, max_hp: f32, requires: &[ObjectKind]) {
     let def = kind.def();
     let structure = def.structure.as_ref().expect("a structure");
@@ -230,11 +233,14 @@ pub(super) fn assert_expansion(kind: ObjectKind, name: &str, side: u32, max_hp: 
         (true, true, true, false)
     );
     assert_eq!((structure.underground, structure.requires), (true, requires));
-    assert_eq!(
-        (structure.expansion, structure.site, structure.production.as_ref()),
-        (None, None, None),
-        "not live until its slice"
-    );
+    assert_eq!(structure.site, None, "no worker builds it");
+    if SK_KINDS.contains(&kind) {
+        assert_eq!(
+            (structure.expansion, structure.production.as_ref()),
+            (None, None),
+            "not live until its slice"
+        );
+    }
     let row = tech_tree_rows().into_iter().find(|(row, _)| row == name);
     let required: Vec<&str> = requires.iter().map(|kind| kind.def().name).collect();
     assert_eq!(

@@ -8,7 +8,8 @@ use sc_sim::nav::TileRect;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{BuildingOrientation, Faction, PlayerCommand as Sent, SU_PER_GU, TunnelCommand};
 use space_crystals::command_ui::feedback::{
-    NO_CRYSTALS_TEXT, NOT_YET_TEXT, OPERATION_UNDER_WAY_TEXT, TargetFeedback, placement_text, requires_text,
+    NO_CRYSTALS_TEXT, NOT_YET_TEXT, OPERATION_UNDER_WAY_TEXT, TIER_TOO_LOW_TEXT, TargetFeedback, placement_text,
+    requires_text,
 };
 use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, Placing, Planned};
 use space_crystals::hud::command_panel::CommandButton;
@@ -17,12 +18,13 @@ use space_crystals::object_render::SiteProgress;
 use space_crystals::placement::{PlacementGhost, TunnelAreaOverlay};
 
 use super::*;
-use KeyCode::{Escape, KeyC, KeyQ, KeyR, KeyW, KeyX, KeyZ};
+use KeyCode::{Escape, KeyA, KeyC, KeyQ, KeyR, KeyW, KeyX, KeyZ};
 
 const P1: PlayerId = PlayerId(1);
 const HIDEOUT: ObjectKind = ObjectKind::Hideout;
 const OPTICS_LAB: ObjectKind = ObjectKind::OpticsLab;
 const CHEMICAL_PLANT: ObjectKind = ObjectKind::ChemicalPlant;
+const VEHICLE_ASSEMBLY: ObjectKind = ObjectKind::VehicleAssembly;
 const TURRET: ObjectKind = ObjectKind::LaserTurret;
 
 /// The objects of [`expansion_game`], by id, and where they are (the map is flat: where they are drawn).
@@ -153,8 +155,9 @@ fn placing_hideout() -> InterfaceState {
 }
 
 /// Design change 0291's verification, "The ExpandMenu shows nine expansion slots and then the turret": W opens it
-/// (design change 0257), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice M4-K), the six
-/// expansions not in the game yet greyed in R to X, Z being Back, and the Laser Turret in C (slice M4-S2), greyed
+/// (design change 0257), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice M4-K), the Vehicle
+/// Assembly in A (slice M6-SV), greyed by its gate: this Tunnel is at Tier 1 ("Tier Requirement - 2"), the five
+/// expansions not in the game yet greyed in R and S to X, Z being Back, and the Laser Turret in C (slice M4-S2), greyed
 /// by its gate with its prerequisite: this player owns no Optics Lab. A greyed entry says why and leaves the menu open;
 /// Z goes back to DefaultState, and so does Escape. A right-click does the Tunnel's, nothing, and the menu stays open
 /// (design change 0400: "right-click **doesn't reset a menu**").
@@ -173,7 +176,7 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
             (slot(0, 1), c(Expand(OPTICS_LAB)), Common),
             (slot(0, 2), c(Expand(CHEMICAL_PLANT)), Common),
             (slot(0, 3), c(P(Vault)), Unavailable),
-            (slot(1, 0), c(P(VehicleAssembly)), Unavailable),
+            (slot(1, 0), c(Expand(VEHICLE_ASSEMBLY)), ButtonLook::Disabled),
             (slot(1, 1), c(P(Forge)), Unavailable),
             (slot(1, 2), c(P(NullChamber)), Unavailable),
             (slot(1, 3), c(P(AerospaceAssembly)), Unavailable),
@@ -183,7 +186,7 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
         ]
     );
     let optics_lab = requires_text(OPTICS_LAB);
-    for (key, says) in [(KeyR, NOT_YET_TEXT), (KeyC, optics_lab)] {
+    for (key, says) in [(KeyR, NOT_YET_TEXT), (KeyA, TIER_TOO_LOW_TEXT), (KeyC, optics_lab)] {
         tap(&mut app, &[], key);
         assert_eq!(said(&app), Some(says), "{key:?}");
         assert_eq!(interface(&app), InterfaceState::ExpandMenu);

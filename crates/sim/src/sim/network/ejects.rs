@@ -7,12 +7,17 @@
 //! it clears; no other spot is tried." No minimum gap is left between two units (0250 "replaces the earlier 'every 8
 //! frames minimum'"): "the exit rate is set by unit speed and size", by the unit before walking off the spot.
 
+use glam::Vec2;
+
 use crate::augmentation::Research;
 use crate::command::TunnelCommand;
+use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
+use crate::math;
 use crate::network::{self, Eject, Paths};
 use crate::orders::{OrderKind, Target};
+use crate::shape::Shape;
 use crate::sim::gate::Checked;
 use crate::sim::{Reject, Sim};
 
@@ -93,6 +98,11 @@ impl Sim {
     /// straight out of Side A and idles (a blocked walk follows the normal Failure rule)", a Move there. One unit a
     /// tick at most: the next would stand on it.
     ///
+    /// (M6-SV) Its box is the one it has where it appears ([`exit_half`], plan decision T100: "Syndicate vehicles
+    /// [...] out of a Tier 2+ Tunnel's Side A exit path"): a vehicle's Silhouette turned to face out of Side A, so that
+    /// it stands against the wall whichever way the Tunnel is turned, a Bike 56 su deep out of it, and its spot is
+    /// checked with it turned so.
+    ///
     /// An entry the Tunnel can't serve leaves the queue, and its unit stays in the network, free again: a unit that
     /// is no longer held, and one the tier no longer lets out (a tier a debug command lowered).
     fn eject_next(&mut self, tunnel: ObjectId) {
@@ -108,14 +118,15 @@ impl Sim {
         let unit = entry.unit;
         let kind = self.held.get(&unit).map(|held| held.object.kind);
         let served = kind.filter(|&kind| network::admits(target, kind).is_ok());
+        let facing = math::vector_angle(paths.outward);
         let stand = served
-            .and_then(|kind| kind.def().half_extents())
+            .and_then(|kind| exit_half(kind, paths.outward))
             .map(|half| paths.exit_stand(half));
         let (Some(kind), Some(stand)) = (served, stand) else {
             self.pop_eject(tunnel);
             return;
         };
-        if !self.map.contains_point(stand) || self.check_unit_fits(kind, stand, None).is_err() {
+        if !self.map.contains_point(stand) || self.check_unit_fits_facing(kind, stand, facing, None).is_err() {
             return;
         }
         self.pop_eject(tunnel);
@@ -140,4 +151,14 @@ impl Sim {
             state.eject.remove(0);
         }
     }
+}
+
+/// (M6-SV) The half extents, world axes, of the box of a unit of `kind` that comes out of a Tunnel facing `outward`,
+/// out of Side A (plan decision T100, the side doorways' rule: `sim/producers/release.rs`'s `exit_half`): its
+/// Silhouette's bounding box turned to that direction (slice M5-V1, `Shape::bound_half`). A Bike out of a Side A that
+/// faces north or south is 32 su across the side and 56 su deep out of it; a square Silhouette's is its own. `None`
+/// for a type with no Silhouette.
+pub(in crate::sim) fn exit_half(kind: ObjectKind, outward: Vec2) -> Option<Vec2> {
+    kind.def().silhouette()?;
+    Some(Shape::silhouette(kind, Vec2::ZERO, math::vector_angle(outward)).bound_half())
 }

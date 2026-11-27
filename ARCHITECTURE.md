@@ -625,7 +625,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **Side A's paths** (`network::Paths`, design changes 0225 and 0248): the one geometry of a Tunnel's entry and
   exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `Tunnel::path_offset_su`): two spots on Side
   A's line, 30 su from its middle, the exit towards Side B and the entry towards Side D, wherever the sides face
-  (`sides`). A unit stands on one with its box against the wall (`entry_stand`, `exit_stand`). `network::admits(tunnel,
+  (`sides`). A unit stands on one with its box against the wall (`entry_stand`, `exit_stand`): (M6-SV, plan decision
+  T100) its box as it lies there, a vehicle's Silhouette turned with it (slice M5-V1), facing out of Side A as it is
+  ejected (`sim/network/ejects.rs`'s `exit_half`, its fit checked on that box, `Sim::check_unit_fits_facing`) and
+  facing the wall as it drives in (`orders::enter`, `EntryPath::reached` on `Shape::bound_half`); a square
+  Silhouette's is its own, so infantry is as it was. `network::admits(tunnel,
   kind)` is the one tier rule (`factions/syndicate/tunnels.md > Transit Tier Requirements`; the tier a Tunnel has, which
   an upgrade leaves until it completes, 0249); **air units pass nowhere in M4** (`tuning::tunnel::Tunnel::air_doors`, whose doc
   holds the rule to come with the first Syndicate air unit, design changes 0250 and 0251). `tunnel::area::parent`
@@ -2972,7 +2976,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
     rally's order, or with none circling 2 grid units past the `toward` end (`Mover::orbit`,
     `tuning::air::Air::runway_circle_past_gu`). `exit_rule` gives such a building its holder's exit, so its ejected and
     released units, and the door arrows, use the side doorway as any pool building's.
-  - **No doorway: into the Tunnel Network** (slice M4-C, `ExitRule::Network`, the Hideout's;
+  - **No doorway: into the Tunnel Network** (slice M4-C, `ExitRule::Network`, the Hideout's, and (M6-SV) the
+    Vehicle Assembly's;
     `factions/syndicate/structures/README.md > Rally Point Behavior`, design changes 0252 and 0253;
     `Sim::release_into_network`): the finished unit comes into the game held in its owner's network
     (`SimEvent::UnitProduced` without a `Spawned`), with no transit delay, and nothing ever holds the release up.
@@ -3840,6 +3845,16 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   ExpandMenu's list `defs/syndicate/tests.rs` (against the Tech Tree table, 0291). In the client,
   `command_ui/interface/tests/expansions.rs` (the menu's letters and greying, the placement, the clamp) and
   `crates/game/tests/commands/expansions.rs` (W, the ghost, the click, the bank, the operation and both X's).
+- **Vehicle Assembly tests** (slice M6-SV) are `crates/sim/tests/vehicle_assembly/`, under the invariants and the
+  held store's checks after every tick: `building` (refused at Tier 1 and without a Chemical Plant, 250 and 480
+  frames from 10% of its HP, its armour's share of a blast and its 1% a second), `production` (the Bike into the
+  network for 125 in 240 frames, Tunnel Space 2 at the start, held at 0% for it, and the rallies of 0252), `exit` (out
+  of Side A facing out in the four orientations, refused at Tier 1, five out one by one by a rally and sent on, five
+  ejected with no order stalling after two, a reading for the Director, and back in through the entry path),
+  `mortar` (the area rule over a group, a dodge, Attack Ground and ground only, the 40° turret and the hull, a target
+  in range far out of the arc given up, a reading, and no crushing) and `saves`. The 72 × 48 box of plan decision T100
+  is `sim/network/tests.rs`'s (a test def). In the client, `command_ui/interface/tests/syndicate.rs` (the VA's Q, W,
+  E, R, X and C) and the ExpandMenu's tests above (its A, greyed by tier and by the Chemical Plant).
 - **Upgrade tests** (slice M4-G) are `crates/sim/tests/upgrades/`, under O1 after every tick: `costs` (2 then 4, 3
   then 6, a Tier 3 Tunnel in the Tier 2 price, two started together, 0232's refunds in either order, and the books
   over random starts and cancels), `blocked` (an own neighbour, an enemy's site and Tunnel by the truth, Mountain and
@@ -5212,8 +5227,8 @@ unchecked.
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
-  `hand_of_heaven.rs`, `prayer_mobile.rs` and `main.rs`, the recording and the comparison in `harness.rs`):
-  twenty-three games, a 3v3 duel, a 40-unit
+  `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs` and `main.rs`, the recording and the comparison in
+  `harness.rs`): twenty-four games, a 3v3 duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
   fire and lower them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1
@@ -5223,8 +5238,8 @@ unchecked.
   M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
   M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below), `cults_shroud` (slice
   M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
-  M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below) and
-  `cults_prayer_mobile` (slice M5-N11, below), are blessed as replays
+  M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below),
+  `cults_prayer_mobile` (slice M5-N11, below) and `syndicate_vehicles` (slice M6-SV, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5321,7 +5336,13 @@ unchecked.
   5.5 su a tick for its 10 s and 4.0 after, and punch it every 9 ticks while it lasts, every 12 after; another casts
   Suppress at tick 1601 over a fight between three of player 1's Militants and six of player 2's Recruits charging
   them: the Militants and the Recruits in its arc, of both players, land no hit from 8 ticks after the cast (a punch
-  already under way, `BLOW`) to the end of its 4 s, and fight on after. The
+  already under way, `BLOW`) to the end of its 4 s, and fight on after. In `syndicate_vehicles` (to 1:33.75, on an open
+  test map, debug commands on for player 1's Tier 2 and its 625 Space Crystals) a Tunnel expands a Vehicle Assembly
+  behind a Chemical Plant (480 frames), which trains three Assault Bikes into the Tunnel Network: the first, with no
+  rally point, is ejected by hand, the other two auto-ejected by a surface rally point in the tick each is finished,
+  each out of Side A's exit path, facing north (`during`); at tick 1262 they AttackMove onto four Guards on Hold in a
+  block, shell them from beyond the Guards' range, the first round's blast hitting all four, and kill them all by tick
+  1476 without a hit on a Bike. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -5735,7 +5756,8 @@ examples.
    sides, so a new portal needs no code; see *Production*). `defs_are_consistent` checks that the letters name the
    type's sides.
    A doorway with a rally point gives the new unit its own right-click order at release (`orders::resolution`).
-   `ExitRule::Network` is a producer with no doorway (the Hideout, slice M4-C): its units go into the held store
+   `ExitRule::Network` is a producer with no doorway (the Hideout, slice M4-C; the Vehicle Assembly, M6-SV): its
+   units go into the held store
    (item 15), and a rally point brings them out of a Tunnel. `ExitRule::Runway` is a holder's that trains aircraft
    (the Airstrip, slice M5-N7): they take off along the runway between its two sides, its ground units leaving by
    the holder's exit; the client draws it as `Look::Runway`.

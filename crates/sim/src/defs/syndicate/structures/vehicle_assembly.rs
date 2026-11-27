@@ -1,16 +1,17 @@
 //! The Vehicle Assembly — `factions/syndicate/structures/vehicle_assembly.md` (design change 0367's placeholders; slice
-//! M6-SK).
+//! M6-SK: its numbers; slice M6-SV: a Tier 2 Tunnel builds it, and it produces the Assault Bike).
 
-use crate::defs::structures::{ExpansionDef, Recipe, StructureDef, SymmetryType};
+use crate::defs::structures::{ExitRule, ExpansionDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/syndicate/structures/vehicle_assembly.md`: the "Syndicate production building that assembles Syndicate
-/// ground vehicles", an underground expansion behind a Chemical Plant, and the Forge's prerequisite. Its numbers only
-/// (slice M6-SK, plan decision T84, by T69's rule): no Tunnel builds one yet ([`VEHICLE_ASSEMBLY_EXPANSION`], kept out
-/// of its def, so its ExpandMenu entry stays `Planned`), and it trains nothing: its production is the Hideout's
-/// (`ExitRule::Network`) with slice M6-SV, which makes the Assault Bike's recipe live, and each other recipe goes live
-/// with its unit's slice. Its numbers are the design's "Placeholder stats".
+/// ground vehicles", an underground expansion behind a Chemical Plant, and the Forge's prerequisite. Its numbers came
+/// with slice M6-SK (plan decision T84, by T69's rule); slice M6-SV makes it live: a Tier 2 Tunnel builds it
+/// ([`VEHICLE_ASSEMBLY_EXPANSION`], its ExpandMenu entry its kind), and its production is the Hideout's
+/// (`ExitRule::Network`, plan decision T100: into the Tunnel Network, out of a Tier 2+ Tunnel's Side A), the Assault
+/// Bike its one recipe; each other recipe goes live with its unit's slice (M6-SB, M6-SL, M6-ST1), in its panel slot.
+/// Its numbers are the design's "Placeholder stats".
 pub(crate) const VEHICLE_ASSEMBLY: ObjectDef = ObjectDef {
     kind: ObjectKind::VehicleAssembly,
     name: "Vehicle Assembly",
@@ -34,10 +35,18 @@ pub(crate) const VEHICLE_ASSEMBLY: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA,
         build_radius_extension: 0,
         power: 0,
-        // With slice M6-SV: the Hideout's production, its recipes the consts below, each live with its slice.
-        production: None,
+        // `> Placeholder stats`: "Panel as the Hideout": the Hideout's production, into the Tunnel Network
+        // (`factions/syndicate/structures/README.md > Tunnel Expansions > Rally Point Behavior`), its recipes the
+        // consts below, in the panel's order, each live with its unit's slice: the Assault Bike (slice M6-SV).
+        production: Some(ProductionDef {
+            exits: ExitRule::Network,
+            recipes: &[ASSAULT_BIKE_RECIPE],
+            recruitment: None,
+            augment: &[],
+            default_rally: None,
+        }),
         underground: true, // Entity Type - Structure Type (Underground)
-        expansion: None,   // with slice M6-SV: [`VEHICLE_ASSEMBLY_EXPANSION`]
+        expansion: Some(VEHICLE_ASSEMBLY_EXPANSION),
         // TechPrerequisite - player owns at least one Chemical Plant (anywhere in the Tunnel Network)
         requires: &[ObjectKind::ChemicalPlant],
         ..StructureDef::NONE
@@ -45,11 +54,7 @@ pub(crate) const VEHICLE_ASSEMBLY: ObjectDef = ObjectDef {
     ..ObjectDef::NONE
 };
 
-/// The Vehicle Assembly's construction by a Tunnel (`StructureDef::expansion`), for slice M6-SV to make live.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "slice M6-SV: a Tunnel builds the Vehicle Assembly")
-)]
+/// The Vehicle Assembly's construction by a Tunnel (`StructureDef::expansion`, slice M6-SV): "Tier Requirement - 2".
 pub(crate) const VEHICLE_ASSEMBLY_EXPANSION: ExpansionDef = ExpansionDef {
     tier: 2,     // Tier Requirement - 2
     cost: 250,   // Cost 250 Space Crystals
@@ -65,8 +70,7 @@ pub(crate) const VEHICLE_ASSEMBLY_EXPANSION: ExpansionDef = ExpansionDef {
 // Transport** (requires a Forge)"); the TunnelSpaceCosts are the units' own (`UnitDef::tunnel_space_cost`). Its panel
 // is "as the Hideout: **Q** Assault Bike, **W** Shadebringer, **E** Laser Battery, **R** Subterranean Transport".
 
-/// Q: the Assault Bike, for slice M6-SV.
-#[cfg_attr(not(test), expect(dead_code, reason = "slice M6-SV: the Vehicle Assembly's Q"))]
+/// Q: the Assault Bike (slice M6-SV).
 pub(crate) const ASSAULT_BIKE_RECIPE: Recipe = Recipe {
     kind: ObjectKind::AssaultBike,
     cost: 125,
@@ -111,8 +115,9 @@ mod tests {
     use crate::defs::syndicate::tests::assert_expansion;
 
     /// The stat block (design change 0367): an underground structure, 3×3, MaxHP 600, the expansions' 6 / 54, behind a
-    /// Chemical Plant; a Tier 2 Tunnel's for 250 Space Crystals in 480 frames. Its four recipes, in its panel's order,
-    /// each with its unit's TechPrerequisite; none live yet.
+    /// Chemical Plant; a Tier 2 Tunnel's for 250 Space Crystals in 480 frames, from 10% of its MaxHP. Its four recipes,
+    /// in its panel's order, each with its unit's TechPrerequisite; live (slice M6-SV), its production the Hideout's
+    /// into the Tunnel Network, with the Assault Bike's alone, the others each its unit's slice's.
     #[test]
     fn the_vehicle_assembly_follows_the_design() {
         let expansion = ExpansionDef {
@@ -124,6 +129,20 @@ mod tests {
         let kind = ObjectKind::VehicleAssembly;
         assert_expansion(kind, "Vehicle Assembly", 3, 600.0, &[ObjectKind::ChemicalPlant]);
         assert_eq!(VEHICLE_ASSEMBLY_EXPANSION, expansion);
+        let structure = kind.def().structure.as_ref().unwrap();
+        assert_eq!(structure.expansion, Some(expansion), "a Tier 2 Tunnel builds it");
+        let production = ProductionDef {
+            exits: ExitRule::Network,
+            recipes: &[ASSAULT_BIKE_RECIPE],
+            recruitment: None,
+            augment: &[],
+            default_rally: None,
+        };
+        assert_eq!(
+            structure.production,
+            Some(production),
+            "the Hideout's production, into the network; the Assault Bike's recipe alone so far"
+        );
         let recipes = [
             ASSAULT_BIKE_RECIPE,
             SHADEBRINGER_RECIPE,

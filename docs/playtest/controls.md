@@ -468,7 +468,7 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | W → W | OL | Build Optics Lab | place it |
 | W → E | CP | Build Chemical Plant | place it |
 | W → R | VT | Build Vault | greyed: "Not available yet" |
-| W → A | VA | Build Vehicle Assembly | greyed: "Not available yet" |
+| W → A | VA | Build Vehicle Assembly | place it; Requires a Chemical Plant; needs a Tier 2 Tunnel |
 | W → S | FE | Build Forge | greyed: "Not available yet" |
 | W → D | NC | Build Null Chamber | greyed: "Not available yet" |
 | W → F | AA | Build Aerospace Assembly | greyed: "Not available yet" |
@@ -503,7 +503,22 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 
 **Before it is finished:** X Cancel Construction, C Set Rally Point.
 
-No commands: Subterranean Transport (STR), Subterranean Transport (Burrowed) (STB), Prism (PRM), Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT), Vault (VT), Vehicle Assembly (VA), Forge (FE), Null Chamber (NC), Aerospace Assembly (AA), Orbital Command (OC).
+#### Vehicle Assembly (VA)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | AB | Train Assault Bike |  |
+| W | SBR | Train Shadebringer | greyed: "Not available yet" |
+| E | LB | Train Laser Battery | greyed: "Not available yet" |
+| R | STR | Train Subterranean Transport | greyed: "Not available yet" |
+| X | Cancel | Cancel Production |  |
+| C | Rally | Set Rally Point | click a target |
+
+**Right-click** sets its rally point, on the ground or on an object; on the building itself, it clears it.
+
+**Before it is finished:** X Cancel Construction, C Set Rally Point.
+
+No commands: Subterranean Transport (STR), Subterranean Transport (Burrowed) (STB), Prism (PRM), Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT), Vault (VT), Forge (FE), Null Chamber (NC), Aerospace Assembly (AA), Orbital Command (OC).
 
 ## Cults
 

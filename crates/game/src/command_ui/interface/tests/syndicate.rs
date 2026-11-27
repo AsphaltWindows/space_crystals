@@ -1,7 +1,7 @@
 //! The Syndicate's panels as plain data (slice M4-J2; design changes 0257 and 0260): the Tunnel's letters, its
 //! EjectMenu with its counts and its greyed tiles, the Hideout's letters, its Guard and its Grenadier behind their
-//! prerequisites (slices M4-K and M4-U), each greyed with why, and the Grenadier's combat grid with its Attack Ground
-//! (slice M4-U). The ExpandMenu's are `super::expansions`'.
+//! prerequisites (slices M4-K and M4-U), each greyed with why, (M6-SV) the Vehicle Assembly's letters, and the
+//! Grenadier's combat grid with its Attack Ground (slice M4-U). The ExpandMenu's are `super::expansions`'.
 
 use std::collections::BTreeSet;
 
@@ -16,6 +16,8 @@ const TUNNEL: ObjectKind = ObjectKind::Tunnel;
 const HIDEOUT: ObjectKind = ObjectKind::Hideout;
 const AGENT: ObjectKind = ObjectKind::Agent;
 const GRENADIER: ObjectKind = ObjectKind::Grenadier;
+const VEHICLE_ASSEMBLY: ObjectKind = ObjectKind::VehicleAssembly;
+const BIKE: ObjectKind = ObjectKind::AssaultBike;
 
 /// What the panel's `slot` says when pressed greyed out, if it is.
 fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
@@ -296,6 +298,62 @@ fn the_hideout_has_q_w_e_x_and_c() {
             SlotPress::Produce(Train(kind), ProductionCommand::Train(kind))
         );
     }
+}
+
+/// `factions/syndicate/structures/vehicle_assembly.md > Placeholder stats` (slice M6-SV): "Panel as the Hideout:
+/// **Q** Assault Bike, **W** Shadebringer, **E** Laser Battery, **R** Subterranean Transport (greyed until their
+/// prerequisites are owned), **X** Cancel Production, **C** Set Rally Point". Q is its recipe, which trains a Bike; W,
+/// E and R hold the units it doesn't train yet (slices M6-SB, M6-SL and M6-ST1), not available ("Not available yet"),
+/// each labelled and named by its type; C awaits the rally point's target, and the panel's right-click sets it.
+#[test]
+fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
+    use ButtonLook::{Common, Unavailable};
+    use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
+    let assembly = Selection::new([(id(1), VEHICLE_ASSEMBLY)]);
+    let shown_panel = panel(&assembly, InterfaceState::DefaultState, &Conditions::default());
+    let c = PanelButton::Command;
+    assert_eq!(
+        shown(&shown_panel),
+        [
+            (slot(0, 0), c(Train(BIKE)), Common),
+            (slot(0, 1), c(P(Planned::Shadebringer)), Unavailable),
+            (slot(0, 2), c(P(Planned::LaserBattery)), Unavailable),
+            (slot(0, 3), c(P(Planned::SubterraneanTransport)), Unavailable),
+            (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Common),
+            (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common),
+        ]
+    );
+    let labels: Vec<&str> = shown_panel.slots().filter_map(|(_, s)| s.map(|s| s.label())).collect();
+    assert_eq!(labels, ["AB", "SBR", "LB", "STR", "Cancel", "Rally"]);
+    let names: Vec<String> = shown_panel
+        .slots()
+        .filter_map(|(slot, _)| shown_panel.name(slot))
+        .collect();
+    assert_eq!(
+        names[..4],
+        [
+            "Train Assault Bike",
+            "Train Shadebringer",
+            "Train Laser Battery",
+            "Train Subterranean Transport"
+        ]
+    );
+    for slot in [slot(0, 1), slot(0, 2), slot(0, 3)] {
+        assert_eq!(why_text(&shown_panel, slot), Some("Not available yet"));
+        assert_eq!(press(&shown_panel, slot), SlotPress::Nothing);
+    }
+    assert_eq!(
+        press(&shown_panel, slot(0, 0)),
+        SlotPress::Produce(Train(BIKE), ProductionCommand::Train(BIKE))
+    );
+    assert_eq!(
+        press(&shown_panel, CommandSlot::RALLY_POINT),
+        SlotPress::AwaitTarget(SetRallyPoint)
+    );
+    assert_eq!(
+        InterfaceTemplate::of(VEHICLE_ASSEMBLY),
+        Some(InterfaceTemplate::Production)
+    );
 }
 
 /// `factions/syndicate/units/grenadier.md > ObjectInterfaceState: BasicCombatUnitInterfaceState` (slice M4-U): the

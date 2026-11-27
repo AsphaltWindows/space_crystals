@@ -1,20 +1,25 @@
 //! The Tunnel Network in a game, where a test needs the sim's inside or a type no game has (`defs::test_defs`): an
-//! air unit, a worker with a load, a unit taken off the map and put back, the held units at a defeat.
+//! air unit, a worker with a load, a unit taken off the map and put back, the held units at a defeat, (M6-SV) a
+//! vehicle of the Subterranean Transport's 72 × 48 su coming out of the exit path.
 
 use glam::Vec2;
 
 use crate::command::{Command, DebugCommand, PlayerCommand, TunnelCommand};
 use crate::defs::test_defs::TestDef;
-use crate::defs::{ObjectKind, UnitBase};
+use crate::defs::{Footprint, ObjectDef, ObjectKind, UnitBase};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
-use crate::network::{self, NoTransit, Place};
+use crate::math;
+use crate::network::{self, NoTransit, Paths, Place};
+use crate::object::Rotation;
 use crate::orders::{OrderKind, Target};
 use crate::player::Faction;
-use crate::scenario::SpawnAt;
+use crate::production::ProductionCommand;
+use crate::scenario::{BuildingOrientation, SpawnAt};
+use crate::shape::Shape;
 use crate::sim::Reject;
 use crate::testing::{ScenarioBuilder, TestSim, dangling_references};
-use crate::units::TilePos;
+use crate::units::{SU_PER_GU, TilePos};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -178,4 +183,89 @@ fn a_defeated_players_network_goes_with_them() {
     assert_eq!(removed, [TUNNEL, ObjectId(2)]);
     assert_eq!(t.sim().object(ObjectId(3)).unwrap().owner, None, "neutral, on the map");
     assert_eq!(dangling_references(t.sim()), []);
+}
+
+/// Plan decision T100 ("SV tests a 72x48 box at the exit spot"), for slice M6-ST1's Subterranean Transport
+/// (`factions/syndicate/units/subterranean_transport.md`: "Silhouette 72x48"), which only a test can give a vehicle
+/// that comes out of the exit path today: the Assault Bike with a 72 × 48 Silhouette, trained at a Vehicle Assembly
+/// into the network and ejected at the Tier 2 Tunnel, turned each of the four ways. It comes out on the exit path's
+/// spot, facing out of Side A, its box turned with it, 72 su deep out of the side and 48 su along it, its box against
+/// the wall, a sixty-fourth of a su clear of the Tunnel's footprint; then it drives 1 grid unit straight out, under
+/// the invariants (the wheeled W1 and the no-overlap I1 and I2 among them).
+#[test]
+fn a_72_by_48_vehicle_comes_out_of_side_a_facing_out_its_box_turned_with_it() {
+    let bike = ObjectKind::AssaultBike;
+    let _transport_sized = TestDef::set(ObjectDef {
+        footprint: Footprint::Silhouette { w: 72.0, h: 48.0 },
+        ..bike.def().clone()
+    });
+    for rotation in [Rotation::R0, Rotation::R90, Rotation::R180, Rotation::R270] {
+        let mut scenario = base()
+            .spawn(ObjectKind::ChemicalPlant, Some(P1), SpawnAt::Tile(TilePos::new(16, 14))) // 2
+            .spawn(ObjectKind::VehicleAssembly, Some(P1), SpawnAt::Tile(TilePos::new(9, 7))) // 3
+            .build();
+        scenario.map.spawns[0].orientation = BuildingOrientation {
+            rotation,
+            flip_h: false,
+            flip_v: false,
+        };
+        let mut t = TestSim::new(scenario);
+        t.without_auto_targeting();
+        t.debug_at(1, DebugCommand::SetTier { id: TUNNEL, tier: 2 });
+        let banks = DebugCommand::SetResources {
+            player: P1,
+            crystals: 500,
+            supplies: 0,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
+        };
+        t.debug_at(1, banks);
+        let train = Command::Production {
+            objects: vec![ObjectId(3)],
+            command: ProductionCommand::Train(bike),
+        };
+        t.at(2, P1, train);
+        t.run_until(241);
+        let unit = ObjectId(4);
+        assert!(
+            t.sim().held_unit(unit).is_some(),
+            "{rotation:?}: trained into the network"
+        );
+        let eject = Command::Tunnel {
+            tunnel: TUNNEL,
+            command: TunnelCommand::Eject { kind: bike },
+        };
+        assert_eq!(validate(&t, eject.clone()), Ok(()));
+        t.at(242, P1, eject).run_until(242);
+        let tunnel = t.sim().object(TUNNEL).unwrap();
+        let paths = Paths::of_object(tunnel).unwrap();
+        let footprint = Shape::footprint(tunnel.placement.as_ref().unwrap());
+        let o = t.sim().object(unit).expect("out on the map");
+        let out = paths.exit + paths.outward * (36.0 + 1.0 / 64.0);
+        assert!(o.pos.distance(out) < 1e-3, "{rotation:?}: at {}, not {out}", o.pos);
+        assert!(
+            math::facing_vector(o.facing).distance(paths.outward) < 1e-6,
+            "{rotation:?}: facing out"
+        );
+        let shape = Shape::of(o);
+        let half = shape.bound_half();
+        let along = paths.outward.abs();
+        let (deep, across) = (half.dot(along), half.dot(Vec2::ONE - along));
+        assert!(
+            (deep - 36.0).abs() < 1e-3 && (across - 24.0).abs() < 1e-3,
+            "{rotation:?}: {half}"
+        );
+        assert!(
+            !shape.overlaps(&footprint) && shape.gap(&footprint) < 0.1,
+            "{rotation:?}: against the wall"
+        );
+        t.run(40);
+        let parked = out + paths.outward * SU_PER_GU;
+        assert!(
+            t.pos(unit.0).distance(parked) < 1.0,
+            "{rotation:?}: 1 grid unit out, at {}",
+            t.pos(unit.0)
+        );
+    }
 }
