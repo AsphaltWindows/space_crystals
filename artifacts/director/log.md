@@ -67,3 +67,18 @@
     - 0302 (Militant) and 0304 (the Gunner TailDisjointed: a new slice, O3);
     - 0305–0308 (Disciple, and its cloud concept: gated N4).
   - Wave 1: M5-A is running. R waits for Z, to keep three builds at most.
+
+## 2026-11-26 to 2026-11-27: M5's content complete; computer players; M6 planned
+- **Merged** (the plan lists each with its details):
+  - **M5 content:**
+    - E, T, F2, J1, F3, Y, J2, Z1, L, G2, U1, N8, N2, N1a, Z2, N9, S1, N1b, M1, N4a, N3, S2a, S2b, N4b, Z3, N5, S3, S4, H1, P3, S5, S6 and H2;
+    - V1, N7, MM, V2, S7 (from the user's first playtest), K, N6, MM2, V3, S8, V4, N10, Ma and N11 (`30a50ae5`), **the last content slice**.
+  - **Computer players** (the user asked for them for the next playtest): A1 (the framework and the GDO), A2a–c (the other factions) and A2d (the rush profile, and economies that spend their income).
+  - Tests went from about 2300 to 2747, with 23 goldens.
+- **Running:** M5-X1, the sim's ruleset, alone. Then X2 (data files) and Mb (the QA); M6 starts at X1's merge with GK and SK, whose briefs are drafted.
+- **The user** (2026-11-26): "I might not be able to playtest for the next 24 hours so just continue with the milestones work", and "Don't forget to commit and push frequently!" M6's plan (`m6-plan.md`, from the M6-P spike) is adopted.
+- **Questions filed:** Q0109–Q0180. Open: Q0176 (turning at rest), Q0177 (the default rally holds three), Q0178 (crushing while stopping; the alert), Q0179 (the Hand of Heaven's back-off and hull aim) and Q0180 (Inspire's faster attack). Changes triaged up to 0447.
+- **Process:**
+  - M5's M was split into Ma (the generated playtest docs, beside the content) and Mb (the QA, after X2).
+  - Branches with a "(wip)" or "(in progress)" commit, or with merges that carry code, go in as one attributed squash (K, N10, N11).
+  - The computer players' 192-row `ai_games` table (since A2d) is the reference every slice is compared with.
