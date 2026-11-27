@@ -2,14 +2,14 @@
 
 use super::*;
 use crate::augmentation::{Augmentation, RecruitKind};
-use crate::combat::TurretState;
+use crate::combat::{TargetLock, TurretState};
 
 /// A named change to one field.
 type Mutation = (&'static str, fn(&mut Sim));
 
 /// Gives unit `id` a current order, a queued one, a path, an attack being aimed, a turret turned and locked (any unit
-/// may hold one here) and a Riot Shield on its way up, so every field of its orders, mover, attack and shield has a
-/// value.
+/// may hold one here), (M5-K) a Target Lock under way (the same) and a Riot Shield on its way up, so every field of its
+/// orders, mover, attack and shield has a value.
 fn make_busy(sim: &mut Sim, id: u32) {
     let order = Order {
         kind: OrderKind::Move(Target::Point(Vec2::new(40.0, 50.0))),
@@ -36,6 +36,11 @@ fn make_busy(sim: &mut Sim, id: u32) {
         turret: Some(TurretState {
             facing: 0.25,
             locked: Some(ObjectId(2)),
+        }),
+        target_lock: Some(TargetLock {
+            target: ObjectId(2),
+            elapsed: 5,
+            locked: false,
         }),
     });
     obj(sim, id).riot_shield = Some(RiotShield { up: 4 });
@@ -146,6 +151,13 @@ fn state_hash_covers_every_field() {
         ("move target", |s| {
             orders(s, 3).queue[0].kind = OrderKind::Move(Target::Object(ObjectId(1)));
         }),
+        // (M5-K) A Target Lock order, and its target.
+        ("target lock order", |s| {
+            orders(s, 3).queue[0].kind = OrderKind::TargetLock(ObjectId(2));
+        }),
+        ("target lock order's target", |s| {
+            orders(s, 3).queue[0].kind = OrderKind::TargetLock(ObjectId(1));
+        }),
         ("current none", |s| orders(s, 3).current = None),
         ("current since", |s| orders(s, 3).current.as_mut().unwrap().since += 1),
         ("current order", |s| {
@@ -242,6 +254,17 @@ fn state_hash_covers_every_field() {
         }),
         ("turret locked none", |s| {
             attack(s, 3).turret.as_mut().unwrap().locked = None
+        }),
+        // (M5-K) A Target Lock (`combat::target_lock`), each of its fields.
+        ("target lock none", |s| attack(s, 3).target_lock = None),
+        ("target lock target", |s| {
+            attack(s, 3).target_lock.as_mut().unwrap().target = ObjectId(1)
+        }),
+        ("target lock elapsed", |s| {
+            attack(s, 3).target_lock.as_mut().unwrap().elapsed += 1
+        }),
+        ("target lock locked", |s| {
+            attack(s, 3).target_lock.as_mut().unwrap().locked = true
         }),
         ("a projectile", |s| s.projectiles.push(projectile())),
         ("riot_shield none", |s| obj(s, 3).riot_shield = None),
@@ -413,6 +436,46 @@ fn a_turret_is_hashed_and_saved_only_while_it_is_set() {
     }
 }
 
+/// (M5-K) A Target Lock (`AttackState::target_lock`, `combat::target_lock`) is part of the state while one is under
+/// way: hashed, its target, its locking time and whether it is locked, and saved. While there is none, nothing of it is
+/// hashed, and an attack's file has no `target_lock` key and loads with none, so that the states and the files without
+/// one are as they were before it existed (the goldens stand).
+#[test]
+fn a_target_lock_is_hashed_and_saved_only_while_one_is_under_way() {
+    let mut base = small_sim();
+    insert_unit(&mut base, Vec2::new(100.0, 100.0)); // id 3
+    let with = |lock: Option<TargetLock>| {
+        let mut sim = base.clone();
+        attack(&mut sim, 3).target_lock = lock;
+        sim
+    };
+    assert_eq!(with(None).state_hash(), base.state_hash());
+    let locks = [
+        None,
+        Some(TargetLock::new(ObjectId(1))),
+        Some(TargetLock {
+            target: ObjectId(1),
+            elapsed: 48,
+            locked: false,
+        }),
+        Some(TargetLock {
+            target: ObjectId(1),
+            elapsed: 48,
+            locked: true,
+        }),
+    ];
+    let hashes: std::collections::BTreeSet<u64> = locks.iter().map(|&lock| with(lock).state_hash()).collect();
+    assert_eq!(hashes.len(), locks.len(), "each its own");
+    for lock in locks {
+        let sim = with(lock);
+        let attack = sim.objects[&ObjectId(3)].attack.as_ref().unwrap();
+        let json = serde_json::to_value(attack).unwrap();
+        assert_eq!(json.get("target_lock").is_some(), lock.is_some(), "{lock:?}");
+        let loaded: AttackState = serde_json::from_value(json).unwrap();
+        assert_eq!(&loaded, attack, "{lock:?}");
+    }
+}
+
 /// (M4-O) A projectile in flight with every field set (`combat::projectiles`).
 fn projectile() -> Projectile {
     Projectile {
@@ -425,11 +488,13 @@ fn projectile() -> Projectile {
         damage: 100.0,
         radius: 40.0,
         domain: crate::defs::TargetDomain::Ground,
+        homing: None,
     }
 }
 
 /// (M4-O) Every field of a projectile in flight changes the hash, and so does the order of the store; an empty store
-/// hashes as a sim without one (`state_hash_covers_every_field`, "a projectile").
+/// hashes as a sim without one (`state_hash_covers_every_field`, "a projectile"). (M5-K) So does every field of a
+/// homing one's flight, and the flight itself.
 #[test]
 fn state_hash_covers_every_projectile_field() {
     let mut base = small_sim();
@@ -437,6 +502,11 @@ fn state_hash_covers_every_projectile_field() {
         projectile(),
         Projectile {
             lands_at: 31,
+            homing: Some(crate::combat::projectiles::Homing {
+                pos: Vec2::new(130.0, 106.0),
+                prev: Vec2::new(115.0, 103.0),
+                speed: 16.0,
+            }),
             ..projectile()
         },
     ];
@@ -451,6 +521,14 @@ fn state_hash_covers_every_projectile_field() {
         ("radius", |s| s.projectiles[0].radius += 1.0),
         ("domain", |s| {
             s.projectiles[0].domain = crate::defs::TargetDomain::Universal
+        }),
+        ("homing", |s| s.projectiles[0].homing = s.projectiles[1].homing),
+        ("homing pos", |s| s.projectiles[1].homing.as_mut().unwrap().pos.x += 1.0),
+        ("homing prev", |s| {
+            s.projectiles[1].homing.as_mut().unwrap().prev.y += 1.0
+        }),
+        ("homing speed", |s| {
+            s.projectiles[1].homing.as_mut().unwrap().speed += 1.0
         }),
         ("order", |s| s.projectiles.swap(0, 1)),
         ("one fewer", |s| s.projectiles.truncate(1)),

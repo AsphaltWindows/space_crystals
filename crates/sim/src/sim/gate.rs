@@ -127,18 +127,19 @@ impl Sim {
     ///    construction command commands belongs to that player (debug commands may refer to anyone's objects). These
     ///    drop the ids of objects that no longer exist, and repeated ids; an order is rejected if no unit remains
     ///    (`docs/movement.md > 3`);
-    /// 4. the command's own rules hold: an order's size and target (which the player must see,
-    ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]), for an
-    ///    Attack Ground, a point on the map and units that can target the ground ([`Reject::CannotTargetGround`]), (M5-N4b)
-    ///    for a Shroud, units that cast it ([`Reject::LacksAbility`]) with the energy it needs to start
-    ///    ([`Reject::NotEnoughEnergy`]), (M5-V2) for a Reverse, units that can back up ([`Reject::CannotReverse`]); the units
-    ///    of an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they
-    ///    can queue (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank
-    ///    that pays and the placement check of a Place (`sim/construction.rs`), and the same of a Warp In's Beacon,
-    ///    or the transforming objects a cancel goes to (`sim/transform.rs`); a spawn's owner and placement (a
-    ///    footprint apart from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit
-    ///    and onto the map, a unit's box clear of blocked ground and of the units of its layer, and the player whose
-    ///    banks a debug command sets; (M5-N5) a cast's caster, its energy and its point (`sim/casts.rs`).
+    /// 4. the command's own rules hold: an order's size and target (which the player must see, [`Reject::NotVisible`]),
+    ///    and for an Attack, units that can attack now ([`Reject::CannotAttack`]), for an Attack Ground, a point on the
+    ///    map and units that can target the ground ([`Reject::CannotTargetGround`]), (M5-N4b) for a Shroud, units that
+    ///    cast it ([`Reject::LacksAbility`]) with the energy it needs to start ([`Reject::NotEnoughEnergy`]), (M5-V2)
+    ///    for a Reverse, units that can back up ([`Reject::CannotReverse`]), (M5-K) for a Target Lock, an enemy's
+    ///    destructible object ([`Reject::NotAnEnemy`]) and units that have one ([`Reject::LacksAbility`]); the units of
+    ///    an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they can
+    ///    queue (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank that
+    ///    pays and the placement check of a Place (`sim/construction.rs`), and the same of a Warp In's Beacon, or the
+    ///    transforming objects a cancel goes to (`sim/transform.rs`); a spawn's owner and placement (a footprint apart
+    ///    from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit and onto the map, a
+    ///    unit's box clear of blocked ground and of the units of its layer, and the player whose banks a debug command
+    ///    sets; (M5-N5) a cast's caster, its energy and its point (`sim/casts.rs`).
     pub fn validate(&self, cmd: &PlayerCommand) -> Result<(), Reject> {
         self.check(cmd).map(|_| ())
     }

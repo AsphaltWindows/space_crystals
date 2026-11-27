@@ -26,7 +26,8 @@ use super::{BuildMenu, Planned};
 /// and Altar's (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`, slice M5-N1b), and Temple's
 /// (`factions/cults/structures/temple.md > Placeholder stats`, slice M5-N3), and the Disciple's spell
 /// (`factions/cults/units/disciple.md > Placeholder stats`, slice M5-N4b), and the Shrine's casts
-/// (`factions/cults/structures/shrine.md > Placeholder stats`, slice M5-N5).
+/// (`factions/cults/structures/shrine.md > Placeholder stats`, slice M5-N5), and the Rocketman's Target Lock
+/// (`factions/gdo/units/rocketman.md > Placeholder stats`, slice M5-K).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -251,4 +252,10 @@ pub enum PanelCommand {
     /// below its cost in energy (`sc_sim::Sim::can_cast`: `sc_sim::Reject::NotEnoughEnergy`); a click on a point out of
     /// vision is an invalid target (`crate::command_ui::resolution::target_resolution`).
     Cast(AreaAbility),
+    /// (M5-K) The Rocketman's R (`factions/gdo/units/rocketman.md > Placeholder stats`: "Panel:
+    /// BasicCombatUnitInterfaceState, plus **R: Target Lock** (targeted: left-click an enemy unit or structure)"):
+    /// awaits its target, where a left-click on an enemy unit or structure that the player sees now gives a Target Lock
+    /// order on it (`sc_sim::OrderKind::TargetLock`, `crate::command_ui::resolution::target_order`) to every selected
+    /// Rocketman, the Rocketman being Groupable ("Groupable true"). Shift queues it, as any unit order.
+    TargetLock,
 }

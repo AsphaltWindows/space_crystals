@@ -40,7 +40,7 @@ use space_crystals::placement::{BuildAreaOverlay, Ghost, PlacementGhost};
 use space_crystals::sim_driver::{PendingCommands, SimRes};
 
 use super::*;
-use KeyCode::{ControlLeft, Digit1, Escape, KeyD, KeyE, KeyF, KeyQ, KeyR, KeyW, KeyX, KeyZ, ShiftLeft, Tab};
+use KeyCode::{ControlLeft, Digit1, Escape, KeyD, KeyE, KeyF, KeyQ, KeyR, KeyS, KeyW, KeyX, KeyZ, ShiftLeft, Tab};
 
 const P1: PlayerId = PlayerId(1);
 const GENERATOR: ObjectKind = ObjectKind::Generator;
@@ -49,6 +49,8 @@ const EXTRACTION_FACILITY: ObjectKind = ObjectKind::ExtractionFacility;
 const PLATE_KIND: ObjectKind = ObjectKind::ExtractionPlate;
 /// BuildMenu[Basic]'s D (slice M5-N9): greyed in these games, which have no Barracks, its TechPrerequisite.
 const CAREER_CAMPUS: ObjectKind = ObjectKind::CareerCampus;
+/// BuildMenu[Basic]'s S (slice M5-K): greyed in these games, as the Career Campus is, for the same TechPrerequisite.
+const ARSENAL: ObjectKind = ObjectKind::Arsenal;
 
 // The objects of [`construction_scenario`], by id.
 /// Player 1's Deployment Center, on tiles (20, 11) to (23, 14): its build area is tiles (8, 0) to (35, 26).
@@ -325,6 +327,10 @@ fn w() -> CommandSlot {
 
 fn e() -> CommandSlot {
     slot(0, 2)
+}
+
+fn s() -> CommandSlot {
+    slot(1, 1)
 }
 
 fn d() -> CommandSlot {

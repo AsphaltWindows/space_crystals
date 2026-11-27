@@ -71,8 +71,13 @@
 //!   (`StructureDef::occupants_fire`, `factions/cults/structures/garrison.md`) fire from it, held off the map, right
 //!   after every object's own attack: each its own sequence, from the footprint, with its target picked as a
 //!   structure's and its weapon or its stand-in's, its Range bonus added.
-//!
-//! Not built yet: the HeadDisjointed attack.
+//! - **Homing projectiles** (slice M5-K; [`projectiles::Homing`]): a HeadDisjointed attack (`systems/combat.md >
+//!   HeadDisjointed`) launches at the end of its Firing a projectile that tracks its target and lands on it, wherever
+//!   it is: "The projectile cannot miss".
+//! - **Target Lock** (slice M5-K; [`target_lock`], `factions/gdo/units/rocketman.md > Target Lock`): the Rocketman's
+//!   order locks onto one target ([`AttackState::target_lock`]). In this phase the lock aims at it for LockOnDuration,
+//!   breaks when the target leaves LockRange or its owner's vision, and once locked fires homing missiles at it,
+//!   from anywhere within LockRange.
 
 mod area;
 mod damage;
@@ -82,6 +87,7 @@ mod phases;
 pub mod projectiles;
 mod step;
 mod structures;
+pub mod target_lock;
 mod targeting;
 #[cfg(test)]
 pub(crate) mod testing;
@@ -101,6 +107,7 @@ pub use damage::{Hit, Taken, directional_multiplier, hit_damage, pre_armor_multi
 pub(crate) use occupants::Threats;
 pub use projectiles::{Projectile, flight_ticks};
 pub(crate) use step::step;
+pub use target_lock::TargetLock;
 pub use targeting::{
     can_attack_now, can_target_ground, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches,
     reaches_point, takes_attack_orders, within_range,
@@ -232,6 +239,11 @@ pub struct AttackState {
     /// and out of the hash, as the location.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub turret: Option<TurretState>,
+    /// (M5-K) The Target Lock under way, locking or locked ([`target_lock`], `factions/gdo/units/rocketman.md > Target
+    /// Lock`): set as its order starts (`orders::target_lock`), until it breaks. Left out of files while unset, and
+    /// out of the hash, as the location.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_lock: Option<TargetLock>,
 }
 
 impl AttackState {
@@ -269,8 +281,8 @@ impl AttackState {
     }
 
     /// The removal path (`Sim::remove_objects`): the objects `gone` (sorted by id) left the game. The unit no longer
-    /// engages them, nor does its turret lock them; an attack aimed at one is cancelled, and one being fired at one
-    /// hits nothing.
+    /// engages them, nor does its turret lock them, nor (M5-K) its Target Lock; an attack aimed at one is cancelled,
+    /// and one being fired at one hits nothing.
     pub fn forget(&mut self, gone: &[ObjectId]) {
         let is_gone = |id: ObjectId| gone.binary_search(&id).is_ok();
         if self.target.is_some_and(is_gone) {
@@ -280,6 +292,10 @@ impl AttackState {
             && turret.locked.is_some_and(is_gone)
         {
             turret.locked = None;
+        }
+        // (M5-K) "The lock (or the locking in progress) breaks when [...] the target dies".
+        if self.target_lock.is_some_and(|lock| is_gone(lock.target)) {
+            self.target_lock = None;
         }
         match self.phase {
             Some(AttackPhase::Aiming { target }) if is_gone(target) => self.cancel(),

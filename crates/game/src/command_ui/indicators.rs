@@ -159,8 +159,9 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         // Design change 0201: the gathering markers' own colours.
         OrderKind::Gather(_) => Some(GATHER_COLOR),
         OrderKind::DropOff(_) => Some(RETURN_COLOR),
-        // `> Indicator assignments`: "AttackGround | Location | Red" (slice M4-O).
-        OrderKind::Attack(_) | OrderKind::AttackGround(_) => Some(ATTACK_COLOR),
+        // `> Indicator assignments`: "AttackGround | Location | Red" (slice M4-O). (M5-K) No row for a Target Lock:
+        // placeholder, the Attack's.
+        OrderKind::Attack(_) | OrderKind::AttackGround(_) | OrderKind::TargetLock(_) => Some(ATTACK_COLOR),
         OrderKind::AttackMove(_) | OrderKind::Patrol(_) => Some(AGGRESSIVE_COLOR),
         // (M5-N4b) A Shroud is channelled where the Disciple stands: no target.
         OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud => None,
@@ -188,6 +189,7 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
         OrderKind::Attack(id) | OrderKind::Enter(id) | OrderKind::Assist(id) | OrderKind::Repair(id) => {
             known(id).then_some(Indicator::Object { id, color })
         }
+        OrderKind::TargetLock(id) => known(id).then_some(Indicator::Object { id, color }),
         OrderKind::Gather(id) => known(id).then_some(Indicator::Gathering {
             id,
             marker: GatheringMarker::Gather,

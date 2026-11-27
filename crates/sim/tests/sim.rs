@@ -146,6 +146,8 @@ mod resources_block;
 #[path = "riot_shield/main.rs"]
 mod riot_shield;
 mod robustness;
+#[path = "rocketman/main.rs"]
+mod rocketman;
 mod scenario_files;
 mod scenario_problems;
 mod scenarios;

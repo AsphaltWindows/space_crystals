@@ -89,7 +89,7 @@ fn a_replaced_sim_starts_the_selections_over() {
 
 /// Design change 0199's Verification (`systems/controls/selection.md > Selection > ActiveGroup > When the
 /// ActiveGroup disappears`): "Select Peacekeepers (active) and Rocketmen, then have all the Peacekeepers die. The
-/// Rocketmen group becomes active." The Rocketman isn't in the game yet: player 1's Guards stand in for it.
+/// Rocketmen group becomes active." Player 1's Guards, the shared scenario's second group, stand in for the Rocketmen.
 /// Peacekeepers 1 and 2 and Guards 3 and 4 selected, the Peacekeepers' group, the first, active and awaiting an
 /// Attack's target: a Guard dying ("Completions or deaths in a group that isn't active never change the ActiveGroup")
 /// and one Peacekeeper dying (`systems/controls/interface.md > AwaitingTarget > Selection changes while

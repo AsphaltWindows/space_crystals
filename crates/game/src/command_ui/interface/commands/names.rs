@@ -8,8 +8,8 @@ use super::PanelCommand;
 use crate::kinds::{self, short_label};
 
 impl PanelCommand {
-    /// The button's label: a placeholder for its icon (Q0001), short enough to keep the label size on its button
-    /// at 720p (slice M3-K2a: six characters at most, `crate::hud::command_panel`), its full name being
+    /// The button's label: a placeholder for its icon (Q0001), short enough to keep the label size on its button at
+    /// 720p (slice M3-K2a: six characters at most, `crate::hud::command_panel`), its full name being
     /// [`Self::name_on`]'s, in the InfoPanel's hint for the button under the pointer (`crate::hud::info_panel::hint`).
     /// What a button makes, a unit to train or a building to construct, warp in or build on its site (one that isn't in
     /// the game yet too), it shows as an icon would: by its type's tag, as the map and the portraits show it
@@ -28,7 +28,8 @@ impl PanelCommand {
     /// "InProg" ("its key shows "In progress" meanwhile"), and its releases their kind as the kind buttons do, with
     /// their counts (slice M5-N3). A Disciple's spell is its name, "Shroud", whole (6 letters, as "AtkGnd"; slice
     /// M5-N4b). A Shrine's casts are their names' first words, "Health" and "Energy" (slice M5-N5; the names are TBD,
-    /// `factions/cults/structures/shrine.md > Abilities`).
+    /// `factions/cults/structures/shrine.md > Abilities`). A Rocketman's Target Lock is "Lock", its name's second word,
+    /// which says what it does (slice M5-K).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -79,6 +80,7 @@ impl PanelCommand {
             PanelCommand::Shroud => "Shroud",
             PanelCommand::Cast(AreaAbility::HealthRegeneration) => "Health",
             PanelCommand::Cast(AreaAbility::EnergyRegeneration) => "Energy",
+            PanelCommand::TargetLock => "Lock",
         }
     }
 
@@ -128,6 +130,7 @@ impl PanelCommand {
             PanelCommand::Researching(tech) => format!("{}: In progress", tech.def().name),
             PanelCommand::ReleaseOne(kind) => format!("Release one {} Recruit", kind.name()),
             PanelCommand::Cast(ability) => ability.def().name.into(),
+            PanelCommand::TargetLock => "Target Lock".into(),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol

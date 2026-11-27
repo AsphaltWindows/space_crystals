@@ -386,13 +386,19 @@ pub enum SimEvent {
     /// end of its Aiming phase, where it lands in phase 5e of tick `lands_at` (`systems/combat.md > DoublyDisjointed`,
     /// `crate::combat::projectiles`, plan decision T48). `target`: the object it was aimed at, none for a shot at the
     /// ground (Attack Ground). For drawing it in flight, which the client clips to what each player sees (plan decision
-    /// T52): the event says nothing about who stands where it lands.
+    /// T52): the event says nothing about who stands where it lands. (M5-K) `homing`: a HeadDisjointed attack's, which
+    /// tracks `target` (`systems/combat.md > HeadDisjointed`, `crate::combat::projectiles::Homing`), so that `to` is
+    /// only where the target stood as it left and `lands_at` when it would land if the target stood still: its flight
+    /// is in the store (`Sim::projectiles`).
     ProjectileLaunched {
         shooter: ObjectId,
         target: Option<ObjectId>,
         from: Vec2,
         to: Vec2,
         lands_at: Tick,
+        /// Optional in files (false), so that the states saved before it existed still load.
+        #[serde(default)]
+        homing: bool,
     },
     /// An area attack took effect: a circle of `radius` space units around `at` (`systems/combat.md > AoEDamage`,
     /// `crate::combat::area`), a projectile's that landed. Its damage follows as a [`SimEvent::Hit`] on each object in

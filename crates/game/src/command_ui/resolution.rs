@@ -32,7 +32,8 @@
 //!   them (an ability, `sc_sim::Ability::SetDropOff`; slice M3-J2); the Agents' Drop Off an own Tunnel in operation, a
 //!   Drop Off order (slice M4-J1); the Recruits' Assist Construction an own site built from outside, an Assist order
 //!   (slice M5-J1); the Recruits' and the Agents' Repair a damaged own object that one of them repairs, a Repair order
-//!   (slice M5-N8); (M5-N5) a Shrine's cast a point the player sees now, the ground under the cursor, a cast there.
+//!   (slice M5-N8); (M5-N5) a Shrine's cast a point the player sees now, the ground under the cursor, a cast there;
+//!   (M5-K) a Rocketman's Target Lock an enemy unit or structure the player sees now, a Target Lock order.
 //! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected objects would all do on a
 //!   right-click, or Mixed when they would do different things (a rally point shows Move:
 //!   `systems/controls/hud.md > Resolution Rules > DefaultState`, "Selection is a production building:
@@ -44,7 +45,7 @@ use sc_sim::defs::{Domain, Transit};
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use sc_sim::production::takes_rally;
 use sc_sim::repair::repairs;
-use sc_sim::{Ability, AreaAbility, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
+use sc_sim::{Ability, AreaAbility, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target, TargetView};
 
 use super::interface::{InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
@@ -105,6 +106,11 @@ pub struct MapTarget {
     /// the map, on a tile Visible to them as the last tick left their vision; `factions/cults/structures/shrine.md >
     /// Abilities`: "cast on an area anywhere the player currently has vision").
     pub seen: bool,
+    /// (M5-K) Whether the player sees the object under the cursor now (`Sim::target_view`: Visible), not only
+    /// remembers it: a Target Lock's target must be seen (`factions/gdo/units/rocketman.md > Target Lock`: "Locking
+    /// succeeds only if the target stays within LockRange and visible for the whole duration"). `false` over the
+    /// ground.
+    pub visible: bool,
 }
 
 impl MapTarget {
@@ -127,6 +133,7 @@ impl MapTarget {
             ground,
             aimed: target.object().and_then(|id| sim.aimed(player, id)),
             seen: sim.sees_point(player, ground),
+            visible: (target.object()).is_some_and(|id| matches!(sim.target_view(player, id), TargetView::Visible)),
         }
     }
 
@@ -137,6 +144,7 @@ impl MapTarget {
             ground: point,
             aimed: None,
             seen: true,
+            visible: false,
         }
     }
 
@@ -358,7 +366,11 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 /// Assist Construction takes an own site built from outside ([`assist_target`], slice M5-J1), and the Repair a damaged
 /// own object ([`repair_target`], slice M5-N8). (M5-V2) Reverse takes the ground only
 /// (`systems/controls/interface.md > AwaitingTarget[Reverse] resolution`: "Left-click Ground: issues Reverse command to
-/// that location").
+/// that location"). (M5-K) A Rocketman's Target Lock takes an enemy unit or structure
+/// (`factions/gdo/units/rocketman.md > Placeholder stats`: "targeted: left-click an enemy unit or structure") that the
+/// player sees now ([`MapTarget::visible`]): **reading**, a lock "succeeds only if the target stays within LockRange
+/// and visible for the whole duration", and one on a structure the player only remembers would break at once
+/// (`sc_sim::combat::target_lock`), so the click on it is an invalid target.
 pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {
@@ -376,6 +388,9 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
         (PanelCommand::DropOff, _) => drop_off_target(target).map(OrderKind::DropOff),
         (PanelCommand::Assist, _) => assist_target(target).map(OrderKind::Assist),
         (PanelCommand::Repair, _) => repair_target(target).map(OrderKind::Repair),
+        (PanelCommand::TargetLock, EnemyObject(id)) => {
+            (target.destructible() && target.visible).then_some(OrderKind::TargetLock(id))
+        }
         _ => None,
     }
 }

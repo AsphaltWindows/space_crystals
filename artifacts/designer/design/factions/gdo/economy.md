@@ -8,7 +8,7 @@ The GDO player starts with:
 - One pre-built **Extraction Facility**
 - Two **Extraction Plates** already placed on Space Crystals patches near the starting base (which patches: set in the map's GDO Starting Layout)
 
-Starting resources: **100 Space Crystals**. Starting Supplies: **0** (placeholder; revisit when GDO Supply costs are designed, user 2026-11-24). Starting power: +30 (Deployment Center) − 15 (Extraction Facility) − 6 (two plates) = **+9**. Exact placement of the starting structures and plates relative to the player's start location is defined by the map's start position.
+Starting resources: **100 Space Crystals**. Starting Supplies: **1** (user, 2026-11-26; Q0169 follow-up: enough for one Field Engineer; was 0). Starting power: +30 (Deployment Center) − 15 (Extraction Facility) − 6 (two plates) = **+9**. Exact placement of the starting structures and plates relative to the player's start location is defined by the map's start position.
 
 ### Opening Economy Baseline
 GDO's early game is bounded by two build queues that should not sit idle: the Deployment Center (buildings) and the Extraction Facility (Extraction Plates, i.e. economy growth). Design goals for the opening:
@@ -194,7 +194,7 @@ GDO supply collection structure. Serves as the drop-off point for supplies gathe
 - One Supply Chopper is spawned on the tower at no additional cost (included in tower's construction cost). This chopper is automatically attached to the tower.
 
 ### Landing and Attachment:
-- A Supply Chopper that lands on its attached Supply Tower drops off all carried supplies and is gradually repaired at no cost.
+- A Supply Chopper that lands on its attached Supply Tower drops off all carried supplies and is gradually repaired at no cost, at the **repairers' rate** (0 to full in half its build time: 80 frames, about 30 HP a second; designer placeholder, 2026-11-26; Q0169).
 - When a Supply Chopper attaches to a Supply Tower, it immediately evicts any existing landed Supply Chopper that is not the attached chopper.
 - When a Supply Tower has an attached Supply Chopper, no other Supply Chopper may land on it.
 - Any command given to an attached Supply Chopper breaks its attachment to the tower.

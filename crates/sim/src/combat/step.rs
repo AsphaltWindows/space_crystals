@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 use super::{AttackPhase, Projectile, damage};
-use super::{Threats, occupants, phases, projectiles, structures, targeting, weapon_ref};
+use super::{Threats, occupants, phases, projectiles, structures, target_lock, targeting, weapon_ref};
 use crate::augmentation::Research;
 use crate::conversion;
 use crate::events::SimEvent;
@@ -23,7 +23,8 @@ use crate::vision::Vision;
 /// attack sequence against a snapshot of the targets taken before any of them acts, and so does every complete
 /// structure that attacks, having picked its target first ([`structures`]; none while `auto_targeting` is off, as no
 /// unit auto-targets then: `DebugCommand::SetAutoTargeting`), and the projectiles they launch
-/// join `projectiles`, the store (`Sim::projectiles`); then the projectiles due land, in launch order (slice M4-O,
+/// join `projectiles`, the store (`Sim::projectiles`), once its homing projectiles have flown on (slice M5-K,
+/// `projectiles::steer`); then the projectiles due land, in launch order (slice M4-O,
 /// plan decision T45), their blasts' hits ahead of the tick's new hits on the list; then the tick's hits are applied
 /// together, and each reveals its attacker to the owner of the object hit if that player didn't see it
 /// (`vision::reveal`; a blast's attacker as its damage lands, if it is still alive: design change 0293). Returns the
@@ -34,7 +35,8 @@ use crate::vision::Vision;
 /// (M5-N1a) Each attacks with its weapon as its Augmentations make it, at its owner's levels in `research`
 /// ([`super::weapon`]). (M5-N4b) While there is a cloud (`Sim::clouds`), the hits on objects under one from outside it go
 /// into its buffer before the list is applied (`damage::absorb`), each still revealing its attacker as a hit does, and
-/// the buffers due follow the tick's hits on the list (`damage::release`), revealing no one.
+/// the buffers due follow the tick's hits on the list (`damage::release`), revealing no one. (M5-K) A unit whose type
+/// has a Target Lock runs its sequence through the lock's tick (`target_lock::step`), with its locked missiles too.
 #[expect(
     clippy::too_many_arguments,
     reason = "phase 5e's state, in the parts of the sim it reads and writes"
@@ -54,13 +56,14 @@ pub(crate) fn step(
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
     // A structure that attacks is always busy: it looks for its targets in this phase. So is a turret with a target
-    // locked, which it turns toward.
+    // locked, which it turns toward, and (M5-K) a unit with a Target Lock under way.
     let busy = |o: &Object| {
         o.attack.as_ref().is_some_and(|a| {
             a.target.is_some()
                 || a.location.is_some()
                 || a.phase.is_some()
                 || a.locked().is_some()
+                || a.target_lock.is_some()
                 || o.placement.is_some()
         })
     };
@@ -103,6 +106,11 @@ pub(crate) fn step(
         let may_fire = popup::may_fire(o);
         let sight = o.owner.and_then(|owner| vision.player(owner));
         let shooter = phases::Shooter::new(map, o, attrs, sight, turns.angle(o.id));
+        // (M5-K) A unit whose type has a Target Lock, with its locked missiles (`target_lock`).
+        let lock = (o.def().unit.as_ref()).and_then(|unit| unit.target_lock);
+        let lock_attrs = lock.map(|def| target_lock::attrs(attrs, &def));
+        let locked = (lock_attrs.as_ref()).map(|attrs| phases::Shooter::new(map, o, attrs, sight, turns.angle(o.id)));
+        let kind = o.kind;
         let Some(state) = &mut o.attack else {
             continue;
         };
@@ -127,7 +135,20 @@ pub(crate) fn step(
                 continue;
             }
         }
-        phases::run(state, &mut o.facing, &shooter, &targets, &mut volley, events);
+        match (lock, &locked) {
+            (Some(def), Some(locked)) => target_lock::step(
+                state,
+                &mut o.facing,
+                kind,
+                &def,
+                &shooter,
+                locked,
+                &targets,
+                &mut volley,
+                events,
+            ),
+            _ => phases::run(state, &mut o.facing, &shooter, &targets, &mut volley, events),
+        }
     }
     occupants::step(
         &inside,
@@ -141,6 +162,8 @@ pub(crate) fn step(
         &mut volley,
         events,
     );
+    // (M5-K) The homing projectiles in flight fly on, those launched in this tick from the next on.
+    projectiles::steer(projectiles, tick, &targets);
     projectiles.append(&mut volley.launched);
     // The blasts first: due projectiles land before this tick's new hits are applied (plan decision T45).
     let mut hits = Vec::new();

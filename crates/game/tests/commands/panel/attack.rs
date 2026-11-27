@@ -7,7 +7,8 @@
 //! "on ground they move to the spot (with the group, as for Attack Move)". On a Colonists field (Drones and Sabre
 //! Legionnaires, design change 0399's Verification with the Legionnaires for its Militants, of another faction), a
 //! Cults one (Militants, a Prayer-mobile and a Sparrow, 0397's Verification) and a GDO one (Field Engineers and
-//! Peacekeepers).
+//! Peacekeepers); and (slice M5-K) with a Barracks in focus, selected with Peacekeepers and Rocketmen (design change
+//! 0407's Verification).
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Faction, mover};
@@ -264,4 +265,57 @@ fn field_engineers_in_focus_send_the_peacekeepers_to_attack() {
         orders(&app),
         [given(&ENGINEERS, to_enemy, false), given(&PEACEKEEPERS, attack, false)]
     );
+}
+
+// The objects of [`barracks_game`], by id.
+const BARRACKS_ID: u32 = 1;
+const BARRACKS_CENTER: Vec2 = Vec2::new(1120.0, 768.0);
+const BARRACKS_UNITS: [u32; 4] = [2, 3, 4, 5];
+const GUARD: u32 = 6;
+
+/// Player 1, the GDO, with a Barracks on tiles (16, 11) to (18, 12), and two Peacekeepers and two Rocketmen south of
+/// it; player 2's Guard in their sight, east of them.
+fn barracks_game() -> App {
+    let point = |x, y| SpawnAt::Point(Vec2::new(x, y));
+    let builder = ScenarioBuilder::new(&flat())
+        .faction(P1, Faction::Gdo)
+        .faction(P2, Faction::Syndicate)
+        .spawn(ObjectKind::Barracks, Some(P1), SpawnAt::Tile(TilePos::new(16, 11)))
+        .spawn(ObjectKind::Peacekeeper, Some(P1), point(1040.0, 900.0))
+        .spawn(ObjectKind::Peacekeeper, Some(P1), point(1100.0, 900.0))
+        .spawn(ObjectKind::Rocketman, Some(P1), point(1160.0, 900.0))
+        .spawn(ObjectKind::Rocketman, Some(P1), point(1220.0, 900.0))
+        .spawn(ObjectKind::Guard, Some(P2), point(1450.0, 900.0));
+    game_of(builder.build())
+}
+
+/// Design change 0407's Verification (slice M5-S5's rule, folded into slice M5-K): "Select a Barracks plus some units,
+/// Tab to the Barracks: A: Attack is shown, and A + click sends the units to attack." A click selects the Barracks and
+/// a Shift + box adds the Peacekeepers and the Rocketmen; with the Barracks in focus, whose own panel has no A, A is
+/// Attack, common, as one of the selected units can attack (design change 0399). A and a click on the Guard give the
+/// four units one Attack on it, which they carry out, and the Barracks nothing (design change 0397: "an Attack (A) is
+/// issued to **every selected unit**").
+#[test]
+fn a_barracks_in_focus_shows_a_which_sends_the_units_to_attack() {
+    let mut app = barracks_game();
+    click(&mut app, BARRACKS_CENTER, &[]);
+    assert_eq!(selected(&app), [BARRACKS_ID]);
+    press_keys(&mut app, &[KeyCode::ShiftLeft]);
+    drag(&mut app, Vec2::new(1000.0, 870.0), Vec2::new(1260.0, 930.0));
+    release_keys(&mut app, &[KeyCode::ShiftLeft]);
+    assert_eq!(selected(&app), [[BARRACKS_ID].as_slice(), &BARRACKS_UNITS].concat());
+    focus(&mut app, ObjectKind::Barracks);
+    assert_eq!(shown_in_a(&mut app), ATTACK, "the Barracks in focus");
+
+    tap(&mut app, &[], KeyCode::KeyA);
+    assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Attack));
+    let guard_at = pos(&app, GUARD);
+    click(&mut app, guard_at, &[]);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    let attack = OrderKind::Attack(ObjectId(GUARD));
+    assert_eq!(orders(&app), [given(&BARRACKS_UNITS, attack, false)]);
+    updates(&mut app, 2);
+    for id in BARRACKS_UNITS {
+        assert_eq!(current(&app, id), Some(attack), "{id}");
+    }
 }

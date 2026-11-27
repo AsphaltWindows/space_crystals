@@ -121,6 +121,10 @@
 //! assist (`sc_sim::OrderKind::Assist`); D a damaged own building or vehicle, which they repair
 //! (`sc_sim::OrderKind::Repair`).
 //!
+//! The GDO's Rocketman (`factions/gdo/units/rocketman.md > Placeholder stats`, slice M5-K) has the BasicCombatUnit's
+//! panel and R Target Lock, which awaits an enemy unit or structure the player sees, a Target Lock order on it
+//! (`sc_sim::OrderKind::TargetLock`) to every selected Rocketman; Shift queues it.
+//!
 //! A greyed-out button, or its hotkey, can still be pressed: nothing is issued, and the player is told why
 //! ([`PanelSlot::why`], design change 0162).
 //!

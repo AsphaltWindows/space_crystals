@@ -172,7 +172,7 @@ pub struct PanelTemplate {
     pub planned: &'static [(usize, Planned)],
     /// (M5-N9) The units of a producing structure's panel that the design puts in a slot of their own, each with its
     /// slot (`CommandSlot::all` order), where [`production_grid`] puts their Train, the others going in order into the
-    /// slots left: the Barracks' Field Engineer in E, its W being the Rocketman's ([`gdo::barracks`]).
+    /// slots left: the Barracks' Rocketman in W and Field Engineer in E (slice M5-K, [`gdo::barracks`]).
     pub trains: &'static [(usize, ObjectKind)],
     /// The commands the design names after the object whose panel shows them, with their names
     /// (`PanelCommand::name_on`).
@@ -227,6 +227,10 @@ const CONVERT_SLOT: usize = 3;
 /// BasicCombatUnitInterfaceState, plus **R: Shroud**" ("Q0112: R, as the other units that add an ability to the combat
 /// panel; Q stays Move").
 const SHROUD_SLOT: usize = 3;
+
+/// (M5-K) `factions/gdo/units/rocketman.md > Placeholder stats`: "Panel: BasicCombatUnitInterfaceState, plus **R:
+/// Target Lock** (targeted: left-click an enemy unit or structure)".
+const TARGET_LOCK_SLOT: usize = 3;
 
 impl InterfaceTemplate {
     /// The template of `kind`'s ObjectInterfaceState, its module's (`crate::kinds`); none for types without commands:
@@ -285,9 +289,10 @@ pub use sc_sim::combat::can_target_ground;
 /// panel shows **Raise Shield**; Peacekeeper (Shielded)'s shows **Lower Shield**": [`PanelCommand::RaiseShield`] or
 /// [`PanelCommand::LowerShield`]); a unit with another form, a Legionnaire, the Convert to that form in R
 /// ([`PanelCommand::Convert`]: "R: Convert to Rifle Legionnaire" on the Sabre's panel); (M5-N4b) a unit that casts
-/// Shroud, the Disciple, the spell in R ([`PanelCommand::Shroud`], `sc_sim::defs::UnitDef::shroud`). These
-/// are the commands the type offers ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a
-/// constructor's panel follows its state ([`state_grid`]).
+/// Shroud, the Disciple, the spell in R ([`PanelCommand::Shroud`], `sc_sim::defs::UnitDef::shroud`); (M5-K) a unit
+/// with a Target Lock, the Rocketman, its Target Lock in R ([`PanelCommand::TargetLock`],
+/// `sc_sim::defs::UnitDef::target_lock`). These are the commands the type offers ([`offers`]); its panel's A is the
+/// selection's ([`attack_slot`]), and a constructor's panel follows its state ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let Some(template) = InterfaceTemplate::of(kind) else {
         return [None; 12];
@@ -304,6 +309,9 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     }
     if kind.def().unit.as_ref().and_then(|unit| unit.shroud()).is_some() {
         grid[SHROUD_SLOT] = Some(PanelCommand::Shroud);
+    }
+    if kind.def().unit.as_ref().and_then(|unit| unit.target_lock).is_some() {
+        grid[TARGET_LOCK_SLOT] = Some(PanelCommand::TargetLock);
     }
     grid
 }

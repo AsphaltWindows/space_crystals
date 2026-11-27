@@ -8,12 +8,13 @@ impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
     /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off, the
     /// Agent's Drop Off, the Recruits' Assist Construction and the Recruits' and the Agent's Repair (slice M5-N8), and
-    /// (M5-N5) a Shrine's casts, on a point ("Targeting: AwaitingTarget, left-click a point in vision"). The
-    /// others are issued at once: HoldPosition and Stop, a Disciple's Shroud, Raise and Lower Shield, Convert, a
-    /// producer's Train and Cancel
-    /// Production, a constructor's Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their
-    /// own: a build menu, the EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and
-    /// a Recruits' Construct menu entry too); or they change the selection (the Egress Node's F).
+    /// (M5-N5) a Shrine's casts, on a point ("Targeting: AwaitingTarget, left-click a point in vision"), and (M5-K) a
+    /// Rocketman's Target Lock, on an enemy unit or structure (`factions/gdo/units/rocketman.md > Placeholder stats`:
+    /// "targeted: left-click an enemy unit or structure"). The others are issued at once: HoldPosition and Stop, a
+    /// Disciple's Shroud, Raise and Lower Shield, Convert, a producer's Train and Cancel Production, a constructor's
+    /// Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the
+    /// EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct
+    /// menu entry too); or they change the selection (the Egress Node's F).
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move
@@ -26,7 +27,8 @@ impl PanelCommand {
             | PanelCommand::DropOff
             | PanelCommand::Assist
             | PanelCommand::Repair
-            | PanelCommand::Cast(_) => true,
+            | PanelCommand::Cast(_)
+            | PanelCommand::TargetLock => true,
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RaiseShield
@@ -150,7 +152,11 @@ impl PanelCommand {
     /// **Placeholder (not in the design: Shift's meaning for a spell)**, as for any unit order
     /// (`systems/controls/commands.md > Unit Command`). A Shrine's cast is no order but a command of a structure, which
     /// has no order queue (plan decision T76): a Shift-click casts it like a plain click and ends the targeting, as a
-    /// rally point's (**Placeholder (not in the design: Shift's meaning for a cast)**).
+    /// rally point's (**Placeholder (not in the design: Shift's meaning for a cast)**). (M5-K) So is a Rocketman's
+    /// Target Lock an order (`sc_sim::OrderKind::TargetLock`), which Shift queues behind the Rocketman's others, as the
+    /// orders Shift queues behind it wait for it to end (`factions/gdo/units/rocketman.md > Target Lock`: "a
+    /// Shift-queued order waits behind the lock and runs when it ends", design change 0438, answering Q0171; plan
+    /// decision T76: "Shift+R after a Move queues a lock").
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -165,7 +171,8 @@ impl PanelCommand {
             | PanelCommand::DropOff
             | PanelCommand::Assist
             | PanelCommand::Repair
-            | PanelCommand::Shroud => true,
+            | PanelCommand::Shroud
+            | PanelCommand::TargetLock => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)

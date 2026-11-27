@@ -7,10 +7,11 @@ use crate::object::Object;
 use crate::production::Rally;
 use crate::sim::Sim;
 
-/// The objects `o` refers to, in no particular order: those its orders (current and queued) name, those its
-/// behaviours engaged by themselves, its move's goal object, its attack's target, its turret's LockedTarget (slice
-/// M5-U1) and the target of its attack phase, the patch a plate mines, the object a producer's rally point is on, the building whose exit doorway a
-/// unit is leaving, a worker's drop-off, a Tunnel's operation's site and an expansion's building Tunnel (slice M4-F).
+/// The objects `o` refers to, in no particular order: those its orders (current and queued) name, those its behaviours
+/// engaged by themselves, its move's goal object, its attack's target, its turret's LockedTarget (slice M5-U1), its
+/// Target Lock's (slice M5-K) and the target of its attack phase, the patch a plate mines, the object a producer's
+/// rally point is on, the building whose exit doorway a unit is leaving, a worker's drop-off, a Tunnel's operation's
+/// site and an expansion's building Tunnel (slice M4-F).
 pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     let mut ids = Vec::new();
     if let Some(orders) = &o.orders {
@@ -24,6 +25,7 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     if let Some(attack) = &o.attack {
         ids.extend(attack.target);
         ids.extend(attack.locked());
+        ids.extend(attack.target_lock.map(|lock| lock.target));
         if let Some(
             AttackPhase::Aiming { target }
             | AttackPhase::Firing { target: Some(target) }

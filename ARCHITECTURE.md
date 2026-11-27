@@ -219,7 +219,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   placeholders) come last, after the Cults' kinds: the Career Campus one of the Deployment Center's `Constructs`
   (requires a Barracks), which only counts so far (its research is to come), the Field Engineer one of the
   Barracks' recipes (`Recipe::requires` a Career Campus), unarmed infantry that repairs (`UnitDef::repairs`, *Repair*)
-  and gathers nothing.
+  and gathers nothing. The Arsenal and the Rocketman (slice M5-K, design change 0356's placeholders) come after them:
+  the Arsenal one of the Deployment Center's `Constructs` (requires a Barracks; Power −20, BuildRadiusExtension 2),
+  which only counts so far (its research is to come), the Rocketman one of the Barracks' recipes (`Recipe::requires` an
+  Arsenal), LightInfantry with the Peacekeeper's movement at MaxSpeed 3, a DoublyDisjointed Universal missile (Range
+  6, MinRange 2) and Target Lock (`UnitDef::target_lock`, *Combat > HeadDisjointed and Target Lock*).
 - **The Colonists** (`defs/colonists/`; `factions/colonists/units/`, `factions/colonists/economy.md`, slice M3-A):
   the Drone, the Beacon, the Egress Node, the Robo Portal, the Bio Portal and the Sabre and Rifle Legionnaires, after
   the M2 kinds. Three def fields came before their slices: `ObjectDef::max_shields` (MaxShields, set for exactly
@@ -551,7 +555,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Turret (slice M4-S1; the ExpandMenu's alone since design change 0359) require the Optics Lab, and the Hideout's
   Grenadier the Chemical Plant (slice M4-U); the Optics Lab and the Chemical Plant are placeholder expansions (2 × 2,
   150 Space Crystals, 400 frames, HP 400, 6 / 24) that only count. The GDO's Career Campus requires a Barracks, and
-  the Barracks' Field Engineer the Career Campus (slice M5-N9, `tests/field_engineer/prerequisites.rs`).
+  the Barracks' Field Engineer the Career Campus (slice M5-N9, `tests/field_engineer/prerequisites.rs`); the Arsenal
+  requires a Barracks, and the Barracks' Rocketman the Arsenal (slice M5-K, `tests/rocketman/prerequisites.rs`).
   `sim/tech/tests.rs` tests the rule with test defs (a
   GDO unit and building, a Colonists Warp In, a worker's Build, an expansion), `tests/prerequisites/` with the design's
   own types. The client shows `Reject::Requires` as "Requires a/an <name>" (`feedback::requires_text`), every faction's
@@ -1261,7 +1266,7 @@ ticks spent in it. Hashed and serialized like all state.
   DoublyDisjointed`): a DoublyDisjointed attack (`Shooter::locks`) locks its target's position at the end of Aiming
   (`AttackPhase::FiringAt { at, target }`) and at the end of Firing launches a `Projectile` into `Sim::projectiles`, in
   launch order: its shooter and the shooter's owner, the object it was locked on (cleared when that object leaves:
-  `projectiles::forget`; a slot for the HeadDisjointed attack to come), its start, the locked
+  `projectiles::forget`; (M5-K) a homing one's flight, *HeadDisjointed and Target Lock* below), its start, the locked
   point, its arrival tick (`flight_ticks`: the distance over the attack's ProjectileSpeed, rounded up: 32 ticks for 4
   GU at 8 su per tick), and the attack's Damage, AoE radius and TargetDomain, copied at launch. The unit goes on into
   Cooldown and Reloading, its base free from the launch (`base_is_free`). In 5e, after every attacker has acted, the
@@ -1433,7 +1438,25 @@ ticks spent in it. Hashed and serialized like all state.
     (slice M5-S2b's build), interleaved, 12 and 8 rounds: medians of 0.358 and 0.360 ms a whole tick for
     `structures_perf` (its combat phase 0.026 ms on either side), 0.475 and 0.472 ms for `movement_perf` (load
     average 0.9 to 1.0).
-- **Not yet**: the HeadDisjointed attack, which hits as a FullyConnected one does (a TODO in `combat/phases.rs`).
+- **HeadDisjointed and Target Lock** (`combat/projectiles/homing.rs`, `combat/target_lock.rs`,
+  `orders/target_lock.rs`; slice M5-K, design change 0356; `systems/combat.md > HeadDisjointed`,
+  `factions/gdo/units/rocketman.md > Target Lock`): a HeadDisjointed attack launches a projectile of the store with a
+  flight of its own (`Projectile::homing`: where it is and was), which in each later phase 5e flies its
+  ProjectileSpeed at its target's centre and lands on its target as it reaches it, within a step; it can't miss, and
+  vision plays no part. Placeholder: one whose target leaves the game flies on to the target's last spot and hits
+  nothing. The Rocketman's Target Lock is an order, **`OrderKind::TargetLock`** (by plan decision T76's Shroud), which
+  begins **`AttackState::target_lock`**: in 5e the lock counts LockOnDuration (48 ticks) while the unit stands, never
+  yields and fires at nothing, then fires the unit's weapon at its target homing, from anywhere within LockRange (7 GU,
+  edge to edge) and inside its MinRange (`target_lock::attrs`). It breaks when its target leaves LockRange or its
+  owner's sight, at the start of an order given without Shift, or with its target, and the order completes in the next
+  5a; a Shift-queued order waits behind the lock and runs when it ends (design change 0438, answering Q0171).
+  Placeholders: no walk into range (a target beyond LockRange or unseen breaks it at once); a locked missile whose
+  Firing began is launched homing, whatever became of the lock. The gate takes it for a unit whose type has one, on an
+  enemy object the player sees (`Reject::NotAnEnemy` otherwise).
+  `TargetLock` and `Projectile::homing` are serialized and hashed only while set, so the goldens before them are
+  unchanged. Reading: the Rocketman's SightRange of 6 is shorter than its LockRange of 7, so without other eyes its
+  lock breaks on sight first; a strafing Sparrow's loop leaves the sight of a lone group of Rocketmen on every pass,
+  and none of their locks completes (`tests/rocketman/anti_air.rs`).
 
 ## Vision
 
@@ -3885,10 +3908,18 @@ these.
   its locked point at the pace of the ticks, lifted by a cosmetic arc (`ARC`) over its shadow, shown while its point
   on the ground is over a Visible tile (`shows_flight`; `core/vision.md > Attacks from outside vision`), whoever
   threw it (design change 0293), in its thrower's style as a tracer is in its shooter's (`Flight::weapon`,
-  `ShotStyle::of`; plan decision T52: the Grenadier's `ShotStyle::Grenade`, a grenade with its fuse lit, slice M4-U);
-  and the
+  `ShotStyle::of`; plan decision T52: the Grenadier's `ShotStyle::Grenade`, a grenade with its fuse lit, slice M4-U;
+  slice M5-K: the Rocketman's `ShotStyle::Missile`, a small body in its owner's colour with a flame and a nose, flying
+  flat from the muzzle to its target's height, an aircraft's in the air, `Flight::lift`), the homing missiles drawn
+  from the sim's store where the sim steers them (`homing_missiles`, while their point on the ground is Visible), (slice
+  M5-K) the reticle of each Target Lock of the local player's units round its target while they see it
+  (`combat_effects/locks.rs`, `lock_marks`; who sees it and its look are Placeholders, Q0001): an amber arc that fills
+  clockwise over LockOnDuration outside the order's marker, four ticks closing in and a faint aiming line, a red ring
+  once locked; and the
   blasts (`combat_effects/blasts.rs`, from `SimEvent::Blast`, `BLAST_TICKS`): a ring the size of the area, shown
-  while the tile under its centre is Visible (`shows_blast`). One alpha-blended mesh in the overlays layer, rebuilt every frame while
+  while the tile under its centre is Visible (`shows_blast`), and (slice M5-K) a single-target one's, of radius 0, a
+  small puff at the height it struck (`Blast::lift`). One alpha-blended mesh in the overlays layer, rebuilt every
+  frame while
   anything shows; effects age by the sim's tick and the render alpha, so screenshots stay deterministic.
 - **Shroud's clouds** (`shroud_view.rs`, slice M5-N4b; `factions/cults/units/disciple.md > Spells > Shroud`: "the
   cloud is shown to **every player**, over the tiles that are Visible to them, so its edge can be seen even when the
@@ -4293,8 +4324,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   Cancel Production in X, Set Rally Point in C, so the Barracks trains the Peacekeeper in Q, the Robo Portal the
   Drone and the Bio Portal the Sabre Legionnaire, design change 0124; a unit its design gives a slot of its own
   takes it (`PanelTemplate::trains`, placed before the others fill Q, W and on: the Barracks' Field Engineer in E,
-  greyed "Requires a Career Campus" until one stands, slice M5-N9); the Rocketman, not in the game yet, has no
-  button, its W empty, while the portals' units not in the game yet hold their slots unavailable, 0124's "W Scout"
+  greyed "Requires a Career Campus" until one stands, slice M5-N9; the Rocketman in W, greyed "Requires an Arsenal"
+  until one stands, slice M5-K), while the portals' units not in the game yet hold their slots unavailable, 0124's
+  "W Scout"
   and "W Lancer, E psionic unit", as `PanelCommand::Planned`, slice M3-J2),
   the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
@@ -4677,6 +4709,14 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `PointerDisplay::Repair`. The Barracks' panel is the Production template with the Field Engineer in E
   (`templates/gdo/barracks.rs`). The Career Campus, the Deployment Center's BuildMenu[Basic] D (greyed "Requires a
   Barracks" until one stands), has no panel yet (`PanelTemplate::NONE`).
+- **The Rocketman's panel** (slice M5-K; `factions/gdo/units/rocketman.md`, design change 0356): the BasicCombatUnit's
+  grid with **R Target Lock** (`PanelCommand::TargetLock`, labelled "Lock"), which `templates::grid` puts in R for a
+  kind with a Target Lock (`UnitDef::target_lock`). It awaits its target, a group command (the Rocketman is
+  Groupable), and a left-click on an enemy unit or structure the player sees now (`MapTarget::visible`) gives
+  `OrderKind::TargetLock` on it to every selected Rocketman, under the Attack's pointer; the ground, own and neutral
+  objects, and a structure the player only remembers (Placeholder) are invalid targets. Shift queues it, as any unit
+  order. The Barracks trains it in W, greyed "Requires an Arsenal" until one stands; the Arsenal, the Deployment
+  Center's BuildMenu[Basic] S (greyed "Requires a Barracks"), has no panel (`PanelTemplate::NONE`).
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
   its count in its bottom-right corner. **Every label keeps
@@ -4958,8 +4998,8 @@ unchecked.
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
-  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `vehicles.rs` and `main.rs`,
-  the recording and the comparison in `harness.rs`): twenty games, a 3v3
+  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`
+  and `main.rs`, the recording and the comparison in `harness.rs`): twenty-one games, a 3v3
   duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -4969,8 +5009,8 @@ unchecked.
   `colonists_vs_gdo` (slice M3-K1, below), the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
   M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
   M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below), `cults_shroud` (slice
-  M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below) and `cults_vehicles` (slice
-  M5-N6, below), are blessed as replays
+  M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
+  M5-K, below) and `cults_vehicles` (slice M5-N6, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5038,12 +5078,18 @@ unchecked.
   tick 1080 the three attack-move onto a Militant and a Guard behind it (spawned for player 2, the Syndicate: the two
   infantry that hit air), and strafe them: they kill the Militant, which outranges them and takes one with it, and hit
   the Guard, which kills the other two; every hit of the game is a Sparrow's on them or theirs on a Sparrow. In
-  `cults_vehicles` (to 1:15, on a test map, debug commands on for the two Seekers' 150 Space Crystals) four Recruits
-  go into a Chop Shop, which queues two Seekers, each of the two Recruits inside the longest of those left: each comes
-  out in its tick half inside the middle of side C, facing west, the first of its Recruits, the second gone
-  (`during`), and drives to the rally point; at tick 760 the two attack-move onto two Militants and two Guards behind
-  them (player 2's, the Syndicate), firing their turrets on the move: they kill the Militants, a Guard kills one
-  Seeker, and the other kills both Guards; every hit of the game is a Seeker's on them or theirs on a Seeker. The
+  `gdo_anti_air` (to 1:15, on a test map, debug commands on for player 1's 450 Space Crystals) the Deployment Center
+  constructs an Arsenal and places it as it is ready, the Barracks refusing W until then, and the Barracks trains three
+  Rocketmen, each out in its tick (`during`); at tick 820 they walk within range of two Sparrows of player 2's, spawned
+  on Hold, circling, and fire normal missiles, which the Sparrows dodge, every one; at tick 1000 the three lock onto
+  one Sparrow and, Shift-queued, onto the other, and each falls to three locked missiles; every missile of the game is
+  a Rocketman's at a Sparrow, normal before the locks and locked after. In `cults_vehicles` (to 1:15, on a test map,
+  debug commands on for the two Seekers' 150 Space Crystals) four Recruits go into a Chop Shop, which queues two
+  Seekers, each of the two Recruits inside the longest of those left: each comes out in its tick half inside the
+  middle of side C, facing west, the first of its Recruits, the second gone (`during`), and drives to the rally point;
+  at tick 760 the two attack-move onto two Militants and two Guards behind them (player 2's, the Syndicate), firing
+  their turrets on the move: they kill the Militants, a Guard kills one Seeker, and the other kills both Guards; every
+  hit of the game is a Seeker's on them or theirs on a Seeker. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

@@ -43,7 +43,22 @@
 >   - Q0154 by 0420: option (c), DragMovement numbers of each unit's own. The air HoverCraft still stop by drag alone,
 >     so the note for GK and GH1 above stands;
 >   - Q0155 by 0421: R at the Barracks, no rebuy while the drone is out, the leash edge to edge;
->   - Q0156 by 0422: the Radar Station is Groupable false.
+>   - Q0156 by 0422: the Radar Station is Groupable false;
+>   - Q0157 by 0423: low Power also slows cooldowns, turret fire and rearming;
+>   - Q0158 by 0424 and Q0167 by 0433: as the placeholders;
+>   - Q0159 by 0425: a stationary Shadebringer lays its trail; the centre rule; the toggles go off in the network;
+>   - Q0160 by 0426: mines are deployed units, selectable; hover units pass over; no blast when destroyed;
+>   - Q0161 by 0427: as the placeholder;
+>   - Q0162 by 0428: the Airfield's landing rules; new aircraft appear landed;
+>   - Q0163 by 0429: the Field Engineer builds inside, alone, like an Agent;
+>   - Q0164 by 0430: the shield drops in a Bunker; the Tent heals only units on the map, once complete;
+>   - Q0165 by 0431: the Phantom takes 16 frames at the air doors;
+>   - Q0166 by 0432: Enter surfaces a burrowed Transport first;
+>   - Q0168 by 0434: Thrust is targeted and Shift-queues;
+>   - Q0169 by 0435 and 0436: the six units' Supply costs, the Chopper repaired free on its Tower, and the GDO
+>     starting with 1 Supply, which GS builds;
+>   - with no question, 0441 (the Drone Operator's Supply cost 1, the Twister's 1) and 0442 (the Supply Chopper carries
+>     units, landing to load and unload): GS grows by the transport, into a second slice if it needs one.
 
 # M6 plan: the GDO's and the Syndicate's remaining content (planning spike M6-P)
 

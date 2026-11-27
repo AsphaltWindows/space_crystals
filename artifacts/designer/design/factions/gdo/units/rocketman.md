@@ -26,7 +26,7 @@ The player orders Target Lock on one enemy unit.
 **The lock (or the locking in progress) breaks when:**
 - the target leaves LockRange,
 - the Rocketman loses vision of the target,
-- the Rocketman is given **any** order (move, stop, attack something else, etc.),
+- the Rocketman is given **any** order (move, stop, attack something else, etc.) **without Shift**; a Shift-queued order waits behind the lock and runs when it ends, as for every queued order (systems/controls/commands.md > Unit Command; Q0171),
 - or the target dies.
 
 **Target Lock can target structures** (user, 2026-11-26) as well as units.

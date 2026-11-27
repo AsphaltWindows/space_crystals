@@ -179,6 +179,13 @@ impl<'a> Unit<'a> {
         }
     }
 
+    /// (M5-K) Its Target Lock under way, if any, ends (`AttackState::end_target_lock`).
+    pub fn end_target_lock(&mut self) {
+        if let Some(attack) = &mut self.attack {
+            attack.end_target_lock();
+        }
+    }
+
     /// The mover stops if it has a goal; a unit standing anyway is left alone (it may be stepping aside for
     /// another, `docs/movement.md > 6.6`).
     pub fn halt(&mut self) {

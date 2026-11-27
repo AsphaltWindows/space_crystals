@@ -145,7 +145,12 @@ fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
         3 => OrderKind::Patrol(random_point(rng, sim)),
         4 => OrderKind::Hold,
         5 => OrderKind::Stop,
-        6 => OrderKind::Shroud,
+        // (M5-K) A Target Lock on the nearest object, in place of a Shroud for a group whose first unit's id is even,
+        // so that the stream of random numbers stays the same.
+        6 => match nearest {
+            Some(id) if units.first().is_some_and(|unit| unit.0.is_multiple_of(2)) => OrderKind::TargetLock(id),
+            _ => OrderKind::Shroud,
+        },
         _ => OrderKind::Move(Target::Point(random_point(rng, sim))),
     };
     Command::Order {
@@ -634,7 +639,9 @@ fn any_spawn_settings_are_handled() {
                 | ObjectKind::HandOfHeaven
                 | ObjectKind::PrayerMobile
                 | ObjectKind::CareerCampus
-                | ObjectKind::FieldEngineer => None,
+                | ObjectKind::FieldEngineer
+                | ObjectKind::Arsenal
+                | ObjectKind::Rocketman => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;

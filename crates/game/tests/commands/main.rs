@@ -59,7 +59,10 @@
 //!
 //! The GDO's Field Engineer (slice M5-N9: its panel and its Construct menu, greyed, the Repair pointer and the
 //! right-click on a damaged Barracks): `field_engineer_ui`, on a GDO field. The Barracks' E, the Field Engineer, is
-//! `production`'s, and the Deployment Center's D, the Career Campus, `construction`'s.
+//! `production`'s, and the Deployment Center's D, the Career Campus, `construction`'s. The GDO's Rocketman (slice
+//! M5-K: R Target Lock on the enemy clicked, its pointer, an invalid target on the ground, and Shift+R after a Move,
+//! a lock on a structure queued behind it): `rocketman_ui`. A Barracks in focus with units, whose A sends them to
+//! attack (design change 0407), is in `panel::attack`.
 //!
 //! A computer player's player (slice A1, `--ai`: no command from the client's input while it is the local player, the
 //! top bar's "(AI)", F2 to a human player): `computer`.
@@ -92,6 +95,7 @@ mod recruitment_areas;
 mod remembered;
 mod right_click;
 mod riot_shield;
+mod rocketman_ui;
 mod shield_orders;
 mod shift_targeting;
 mod shrine;

@@ -32,5 +32,5 @@ GDO vehicle produced at the Factory. A little slower than the Raptor. Mounts a m
 - FixedTurnRadiusMovement: MinimumTurnRadius 80 su; ForwardMaxSpeed **8 su/frame**; ForwardAcceleration 1; ReverseMaxSpeed 3; ReverseAcceleration 0.5; Deceleration 1.
 - Turret TurnRate 12°/frame. Machine gun: Damage 4; Range 6 grid units; Aim 1, Firing 1, Cooldown 1, Reload 1 frames (16 damage per second before armor).
 - Mines: **Buy Mine** 25 Space Crystals, 80 frames (5 s); purchases **queue up to the free stock** (user, 2026-11-26; Q0160): with 0 of 3 carried, three presses buy three mines in 15 s, one after another, each paid at the press; **laying** 16 frames (1 s, stopped); activation radius **32 su (0.5 GU)**; delay **8 frames**; explosion Damage **200** total, AoERadius **64 su**; mine HP 40; mine Size: a 16x16 su object, hidden underground.
-- Cost: Factory, 125 Space Crystals, 320 frames.
+- Cost: Factory, 125 Space Crystals **+ 1 Supply** (user, 2026-11-26), 320 frames.
 - Panel: BasicCombatUnitInterfaceState plus **R: Lay Mine** (targeted) and **F: Buy Mine**.

@@ -10,6 +10,7 @@ mod expansions;
 mod gathering;
 mod place_buttons;
 mod recruit;
+mod rocketman;
 mod shrine;
 mod syndicate;
 mod temple;
@@ -315,16 +316,19 @@ fn only_tail_and_doubly_disjointed_attacks_target_the_ground() {
 }
 
 /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]` with `systems/controls/interface.md >
-/// Standard Slot Assignments`: Q trains a Peacekeeper, E a Field Engineer ("**E: Build Field Engineer** (placeholder
-/// letter)", slice M5-N9), and X cancels the last unit queued, all at once; C awaits the rally point's target, with Z
-/// Back and the other commands waiting meanwhile. W, the Rocketman's, stays empty until it is in the game.
+/// Standard Slot Assignments`: Q trains a Peacekeeper, W a Rocketman ("**W: Build Rocketman** (hotkey tentative)",
+/// slice M5-K), E a Field Engineer ("**E: Build Field Engineer** (placeholder letter)", slice M5-N9), and X cancels the
+/// last unit queued, all at once; C awaits the rally point's target, with Z Back and the other commands waiting
+/// meanwhile.
 #[test]
 fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
     use ButtonLook::{Back, Common, Disabled, Pending};
     use PanelCommand::{CancelProduction, SetRallyPoint, Train};
     const FE: ObjectKind = ObjectKind::FieldEngineer;
-    let (q, e, x, c) = (
+    const RN: ObjectKind = ObjectKind::Rocketman;
+    let (q, w, e, x, c) = (
         slot(0, 0),
+        slot(0, 1),
         slot(0, 2),
         CommandSlot::CANCEL_PRODUCTION,
         CommandSlot::RALLY_POINT,
@@ -336,16 +340,21 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
         shown(&default),
         [
             (q, command(Train(PK)), Common),
+            (w, command(Train(RN)), Common),
             (e, command(Train(FE)), Common),
             (x, command(CancelProduction), Common),
             (c, command(SetRallyPoint), Common),
         ]
     );
-    let labels = [q, e, x, c].map(|slot| default.get(slot).unwrap().label());
-    assert_eq!(labels, ["PK", "FEN", "Cancel", "Rally"]);
+    let labels = [q, w, e, x, c].map(|slot| default.get(slot).unwrap().label());
+    assert_eq!(labels, ["PK", "RN", "FEN", "Cancel", "Rally"]);
     assert_eq!(
         press(&default, q),
         SlotPress::Produce(Train(PK), ProductionCommand::Train(PK))
+    );
+    assert_eq!(
+        press(&default, w),
+        SlotPress::Produce(Train(RN), ProductionCommand::Train(RN))
     );
     assert_eq!(
         press(&default, e),
@@ -356,7 +365,6 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
         SlotPress::Produce(CancelProduction, ProductionCommand::CancelProduction)
     );
     assert_eq!(press(&default, c), SlotPress::AwaitTarget(SetRallyPoint));
-    assert_eq!(press(&default, slot(0, 1)), SlotPress::Nothing, "no Rocketman yet");
 
     let rally = InterfaceState::awaiting(SetRallyPoint);
     let awaiting = panel(&barracks, rally, &Conditions::default());
@@ -364,6 +372,7 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
         shown(&awaiting),
         [
             (q, command(Train(PK)), Disabled),
+            (w, command(Train(RN)), Disabled),
             (e, command(Train(FE)), Disabled),
             (CommandSlot::BACK, PanelButton::Back, Back),
             (x, command(CancelProduction), Disabled),
@@ -388,10 +397,10 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
 /// trains the units it holds, has the PoolProducer template (slice M5-F2, `cults`), one that augments them, the
 /// Altar, the Altar template (slice M5-N1b, `altar`), and one whose queue researches, the Temple, the Temple template
 /// (slice M5-N3, `temple`). The Barracks' is the grid of
-/// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`, the Field Engineer in E, the slot the design
-/// gives it, and W, the Rocketman's, empty (slice M5-N9, `PanelTemplate::trains`); the Robo Portal trains the Drone in
-/// Q, the Bio Portal the Sabre Legionnaire, and their units not in the game yet hold their slots (design change 0124:
-/// the Robo Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; `gathering` has their panel).
+/// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`, the Rocketman in W and the Field Engineer in
+/// E, the slots the design gives them (slices M5-K and M5-N9, `PanelTemplate::trains`); the Robo Portal trains the
+/// Drone in Q, the Bio Portal the Sabre Legionnaire, and their units not in the game yet hold their slots (design
+/// change 0124: the Robo Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; `gathering` has their panel).
 #[test]
 fn every_producer_gets_the_production_panel_of_its_recipes() {
     use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
@@ -424,6 +433,7 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
         grid
     };
     let mut barracks = produces(PK, &[]);
+    barracks[1] = Some(Train(ObjectKind::Rocketman));
     barracks[2] = Some(Train(ObjectKind::FieldEngineer));
     assert_eq!(grid(BARRACKS), barracks);
     assert_eq!(
