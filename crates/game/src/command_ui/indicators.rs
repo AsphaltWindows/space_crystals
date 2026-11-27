@@ -17,6 +17,8 @@
 //!   from the building to it; none while it has no rally point.
 //! - **A cast's circle** ([`cast`], slice M5-N5): while a Shrine's Q or W awaits its point, the circle the cast would
 //!   reach around the point under the pointer, at the back of the mesh.
+//! - **The leash rings** ([`leash`], slice M6-GD): round the operator of each selected drone, and of each selected
+//!   operator whose drone is out, the edge of the ground its drone may fly over, at the back of the mesh too.
 //!
 //! Colours follow `> Color language`: green for Move, red for Attack and AttackGround, orange for AttackMove and
 //! Patrol; the gathering
@@ -32,6 +34,7 @@
 pub mod cast;
 mod draw;
 pub mod gathering;
+pub mod leash;
 pub mod rally;
 mod targets;
 
@@ -161,8 +164,9 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         // placeholder, the Attack's.
         OrderKind::Attack(_) | OrderKind::AttackGround(_) | OrderKind::TargetLock(_) => Some(ATTACK_COLOR),
         OrderKind::AttackMove(_) | OrderKind::Patrol(_) => Some(AGGRESSIVE_COLOR),
-        // (M5-N4b) A Shroud is channelled where the Disciple stands: no target.
-        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud => None,
+        // (M5-N4b) A Shroud is channelled where the Disciple stands: no target; (M6-GD) a Launch puts the drone over
+        // its operator.
+        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch => None,
     }
 }
 
@@ -204,7 +208,7 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
             at: sc_sim::orders::build::build_site(kind)?.1.center(),
             color,
         }),
-        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud => None,
+        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch => None,
     }
 }
 

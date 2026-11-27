@@ -121,6 +121,10 @@ pub enum Refusal {
     /// (M5-F2) A pool producer has fewer free units of the kind inside than the order needs (plan decision T70: "fewer
     /// free Recruits than the order needs"): the Unit Control cost of the unit to train, one for a Release.
     NoRecruit,
+    /// (M6-GD) The player's Supplies don't cover the unit (`Recipe::supplies`), after what the producers before it took:
+    /// "crystals or any other resource paid at queue time" (`systems/controls/selection.md > Group production with
+    /// limited resources`).
+    Supplies,
 }
 
 /// `factions/gdo/structures/barracks.md > BarracksInstanceState`: a producing structure's state.

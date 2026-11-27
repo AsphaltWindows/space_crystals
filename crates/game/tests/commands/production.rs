@@ -54,8 +54,8 @@ fn given_since(app: &App, from: usize) -> Vec<(PlayerId, Vec<u32>, ProductionCom
 
 /// `> ObjectInterfaceState[Barracks]` and `systems/controls/interface.md > CommandPanel > Standard Slot
 /// Assignments`: a selected Barracks shows Train Peacekeeper in Q, Train Rocketman in W (slice M5-K; greyed: its owner
-/// has no Arsenal), Train Field Engineer in E (slice M5-N9; greyed: its owner has no Career Campus), Cancel Production
-/// in X and Set Rally Point in C. Q pays 50 Space Crystals and queues a Peacekeeper, by hotkey
+/// has no Arsenal), Train Field Engineer in E (slice M5-N9; greyed: its owner has no Career Campus), Train Drone
+/// Operator in R (slice M6-GD; greyed: no Career Campus either), Cancel Production in X and Set Rally Point in C. Q pays 50 Space Crystals and queues a Peacekeeper, by hotkey
 /// or by button; X takes the last one off the queue and refunds it; Shift queues neither. Cancel Production is disabled
 /// while nothing is queued.
 #[test]
@@ -72,6 +72,7 @@ fn q_trains_and_x_cancels_by_hotkey_and_by_button() {
             (q(), c(Train(PK)), Common, "PK"),
             (slot(0, 1), c(Train(ObjectKind::Rocketman)), Disabled, "RN"),
             (slot(0, 2), c(Train(ObjectKind::FieldEngineer)), Disabled, "FEN"),
+            (slot(0, 3), c(Train(ObjectKind::DroneOperator)), Disabled, "DO"),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Disabled, "Cancel"),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common, "Rally"),
         ]

@@ -77,14 +77,27 @@ impl OrderOutbox<'_> {
     }
 
     /// Gives each of `orders` (a unit and its order, in the units' order) as few orders as possible: one per
-    /// distinct order ([`group_orders`]), so the units sent to one location go as one group. Whether anything was
-    /// given.
-    pub(super) fn give_each(&mut self, player: PlayerId, orders: Vec<(ObjectId, OrderKind)>, queue: bool) -> bool {
-        let mut given = false;
+    /// distinct order ([`group_orders`]), so the units sent to one location go as one group. `Ok` if anything was
+    /// given, else the first order's refusal (`Reject::NoUnits` for no orders at all).
+    pub(super) fn give_each(
+        &mut self,
+        player: PlayerId,
+        orders: Vec<(ObjectId, OrderKind)>,
+        queue: bool,
+    ) -> Result<(), Reject> {
+        let (mut given, mut refused) = (false, None);
         for (kind, units) in group_orders(orders) {
-            given |= self.give(player, units, kind, queue);
+            match self.try_give(player, units, kind, queue) {
+                Ok(()) => given = true,
+                Err(reject) => {
+                    refused.get_or_insert(reject);
+                }
+            }
         }
-        given
+        match given {
+            true => Ok(()),
+            false => Err(refused.unwrap_or(Reject::NoUnits)),
+        }
     }
 
     /// `player`'s `units` use `ability` (`Command::Ability`), at once: an ability isn't queued. Nothing when none of
@@ -293,6 +306,6 @@ fn finite(kind: OrderKind) -> bool {
         OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => true,
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => true,
         OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) | OrderKind::Shroud => true,
-        OrderKind::TargetLock(_) => true,
+        OrderKind::TargetLock(_) | OrderKind::Launch => true,
     }
 }

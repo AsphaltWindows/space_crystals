@@ -1,8 +1,9 @@
-//! The selected units' modes ([`Modes`]): which of them take no Attack, carry a load, or aren't in operation yet.
+//! The selected units' modes ([`Modes`]): which of them take no Attack, carry a load, aren't in operation yet, or
+//! (M6-GD) hold still for their drones.
 
 use std::collections::BTreeSet;
 
-use sc_sim::{ObjectId, ShieldMode, Sim, combat, riot_shield};
+use sc_sim::{ObjectId, ShieldMode, Sim, combat, riot_shield, tether};
 
 use crate::selection::Selection;
 
@@ -15,8 +16,10 @@ use crate::selection::Selection;
 /// the panel and the right-click never judge a type otherwise than the gate), which of the workers carry a load, which
 /// a right-click on a drop-off reads (`factions/colonists/units/drone.md > Right-Click Resolution`: "Own Egress Node
 /// (carrying resources)") and the Agent's Drop Off, and which of the selected objects aren't in operation yet
-/// (`sc_sim::Object::is_operational`: one that transforms, or a site under construction). Which way a shield goes is
-/// its unit's type (design change 0173), whose panel offers the command that turns it.
+/// (`sc_sim::Object::is_operational`: one that transforms, or a site under construction), and (M6-GD) which of the
+/// units hold still for their drones (`sc_sim::tether::holds`: "The Drone Operator **cannot move** while it has a drone
+/// active"). Which way a shield goes is its unit's type (design change 0173), whose panel offers the command that turns
+/// it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
     /// The units whose type takes no Attack: a Peacekeeper (Shielded), or a unit without a weapon.
@@ -26,6 +29,8 @@ pub struct Modes {
     shielded: BTreeSet<ObjectId>,
     loaded: BTreeSet<ObjectId>,
     transforming: BTreeSet<ObjectId>,
+    /// (M6-GD) The Drone Operators whose drones are out.
+    tethered: BTreeSet<ObjectId>,
 }
 
 impl Modes {
@@ -47,7 +52,22 @@ impl Modes {
                 .ids()
                 .filter(|&id| sim.object(id).is_some_and(|o| !o.is_operational()))
                 .collect(),
+            tethered: (selection.ids())
+                .filter(|&id| sim.object(id).is_some_and(tether::holds))
+                .collect(),
         }
+    }
+
+    /// (M6-GD) Whether `id` holds still for its drone, out (`sc_sim::tether::holds`): the gate refuses it every order
+    /// that would move it (`sc_sim::Reject::DroneOut`).
+    pub fn tethered(&self, id: ObjectId) -> bool {
+        self.tethered.contains(&id)
+    }
+
+    /// (M6-GD) The same, with `ids` holding still for their drones: for the unit tests.
+    pub fn with_tethered(mut self, ids: impl IntoIterator<Item = ObjectId>) -> Self {
+        self.tethered.extend(ids);
+        self
     }
 
     /// Whether `id` is a worker that carries a load.
@@ -107,6 +127,7 @@ impl FromIterator<(ObjectId, ShieldMode)> for Modes {
             held,
             loaded: BTreeSet::new(),
             transforming: BTreeSet::new(),
+            tethered: BTreeSet::new(),
         }
     }
 }

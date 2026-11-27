@@ -126,6 +126,43 @@ pub struct UnitDef {
     /// Rocketman's. `None` for every other type. Optional in files: none.
     #[serde(default)]
     pub target_lock: Option<TargetLockDef>,
+    /// (M6-GD) Its stock (plan decision T89, `crate::stock`): the Drone Operator's drones. `None` for every other type.
+    pub stock: Option<StockDef>,
+    /// (M6-GD) Its leash and battery, for a unit its launcher keeps on a leash (plan decision T91, `crate::tether`):
+    /// the operator's drone. `None` for every other type.
+    pub tether: Option<TetherDef>,
+}
+
+/// (M6-GD) A unit's stock (plan decision T89, `crate::stock`): items it carries, buys one at a time and spends one at a
+/// time. The Drone Operator's drones (`factions/gdo/units/drone_operator.md > Drone Stock`); (slice M6-GM) the
+/// Twister's mines.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StockDef {
+    /// What it holds: the type of the unit it launches, one at a time (`OrderKind::Launch`, `crate::tether`): the
+    /// operator's drone ("The Drone Operator launches a drone from its stock").
+    pub item: ObjectKind,
+    /// The most it holds ("holds a **maximum of 1**").
+    pub max: u32,
+    /// What it holds as it comes into the game ("Starts with **1** drone when trained").
+    pub start: u32,
+    /// What one more costs, Space Crystals, paid as its purchase starts (`Ability::Buy`; "**Build Drone** (hotkey
+    /// **F**): 50 Space Crystals").
+    pub price: u32,
+    /// How long a purchase takes, frames ("160 frames (10 s)").
+    pub frames: u32,
+}
+
+/// (M6-GD) A unit on its launcher's leash (plan decision T91, `crate::tether`): the operator's drone
+/// (`factions/gdo/units/drone_operator.md > Drone limits — how a drone ends`). Its attack is its explosion, which it
+/// uses once: "a **melee-range attack that it can use only once** — the attack is its explosion [...] using its attack
+/// destroys it" (`crate::combat`).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TetherDef {
+    /// Its leash range, grid units, edge to edge from its operator ("**leash range 8 grid units**, measured **edge to
+    /// edge** like ranges"): past it, it "falls and explodes".
+    pub leash: f32,
+    /// Its battery, frames ("**battery 20 s** (320 frames)"): as it runs out, it falls without exploding.
+    pub battery: u32,
 }
 
 /// (M5-N1a) How an augmentable unit type takes its Augmentations' increments (`UnitDef::augmentable`,

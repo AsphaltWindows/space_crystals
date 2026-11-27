@@ -6,26 +6,28 @@ use sc_sim::{Ability, ConstructionCommand, HoldCommand, ObjectKind, OrderKind, P
 use super::PanelCommand;
 
 impl PanelCommand {
-    /// The order of a unit command that needs no target: Hold Position's, Stop's, and (M5-N4b) a Disciple's Shroud,
-    /// channelled where it stands.
+    /// The order of a unit command that needs no target: Hold Position's, Stop's, (M5-N4b) a Disciple's Shroud,
+    /// channelled where it stands, and (M6-GD) a Drone Operator's Launch Drone, over itself.
     pub fn immediate_order(self) -> Option<OrderKind> {
         match self {
             PanelCommand::HoldPosition => Some(OrderKind::Hold),
             PanelCommand::Stop => Some(OrderKind::Stop),
             PanelCommand::Shroud => Some(OrderKind::Shroud),
+            PanelCommand::Launch => Some(OrderKind::Launch),
             _ => None,
         }
     }
 
     /// The ability of an ability command issued at once (`sc_sim::Command::Ability`): Raise Shield's raises, Lower
-    /// Shield's lowers (each type's panel has the one that turns its shields the other way, design change 0173), and
-    /// Convert's flips the target form. Set Drop-off's waits for its target, the drop-off
-    /// (`crate::command_ui::resolution::target_resolution`).
+    /// Shield's lowers (each type's panel has the one that turns its shields the other way, design change 0173),
+    /// Convert's flips the target form, and (M6-GD) a Drone Operator's Build Drone buys one. Set Drop-off's waits for
+    /// its target, the drop-off (`crate::command_ui::resolution::target_resolution`).
     pub fn ability(self) -> Option<Ability> {
         match self {
             PanelCommand::RaiseShield => Some(Ability::RiotShield { raise: true }),
             PanelCommand::LowerShield => Some(Ability::RiotShield { raise: false }),
             PanelCommand::Convert(_) => Some(Ability::Convert),
+            PanelCommand::Buy(_) => Some(Ability::Buy),
             _ => None,
         }
     }

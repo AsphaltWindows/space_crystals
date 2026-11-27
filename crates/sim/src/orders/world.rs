@@ -93,6 +93,8 @@ pub(crate) struct Unit<'a> {
     pub may_attack: bool,
     /// Whether it converts its weapon (`conversion::is_converting`): it holds still meanwhile.
     pub converting: bool,
+    /// (M6-GD) Whether it holds still for its drone (`tether::holds`: an operator with its drone out).
+    pub tethered: bool,
     /// A worker's load, patch and drop-off (`economy::gathering`).
     pub worker: Option<&'a mut Worker>,
     /// (M5-N4b) Its energy pool (`Object::energy`), which a channel drains (`super::shroud`).
@@ -123,9 +125,9 @@ impl<'a> Unit<'a> {
     }
 
     /// `combat::may_move`: whether its attack sequence leaves its base free to move this tick, and it isn't
-    /// converting its weapon.
+    /// converting its weapon, nor (M6-GD) holding still for its drone.
     pub fn may_move(&self) -> bool {
-        !self.converting && combat::base_is_free(self.kind, self.attack.as_deref())
+        !self.converting && !self.tethered && combat::base_is_free(self.kind, self.attack.as_deref())
     }
 
     /// Its behaviour engages `target`, or nothing (`AttackState::engage`).

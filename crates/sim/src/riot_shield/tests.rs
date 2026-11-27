@@ -47,6 +47,9 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         energy: None,
         kept_research: None,
         buffs: Vec::new(),
+        stock: None,
+        tether: None,
+        drone: None,
     }
 }
 

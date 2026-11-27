@@ -15,8 +15,9 @@
 //! picks a unit type, then a state, then the orders (slice M5-N1b); their Cathedral is a pool building as the Armory
 //! is, and their Disciple's panel the BasicCombatUnit's, its spell's slot held in R (slice M5-N4a); their Temple
 //! researches each line's next level and lets its staff out (slice M5-N3), and their Shrine casts its two area
-//! abilities and lets its participants out (slice M5-N5). An entry not in the game yet holds its slot, unavailable
-//! ([`Planned`]).
+//! abilities and lets its participants out (slice M5-N5). The GDO's Drone Operator launches its drone and builds the
+//! next, and its drone is flown with Move, Attack and Stop (slice M6-GD). An entry not in the game yet holds its slot,
+//! unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod cults;
@@ -28,9 +29,9 @@ mod site;
 mod state;
 pub mod syndicate;
 
-use sc_sim::conversion;
 use sc_sim::defs::SpellDef;
 use sc_sim::{AreaAbility, ObjectKind};
+use sc_sim::{conversion, tether};
 
 pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
@@ -125,6 +126,9 @@ pub enum InterfaceTemplate {
     /// "**Energy regeneration** (hotkey W)"; "Targeting: AwaitingTarget, left-click a point in vision. **A/S/D/F**
     /// release one Recruit of a kind, **V: Eject All**" ([`cults::shrine`]). No right-click: it has no rally point.
     Shrine,
+    /// (M6-GD) The Drone Operator's drone (plan §GD: "the drone's panel: Move, Attack, Stop";
+    /// [`gdo::operator_drone`]). Its right-click is the sim's one rule, as every unit's.
+    OperatorDrone,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -291,6 +295,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::Altar => cults::altar::GRID,
             InterfaceTemplate::Temple => cults::temple::GRID,
             InterfaceTemplate::Shrine => cults::shrine::GRID,
+            InterfaceTemplate::OperatorDrone => gdo::operator_drone::GRID,
         }
     }
 }
@@ -324,8 +329,11 @@ pub use sc_sim::combat::can_target_ground;
 /// Shroud, the Disciple, the spell in R ([`PanelCommand::Shroud`], `sc_sim::defs::UnitDef::shroud`); (M5-K) a unit
 /// with a Target Lock, the Rocketman, its Target Lock in R ([`PanelCommand::TargetLock`],
 /// `sc_sim::defs::UnitDef::target_lock`); (M5-N11) a unit that casts area abilities, the Prayer-mobile, Inspire in R and
-/// Suppress in F ([`PanelCommand::Cast`], [`cast_slot`]). These are the commands the type offers ([`offers`]); its
-/// panel's A is the selection's ([`attack_slot`]), and a constructor's panel follows its state ([`state_grid`]).
+/// Suppress in F ([`PanelCommand::Cast`], [`cast_slot`]); (M6-GD) a unit whose stock holds drones, the Drone Operator,
+/// Launch Drone in R and Build Drone in F ([`PanelCommand::Launch`], [`PanelCommand::Buy`]: `sc_sim::defs::UnitDef::stock`
+/// whose item is on a leash, `sc_sim::defs::UnitDef::tether`; [`gdo::drone_operator`]). These are the commands the type
+/// offers ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a constructor's panel follows its state
+/// ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let Some(template) = InterfaceTemplate::of(kind) else {
         return [None; 12];
@@ -351,6 +359,11 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
         if let Some(slot) = cast_slot(ability) {
             grid[slot] = Some(PanelCommand::Cast(ability));
         }
+    }
+    let stock = kind.def().unit.as_ref().and_then(|unit| unit.stock);
+    if let Some(stock) = stock.filter(|stock| tether::def_of(stock.item).is_some()) {
+        grid[gdo::drone_operator::LAUNCH_SLOT] = Some(PanelCommand::Launch);
+        grid[gdo::drone_operator::BUY_SLOT] = Some(PanelCommand::Buy(stock.item));
     }
     grid
 }

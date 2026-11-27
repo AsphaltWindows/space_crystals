@@ -29,7 +29,9 @@ impl Sim {
     /// A plate takes its patch along if that is depleted, in the same tick (`factions/gdo/economy.md >
     /// ExtractionPlate > On destruction`: "the patch is removed from the map"; a debug removal stands for a
     /// destruction), which opens its tile (design change 0038); a patch with crystals left stays, uncovered. A plate
-    /// whose patch is removed from under it (a debug command) mines nothing from then on.
+    /// whose patch is removed from under it (a debug command) mines nothing from then on. (M6-GD) An operator takes its
+    /// drone along, which falls without exploding (`factions/gdo/units/drone_operator.md > Drone limits — how a drone
+    /// ends`: "Its **operator dies**"; `Sim::drones_of`), and an operator whose drone goes is free.
     ///
     /// A producer's whole queue is refunded as if cancelled, a finished unit waiting inside for the doorway included
     /// (design changes 0084 and 0085, `Sim::refund_production`); of the army cap it frees what its unit in production
@@ -77,6 +79,8 @@ impl Sim {
             ids.iter()
                 .filter_map(|&id| economy::mining::depleted_patch(&self.objects, id)),
         );
+        // (M6-GD) An operator takes its drone along, which falls (`Sim::drones_of`, `crate::tether`).
+        gone.extend(self.drones_of(ids));
         gone.sort_unstable();
         gone.dedup();
         // The units inside the buildings that go (`sim/holding/evacuation.rs`): first, with a finished training taken
@@ -188,6 +192,11 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
     }
     if let Some(attack) = &mut o.attack {
         attack.forget(gone);
+    }
+    // (M6-GD) An operator whose drone has gone is free (`crate::tether`). A drone goes with its operator
+    // (`Sim::drones_of`); one whose operator has left the map some other way falls in the tether's next step.
+    if o.drone.is_some_and(is_gone) {
+        o.drone = None;
     }
     if o.extractor.is_some_and(|extractor| is_gone(extractor.patch)) {
         o.extractor = None;

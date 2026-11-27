@@ -72,8 +72,9 @@ pub struct PanelSlot {
     /// for the button shows (`crate::hud::info_panel::hint`); none on the other buttons.
     pub price: Option<BuildPrice>,
     /// The progress a Place button shows on its bar while its building is constructed ([`progress`]; design changes
-    /// 0388 and 0392: "a running progress bar on the button showing the construction's progress"), the sim's; none on
-    /// the other buttons, and on a Place button once its building is ready.
+    /// 0388 and 0392: "a running progress bar on the button showing the construction's progress"), and (M6-GD) a Build
+    /// Drone while its drone is bought (plan §GD: "F Build Drone with a progress bar"), the sim's; none on the other
+    /// buttons, on a Place button once its building is ready, and on a Build Drone while nothing is bought.
     pub progress: Option<Progress>,
 }
 
@@ -249,7 +250,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
                 why,
                 count,
                 price: conditions.price(command),
-                progress: progress(active.kind, command, conditions.constructor),
+                progress: progress(active.kind, command, conditions),
             },
         );
     }
@@ -267,15 +268,19 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
     panel
 }
 
-/// The progress the Place button of a `kind` constructor's `command` shows while the constructor, in state
-/// `constructor`, constructs its building (design changes 0388 and 0392): its ConstructionProgress of its recipe's
-/// frames (`construction::recipe`), as the sim counts it (`Constructor::Constructing`), never kept by the client.
-/// None for another command, or while the building isn't under construction.
-fn progress(kind: ObjectKind, command: PanelCommand, constructor: Option<Constructor>) -> Option<Progress> {
+/// The progress the Place button of a `kind` constructor's `command` shows while the constructor, in its state
+/// (`Conditions::constructor`), constructs its building (design changes 0388 and 0392): its ConstructionProgress of its
+/// recipe's frames (`construction::recipe`), as the sim counts it (`Constructor::Constructing`), never kept by the
+/// client; and (M6-GD) a Build Drone's, the purchase under way ([`Conditions::purchase`]). None for another command, or
+/// while the building isn't under construction.
+fn progress(kind: ObjectKind, command: PanelCommand, conditions: &Conditions) -> Option<Progress> {
+    if let PanelCommand::Buy(_) = command {
+        return conditions.purchase();
+    }
     let Some(Constructor::Constructing {
         kind: building,
         progress,
-    }) = constructor
+    }) = conditions.constructor
     else {
         return None;
     };

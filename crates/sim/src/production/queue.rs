@@ -80,6 +80,16 @@ impl QueueEntry {
         }
     }
 
+    /// (M6-GD) Its Supplies cost at a `def` producer, paid with its Space Crystals when it is queued and refunded with
+    /// them (`Recipe::supplies`; `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`: "**R: Build
+    /// Drone Operator** [...] deducts 100 Space Crystals and 1 Supply"): a unit's recipe's. Nothing else costs any.
+    pub fn supplies(self, def: &ProductionDef) -> u32 {
+        match self {
+            QueueEntry::Unit(kind) => def.recipe(kind).map_or(0, |recipe| recipe.supplies),
+            QueueEntry::Release | QueueEntry::Augment { .. } | QueueEntry::Research { .. } => 0,
+        }
+    }
+
     /// How many units it reserves at a building that trains the units inside it (`Production::reserved`, slice M5-F2):
     /// a unit's Unit Control cost, at least one (`factions/cults/structures/README.md > Cults Vehicles`: "a trained
     /// unit's Unit Control cost equals the number of Recruits consumed"; plan decision T70; a Seeker 2), and one for a

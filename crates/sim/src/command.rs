@@ -148,6 +148,11 @@ pub enum Ability {
     /// form**"). Its orders stay (`factions/colonists/units/weapon_conversion.md > Orders are kept`, design change
     /// 0150).
     Convert,
+    /// (M6-GD) `factions/gdo/units/drone_operator.md > Drone Stock`: "**Build Drone** is one of the Drone Operator's
+    /// abilities: once its drone has been used, it purchases/builds a replacement" (plan decision T89): each unit buys
+    /// one item more for its stock (`crate::stock`), paid at the press, over its type's frames. Its orders stay. Refused
+    /// while its stock is full, while it buys one, and while its drone is out (design change 0421).
+    Buy,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

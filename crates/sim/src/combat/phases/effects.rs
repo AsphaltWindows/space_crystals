@@ -57,7 +57,9 @@ fn hit(shooter: &Shooter, t: &TargetView, hits: &mut Vec<Hit>) {
 ///   instant gunshot").
 /// - **An area attack** (no kind has one yet: the GDO's Artillery Rig, `factions/gdo/units/artillery_rig.md >
 ///   AttackAttributes`, "the blast lands there at the end of Firing (no tracking projectile)") blasts the spot, as a
-///   projectile that lands does (`super::area`: everything in the circle, whoever owns it).
+///   projectile that lands does (`super::area`: everything in the circle, whoever owns it). (M6-GD) So does a
+///   FullyConnected one at the end of its Firing, round its attacker (`super::Shooter::bursts`: the operator's drone's
+///   explosion).
 pub(super) fn strike(
     shooter: &Shooter,
     at: Vec2,

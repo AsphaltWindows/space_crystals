@@ -430,6 +430,24 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             },
             [W, W, N, W],
         ),
+        // (M6-GD) A drone launched: to whoever sees it, as its spawn; one that fell, to whoever saw it where it fell, as
+        // its death; a drone bought, to its operator's owner alone. The unit stands for both the operator and the drone.
+        (
+            SimEvent::DroneLaunched {
+                operator: UNIT,
+                drone: UNIT,
+            },
+            [W, W, N, W],
+        ),
+        (
+            SimEvent::DroneFell {
+                drone: DEAD,
+                operator: UNIT,
+                why: sc_sim::tether::Fall::Leash,
+            },
+            [W, W, N, W],
+        ),
+        (SimEvent::StockBought { unit: UNIT }, [W, N, N, N]),
         // (M5-N5) A Shrine's cast, at a point player 1 sees (the gate's rule): where it was cast, as a blast, to whoever
         // sees the point. The caster stands for a Shrine of player 1's: the point is what counts.
         (

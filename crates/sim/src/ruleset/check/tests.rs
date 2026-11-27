@@ -1,5 +1,5 @@
 use super::*;
-use crate::defs::{AreaAbility, MovementAttrs, ObjectKind, ProductionDef, Tech};
+use crate::defs::{AreaAbility, MovementAttrs, ObjectKind, ProductionDef, StockDef, Tech};
 
 /// The built-in rules with `change` made: what [`Ruleset::check`] says of them, by entry, field and why.
 fn checked(change: &dyn Fn(&mut Ruleset)) -> Option<(&'static str, &'static str, &'static str)> {
@@ -66,7 +66,7 @@ fn numbers_keep_their_signs() {
 
 /// The bounds of `defs/tests.rs` beyond the signs: a recipe's time and a technology's, a Recruitment Area that
 /// covers its Hall, an air unit's SeparationRadius beyond its Silhouette, a default rally point out of its building
-/// (a field the signs don't take: it isn't structure).
+/// (a field the signs don't take: it isn't structure), (M6-GD) a stock's purchase time and its start.
 #[test]
 fn numbers_stay_within_the_defs_bounds() {
     let longest = |r: &mut Ruleset| {
@@ -110,6 +110,34 @@ fn numbers_stay_within_the_defs_bounds() {
         checked(&|r| production(r, ObjectKind::ChopShop).default_rally = Some(0)),
         Some(("ChopShop", "default_rally", "must be positive"))
     );
+    // (M6-GD) The Drone Operator's stock: a purchase as long as a recipe at most, and no more drones at the start
+    // than it holds; as many is its own.
+    assert_eq!(
+        checked(&|r| stock(r).frames = LONGEST_RECIPE + 1),
+        Some(("DroneOperator", "frames", "must be at most 65535 ticks"))
+    );
+    assert_eq!(
+        checked(&|r| stock(r).start = 2),
+        Some(("DroneOperator", "start", "must be at most the stock's max"))
+    );
+    assert_eq!(
+        checked(&|r| {
+            stock(r).max = 3;
+            stock(r).start = 3;
+        }),
+        None
+    );
+}
+
+/// (M6-GD) The Drone Operator's stock in `rules`.
+fn stock(rules: &mut Ruleset) -> &mut StockDef {
+    let unit = rules
+        .defs
+        .get_mut(ObjectKind::DroneOperator)
+        .unit
+        .as_mut()
+        .expect("a unit");
+    unit.stock.as_mut().expect("a stock")
 }
 
 fn production(rules: &mut Ruleset, kind: ObjectKind) -> &mut ProductionDef {

@@ -86,14 +86,23 @@
 //! wherever it would be cast (`Sim::can_cast`): greyed while the Shrine hasn't the energy it costs
 //! (`Reject::NotEnoughEnergy`; N5's acceptance: "too little energy greys the command"), or while it is a site. Where
 //! it is cast is the click's (`crate::command_ui::resolution::target_resolution`: a point out of vision is an invalid
-//! target). The commands each button would send are `probes.rs`'.
+//! target).
+//!
+//! (M6-GD) A Drone Operator's R, Launch Drone, asks the gate for its Launch order, unqueued, and its F, Build Drone,
+//! for its `Command::Ability`, to every operator of the ActiveGroup (`factions/gdo/units/drone_operator.md`): R is
+//! greyed while the drone is out or none is in stock, F while the stock is full, a drone is out (design change 0421:
+//! "Build Drone can start only once the operator's drone has **ended**"), a purchase runs or the bank can't pay; F's
+//! bar shows the purchase under way ([`Conditions::purchase`]) and its hint the price ([`Conditions::price`]). While
+//! every recipient of a Move or a Patrol holds still for its drone ("The Drone Operator **cannot move** while it has a
+//! drone active"), the command is greyed for what the gate would say of its order (`Reject::DroneOut`;
+//! [`Modes::tethered`]). The commands each button would send are `probes.rs`'.
 
 mod modes;
 mod probes;
 
 use std::collections::BTreeMap;
 
-use sc_sim::{Constructor, ObjectId, ObjectKind, PlayerId, RecruitKind, Reject, Sim, combat};
+use sc_sim::{Constructor, ObjectId, ObjectKind, PlayerId, Progress, RecruitKind, Reject, Sim, combat, stock};
 
 use sc_sim::construction::site::BuildPrice;
 
@@ -169,6 +178,9 @@ pub struct Conditions {
     /// (M5-N1b) The free units of each type its tiles show in the active Altar, by kind (`Sim::pool_counts_of`); none
     /// while the ActiveGroup isn't an Altar.
     stored: BTreeMap<ObjectKind, [u32; 4]>,
+    /// (M6-GD) The purchase under way of the first unit of the ActiveGroup that buys one (`sc_sim::stock::Stock::buying`,
+    /// a Drone Operator's Build Drone), which F's bar shows ([`Conditions::purchase`]); none while none of them buys.
+    purchase: Option<Progress>,
 }
 
 impl Conditions {
@@ -188,7 +200,9 @@ impl Conditions {
     /// Temple's Research asks for its `Command::Production` of each technology the Temple offers, its key showing the
     /// answers ([`Conditions::key`]), priced at the technology's cost; its releases ask for their `Command::Holding` and
     /// count its staff. (M5-N4b) A Disciple's Shroud asks for its `Command::Order`, unqueued. (M5-N5) A Shrine's cast
-    /// asks `Sim::can_cast`, and its releases count its participants as a Temple's count its staff.
+    /// asks `Sim::can_cast`, and its releases count its participants as a Temple's count its staff. (M6-GD) A Drone
+    /// Operator's Launch Drone asks for its `Command::Order`, unqueued, and its Build Drone for its `Command::Ability`,
+    /// priced at its stock's price, its bar the ActiveGroup's first purchase under way.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -246,6 +260,10 @@ impl Conditions {
                     let tunnel = *recipients(selection, command).first()?;
                     Some((command, BuildPrice::supplies(sim.upgrade_price(tunnel)?)))
                 }
+                PanelCommand::Buy(_) => {
+                    let unit = sim.object(*recipients(selection, command).first()?)?;
+                    Some((command, BuildPrice::crystals(stock::def_of(unit.kind)?.price)))
+                }
                 _ => None,
             })
             .collect();
@@ -254,6 +272,9 @@ impl Conditions {
             .as_ref()
             .and_then(|group| group.instances.first().copied())
             .and_then(|id| sim.object(id));
+        let purchase = (group.iter().flat_map(|group| &group.instances))
+            .filter_map(|&id| sim.object(id)?.stock?.buying)
+            .next();
         Self {
             modes: Modes::of(sim, selection),
             constructor: first.and_then(|o| o.constructor),
@@ -264,6 +285,7 @@ impl Conditions {
             site: first.is_some_and(|o| o.is_site()),
             pool,
             stored,
+            purchase,
         }
     }
 
@@ -279,6 +301,7 @@ impl Conditions {
             site: false,
             pool: [0; 4],
             stored: BTreeMap::new(),
+            purchase: None,
         }
     }
 
@@ -292,6 +315,18 @@ impl Conditions {
     pub fn refusing(mut self, command: PanelCommand, reject: Reject) -> Self {
         self.refused.insert(command, reject);
         self
+    }
+
+    /// (M6-GD) The same, with `purchase` under way in the ActiveGroup: for the unit tests.
+    pub fn buying(mut self, purchase: Progress) -> Self {
+        self.purchase = Some(purchase);
+        self
+    }
+
+    /// (M6-GD) The purchase under way that a Build Drone's bar shows: the first of the ActiveGroup's, in the order of
+    /// its instances; none while none of them buys.
+    pub fn purchase(&self) -> Option<Progress> {
+        self.purchase
     }
 
     /// The same, with the Drones `drones` returning to the active Egress Node: for the unit tests.
@@ -423,7 +458,8 @@ impl Conditions {
 
     /// Why the game doesn't let `command` go to its recipients in `selection` now ([`Conditions::allows`]), if it
     /// doesn't: their types, their loads (a Drop Off none of whose recipients carries anything, the gate's
-    /// `Reject::NothingToDeliver`), a pool building's free units (a kind button with none of its kind, which every
+    /// `Reject::NothingToDeliver`), (M6-GD) their drones (a command that would move them while every one of them holds
+    /// still for its drone, the gate's `Reject::DroneOut`), a pool building's free units (a kind button with none of its kind, which every
     /// entry of its KindMenu would want: `Reject::NoRecruit`), an Altar's (a type or state tile with none, said as the
     /// first state's, Unaugmented, for a type tile), a Temple's key in progress (`Reject::ResearchUnderWay`, which its
     /// Research would get), a Place button's building while the constructor doesn't hold it ready (design changes
@@ -446,6 +482,11 @@ impl Conditions {
                     .into_iter()
                     .any(|id| self.modes.carries(id));
                 (!loaded).then_some(WhyUnavailable::Refused(Reject::NothingToDeliver))
+            }
+            PanelCommand::Move | PanelCommand::Reverse | PanelCommand::Patrol | PanelCommand::AttackGround => {
+                let recipients = recipients(selection, command);
+                let held = !recipients.is_empty() && recipients.iter().all(|&id| self.modes.tethered(id));
+                held.then_some(WhyUnavailable::Refused(Reject::DroneOut))
             }
             PanelCommand::KindMenu(kind) => {
                 (self.pool_count(kind) == 0).then_some(WhyUnavailable::Refused(Reject::NoRecruit(kind)))

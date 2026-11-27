@@ -48,6 +48,7 @@ pub fn every_command() -> Vec<Command> {
         OrderKind::Shroud,
         OrderKind::Reverse(point),
         OrderKind::TargetLock(ObjectId(9)),
+        OrderKind::Launch,
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -70,6 +71,10 @@ pub fn every_command() -> Vec<Command> {
     commands.push(Command::Ability {
         units: units.clone(),
         ability: Ability::Convert,
+    });
+    commands.push(Command::Ability {
+        units: units.clone(),
+        ability: Ability::Buy,
     });
     commands.extend(
         [
@@ -248,10 +253,11 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Repair(_)
                 | OrderKind::Shroud
                 | OrderKind::Reverse(_)
-                | OrderKind::TargetLock(_) => {}
+                | OrderKind::TargetLock(_)
+                | OrderKind::Launch => {}
             },
             Command::Ability {
-                ability: Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert,
+                ability: Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert | Ability::Buy,
                 ..
             } => {}
             Command::Production { command, .. } => match command {

@@ -28,12 +28,12 @@ impl Ability {
     /// 0198: "The type, and so the SelectionGroup, switches **at the press**"): a Convert flips a Legionnaire's
     /// (`conversion::converts_to`: "Pressing R **flips the unit's target form**"), a raise or a lowering of the Riot
     /// Shield makes a Peacekeeper the type it asks for, if it is the other one (`riot_shield::toggled_kind`). `None`
-    /// for Set Drop-off Location, and for a unit without the ability. What the client shows of a press before the sim
-    /// has it.
+    /// for Set Drop-off Location and (M6-GD) a Buy, and for a unit without the ability. What the client shows of a
+    /// press before the sim has it.
     pub fn switched_kind(self, kind: ObjectKind) -> Option<ObjectKind> {
         match self {
             Ability::RiotShield { raise } => riot_shield::toggled_kind(kind, raise),
-            Ability::SetDropOff(_) => None,
+            Ability::SetDropOff(_) | Ability::Buy => None,
             Ability::Convert => conversion::converts_to(kind),
         }
     }
@@ -44,7 +44,8 @@ impl Sim {
     /// ability): each of them uses `ability`, at once, in id order. A toggle switches the unit's type (module docs): a
     /// Riot Shield's from where it is, a Legionnaire's keeping the form it has (`conversion::hold_form`: its weapon
     /// and its attack go on as they are) until the Modes step changes it, a conversion that hasn't started and whose
-    /// form is the type again being dropped (`conversion::retarget`). A worker's AssignedDropOff changes.
+    /// form is the type again being dropped (`conversion::retarget`). A worker's AssignedDropOff changes. (M6-GD) A Buy
+    /// starts each unit's purchase, paid at the press (`Sim::buy`), until its owner's bank can't pay for one.
     pub(super) fn use_ability(&mut self, units: &[ObjectId], ability: Ability) {
         for &id in units {
             let Some(o) = self.objects.get_mut(&id) else {
@@ -56,6 +57,13 @@ impl Sim {
                 Ability::SetDropOff(node) => {
                     if let Some(worker) = &mut o.worker {
                         worker.drop_off = Some(node);
+                    }
+                }
+                // (M6-GD) `crate::stock`: paid at the press, its orders kept; served in id order until the bank can't
+                // pay (design change 0083's rule for queuing).
+                Ability::Buy => {
+                    if !self.buy(id) {
+                        break;
                     }
                 }
                 Ability::RiotShield { .. } | Ability::Convert => {

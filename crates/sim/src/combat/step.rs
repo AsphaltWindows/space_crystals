@@ -17,7 +17,7 @@ use crate::popup;
 use crate::riot_shield;
 use crate::shroud::Clouds;
 use crate::units::Tick;
-use crate::vision::Vision;
+use crate::vision::{Hiding, Vision};
 
 /// Phase 5e of `tick` (`docs/movement.md > 4`): every unit before `first_new`, in id order, runs one tick of its
 /// attack sequence against a snapshot of the targets taken before any of them acts, and so does every complete
@@ -37,6 +37,7 @@ use crate::vision::Vision;
 /// into its buffer before the list is applied (`damage::absorb`), each still revealing its attacker as a hit does, and
 /// the buffers due follow the tick's hits on the list (`damage::release`), revealing no one. (M5-K) A unit whose type
 /// has a Target Lock runs its sequence through the lock's tick (`target_lock::step`), with its locked missiles too.
+/// (M6-GD) A unit its attack spent (`phases::Volley::spent`, the operator's drone) is among the objects destroyed.
 #[expect(
     clippy::too_many_arguments,
     reason = "phase 5e's state, in the parts of the sim it reads and writes"
@@ -182,7 +183,23 @@ pub(crate) fn step(
         damage::release(clouds, &targets, tick, &mut hits, events);
         own
     };
-    let dead = damage::apply(objects, &hits, events);
+    let mut dead = damage::apply(objects, &hits, events);
+    // (M6-GD) The units their attack spent (`phases::Volley::spent`): the drones that exploded leave with the tick's
+    // dead, each with a `SimEvent::Died`, once their blasts have landed, unless a hit of the tick killed them already.
+    for id in std::mem::take(&mut volley.spent) {
+        let Some(o) = objects.get(&id).filter(|_| !dead.contains(&id)) else {
+            continue;
+        };
+        events.push(SimEvent::Died {
+            id,
+            kind: o.kind,
+            owner: o.owner,
+            pos: o.pos,
+            hiding: Hiding::of(o),
+        });
+        dead.push(id);
+    }
+    dead.sort_unstable();
     // Design change 0293 (answering Q0083 point 2; `core/vision.md > Attacks from outside vision`): a blast reveals its
     // attacker as a shot does, here, when its damage lands, not at the throw; only to the owners of the objects it
     // damaged (every hit takes something, its minimum at least, so a blast that hits nothing, a dodged grenade,

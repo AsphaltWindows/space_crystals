@@ -448,6 +448,11 @@ impl Sim {
             energy: crate::energy::start(kind),
             kept_research: None,
             buffs: Vec::new(),
+            // (M6-GD) Its type's start (`crate::stock`). No drone is out, and a drone a debug command spawns is on no
+            // leash (`crate::tether`): a launch tethers it.
+            stock: crate::stock::fresh(kind),
+            tether: None,
+            drone: None,
         };
         if let Some(rally) = crate::production::default_rally(&self.map, &object)
             && let Some(production) = &mut object.production
@@ -501,6 +506,7 @@ mod casts;
 mod commands;
 mod construction;
 mod deploy;
+mod drones;
 mod expansions;
 mod gate;
 mod holding;

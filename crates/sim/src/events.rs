@@ -11,6 +11,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::placement::PlacementCheck;
 use crate::production::Refusal;
 use crate::scenario::BuildingOrientation;
+use crate::tether::Fall;
 use crate::units::{Tick, TilePos};
 use crate::vision::Hiding;
 
@@ -62,8 +63,9 @@ pub enum SimEvent {
         #[serde(default)]
         shield_damage: f32,
     },
-    /// The object was destroyed: its HP reached 0. What it was and where, since its `Removed` event follows in
-    /// the same tick.
+    /// The object was destroyed: its HP reached 0, or (M6-GD) it was a drone that ended (`crate::tether`): it fell
+    /// ([`SimEvent::DroneFell`]), or its explosion spent it. What it was and where, since its `Removed` event follows
+    /// in the same tick.
     Died {
         id: ObjectId,
         kind: ObjectKind,
@@ -532,4 +534,23 @@ pub enum SimEvent {
     /// (`crate::ruleset`): the next tick plays by them, and every object's HP, Shields and energy already follow their
     /// new maxima. Told to everyone.
     RulesChanged,
+    /// (M6-GD) `operator` launched `drone` from its stock, over itself (`crate::tether`): its `Spawned` came first.
+    DroneLaunched {
+        operator: ObjectId,
+        drone: ObjectId,
+    },
+    /// (M6-GD) `drone`, which `operator` launched, fell (`crate::tether`; `factions/gdo/units/drone_operator.md >
+    /// Drone limits — how a drone ends`): its operator died, it went past its leash (its explosion, a
+    /// [`SimEvent::Blast`], lands where it fell in this tick's phase 5e) or its battery ran out. Its `Died` and its
+    /// `Removed` follow in the tick.
+    DroneFell {
+        drone: ObjectId,
+        operator: ObjectId,
+        why: Fall,
+    },
+    /// (M6-GD) `unit`'s purchase is done: its stock holds one item more (`crate::stock`, the Drone Operator's Build
+    /// Drone).
+    StockBought {
+        unit: ObjectId,
+    },
 }

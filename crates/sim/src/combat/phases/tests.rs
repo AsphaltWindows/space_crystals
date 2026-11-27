@@ -60,6 +60,9 @@ fn object(id: ObjectId, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) ->
         energy: None,
         kept_research: None,
         buffs: Vec::new(),
+        stock: None,
+        tether: None,
+        drone: None,
     }
 }
 

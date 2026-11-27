@@ -1,6 +1,6 @@
 //! The indicators' mesh: one alpha-blended mesh in the overlays layer, rebuilt every frame while anything shows,
-//! with a cast's circle (slice M5-N5), the routes and the rally lines at the back, then the markers, then the flashes
-//! (placeholders until the art, Q0001).
+//! with a cast's circle (slice M5-N5), the leash rings (slice M6-GD), the routes and the rally lines at the back, then
+//! the markers, then the flashes (placeholders until the art, Q0001).
 
 use std::f32::consts::TAU;
 
@@ -9,7 +9,7 @@ use sc_sim::{Map, Object, Sim, Tick};
 
 use super::{
     CommandIndicators, Flash, INDICATORS_Z, Indicator, IndicatorMesh, MarkerRing, OrderIssued, cast,
-    drop_off_indicators, gathering, indicator, order_color, own_selected, rally, rally_indicators,
+    drop_off_indicators, gathering, indicator, leash, order_color, own_selected, rally, rally_indicators,
     selection_indicators, targets, waypoint,
 };
 use crate::ClientMode;
@@ -91,9 +91,9 @@ fn flash_progress(sim: &Sim, alpha: f32, tick: Tick, ticks: u32) -> f32 {
     ((sim.tick().saturating_sub(tick) as f32 + alpha - 1.0) / ticks as f32).clamp(0.0, 1.0)
 }
 
-/// Rebuilds the indicators' mesh: a cast's circle, the routes and the rally lines at the back, then the markers (the
-/// orders', the selected workers' drop-offs' and the rally points'), then the flashes. Hidden while nothing shows, and
-/// outside the game modes.
+/// Rebuilds the indicators' mesh: a cast's circle, the leash rings, the routes and the rally lines at the back, then the
+/// markers (the orders', the selected workers' drop-offs' and the rally points'), then the flashes. Hidden while nothing
+/// shows, and outside the game modes.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn draw_indicators(
     mode: Res<ClientMode>,
@@ -120,6 +120,13 @@ pub(super) fn draw_indicators(
         {
             let seen = sim.sees_point(sight.player(), ground);
             cast::draw(&mut mesh, sim.map(), ability, ground, seen, z);
+        }
+        // (M6-GD) Round the operators of the selected drones and of the selected operators whose drones are out, the
+        // leashes.
+        for held in leash::leashes(sim, states.selection(sight.player()), sight.player()) {
+            if let Some(ring) = leash::ring(sim, held, alpha.0) {
+                leash::draw(&mut mesh, sim.map(), &ring, z);
+            }
         }
         let queued = actions.held(InputAction::Queue);
         if queued {

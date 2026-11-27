@@ -463,6 +463,10 @@ impl<'a> Arrival<'a> {
             // (M5-N5) A Shrine's cast shows where it was cast, as a blast: to its owner, who sees the point
             // (`Sim::can_cast`), and to anyone else who does.
             SimEvent::Cast { at, .. } => Audience::Seen(Sighting::at(at)),
+            // (M6-GD) A launch and a fall happen to the drone, whoever is shown it (a fallen one where it fell, as its
+            // death); a drone bought, to its operator's owner, as a unit queued is its producer's.
+            SimEvent::DroneLaunched { drone, .. } | SimEvent::DroneFell { drone, .. } => self.object(drone),
+            SimEvent::StockBought { unit } => self.owner(unit),
         }
     }
 }

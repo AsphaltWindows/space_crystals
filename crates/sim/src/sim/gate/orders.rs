@@ -13,7 +13,8 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::sim::{Reject, Sim};
-use crate::{combat, conversion};
+use crate::stock::{self, Unbuyable};
+use crate::{combat, conversion, tether};
 
 impl Sim {
     /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped.
@@ -113,6 +114,18 @@ impl Sim {
             // (M5-K) `factions/gdo/units/rocketman.md > Target Lock` (`crate::combat::target_lock`): the units whose
             // type has a Target Lock take it, the others ignore it.
             OrderKind::TargetLock(target) => ordered = self.check_target_lock(player, ordered, target)?,
+            // (M6-GD) `factions/gdo/units/drone_operator.md > Launching and piloting` (`crate::tether`): the units
+            // that launch from their stock take it, the others ignore it.
+            OrderKind::Launch => ordered = self.check_launch(ordered)?,
+        }
+        // (M6-GD) "The Drone Operator **cannot move** while it has a drone active" (`crate::tether`): a unit that holds
+        // still for its drone ignores an order that would move it; if every unit does, the order is refused, with
+        // feedback.
+        if !tether::allows(kind) {
+            ordered.retain(|id| !self.objects.get(id).is_some_and(tether::holds));
+            if ordered.is_empty() {
+                return Err(Reject::DroneOut);
+            }
         }
         Ok(Checked::Order {
             units: ordered,
@@ -238,6 +251,68 @@ impl Sim {
         Ok(ready)
     }
 
+    /// (M6-GD) The gate for a Launch (`crate::tether`): the units of `units` whose stock holds drones take it (their
+    /// stock's kind is tethered, `UnitDef::tether`), else [`Reject::LacksAbility`]; of them those without a drone out
+    /// ("Only **one drone can be active at a time** per operator"), else [`Reject::DroneOut`]; and of them those with a
+    /// drone in stock, else [`Reject::StockEmpty`]. A queued Launch is judged as it is given, as a channel's energy
+    /// is: one that starts without a drone to launch ends at once (`orders::launch`).
+    fn check_launch(&self, units: Vec<ObjectId>) -> Result<Vec<ObjectId>, Reject> {
+        let launchers: Vec<&Object> = (units.iter())
+            .filter_map(|id| self.objects.get(id))
+            .filter(|o| stock::def_of(o.kind).is_some_and(|def| tether::def_of(def.item).is_some()))
+            .collect();
+        if launchers.is_empty() {
+            return Err(Reject::LacksAbility);
+        }
+        let free: Vec<&Object> = launchers.into_iter().filter(|o| !tether::holds(o)).collect();
+        if free.is_empty() {
+            return Err(Reject::DroneOut);
+        }
+        let stocked: Vec<ObjectId> = (free.into_iter())
+            .filter(|o| o.stock.is_some_and(|stock| stock.count >= 1))
+            .map(|o| o.id)
+            .collect();
+        if stocked.is_empty() {
+            return Err(Reject::StockEmpty);
+        }
+        Ok(stocked)
+    }
+
+    /// (M6-GD) The gate for a Buy (`crate::stock`, plan decision T89), of `units`, the player's own units with a stock:
+    /// those that may start a purchase now (`stock::refusal`), else the reason of the first in id order
+    /// ([`Reject::DroneOut`], [`Reject::PurchaseUnderWay`], [`Reject::StockFull`]); and the bank pays for the first
+    /// of them, else [`Reject::InsufficientCrystals`] (T7's checked spend). The others are paid at the press in id
+    /// order, until the bank can't pay for one (`Sim::use_ability`).
+    fn check_buy(&self, player: PlayerId, units: Vec<ObjectId>) -> Result<Vec<ObjectId>, Reject> {
+        let mut first = None;
+        let mut buying = Vec::new();
+        for o in units.iter().filter_map(|id| self.objects.get(id)) {
+            let Some(stock) = &o.stock else {
+                continue;
+            };
+            match stock::refusal(o, stock) {
+                Some(reason) => {
+                    first.get_or_insert(reason);
+                }
+                None => buying.push(o.id),
+            }
+        }
+        let Some(&id) = buying.first() else {
+            return Err(match first {
+                Some(Unbuyable::DroneOut) => Reject::DroneOut,
+                Some(Unbuyable::Buying) => Reject::PurchaseUnderWay,
+                Some(Unbuyable::Full) | None => Reject::StockFull,
+            });
+        };
+        let price = (self.objects.get(&id))
+            .and_then(|o| stock::def_of(o.kind))
+            .map_or(0, |def| def.price);
+        if self.player(player).is_none_or(|p| p.crystals < price) {
+            return Err(Reject::InsufficientCrystals);
+        }
+        Ok(buying)
+    }
+
     /// [`Command::Ability`](crate::Command::Ability): the player's own units that have the ability. Ids that no
     /// longer exist and the player's objects without the ability are dropped: [`Reject::NoUnits`] if nothing of the
     /// player's remains at all, [`Reject::LacksAbility`] if none of it has the ability. A toggle is never refused for
@@ -257,6 +332,8 @@ impl Sim {
             Ability::RiotShield { .. } => o.riot_shield.is_some(),
             Ability::SetDropOff(_) => Sim::sets_drop_off(o),
             Ability::Convert => conversion::converts_to(o.kind).is_some(),
+            // (M6-GD) A unit with a stock (`crate::stock`).
+            Ability::Buy => o.stock.is_some(),
         };
         let own = self.own_units(player, units, |_| true)?;
         if own.is_empty() {
@@ -272,6 +349,10 @@ impl Sim {
         if units.is_empty() {
             return Err(Reject::LacksAbility);
         }
+        let units = match ability {
+            Ability::Buy => self.check_buy(player, units)?,
+            Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert => units,
+        };
         Ok(Checked::Ability { units, ability })
     }
 }

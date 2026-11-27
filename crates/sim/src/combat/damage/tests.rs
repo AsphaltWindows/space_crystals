@@ -130,6 +130,9 @@ fn target(kind: crate::defs::ObjectKind, shields: f32) -> Object {
         energy: None,
         kept_research: None,
         buffs: Vec::new(),
+        stock: None,
+        tether: None,
+        drone: None,
     }
 }
 

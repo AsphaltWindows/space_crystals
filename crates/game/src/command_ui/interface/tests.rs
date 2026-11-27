@@ -6,6 +6,7 @@ mod chop_shop;
 mod colonists;
 mod construction;
 mod cults;
+mod drone_operator;
 mod expansions;
 mod gathering;
 mod place_buttons;
@@ -318,19 +319,21 @@ fn only_tail_and_doubly_disjointed_attacks_target_the_ground() {
 
 /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]` with `systems/controls/interface.md >
 /// Standard Slot Assignments`: Q trains a Peacekeeper, W a Rocketman ("**W: Build Rocketman** (hotkey tentative)",
-/// slice M5-K), E a Field Engineer ("**E: Build Field Engineer** (placeholder letter)", slice M5-N9), and X cancels the
-/// last unit queued, all at once; C awaits the rally point's target, with Z Back and the other commands waiting
-/// meanwhile.
+/// slice M5-K), E a Field Engineer ("**E: Build Field Engineer** (placeholder letter)", slice M5-N9), R a Drone
+/// Operator ("trained at the Barracks on **R** (Q0155)", slice M6-GD), and X cancels the last unit queued, all at once;
+/// C awaits the rally point's target, with Z Back and the other commands waiting meanwhile.
 #[test]
 fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
     use ButtonLook::{Back, Common, Disabled, Pending};
     use PanelCommand::{CancelProduction, SetRallyPoint, Train};
     const FE: ObjectKind = ObjectKind::FieldEngineer;
     const RN: ObjectKind = ObjectKind::Rocketman;
-    let (q, w, e, x, c) = (
+    const DO: ObjectKind = ObjectKind::DroneOperator;
+    let (q, w, e, r, x, c) = (
         slot(0, 0),
         slot(0, 1),
         slot(0, 2),
+        slot(0, 3),
         CommandSlot::CANCEL_PRODUCTION,
         CommandSlot::RALLY_POINT,
     );
@@ -343,12 +346,14 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
             (q, command(Train(PK)), Common),
             (w, command(Train(RN)), Common),
             (e, command(Train(FE)), Common),
+            (r, command(Train(DO)), Common),
             (x, command(CancelProduction), Common),
             (c, command(SetRallyPoint), Common),
         ]
     );
-    let labels = [q, w, e, x, c].map(|slot| default.get(slot).unwrap().label());
-    assert_eq!(labels, ["PK", "RN", "FEN", "Cancel", "Rally"]);
+    let labels = [q, w, e, r, x, c].map(|slot| default.get(slot).unwrap().label());
+    assert_eq!(labels, ["PK", "RN", "FEN", "DO", "Cancel", "Rally"]);
+    assert_eq!(default.name(r).as_deref(), Some("Train Drone Operator"));
     assert_eq!(
         press(&default, q),
         SlotPress::Produce(Train(PK), ProductionCommand::Train(PK))
@@ -360,6 +365,10 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
     assert_eq!(
         press(&default, e),
         SlotPress::Produce(Train(FE), ProductionCommand::Train(FE))
+    );
+    assert_eq!(
+        press(&default, r),
+        SlotPress::Produce(Train(DO), ProductionCommand::Train(DO))
     );
     assert_eq!(
         press(&default, x),
@@ -375,6 +384,7 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
             (q, command(Train(PK)), Disabled),
             (w, command(Train(RN)), Disabled),
             (e, command(Train(FE)), Disabled),
+            (r, command(Train(DO)), Disabled),
             (CommandSlot::BACK, PanelButton::Back, Back),
             (x, command(CancelProduction), Disabled),
             (c, command(SetRallyPoint), Pending),
@@ -436,6 +446,7 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
     let mut barracks = produces(PK, &[]);
     barracks[1] = Some(Train(ObjectKind::Rocketman));
     barracks[2] = Some(Train(ObjectKind::FieldEngineer));
+    barracks[3] = Some(Train(ObjectKind::DroneOperator));
     assert_eq!(grid(BARRACKS), barracks);
     assert_eq!(
         grid(ObjectKind::RoboPortal),

@@ -24,6 +24,8 @@ use crate::production::Production;
 use crate::progress::Progress;
 use crate::riot_shield::RiotShield;
 use crate::scenario::BuildingOrientation;
+use crate::stock::Stock;
+use crate::tether::Tether;
 use crate::transform::Transform;
 use crate::tunnel::TunnelState;
 use crate::units::{SU_PER_GU, TilePos};
@@ -173,6 +175,23 @@ pub struct Object {
     /// saved before it existed load and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub buffs: Vec<Buff>,
+    /// (M6-GD) A unit's stock (plan decision T89, `crate::stock`): the items its type carries (`UnitDef::stock`), the
+    /// Drone Operator's drones, and the purchase under way. `None` for every other object. Optional in files and left
+    /// out of them while `None`, and hashed only while set, so that states saved before it existed load and those
+    /// without one hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stock: Option<Stock>,
+    /// (M6-GD) A launched drone's leash (plan decision T91, `crate::tether`): the operator that launched it, whose
+    /// [`Object::drone`] it is, and the tick its battery runs out in. `None` for every other object, a drone a debug
+    /// command spawned among them. Optional in files, left out of them and hashed only while set, as [`Object::stock`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tether: Option<Tether>,
+    /// (M6-GD) The drone an operator has out (plan decision T91, `crate::tether`), whose [`Object::tether`] names it:
+    /// "Only **one drone can be active at a time** per operator", and "The Drone Operator **cannot move** while it has
+    /// a drone active" (`combat::may_move`). `None` while it has none out, and for every other object. Optional in
+    /// files, left out of them and hashed only while set, as [`Object::stock`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drone: Option<ObjectId>,
 }
 
 impl Object {

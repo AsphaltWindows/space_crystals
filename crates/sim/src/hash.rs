@@ -337,6 +337,9 @@ impl StateHash for Object {
             energy,
             kept_research,
             buffs,
+            stock,
+            tether,
+            drone,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -411,6 +414,20 @@ impl StateHash for Object {
         if !buffs.is_empty() {
             h.tag(9);
             buffs.hash(h);
+        }
+        // (M6-GD) The same for a unit's stock (`crate::stock`), a drone's tether and the drone an operator has out
+        // (`crate::tether`), each under a tag of its own: only while set.
+        if let Some(stock) = stock {
+            h.tag(11);
+            stock.hash(h);
+        }
+        if let Some(tether) = tether {
+            h.tag(12);
+            tether.hash(h);
+        }
+        if let Some(drone) = drone {
+            h.tag(13);
+            drone.hash(h);
         }
     }
 }

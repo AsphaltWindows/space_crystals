@@ -63,6 +63,8 @@ impl UnitDef {
         spells: &[],
         separation_radius: None,
         target_lock: None,
+        stock: None,
+        tether: None,
     };
 }
 

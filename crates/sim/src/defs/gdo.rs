@@ -25,9 +25,9 @@ crate::tuning::tunables! {
 /// its numbers the design's: the Deployment Center's eight buildings, in its `Constructs` order
 /// (`factions/gdo/structures/deployment_center.md > Constructs`), each behind its own TechPrerequisite
 /// (`StructureDef::requires`); the Defense System's Missile Turret; the Field Engineer's Bunker and First Aid Tent; the
-/// Factory's four vehicles and the Airfield's two aircraft, in their `Produces` order, the Barracks' Drone Operator and
-/// the Supply Tower's Supply Chopper, each with its Unit Prerequisite and its Supplies (`Recipe::supplies`, design
-/// changes 0435 and 0441). The slice that makes an entry live moves it into its maker's list.
+/// Factory's four vehicles and the Airfield's two aircraft, in their `Produces` order, and the Supply Tower's Supply
+/// Chopper, each with its Unit Prerequisite and its Supplies (`Recipe::supplies`, design changes 0435 and 0441). The
+/// slice that makes an entry live moves it into its maker's list: slice M6-GD the Barracks' Drone Operator.
 pub const PLANNED_RECIPES: &[(ObjectKind, Recipe)] = &[
     (ObjectKind::DeploymentCenter, structures::supply_tower::RECIPE),
     (ObjectKind::DeploymentCenter, structures::factory::RECIPE),
@@ -46,7 +46,6 @@ pub const PLANNED_RECIPES: &[(ObjectKind, Recipe)] = &[
     (ObjectKind::Factory, units::artillery_rig::RECIPE),
     (ObjectKind::Airfield, units::hornet::RECIPE),
     (ObjectKind::Airfield, units::dragonfly::RECIPE),
-    (ObjectKind::Barracks, units::drone_operator::RECIPE),
     (ObjectKind::SupplyTower, units::supply_chopper::RECIPE),
 ];
 

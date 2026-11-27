@@ -11,7 +11,7 @@ use super::shroud as channel;
 use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Patrol};
 use super::world::{Unit, World};
 use super::{
-    ActiveOrder, Order, OrderKind, Orders, Target, assist, attack_ground, build, engage, enter, gather, repair,
+    ActiveOrder, Order, OrderKind, Orders, Target, assist, attack_ground, build, engage, enter, gather, launch, repair,
     target_lock, travel, turret,
 };
 use crate::deploy;
@@ -21,7 +21,7 @@ use crate::nav::PathGroup;
 use crate::object::Object;
 use crate::shroud::{self, Member};
 use crate::units::Tick;
-use crate::{combat, conversion, riot_shield};
+use crate::{combat, conversion, riot_shield, tether};
 
 /// Phase 5a (`docs/movement.md > 4`): for every unit before `first_new`, in id order, complete the current order
 /// if its behaviour is done, start queued orders until one is still running, and run that behaviour, or the idle
@@ -48,6 +48,7 @@ pub(crate) fn update(
         let weapon = combat::weapon_ref(o, world.research, &mut augmented);
         let max_speed = o.max_speed(world.research);
         let converting = conversion::is_converting(o);
+        let tethered = tether::holds(o);
         // (M5-H1) Where it counts as being, as the snapshot has the others (`World::new`): a Glider past the map's edge
         // at the nearest edge tile. Its flight reads its true position (`movement::glider`).
         let pos = o.map_pos(world.map);
@@ -66,6 +67,7 @@ pub(crate) fn update(
             attack: o.attack.as_mut(),
             may_attack,
             converting,
+            tethered,
             worker: o.worker.as_mut(),
             energy: o.energy.as_mut(),
         };
@@ -174,8 +176,9 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
         OrderKind::AttackGround(_) => {}
         OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => {}
-        // (M5-N4b) A channel holds the unit where it stands (`super::shroud`); (M5-K) so does a lock.
-        OrderKind::Shroud | OrderKind::TargetLock(_) => {}
+        // (M5-N4b) A channel holds the unit where it stands (`super::shroud`); (M5-K) so does a lock, and (M6-GD) a
+        // launch (`super::launch`).
+        OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -218,8 +221,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Repair(target) => Behaviour::Repair(repair::begin(target, world)),
         // (M5-N4b) `factions/cults/units/disciple.md > Spells > Shroud`: nothing to keep from tick to tick but the
         // order's start (`ActiveOrder::since`). (M5-K) A Target Lock's state is the attack's
-        // (`crate::combat::AttackState::target_lock`).
-        OrderKind::Shroud | OrderKind::TargetLock(_) => Behaviour::Plain,
+        // (`crate::combat::AttackState::target_lock`). (M6-GD) A Launch lasts its first tick (`super::launch`).
+        OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => Behaviour::Plain,
     }
 }
 
@@ -286,6 +289,9 @@ fn run(
         (OrderKind::Shroud, _) => channel::run(unit, first),
         // (M5-K) Standing, locking and firing, until the lock breaks (`target_lock`). Its state, the plain one, is any.
         (OrderKind::TargetLock(_), _) => target_lock::run(unit),
+        // (M6-GD) Standing for the launch, which the step right after this phase makes, ending the order
+        // (`super::launch`). Its state, the plain one, is any.
+        (OrderKind::Launch, _) => launch::run(first),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)

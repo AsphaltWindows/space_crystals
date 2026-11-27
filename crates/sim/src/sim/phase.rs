@@ -142,6 +142,9 @@ impl Sim {
         self.step_entries(first_new);
         // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.
         self.step_too_close(first_new);
+        // (M6-GD) The Launches 5a started launch their drones (`sim/drones.rs`, `crate::tether`): before 5b, so that a
+        // drone has its grid from its first tick; it moves and attacks from the next one, as every new object.
+        self.step_launches(first_new);
         // (M5-N4b) The clouds follow the channels as 5a leaves them (`crate::shroud`, plan decision T77): a channel that
         // started in it protects in this tick's 5e, and one that ended releases its cloud's buffer there.
         self.clouds.update(channelling, &mut self.events);
@@ -184,6 +187,10 @@ impl Sim {
             paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
             self.clouds.settle(|id| self.objects.get(&id), &mut self.events);
         }
+        // (M6-GD) The drones whose end comes fall (`sim/drones.rs`, `crate::tether`): after 5d, which moved them past
+        // their leash; before 5e, so that a drone that falls attacks nothing in the tick, and the blast of one past its
+        // leash lands in it.
+        self.step_tethers(first_new);
         // 5e: shoots from the positions movement committed, and the projectiles due land (`combat::projectiles`). The
         // dead leave through the removal path; a footprint they leave behind no longer blocks, so the grids follow as
         // in 5b.
@@ -269,6 +276,9 @@ impl Sim {
         // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
         // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
         self.step_production(first_new);
+        // (M6-GD) The stocks' purchases (`sim/drones.rs`, `crate::stock`), beside the producers: a unit's stock holds
+        // the item from the tick its frames are done.
+        self.step_stocks(first_new);
         // The Tunnel Network (`sim/network.rs`), part of the economy phase: the units inside regenerate, then each
         // Tunnel's eject queue lets its first unit out onto the exit path if that is clear. After the producers, so
         // that a unit a Hideout finished in this tick with a surface rally comes out in it; after 5d, so that a unit

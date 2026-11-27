@@ -105,7 +105,8 @@ impl Sim {
                 refused,
             } => {
                 for (id, units) in accepted {
-                    let Some(cost) = self.objects.get(&id).and_then(producer).map(|(_, def)| entry.cost(def)) else {
+                    let price = self.objects.get(&id).and_then(producer);
+                    let Some((cost, supplies)) = price.map(|(_, def)| (entry.cost(def), entry.supplies(def))) else {
                         continue;
                     };
                     let event = match (entry, units.first()) {
@@ -122,12 +123,14 @@ impl Sim {
                     // "deducts 50 Space Crystals from player, adds Peacekeeper to BuildQueue" (the gate checked
                     // the bank, each producer after what the ones before it took); a Release is free, an
                     // augmentation order paid as a unit is ("Queuing an order immediately deducts its Space Crystals
-                    // cost").
-                    let paid = self
-                        .players
-                        .iter_mut()
-                        .find(|p| p.id == player)
-                        .is_some_and(|p| p.spend_crystals(cost));
+                    // cost"). (M6-GD) A recipe's Supplies with its crystals, both or neither ("deducts 100 Space
+                    // Crystals and 1 Supply").
+                    let paid = (self.players.iter_mut().find(|p| p.id == player)).is_some_and(|p| {
+                        p.crystals >= cost
+                            && p.supplies >= supplies
+                            && p.spend_crystals(cost)
+                            && p.spend_supplies(supplies)
+                    });
                     if !paid {
                         continue;
                     }
@@ -157,10 +160,13 @@ impl Sim {
                     // "removes last entry from BuildQueue, refunds full cost to player". The army cost goes with the
                     // unit in production (design change 0143), and a waiting one never took any: "the player can
                     // still cancel it for a full refund". A pool producer's entry "returns its reserved Recruit to
-                    // StoredRecruits" (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`).
+                    // StoredRecruits" (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`). (M6-GD)
+                    // Its Supplies with its crystals ("refunded with them on cancel").
                     let refund = Refund::Full.of(def.map_or(0, |def| entry.cost(def)));
+                    let supplies = Refund::Full.of(def.map_or(0, |def| entry.supplies(def)));
                     if let Some(p) = self.players.iter_mut().find(|p| p.id == player) {
                         p.credit_crystals(refund);
+                        p.credit_supplies(supplies);
                     }
                     self.unreserve(&reserved);
                     self.events.extend(cancelled(id, entry, &reserved, refund));
@@ -205,8 +211,11 @@ impl Sim {
         let owner = o.owner;
         for (entry, reserved) in production.take_queue() {
             let refund = Refund::Full.of(entry.cost(def));
+            // (M6-GD) Its Supplies with its crystals, "as if cancelled".
+            let supplies = Refund::Full.of(entry.supplies(def));
             if let Some(p) = self.players.iter_mut().find(|p| Some(p.id) == owner) {
                 p.credit_crystals(refund);
+                p.credit_supplies(supplies);
             }
             self.unreserve(&reserved);
             self.events.extend(cancelled(id, entry, &reserved, refund));
