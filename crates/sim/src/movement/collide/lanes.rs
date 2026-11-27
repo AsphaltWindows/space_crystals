@@ -277,6 +277,7 @@ mod tests {
             owner: Some(crate::ids::PlayerId(1)),
             pos,
             half: Vec2::splat(12.0),
+            oriented: None,
             velocity: heading * 4.0,
             heading,
             stationary: heading == Vec2::ZERO,
@@ -305,6 +306,7 @@ mod tests {
             contact: crate::defs::ContactStep::Sideways,
             lanes: &mut lanes,
             counters: &mut counters,
+            mine: bodies[0],
         };
         world.lane(bodies[0].pos, Vec2::X, f32::INFINITY, None, None, prefer)
     }
@@ -353,6 +355,7 @@ mod tests {
             contact: crate::defs::ContactStep::Sideways,
             lanes: &mut lanes,
             counters: &mut counters,
+            mine: bodies[0],
         };
         let pos = me.pos;
         assert_eq!(

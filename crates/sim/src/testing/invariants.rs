@@ -51,6 +51,7 @@ use crate::nav;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target, gather};
 use crate::production::ExitDoor;
+use crate::shape::Shape;
 use crate::sim::Sim;
 use crate::tuning::movement::MAX_REPATHS;
 use crate::units::Tick;
@@ -79,6 +80,8 @@ pub struct Violation {
 #[derive(Clone, Debug)]
 struct Seen {
     pos: Vec2,
+    /// (M5-V1) Its facing, which a Silhouette that turns lies along (`shape::Shape::silhouette`).
+    facing: f32,
     had_goal: bool,
     /// It was taking a sidestep for a blocked unit of its owner (design change 0022).
     sidestepping: bool,
@@ -109,6 +112,7 @@ fn leg_of(o: &Object) -> Option<Tick> {
 fn seen(o: &Object, mover: &Mover, research: Research) -> Seen {
     Seen {
         pos: o.pos,
+        facing: o.facing,
         had_goal: mover.goal != MoveGoal::None,
         sidestepping: mover.sidestep.is_some(),
         repaths_left: mover.repaths_left,
@@ -208,9 +212,14 @@ impl Invariants {
                 return fail("I4", format!("has a float that isn't finite: {o:?}"));
             }
             let def = o.def();
-            let (Some(unit), Some(half), Some(mover)) = (&def.unit, def.half_extents(), &o.mover) else {
+            let (Some(unit), Some(silhouette), Some(mover)) = (&def.unit, def.silhouette(), &o.mover) else {
                 continue;
             };
+            // (M5-V1) Its shape: a Silhouette that turns with its facing is tested against the tiles as it lies
+            // (`Shape::clear_on`), in a doorway by its bounding box (`Shape::bound_half`), as the movement step tests
+            // it.
+            let shape = Shape::of(o);
+            let half = shape.bound_half();
             let before = self.seen.get(&o.id);
             // I2: a ground box overlaps no blocked tile and stays on the map. The one exception (design change
             // 0080, `core/entities.md > Structure Type > Exit Doorway`): a unit that a producer released, while
@@ -222,13 +231,13 @@ impl Invariants {
             // within a rounding tolerance (`EnergyDoorway::margin`).
             // Every unit in the game has the grid it walks on (slice M5-Z2, `paths`): a missing one would let it pass.
             let class = unit.base_def().nav_class();
-            let grid = class.and_then(|class| sim.nav().grid(class, nav::size_class(half * 2.0)));
+            let grid = class.and_then(|class| sim.nav().grid(class, nav::size_class(silhouette)));
             if let (Some(class), None) = (class, grid) {
                 return fail("I2", format!("walks on {class:?} grids, but its grid isn't built"));
             }
             match mover.exit {
                 None => {
-                    if grid.is_some_and(|grid| !nav::box_clear(grid, half, o.pos)) {
+                    if grid.is_some_and(|grid| !shape.clear_on(grid)) {
                         return fail("I2", format!("at {} overlaps a blocked tile or the map's edge", o.pos));
                     }
                 }

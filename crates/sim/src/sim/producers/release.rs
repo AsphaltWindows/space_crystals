@@ -12,6 +12,7 @@ use crate::math;
 use crate::object::Object;
 use crate::paths::{self, boxes_overlap};
 use crate::production::{Door, ExitDoor, QueueEntry};
+use crate::shape::Shape;
 use crate::sim::Sim;
 
 /// When something stands right in front of the doorway, the released unit stands this far from it, space units,
@@ -121,13 +122,15 @@ impl Sim {
         let grid = paths::unit_grid(self.nav.nav(), base, half * 2.0);
         let clear = |p: Vec2| grid.is_none_or(|grid| door.box_clear(grid, half, p));
         let depth = door.outward().abs().dot(half);
-        // The other units of its layer, with their half extents.
+        // The other units of its layer, with their half extents: (M5-V1) of their shapes' bounding boxes, a turned
+        // Silhouette's for one that turns with its facing (`Shape::bound_half`), which holds all of it.
         let others = || {
             self.objects.values().filter_map(|o| {
                 let other = o.def();
                 let same_layer = base.domain.hard_collision()
                     && other.unit.as_ref().is_some_and(|u| u.base_def().domain == base.domain);
-                Some((o.pos, other.half_extents().filter(|_| same_layer)?))
+                other.silhouette().filter(|_| same_layer)?;
+                Some((o.pos, Shape::of(o).bound_half()))
             })
         };
         let mut out: f32 = if clear(door.spot(0.0)) { 0.0 } else { -depth };

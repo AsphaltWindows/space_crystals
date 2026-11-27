@@ -42,7 +42,7 @@ pub(super) fn step(pos: &mut Vec2, mover: &mut Mover, speed: f32, world: &mut Wo
     let mut first: Option<usize> = None;
     layer.near(*pos - me.half, *pos + me.half, |index| {
         let other = &world.bodies[index as usize];
-        if other.id != me.id && overlaps(*pos, me.half, other) {
+        if other.id != me.id && overlaps(&me, *pos, other) {
             first = Some(first.map_or(index as usize, |found| found.min(index as usize)));
         }
     });

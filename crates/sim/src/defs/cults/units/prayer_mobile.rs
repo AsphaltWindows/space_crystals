@@ -17,7 +17,7 @@ pub(crate) static PRAYER_MOBILE: ObjectDef = ObjectDef {
     faction: Some(Faction::Cults), // Faction - TheCults
     category: Category::Unit,      // Entity Type - Unit
     // "Silhouette 56x40 space units", the Seeker's, its length along its facing (`systems/units.md > Silhouette
-    // Rotation`), axis-aligned until slice V1 rotates it (`docs/movement.md`, gap G6).
+    // Rotation`), turned with the facing (slice M5-V1, `ObjectDef::silhouette_turns`).
     footprint: Footprint::Silhouette { w: 56.0, h: 40.0 },
     selectable: true, // `core/entities.md > Object Type > Selectable - true`
     // Not listed; a type with MaxHP is destructible (`core/entities.md > Object Instance > HP`).

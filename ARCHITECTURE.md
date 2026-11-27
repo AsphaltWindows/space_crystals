@@ -1112,8 +1112,9 @@ ticks spent in it. Hashed and serialized like all state.
 - **Range** (`shape.rs`, `combat/targeting.rs`; `systems/combat.md > Range Measurement`, design change 0031): **edge
   to edge**, the gap between the attacker's shape and the target's. `Shape::of(object)` is a unit's Silhouette or a
   tile-based object's footprint; `Shape::gap` measures between two, `Shape::distance_to` to a point (ground-location
-  targets). Shapes are axis-aligned for now: Silhouettes that rotate with the facing (design change 0033) wait for
-  the vehicles milestone, and only `shape.rs` changes then (`Shape::silhouette` already takes the facing).
+  targets). A Silhouette that isn't square turns with its unit's facing (slice M5-V1, design change 0033:
+  `Shape::silhouette` takes the facing; `ObjectDef::silhouette_turns`), and the gap is then the least distance from
+  a corner of one shape to the other; square ones stay axis-aligned. Range and proximity changed in `shape.rs` alone.
   `combat::reaches(attrs, attacker shape, elevation, target shape, elevation)` is the one range check: within Range
   and beyond MinRange, both inclusive, with the ElevationModifier. `can_attack_now(map, vision, attacker, target)`
   adds the rest for two objects: destructible, seen, an allowed domain.
@@ -1908,7 +1909,7 @@ the hardening of crowds and nav performance did, **(H2)** where gathering Drones
 **(M3-G)** where DragMovement and idle units moving apart did, **(M3-G2)** where a queueing unit going round
 the row in its way did, **(M3-G3)** where one with no way round giving up did, **(H1)** where Gliders and the soft
 separation of air units did, **(M5-H2)** where a Glider's Move completing on arrival and Gliders pushing apart slowly
-did), and the code is
+did, **(V1)** where Silhouettes turning with the facing did), and the code is
 `crates/sim/src/movement.rs` and `movement/`, with the unit's state in
 `mover.rs`.
 
@@ -1931,6 +1932,24 @@ did), and the code is
 - **The grid's cells carry marks** (`Body::kinds`, `Layer::near_any`): which heading sectors and whether a yielding
   unit were listed in a cell this tick. They only ever say "maybe", and exist so that a unit with nobody to pass
   doesn't look at bodies. Keep them conservative: mark on every insert and whenever a body's kinds change.
+- **Oriented Silhouettes** (slice M5-V1, plan decision T78; `docs/movement.md > 3`, `docs/movement.md > 6.3`): a
+  Silhouette that isn't square (`ObjectDef::silhouette_turns`: the Seeker, the Prayer-mobile, the Hand of Heaven)
+  lies along its unit's facing. `shape.rs` has the geometry: the separating-axis test for overlap and the sweep, the
+  gap from corner to edge, the bounding box for tile work (vision, the grids, footprints), and the shape itself
+  against blocked tiles where that box isn't clear (`Shape::clear_on`, `Shape::tile_contact`). The movement step
+  carries it as `space::Body::oriented`, and `space::overlaps` and `space::contact` take the box arithmetic for two
+  boxes, untouched, and the shapes' otherwise; so do invariants I1 and I2, the debug teleport and the spots units
+  are put on or kept off. **A turn is tried before the move** (`collide/turn.rs`, `World::turn`): in parts across
+  which a corner moves at most `TURN_TRY_SU`, the first blocked part halved `STEP_HALVINGS` times and its free part
+  kept; a cut turn is a blocked move (momentum zeroed, the blocker asked to yield, the stuck clock running), and the
+  unit takes its step in the shape it has (`follow::creep_on`). Where a move meets a turned shape, the go-around
+  rules read the face the two meet on (`space::Face`), which for two boxes gives back the coordinates exactly. Never
+  test a turned unit against the tiles or another unit by its box alone, and never turn a body outside
+  `World::turn` (DragMovement's turns and a portal's doorway go through the safety net in `movement::step`).
+  Measured (`tests/vehicles_perf.rs`, 15 Seekers and 15 Hands of Heaven driven through each other, 600 ticks,
+  release, load average 4.6 to 7): a whole tick 0.038 ms on average, 0.12 to 0.13 ms at the 99th percentile; the
+  movement phase 0.016 and 0.083 ms. `movement_perf` (no turned unit in it) ran A/B against master, interleaved, six
+  rounds each: 1.15 ms on average on master's side, 1.08 ms on this one, within the noise of that load.
 - **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
   one step: a lane step (above), else free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
   or oncoming one (`collide/contact.rs`: a glance along its face, else **the contact step** of design change 0323:
@@ -3714,8 +3733,10 @@ these.
   shapes until the art (Q0001): a shape per kind, its look's (*Kinds*: the Peacekeeper round, the Guard and the
   Legionnaires square, the Drone an octagon), of the silhouette's size,
   in the owner's colour (`player_color`, the editor's slot colours), with a dark rim and a light tick along the
-  facing. Only a round body turns with the interpolated facing (`body_turns`). A square or an octagon stays
-  axis-aligned like its collision box, and only its tick turns (a `FacingTick` child, `has_tick`). Structures and map
+  facing. Only a round body turns with the interpolated facing (`body_turns`), and (slice M5-V1) a body whose
+  Silhouette turns with the facing as its collision shape does (`ObjectDef::silhouette_turns`: the Cults' vehicles,
+  their rectangles); such a unit is picked by the box around it as it lies (`selection::pick`). Any other square or
+  octagon stays axis-aligned like its collision box, and only its tick turns (a `FacingTick` child, `has_tick`). Structures and map
   resources never turn, whatever their facing (a structure keeps a unit's facing through `Sim::change_kind`). The
   Colonists' units, the Peacekeeper's two types, the Agent and the Grenadier carry a `UnitTag` child, a `Text2d` of
   the type's short label (DR, SL, RL, PK, PS, AG, GR), because the Legionnaire's two forms share a silhouette, the

@@ -46,6 +46,7 @@ fn a_drone_creeping_along_a_wall_makes_progress_and_never_gives_up() {
             owner: None,
             pos,
             half,
+            oriented: None,
             velocity: mover.velocity,
             heading: target - pos,
             stationary: mover.is_stationary(),
@@ -65,6 +66,7 @@ fn a_drone_creeping_along_a_wall_makes_progress_and_never_gives_up() {
             door: None,
             lanes: &mut Vec::new(),
             counters: &mut counters,
+            mine: bodies[0],
         };
         let from = pos;
         let failed = step_unit_on(

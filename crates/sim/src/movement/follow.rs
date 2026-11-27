@@ -5,14 +5,13 @@
 
 use glam::Vec2;
 
-use super::collide::World;
+use super::collide::{Moved, World};
 use super::drag::Drag;
 use super::{Chased, stand, stuck, turn_rate, wait, yielding};
 use crate::defs::MovementAttrs;
 use crate::ids::ObjectId;
 use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
-use crate::shape::Shape;
 use crate::units::Tick;
 
 /// One unit's tick (`docs/movement.md > 6.2`, `> 6.3`) on open ground: [`step_unit_on`] off Rugged terrain.
@@ -99,7 +98,8 @@ pub(super) fn step_unit_on(
 ///   per tick, so its turn always completes. The facing follows the path, not a sidestep. The angle turned goes to
 ///   `turned`: the aim in phase 5e has only the rest of the tick's TurnRate ([`super::Turns`]). A DragMovement
 ///   unit (`systems/combat.md > LocomotionOrientationConstraints[DragMovement]`) turns as it moves and never stands to
-///   turn.
+///   turn. (M5-V1) A Silhouette that turns with the facing turns only as far as it stays free (`World::turn`), and
+///   then moves in its turned shape; a turn cut short is a blocked move, and the unit creeps on ([`creep_on`]).
 /// - **Arrival**: when the goal is within one step and the way is free, the unit stands exactly on it and stops
 ///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots. A DragMovement
 ///   unit's step is its approach speed ([`Drag::approach`]), which brings it onto the goal at a speed it stops
@@ -140,7 +140,7 @@ fn follow(
             mover.finish(MoveStatus::TargetLost);
             return false;
         };
-        if Shape::rect(*pos, world.body().half).gap(&chased.shape) <= reach {
+        if world.body().shape_at(*pos).gap(&chased.shape) <= reach {
             mover.finish(MoveStatus::Arrived);
             return false;
         }
@@ -172,15 +172,24 @@ fn follow(
     if dist > 0.0 && model.is_none() {
         let wanted = math::wrap_angle(math::vector_angle(to));
         // Phase 5d turns a unit first in the tick: the whole budget is left.
+        let from = *facing;
         let turn = math::turn_toward(facing, wanted, turn_rate(movement));
         *turned = turn.angle;
-        if !turn.done {
+        // (M5-V1) A Silhouette that turns with the facing turns only as far as it stays free (`World::turn`).
+        let turn_made = world.turn(*pos, from, *facing);
+        if turn_made.cut {
+            *facing = turn_made.facing;
+            *turned = math::wrap_angle(turn_made.facing - from).abs();
+            creep_on(*pos, to, turn_made.blocker, mover, world, requests, chased);
+            turning = true;
+        } else if !turn.done {
             // Turning in place for the whole tick.
             stand(mover);
             mover.orientation = Orientation::Turning(target);
             return false;
+        } else {
+            turning = turn.angle != 0.0;
         }
-        turning = turn.angle != 0.0;
     }
     // How far the unit would go this tick: a whole step, or the speed a unit with momentum still stops from at
     // the end of its path.
@@ -274,6 +283,39 @@ fn follow(
         mover.blocked_ticks.saturating_add(1)
     };
     stuck::after_move(*pos, mover, step, &moved, world, chased, engaged, tick)
+}
+
+/// (M5-V1) `systems/units.md > UnitCollision > Collision Response (Un-sticking)` (design change 0035): the unit at
+/// `pos`, its steering target `to` away, turned towards it, and its Silhouette, which turns with its facing, met an
+/// obstacle on the way (`World::turn`, plan decision T78). A turn cut short is a blocked move: "the blocked portion of
+/// the movement is dropped (the unit stops at contact instead of overlapping) and its velocity is set to 0". The unit
+/// doesn't stand to wait for the turn ("Blocked units don't freeze; they creep and turn out of the contact"): it takes
+/// its step all the same, in the shape it turned to, and turns on from where that leaves it in the next tick, so it
+/// scrapes out of the contact as a unit pressed against a wall creeps along it. The unit that stopped the turn, if one
+/// did (`blocker`), is asked to make way (`yielding::ask`), unless it is the unit it heads for.
+fn creep_on(
+    pos: Vec2,
+    to: Vec2,
+    blocker: Option<usize>,
+    mover: &mut Mover,
+    world: &World,
+    requests: &mut Vec<yielding::Request>,
+    chased: Option<&Chased>,
+) {
+    mover.momentum = Vec2::ZERO;
+    let stopped = Moved {
+        pos,
+        forward: false,
+        blocker,
+        aside: false,
+        slid: false,
+    };
+    let blocked_by_goal = chased
+        .zip(blocker)
+        .is_some_and(|(chased, blocker)| world.bodies[blocker].id == chased.id);
+    if !blocked_by_goal {
+        yielding::ask(world, pos, to, &stopped, false, mover, requests);
+    }
 }
 
 #[cfg(test)]

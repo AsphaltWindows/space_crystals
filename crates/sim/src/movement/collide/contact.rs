@@ -9,8 +9,11 @@
 //! decisions, each the simplest predictable rule (design change 0223):
 //! - **Straight sideways is along the blocker's face.** Boxes are axis-aligned: for a unit that meets a face
 //!   squarely that is 90° to its heading; for one that leans, the quarter turn of its heading leans into the blocker
-//!   on one side and is never free there. The width is the box's extent along that face. (Slice M5-V1's oriented
-//!   Silhouettes will measure both across the heading itself.)
+//!   on one side and is never free there. The width is the box's extent along that face. (M5-V1) Where a Silhouette
+//!   that turns with its facing meets another shape, the face is the edge direction the two meet on, no axis
+//!   (`space::Face`): the glance, the lean and the step along the face follow it. The contact step itself stays
+//!   along the axis nearest to it, by the extent of the unit's bounding box (`StepAside` keeps an axis): the Hand of
+//!   Heaven's, a TrackedVehicle's, for a later slice to turn.
 //! - **Over several ticks** (`Mover::step_aside`, `mover::StepAside`): the step is to a coordinate fixed when it
 //!   begins, the unit's own width along the face from where it stands. Each tick the unit moves its speed towards
 //!   it, the last part exactly onto it, and nothing else: no step forward, no lane seeking, even if its way ahead
@@ -115,22 +118,21 @@ impl World<'_> {
         touched: &mut Vec<usize>,
         near_side: bool,
     ) -> Option<(Vec2, bool)> {
-        let axis = hit.contact.axis;
-        let lean = d[1 - axis];
-        let mut glance = Vec2::ZERO;
-        glance[1 - axis] = lean;
+        // (M5-V1) The face met: an axis for two boxes, else the edge direction of the shapes (`space::Face`).
+        let face = hit.contact.face();
+        let lean = face.along(d);
+        let glance = face.along_by(lean);
         if lean * lean >= 0.5 * d.length_squared() && self.clear(pos, glance, touched) {
             return Some((pos + glance, true));
         }
         // Straight at the face, as long as `d`: its quarter turn is a whole step along the face.
-        let mut at_face = Vec2::ZERO;
-        at_face[axis] = d.length().copysign(d[axis]);
-        let towards = |side: Side| turned_90(at_face, side)[1 - axis];
+        let at_face = face.at_by(d.length().copysign(face.at(d)));
+        let towards = |side: Side| face.along(turned_90(at_face, side));
         let standing = self.bodies[hit.index].velocity == Vec2::ZERO;
         // (0323) A contact step takes as many ticks as a unit with momentum takes over a step aside.
         let near_side = near_side || self.contact == ContactStep::Sideways;
         if near_side && standing {
-            let offset = pos[1 - axis] - self.bodies[hit.index].pos[1 - axis];
+            let offset = face.along(pos) - face.along(self.bodies[hit.index].pos);
             if offset != 0.0 && tick >= mover.avoid_until {
                 mover.avoid_side = if towards(Side::Right) * offset > 0.0 {
                     Side::Right
@@ -150,7 +152,7 @@ impl World<'_> {
             }
             return step;
         }
-        let across = self.bodies[hit.index].velocity[1 - axis];
+        let across = face.along(self.bodies[hit.index].velocity);
         if across != 0.0 && tick >= mover.avoid_until {
             let behind = if towards(Side::Right) * across < 0.0 {
                 Side::Right
@@ -204,7 +206,8 @@ impl World<'_> {
                 .find(|&(step, _)| self.clear(pos, step, touched))
                 .map(|(step, forward)| (pos + step, forward)),
             ContactStep::Sideways => {
-                let along_y = along.y != 0.0;
+                // (M5-V1) Along the axis nearest to the face of a turned shape: a step aside is along an axis.
+                let along_y = along.y.abs() > along.x.abs();
                 let axis = usize::from(along_y);
                 let width = 2.0 * self.body().half[axis];
                 let aside = StepAside {

@@ -26,7 +26,8 @@ pub enum Look {
 /// A unit's body (`super::units`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum UnitShape {
-    /// The one body that turns with its unit's facing (`super::units::body_turns`).
+    /// The body that turns with its unit's facing (`super::units::body_turns`), as (slice M5-V1) any whose
+    /// Silhouette turns does.
     Round,
     Square,
     /// A square with its corners cut off.

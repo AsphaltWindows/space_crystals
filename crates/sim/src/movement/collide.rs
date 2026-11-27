@@ -7,15 +7,23 @@
 //! committed one after another, so no two ever come to overlap, by construction (`docs/movement.md > 4`), but
 //! those `space::blocks` lets through each other (design change 0106). When a candidate
 //! fails that test (a rounding corner case), the unit stays where it is, which is free by induction.
+//!
+//! (M5-V1) A unit whose Silhouette turns with its facing (`space::Body::oriented`) is tested in its turned shape, at
+//! the facing its tick has turned it to so far ([`World::body`], [`World::mine`]); its turn is tried in `turn`
+//! ([`World::turn`]). Its contacts are those of its shape, and so are those of a square box against it
+//! (`space::contact`, `space::overlaps`); where such a contact leaves the move is the halving of [`World::up_to`].
+//! Against the tiles it is its bounding box where that is clear, else the shape itself (`shape::Shape::clear_on`,
+//! `shape::Shape::tile_contact`), which [`World::along_axis`] slides up to.
 
 mod contact;
 mod lanes;
 mod straight;
+mod turn;
 
 use glam::Vec2;
 
 use super::MoveCounters;
-use super::space::{Body, Contact, Layer, blocks, overlaps, resting, sweep};
+use super::space::{Body, Contact, Layer, blocks, contact, overlaps, resting};
 use crate::defs::ContactStep;
 use crate::mover::{Mover, Side};
 use crate::nav::{self, NavGrid};
@@ -45,6 +53,10 @@ pub(super) struct World<'a> {
     /// Scratch of [`World::lane`].
     pub lanes: &'a mut Vec<Lane>,
     pub counters: &'a mut MoveCounters,
+    /// (M5-V1) The moving unit as its tick has turned it so far: `bodies[me]`, with a Silhouette that turns with its
+    /// facing turned to it ([`World::turn`]). It is what [`World::body`] returns and every move of the unit is tested
+    /// in; `bodies[me]` stays as the tick began, which the exceptions of `space::blocks` read.
+    pub mine: Body,
 }
 
 /// The unit that stops a sweep first.
@@ -83,25 +95,25 @@ fn turned_90(d: Vec2, side: Side) -> Vec2 {
 }
 
 impl World<'_> {
+    /// The moving unit, (M5-V1) as its tick has turned it so far ([`World::mine`]).
     pub(super) fn body(&self) -> &Body {
-        &self.bodies[self.me]
+        &self.mine
     }
 
     /// **The one collision exception against tiles** (design changes 0080 and 0145): for a unit still in the exit
-    /// doorway of the building that released it, whether its box may be at `to`, coming from `from`. That building's
-    /// tiles don't block it, but for ground under them it can't stand on (slice M5-Z1), every other blocked tile does
-    /// (`ExitDoor::box_clear`), and it may only come out of the footprint (`ExitDoor::allows`). `None` for every
-    /// other unit: the tiles block it as they are.
-    fn door_free(&self, from: Vec2, to: Vec2) -> Option<bool> {
+    /// doorway of the building that released it, whether its box, with half extents `half`, may be at `to`, coming
+    /// from `from`. That building's tiles don't block it, but for ground under them it can't stand on (slice M5-Z1),
+    /// every other blocked tile does (`ExitDoor::box_clear`), and it may only come out of the footprint
+    /// (`ExitDoor::allows`). `None` for every other unit: the tiles block it as they are.
+    fn door_free(&self, half: Vec2, from: Vec2, to: Vec2) -> Option<bool> {
         let door = self.door?;
-        let half = self.body().half;
         Some(door.allows(from, to, half) && self.grid.is_none_or(|grid| door.box_clear(grid, half, to)))
     }
 
     /// Whether the unit's box can travel from `pos` along `d` without entering a blocked tile or leaving the map.
     fn tiles_free(&mut self, pos: Vec2, d: Vec2) -> bool {
         // A step out of a doorway is shorter than the box: where it ends decides.
-        if let Some(free) = self.door_free(pos, pos + d) {
+        if let Some(free) = self.door_free(self.body().half, pos, pos + d) {
             return free;
         }
         let Some(grid) = self.grid else {
@@ -110,7 +122,10 @@ impl World<'_> {
         self.counters.tile_sweeps += 1;
         // (G) In the open, a short move of a small box can't reach a solid tile.
         let reach = self.body().half.max_element() + d.abs().max_element();
-        (reach <= SU_PER_GU && grid.open_around(pos)) || nav::los(grid, self.body().half, pos, pos + d)
+        (reach <= SU_PER_GU && grid.open_around(pos))
+            || nav::los(grid, self.body().half, pos, pos + d)
+            // (M5-V1) The bounding box of a turned Silhouette is wider than it at a corner: the shape decides.
+            || (self.body().oriented.is_some() && self.body().shape_at(pos).tile_contact(d, grid).is_none())
     }
 
     /// The first unit the box meets travelling from `pos` along `d`: the earliest contact, then the lowest id
@@ -121,7 +136,8 @@ impl World<'_> {
             return None;
         }
         self.counters.unit_sweeps += 1;
-        let me = *self.body();
+        // (M5-V1) Its shape as turned so far; the exceptions are read where its tick began.
+        let (me, start) = (*self.body(), &self.bodies[self.me]);
         let (lo, hi) = (pos.min(pos + d) - me.half, pos.max(pos + d) + me.half);
         let mut best: Option<Hit> = None;
         let mut tests = 0;
@@ -131,11 +147,11 @@ impl World<'_> {
                 return;
             }
             tests += 1;
-            let Some(contact) = sweep(pos, d, other.pos, me.half + other.half) else {
+            let Some(contact) = contact(&me, pos, d, other) else {
                 return;
             };
             // The exceptions last: few of the units near a move are in its way (`blocks` is a box test more).
-            if !blocks(&me, other) {
+            if !blocks(start, other) {
                 return;
             }
             let earlier = best.is_none_or(|b| {
@@ -160,25 +176,38 @@ impl World<'_> {
 
     /// [`World::is_free`] for another unit of the layer, `who` (an index into `bodies`), on the same tiles.
     pub(super) fn is_free_for(&self, who: usize, pos: Vec2) -> bool {
-        let me = &self.bodies[who];
-        // (G) In the open, a small box is clear of the tiles without a look at them.
+        let me = if who == self.me { &self.mine } else { &self.bodies[who] };
+        self.fits(me, who, pos)
+    }
+
+    /// [`World::is_free_for`] for unit `who` (an index into `bodies`) as `me` says it lies: (M5-V1) the moving unit
+    /// turned some way ([`World::turn`]). The exceptions of `space::blocks` are read from `bodies[who]`, as its tick
+    /// began.
+    fn fits(&self, me: &Body, who: usize, pos: Vec2) -> bool {
+        // (G) In the open, a small box is clear of the tiles without a look at them. (M5-V1) A turned Silhouette
+        // where its bounding box isn't: the shape itself decides (`Shape::clear_on`).
         let clear = |grid: &NavGrid| {
-            (me.half.max_element() <= SU_PER_GU && grid.open_around(pos)) || nav::box_clear(grid, me.half, pos)
+            (me.half.max_element() <= SU_PER_GU && grid.open_around(pos))
+                || match me.oriented {
+                    None => nav::box_clear(grid, me.half, pos),
+                    Some(_) => me.shape_at(pos).clear_on(grid),
+                }
         };
         // The unit in a doorway is measured from where its tick began: never deeper in than that.
         let door = Some(who)
             .filter(|&who| who == self.me)
-            .and_then(|_| self.door_free(me.pos, pos));
+            .and_then(|_| self.door_free(me.half, me.pos, pos));
         if !pos.is_finite() || !door.unwrap_or_else(|| self.grid.is_none_or(clear)) {
             return false;
         }
         let Some(layer) = self.layer else {
             return true;
         };
+        let start = &self.bodies[who];
         let mut free = true;
         layer.near(pos - me.half, pos + me.half, |index| {
             let other = &self.bodies[index as usize];
-            free &= !(overlaps(pos, me.half, other) && blocks(me, other));
+            free &= !(overlaps(me, pos, other) && blocks(start, other));
         });
         free
     }
@@ -197,9 +226,14 @@ impl World<'_> {
     }
 
     /// `pos` moved along `d` up to the contact with `hit` (`docs/movement.md > 6.3`: advance to contact). On the
-    /// contact axis the position is assigned from the blocker's edge. `pos` itself if that spot isn't free.
+    /// contact axis the position is assigned from the blocker's edge. `pos` itself if that spot isn't free. (M5-V1)
+    /// Where one of the two turns with its facing, the sweep's contact, or the free part of the way to it
+    /// ([`World::free_part`]): no edge to assign from.
     fn up_to(&mut self, pos: Vec2, d: Vec2, hit: Hit) -> Vec2 {
         let other = self.bodies[hit.index];
+        if self.body().oriented.is_some() || other.oriented.is_some() {
+            return self.free_part(pos, d, hit.contact.t);
+        }
         let axis = hit.contact.axis;
         let mut at = pos + d * hit.contact.t;
         let reach = self.body().half[axis] + other.half[axis];
@@ -226,10 +260,18 @@ impl World<'_> {
         let half = self.body().half;
         let mut to = pos;
         to[axis] += amount;
-        if let Some(free) = self.door_free(pos, to) {
+        if let Some(free) = self.door_free(half, pos, to) {
             // In a doorway the unit takes the step or stays: it doesn't rest against the tiles beside it.
             if !free {
                 return pos;
+            }
+        } else if let Some(grid) = self.grid
+            && self.body().oriented.is_some()
+        {
+            // (M5-V1) A turned Silhouette slides up to where it meets the tiles, or as near as is free: no border it
+            // rests on is a whole number of su from its centre.
+            if let Some(t) = self.body().shape_at(pos).tile_contact(to - pos, grid) {
+                to = self.free_part(pos, to - pos, t);
             }
         } else if let Some(grid) = self.grid
             && !nav::box_clear(grid, half, to)

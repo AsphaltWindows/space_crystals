@@ -19,4 +19,5 @@ mod recruits_perf;
 mod repairs_perf;
 mod shroud_perf;
 mod structures_perf;
+mod vehicles_perf;
 mod vision_perf;

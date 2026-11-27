@@ -115,6 +115,8 @@ mod movement_yield;
 mod nav;
 mod nav_grid;
 mod nav_serve;
+#[path = "oriented/main.rs"]
+mod oriented;
 #[path = "pairings/main.rs"]
 mod pairings;
 #[path = "path_knowledge/main.rs"]

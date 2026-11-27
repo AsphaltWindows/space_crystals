@@ -425,6 +425,7 @@ mod tests {
             owner,
             pos: Vec2::ZERO,
             half: Vec2::splat(12.0),
+            oriented: None,
             velocity: Vec2::ZERO,
             heading: Vec2::ZERO,
             stationary: true,

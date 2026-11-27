@@ -15,7 +15,7 @@ use sc_sim::testing::{self, ScenarioBuilder};
 use sc_sim::tuning::air::SEPARATION_PUSH_SU;
 use sc_sim::{
     Ability, BuildingOrientation, Command, DebugCommand, ExitDoor, ObjectId, ObjectKind, OrderKind, PlayerCommand,
-    PlayerId, Reject, Replay, Rng, Rotation, SU_PER_GU, Scenario, Sim, SimConfig, SimEvent, Spawn, SpawnAt,
+    PlayerId, Reject, Replay, Rng, Rotation, SU_PER_GU, Scenario, Shape, Sim, SimConfig, SimEvent, Spawn, SpawnAt,
     SpawnSettings, Target, TickInputs, TilePos, Vec2, nav,
 };
 
@@ -245,7 +245,10 @@ fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
         }
         let def = o.def();
         if let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) {
-            let half = silhouette / 2.0;
+            // (M5-V1) Its shape, a Silhouette that turns with its facing as it lies: tested itself against the
+            // tiles, by its bounding box in a doorway, as the movement step tests it.
+            let shape = Shape::of(o);
+            let half = shape.bound_half();
             if let Some(class) = unit.base_def().nav_class() {
                 let grid = sim
                     .nav()
@@ -258,7 +261,7 @@ fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
                     .and_then(|building| ExitDoor::of(sim.object(building)?));
                 let clear = match door {
                     Some(door) => door.box_clear(grid, half, o.pos),
-                    None => nav::box_clear(grid, half, o.pos),
+                    None => shape.clear_on(grid),
                 };
                 assert!(clear, "I2 in tick {tick}: {o:?}");
             }

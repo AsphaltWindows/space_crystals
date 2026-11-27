@@ -35,6 +35,7 @@ fn turning_tick(
         owner: None,
         pos: *pos,
         half: Vec2::splat(12.0),
+        oriented: None,
         velocity: mover.velocity,
         heading: Vec2::ZERO,
         stationary: mover.is_stationary(),
@@ -55,6 +56,7 @@ fn turning_tick(
         door: None,
         lanes: &mut Vec::new(),
         counters: &mut counters,
+        mine: bodies[0],
     };
     let mut turned = 0.0;
     let failed = step_unit(

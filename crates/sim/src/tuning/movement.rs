@@ -134,3 +134,22 @@ pub const STUCK_GRACE_TICKS: Tick = 8;
 /// From this many ticks without progress on, a unit on its way counts as held up (`Mover::is_held_up`, for
 /// overlays): half of [`STUCK_TICKS`], so not a tunable of its own.
 pub const HALF_STUCK_TICKS: Tick = STUCK_TICKS / 2;
+
+// (M5-V1) Oriented Silhouettes (plan decision T78; `systems/units.md > UnitCollision > Collision Response
+// (Un-sticking)`: "Overlap caused by the rotation itself (a corner sweeping into a wall) follows the same principle:
+// the blocked part is discarded and the unit never ends up overlapping. The exact geometric method is a technical
+// choice"; `movement::collide::turn`).
+
+/// (M5-V1) T78: "If blocked, it is halved up to five times, the free part is kept": a blocked turn of a Silhouette
+/// that turns with its facing, or a move up to an oriented shape that the sweep's contact leaves inside it by a
+/// rounding, is bisected this many times, so the unit keeps all but at most a 32nd of the free part. Placeholder (not
+/// in the design: its "exact geometric method is a technical choice").
+pub const STEP_HALVINGS: u32 = 5;
+
+/// (M5-V1) How far the corners of a Silhouette that turns with its facing move at most between two tries of its turn:
+/// 4 su, a 16th of a tile. A turn is tried in parts no longer, so between two tries a corner can cut through at
+/// most the tip of another shape's corner, about half this deep, and it never ends inside one (each try is the
+/// predicates of invariants I1 and I2). The units whose turning isn't built turn without limit (`movement::turn_rate`):
+/// an instant turn of 180° of the Hand of Heaven's Silhouette (64x40, its corners 37.7 su from its centre) takes 30
+/// tries. Placeholder (not in the design: a technical bound).
+pub const TURN_TRY_SU: f32 = 4.0;

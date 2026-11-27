@@ -54,7 +54,6 @@ use crate::defs::{Domain, MovementAttrs, UnitDef};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
-#[cfg(test)]
 use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
 use crate::nav::Nav;
@@ -193,15 +192,25 @@ fn heading_of(pos: Vec2, mover: &Mover) -> Vec2 {
     target.map_or(Vec2::ZERO, |&target| target - pos)
 }
 
-/// A unit as the others see it this tick; `movement`, its movement numbers (`Object::movement`).
+/// (M5-V1) How unit `o`'s Silhouette, of half extents `half`, lies if it turns with the facing
+/// (`defs::ObjectDef::silhouette_turns`): along its facing. `None` for a square one.
+fn oriented_of(o: &Object, half: Vec2) -> Option<space::Oriented> {
+    (o.def().silhouette_turns()).then(|| space::Oriented::facing(half, o.facing))
+}
+
+/// A unit as the others see it this tick; `movement`, its movement numbers (`Object::movement`); `half`, half its
+/// Silhouette. (M5-V1) One that turns with the facing lies along it ([`oriented_of`]), its box the bounding box of
+/// that.
 fn body_of(o: &Object, mover: &Mover, movement: &MovementAttrs, half: Vec2) -> Body {
     // Also while it waits for a path: a unit that just planned again is still on its way.
     let on_its_way = mover.goal != MoveGoal::None;
+    let oriented = oriented_of(o, half);
     Body {
         id: o.id,
         owner: o.owner,
         pos: o.pos,
-        half,
+        half: oriented.map_or(half, |oriented| oriented.bound_half()),
+        oriented,
         velocity: mover.velocity,
         heading: heading_of(o.pos, mover),
         stationary: mover.is_stationary(),
@@ -274,7 +283,10 @@ pub(crate) fn step(
         };
         let mover = o.mover.as_ref().expect("units have movers");
         let index = scratch.bodies.len() as u32;
-        scratch.bodies.push(body_of(o, mover, movement, half));
+        let body = body_of(o, mover, movement, half);
+        // (M5-V1) Its box: a turned Silhouette's bounding box.
+        let half = body.half;
+        scratch.bodies.push(body);
         scratch.chased.push(match mover.goal {
             // (M5-H1) Where it counts as being: a Glider past the map's edge at the nearest edge tile.
             MoveGoal::Object { id, .. } => objects.get(&id).map(|target| Chased {
@@ -312,7 +324,7 @@ pub(crate) fn step(
         let mover = o.mover.as_mut().expect("units have movers");
         let base = unit.base_def();
         let layer = layer_of(base.domain);
-        let from = o.pos;
+        let (from, facing) = (o.pos, o.facing);
         let door = scratch.doors[me];
         if door.is_none() {
             mover.exit = None;
@@ -327,6 +339,7 @@ pub(crate) fn step(
             door,
             lanes: &mut scratch.lanes,
             counters: &mut scratch.counters,
+            mine: scratch.bodies[me],
         };
         let mut turned = 0.0;
         // (M3-G) A unit with momentum brakes it off before anything else (`drag`), and its drag is doubled on
@@ -427,6 +440,20 @@ pub(crate) fn step(
                 tick,
             )
         };
+        // (M5-V1) A turn its tick made outside `World::turn` (DragMovement's, a portal's doorway) is tried where the
+        // unit now stands, and cut at contact as every turn of a Silhouette that turns is: it never ends up
+        // overlapping, and a cut turn loses the unit its speed (`systems/units.md > UnitCollision > Collision
+        // Response (Un-sticking)`, design change 0035).
+        if let Some(lies) = world.body().oriented
+            && lies.facing != o.facing
+        {
+            let turn = world.turn(o.pos, lies.facing, o.facing);
+            if turn.cut {
+                o.facing = turn.facing;
+                turned = turned.min(math::wrap_angle(o.facing - facing).abs());
+                o.mover.as_mut().expect("units have movers").momentum = Vec2::ZERO;
+            }
+        }
         if failed {
             events.push(SimEvent::MoveFailed { unit: o.id });
         }
@@ -435,25 +462,27 @@ pub(crate) fn step(
         }
         // Out of the doorway: from now on the building blocks the unit like everything else, for good (design
         // change 0080). One that walked out without a goal stands there.
+        let bound = oriented_of(o, half).map_or(half, |lies| lies.bound_half());
         let mover = o.mover.as_mut().expect("units have movers");
-        if door.is_some_and(|door| !door.holds(o.pos, half)) {
+        if door.is_some_and(|door| !door.holds(o.pos, bound)) {
             mover.exit = None;
             mover.exit_heading = None;
             if mover.goal == MoveGoal::None && mover.sidestep.is_none() && mover.momentum == Vec2::ZERO {
                 stand(mover);
             }
         }
-        // Commit: later units see this one where it is now.
+        // Commit: later units see this one where it is now. (M5-V1) A unit that turned lies another way: its box,
+        // a turned Silhouette's bounding box, may have changed where it didn't move.
         let mover = o.mover.as_ref().expect("units have movers");
-        let before = scratch.bodies[me].kinds();
+        let before = scratch.bodies[me];
         scratch.bodies[me] = body_of(o, mover, movement, half);
-        let kinds = scratch.bodies[me].kinds();
+        let after = &scratch.bodies[me];
         if let Some(l) = layer {
-            if o.pos != from {
-                scratch.layers[l].remove(me as u32, from, half);
-                scratch.layers[l].insert(me as u32, o.pos, half, kinds);
-            } else if kinds != before {
-                scratch.layers[l].mark(o.pos, half, kinds);
+            if o.pos != from || after.half != before.half {
+                scratch.layers[l].remove(me as u32, from, before.half);
+                scratch.layers[l].insert(me as u32, o.pos, after.half, after.kinds());
+            } else if after.kinds() != before.kinds() {
+                scratch.layers[l].mark(o.pos, after.half, after.kinds());
             }
         }
     }

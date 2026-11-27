@@ -1,6 +1,7 @@
 //! Units' placeholder visuals (until the art direction, Q0001, settles them; `ARCHITECTURE.md > Client architecture >
 //! Visuals`): a shape of its own per kind, its silhouette's size, in its owner's colour, with a tick showing its
-//! facing. A body turns with its facing only if it is round ([`body_turns`]); the Colonists' units, the Peacekeepers
+//! facing. A body turns with its facing only if it is round or (slice M5-V1) its Silhouette turns, as a vehicle's
+//! does ([`body_turns`]); the Colonists' units, the Peacekeepers
 //! and the Agent carry a two-letter tag of their type ([`UnitTag`]), drawn above the command indicators and upright.
 //! A Peacekeeper's raised Riot Shield is a pale arc in front of it ([`riot_shield_mesh`]), the Peacekeeper
 //! (Shielded)'s too: the two types share their body (design change 0173).
@@ -21,11 +22,13 @@ fn shape(kind: ObjectKind) -> UnitShape {
     Look::of(kind).unit_shape().unwrap_or(UnitShape::Square)
 }
 
-/// Whether a `kind` unit's body turns with its facing: only a round one does. A square or an octagon stays
-/// axis-aligned, like the unit's collision box (`sc_sim::ObjectDef::half_extents`), and only its tick turns
-/// ([`super::FacingTick`]): a turned square makes crowded units look as if they overlapped.
+/// Whether a `kind` unit's body turns with its facing: a round one does, and (slice M5-V1) one whose Silhouette turns
+/// with the facing (`sc_sim::ObjectDef::silhouette_turns`: a Silhouette that isn't square, the Cults' vehicles'), as
+/// its collision shape does (`sc_sim::Shape`), the rectangle of its length along the facing. Any other square or
+/// octagon stays axis-aligned, like the unit's collision box (`sc_sim::ObjectDef::half_extents`), and only its tick
+/// turns ([`super::FacingTick`]): a turned square makes crowded units look as if they overlapped.
 pub(super) fn body_turns(kind: ObjectKind) -> bool {
-    shape(kind) == UnitShape::Round
+    shape(kind) == UnitShape::Round || kind.def().silhouette_turns()
 }
 
 /// Whether a `kind` unit carries its type's tag ([`UnitTag`]), by its look (`crate::kinds`): the Colonists' units,

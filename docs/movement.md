@@ -34,7 +34,7 @@
   a queued order at the units' planned end positions, and confirmed that destinations are resolved at the click
   and kept per unit (6.4). Its changes are marked **(Q)**. The code is `crates/sim/src/orders/destinations.rs`.
 - **Object goals and the behaviours are built** (design changes 0031–0034, 0036 and 0037, answering G7–G9; G6 is
-  answered by 0033 and waits for the vehicles milestone): slice E gave `MoveGoal::Object` its meaning (3, 5.6, 6.5)
+  answered by 0033 and built by slice M5-V1): slice E gave `MoveGoal::Object` its meaning (3, 5.6, 6.5)
   and built the behaviours that set goals (`ARCHITECTURE.md > Behaviours`). Its changes are marked **(E)**. The code
   is `crates/sim/src/orders/`, `shape.rs`, `paths.rs` (`chase_check`), `movement.rs` and `movement/stuck.rs`.
 - **Crowds and nav performance are hardened** (slice G1; no design rule changed): units seek lanes among the units
@@ -79,6 +79,13 @@
   from design change 0412), with the Sparrow's SeparationRadius at 48 su. Its changes are marked **(M5-H2)**. The code is the Sparrow's def
   (`crates/sim/src/defs/cults/units/sparrow.rs`), `crates/sim/src/orders/run.rs`, the unit bases
   (`defs/units/bases.rs`, `UnitBaseDef::separation_strength`) and `movement/air.rs`.
+- **Silhouettes turn with the facing** (slice M5-V1; plan decision T78; design change 0033, answering G6;
+  `systems/units.md > UnitCollision > Silhouette Rotation`): a Silhouette that isn't square, the Cults' vehicles' so
+  far, lies along its unit's facing for collision, range and proximity (3), and a turn that would carry it into a
+  unit or a wall is cut as a blocked move is (6.3, design change 0035). Square ones stay the axis-aligned boxes they
+  were, to the bit. Its changes are marked **(V1)**. The code is `crates/sim/src/shape.rs`, `movement/space.rs`
+  (`Body::oriented`, `space::Face`), `movement/collide.rs`, `movement/collide/turn.rs` (`World::turn`),
+  `movement/follow.rs` (`creep_on`) and `movement/collide/contact.rs`.
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -119,7 +126,7 @@ Top five first. Each default is what this design implements until answered.
 | G3 | With hard collision and no yielding, two units meeting head-on in a corridor too narrow to pass (two Guards, 72 su, in one tile) deadlock. Is "both give up and stop" intended? | **(Y) Answered by 0022**: yes, both give up; moving units never yield or swap |
 | G4 | "Repeatedly fails to make progress" has no numbers. | **(Y) Answered by 0024** with these numbers: stuck after 24 ticks without progress; at most 3 repaths per order after waits of 8, 16 and 32 ticks; then fail (about 7 s in total). The schedule is 5.6 |
 | G5 | Move target that cannot be reached (cliff, water, inside a structure, cut-off area), or whose point is occupied by a unit that won't move. | **(Y) Answered by 0025 and 0026**: go to the reachable point nearest the target and complete there; arrived when stuck within **2 GU** of the goal behind units that aren't moving (6.5, rule 1); **(V)** 3 GU since 0169 |
-| G6 | Does the Silhouette rectangle rotate with facing? All specified ones are square. | **(E) Answered by 0033**: it rotates with the facing. Not built: it waits for the vehicles milestone, with oriented collision. Until then boxes are axis-aligned, and `shape.rs` is the one place that changes |
+| G6 | Does the Silhouette rectangle rotate with facing? All specified ones are square. | **(E) Answered by 0033**: it rotates with the facing. **(V1) Built** by slice M5-V1 for a Silhouette that isn't square (3, 6.3). `shape.rs` was the one place that changed for range and proximity, not for collision, which tested boxes of its own |
 | G7 | How are Range and "within proximity" measured for large targets? | **(E) Answered by 0031 and 0032**: edge to edge, the gap between the two shapes (`shape::Shape::gap`), for Range, MinRange and proximity; proximity is a gap of 8 su. The default here was centre to nearest point |
 | G8 | The attack target leaves the attacker's owner's vision during a chase. | **(E) Answered by 0034**, as proposed: go to its last seen position, then the order completes. A Follow of an enemy ends the same way. **(M3-L3) Replaced by 0200** (answering Q0051): the Attack or Follow completes at once, where the unit stands |
 | G9 | Patrol: is the origin the position at issue or when a Shift-queued Patrol starts (`systems/controls/commands.md > Patrol` vs `systems/controls/command_behaviors.md > Patrolling` step 1)? What if a leg fails? | **(E) Answered by 0036 and 0037**, as proposed: when it starts executing. A failed leg counts as arrived; two failed legs in a row end the Patrol |
@@ -174,6 +181,14 @@ pub struct Mover {
 - **Collision shape**: `half = silhouette / 2`, an axis-aligned box at `pos` (G6). Two boxes overlap only if
   `|dx| < hw_a + hw_b && |dy| < hh_a + hh_b`, strictly: touching is free. Contact positions are *assigned*
   (`obstacle edge ∓ half`), never accumulated, so resting units sit at exact values and don't drift.
+  **(V1)** A Silhouette that isn't square (`ObjectDef::silhouette_turns`) lies along the unit's facing, its length
+  along it: a rectangle turned by `facing` (`shape::Shape`). Where either of two shapes is turned, they overlap by
+  the separating-axis test on their four edge directions, strictly, and a move meets the other where the sweep of the
+  two shapes says (`Shape::sweep`); a rounding that leaves that point inside is halved away (`World::free_part`), so
+  such a contact is found, not assigned. Against the tiles a turned shape is tested by its bounding box first and,
+  where that isn't clear, by the shape itself (`Shape::clear_on`, `Shape::tile_contact`): a path cuts a corner by
+  less than a turned Silhouette's box, but not by less than the Silhouette. Its body's `half` is that bounding box,
+  for the spatial grid, lane seeking and the contact step.
 - **Derived, not hashed** (`#[serde(skip)]`, rebuilt on load and on change, excluded from `PartialEq`): the `NavGrid`s
   and their component labels. **Scratch** (rebuilt every tick, carries nothing across ticks): the spatial grids and
   the A* arrays. A save/load test (section 8) proves neither leaks into behaviour.
@@ -444,6 +459,17 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
     round the whole group (6.5, rule 3): over the 192 layouts 0.7 % of the units fail, 4 of 50 at worst, and
     Guard blocks of 5 × 5 lose 20 of 800 units where they lost 38 (3 × 6: none, where 5). What is left are places
     the group closes in on every side: no route reaches them, and nor does 0026's placeholder radius of 2 GU.
+- **(V1) A turn first** (`World::turn`, `movement/collide/turn.rs`; design change 0035): a unit whose Silhouette
+  turns with its facing (3) turns before it moves, and only as far as its shape stays free (I1 and I2). The turn is
+  tried in parts across which no corner moves more than `TURN_TRY_SU` (4 su), so that a corner can't pass through
+  the tip of a unit or a tile between two tries; the first part that isn't free is halved `STEP_HALVINGS` (5) times,
+  and the free part is kept. A turn cut short is a blocked move: `Mover::momentum` is zeroed, the unit that cut it is
+  asked to yield (6.6), the stuck clock runs (6.5), and the unit doesn't stand and wait: it takes its step in the
+  shape it has (`follow::creep_on`), as "blocked units don't freeze; they creep and turn out of the contact"
+  (`systems/units.md > UnitCollision > Collision Response (Un-sticking)`). Not tried together with the move: the
+  halving of one whole step would test only where it ends, and a long unit's corner passes through another's corner
+  in a turn of 20°. The move is then the sweep of the shape the turn left, with every rule below; where it meets a
+  turned shape, the face it reads is the edge direction the two meet on, no axis (`space::Face`).
 - Sweep the box along `d` and find the first blocker (earliest contact; tiles before units, then lowest id):
   1. **Nothing**: commit `d`.
   2. **Tile or structure**: slide. **(D)** Both axis components `(d.x, 0)` and `(0, d.y)`, the larger first, each
@@ -483,8 +509,10 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
        predictable rule (0223):
        - **Straight sideways is along the blocker's face**, as every sidestep here: for a unit that meets the face
          squarely that is 90° to its heading; the quarter turn of a leaning heading leans into the blocker on one
-         side and is never free there. **Its own width** is its box's extent along that face. (Slice M5-V1's
-         oriented Silhouettes will measure both across the heading itself.)
+         side and is never free there. **Its own width** is its box's extent along that face. **(V1)** At a
+         turned shape the face is the edge direction the two meet on: the glance and the lean follow it, but the
+         contact step stays along the axis nearest to it, by the extent of the unit's bounding box
+         (`StepAside` keeps an axis): the Hand of Heaven's, a TrackedVehicle's, for a later slice to turn.
        - **Over several ticks** (`Mover::step_aside`: the axis, and the coordinate the step ends on, fixed when it
          begins; hashed and saved only while set). Each tick the unit moves its speed towards that coordinate,
          the last part exactly onto it, and nothing else: no step forward and no lane seeking, even if the way

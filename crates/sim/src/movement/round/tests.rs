@@ -14,6 +14,7 @@ fn body(id: u32, x: f32, y: f32, held_up: bool) -> Body {
         owner: None,
         pos: Vec2::new(x, y),
         half: Vec2::splat(12.0),
+        oriented: None,
         velocity: Vec2::ZERO,
         heading: Vec2::ZERO,
         stationary: true,
@@ -42,6 +43,7 @@ fn detour_of(bodies: &[Body], grid: Option<&NavGrid>, target: Vec2, other_end: b
         door: None,
         lanes: &mut Vec::new(),
         counters: &mut MoveCounters::default(),
+        mine: bodies[0],
     };
     detour(&world, 1, bodies[0].pos, target, other_end)
 }
@@ -116,6 +118,7 @@ fn between_walls_there_is_no_detour() {
     // The corridor is y 64 to 128. Two Guards (36 su) in it, the second behind the first.
     let guard = |id: u32, x: f32| Body {
         half: Vec2::splat(18.0),
+        oriented: None,
         ..body(id, x, 96.0, false)
     };
     let bodies = [guard(1, 536.0), guard(2, 500.0)];

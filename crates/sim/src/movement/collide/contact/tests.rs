@@ -31,6 +31,7 @@ fn standing(id: u32, pos: Vec2) -> Body {
         owner: None,
         pos,
         half: Vec2::splat(HALF),
+        oriented: None,
         velocity: Vec2::ZERO,
         heading: Vec2::ZERO,
         stationary: true,
@@ -84,6 +85,7 @@ fn walk(
             door: None,
             lanes: &mut lanes,
             counters: &mut counters,
+            mine: bodies[0],
         };
         let from = pos;
         let (mut touched, mut requests) = (Vec::new(), Vec::new());
