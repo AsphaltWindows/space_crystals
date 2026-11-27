@@ -75,8 +75,9 @@ fn in_attack_sequence(o: &Object) -> bool {
 /// - (M3-D2) It isn't walking out of a portal's energy doorway (`Mover::exit_heading`, design change 0145): that walk
 ///   is its only move until it is out (`doorway::emerge`).
 /// - (M5-V2) Its base yields (`UnitBaseDef::yields`; design change 0353: "an idle vehicle doesn't yield (it can't
-///   take a sidestep; it stands like a unit on Hold Position)"): not a WheeledVehicle. Own idle infantry yield to a
-///   moving vehicle "as to any unit": who asks doesn't matter.
+///   take a sidestep; it stands like a unit on Hold Position)"): not a WheeledVehicle, and (M5-V3) not a
+///   TrackedVehicle (design change 0440). Own idle infantry yield to a moving vehicle "as to any unit": who asks
+///   doesn't matter.
 pub(super) fn can_yield(o: &Object, mover: &Mover, movement: &MovementAttrs) -> bool {
     o.def().unit.as_ref().is_some_and(|unit| unit.base_def().yields)
         && o.owner.is_some()
@@ -245,9 +246,10 @@ pub(super) fn make_way(
 
 /// One tick of a yielding unit's sidestep (`systems/units.md > Friendly yielding`): up to its speed along the
 /// sidestep's direction, the whole step if it is free, else each axis as far as tiles and units allow. Its facing stays
-/// ((M5-V2) a base that can't step sideways doesn't yield, [`can_yield`]; TODO(M5-V3): a TrackedVehicle's sidestep, as
-/// it turns in place). An idle unit of its owner in its way is asked on, the same way ([`YIELD_CHAIN_DEPTH`]). The sidestep ends when its distance is done or its time
-/// is up; the unit stays where it got to, with no way back (design change 0022: one short sidestep).
+/// ((M5-V2, M5-V3) a base that can't step sideways doesn't yield, [`can_yield`]: a WheeledVehicle's and a
+/// TrackedVehicle's, design change 0440). An idle unit of its owner in its way is asked on, the same way
+/// ([`YIELD_CHAIN_DEPTH`]). The sidestep ends when its distance is done or its time is up; the unit stays where it got
+/// to, with no way back (design change 0022: one short sidestep).
 pub(super) fn sidestep(
     pos: &mut Vec2,
     mover: &mut Mover,

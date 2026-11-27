@@ -15,9 +15,10 @@
 //!   pass (oncoming ones, and idle groups that make way), then the rules after the sweep.
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
 //! - [`yielding`]: an idle unit's sidestep for a blocked unit of its owner (`docs/movement.md > 6.6`).
-//! - [`model`]: the models of the units with momentum, [`drag`] (DragMovement, slice M3-G) and (M5-V2) [`wheeled`]
+//! - [`model`]: the models of the units with momentum, [`drag`] (DragMovement, slice M3-G), (M5-V2) [`wheeled`]
 //!   (FixedTurnRadiusMovement: the turn by speed on a fixed radius, braking, backing up on the Reverse order, the
-//!   forward loop); [`follow`]: one unit's tick along its path, shared by every model.
+//!   forward loop) and (M5-V3) [`tracked`] (SpeedTurnRadiusMovement: the tread law, the spin, the speed each turn is
+//!   taken at); [`follow`]: one unit's tick along its path, shared by every model.
 //! - [`separate`]: an idle unit that overlaps another moves off it (design change 0126).
 //! - (M5-H1) [`glider`]: GliderMovement, the model of the units that never stop, in place of a unit's tick along its
 //!   path; [`air`]: the soft separation of air units from each other, after every unit has moved.
@@ -33,7 +34,8 @@
 //! chase's progress, the occupied-target rule and queueing behind attackers are in [`stuck`].
 //!
 //! Hooks for later slices: crushing is an exception in [`space::blocks`]; other movement models replace the
-//! "desired direction → facing and velocity" part of a unit's tick, as [`drag`] and [`wheeled`] do in [`follow`].
+//! "desired direction → facing and velocity" part of a unit's tick, as [`drag`], [`wheeled`] and [`tracked`] do in
+//! [`follow`].
 
 mod air;
 mod collide;
@@ -47,6 +49,7 @@ mod scratch;
 mod separate;
 mod space;
 mod stuck;
+mod tracked;
 mod wheeled;
 mod yielding;
 
@@ -87,12 +90,32 @@ use space::Body;
 /// speed (`glider`), so nothing is left of a tick's turn for an aim of its base in phase 5e. (M5-V2) None for a
 /// FixedTurnRadiusMovement unit either (`systems/combat.md > LocomotionOrientationConstraints[FixedTurnRadiusMovement]`:
 /// "Stationary + Turning: invalid", and Moving its turn is `currentSpeed / MinimumTurnRadius`, made by its drive in
-/// phase 5d, `wheeled`). TODO(M5-V3): SpeedTurnRadiusMovement still turns without limit.
+/// phase 5d, `wheeled`). (M5-V3) A SpeedTurnRadiusMovement unit's SpinRate, the most its treads turn it in a tick,
+/// stopped (`systems/units.md > SpeedTurnRadiusMovement > The turning law`, design change 0417): a stopped one aims by
+/// spinning its hull. Moving it turns less (`tracked`), and phase 5d notes what its speed took of the budget with
+/// what it turned ([`tracked_turn_noted`]).
 pub(crate) fn turn_rate(movement: &MovementAttrs) -> f32 {
     match movement {
         MovementAttrs::Glider { .. } | MovementAttrs::FixedTurnRadius { .. } => 0.0,
+        MovementAttrs::SpeedTurnRadius { .. } => movement.spin_rate().unwrap_or(0.0),
         _ => movement.turn_rate().unwrap_or(f32::INFINITY),
     }
+}
+
+/// (M5-V3) What phase 5d notes in [`Turns`] for a SpeedTurnRadiusMovement unit that turned `turned` and carries
+/// `momentum` into the next tick: the angle turned, and the part of SpinRate its speed leaves no tread for
+/// (`SpinRate × |v| ÷ MaxSpeed`, the law's `maxTurnRate = SpinRate × (1 − |v| ÷ MaxSpeed)` the other way round). So
+/// phase 5e's aim of its hull has what the law leaves it at that speed, never less than nothing, and the full SpinRate
+/// once it stands.
+fn tracked_turn_noted(movement: &MovementAttrs, turned: f32, momentum: Vec2) -> f32 {
+    let spin = movement.spin_rate().unwrap_or(0.0);
+    let max = movement.max_speed();
+    let taken = if max > 0.0 {
+        spin * (momentum.length() / max).min(1.0)
+    } else {
+        0.0
+    };
+    (turned + taken).min(spin)
 }
 
 /// Phase 5d (`docs/movement.md > 4`): builds the spatial grids from **all** units, this tick's spawns included
@@ -319,9 +342,16 @@ pub(crate) fn step(
         }
         // (M5-V2) A model that turns by its speed has no TurnRate to spend (`turn_rate` 0: FixedTurnRadiusMovement,
         // GliderMovement): its turn is no part of the budget, and phase 5e's aim, which has none either, isn't left
-        // a budget overdrawn by it.
-        if turned > 0.0 && turn_rate(movement) > 0.0 {
-            scratch.turns.0.push((o.id, turned));
+        // a budget overdrawn by it. (M5-V3) A SpeedTurnRadiusMovement unit's budget is its SpinRate, of which its
+        // speed takes a part (`tracked_turn_noted`).
+        let noted = match movement {
+            MovementAttrs::SpeedTurnRadius { .. } => {
+                tracked_turn_noted(movement, turned, o.mover.as_ref().map_or(Vec2::ZERO, |m| m.momentum))
+            }
+            _ => turned,
+        };
+        if noted > 0.0 && turn_rate(movement) > 0.0 {
+            scratch.turns.0.push((o.id, noted));
         }
         // Out of the doorway: from now on the building blocks the unit like everything else, for good (design
         // change 0080). One that walked out without a goal stands there.

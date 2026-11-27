@@ -204,9 +204,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`defs/leak.rs`), so the defs stay `Copy` (the Director accepted this for the playtest loader). A unit type also
   has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`, `systems/units.md`): its `UnitBase`, whose `static UnitBaseDef`
   holds the base's domain, movement model and flags (turret, crushable, …), the attributes of that movement model
-  (`MovementAttrs`), and its turret, attack and costs. Its box is its silhouette (`ObjectDef::half_extents`). Armour
-  (`ObjectDef::armor`, an `Armor` of PointArmor and FullArmor) is the same for units and structures; map resources have
-  `Armor::NONE`.
+  (`MovementAttrs`, `defs/units/movement_attrs.rs` since slice M5-V3), and its turret, attack and costs. Its box is
+  its silhouette (`ObjectDef::half_extents`). Armour (`ObjectDef::armor`, an `Armor` of PointArmor and FullArmor) is
+  the same for units and structures; map resources have `Armor::NONE`.
 - **Structures** (`defs/structures.rs`, `defs/gdo/`; `factions/gdo/structures/`, `factions/gdo/economy.md`): the
   GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
   `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
@@ -284,10 +284,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   > The Recruit's panel*); slice M5-N2 made the Garrison live (*Object model > Buildings that hold units > The
   Garrison*), and slice M5-N6 the Chop Shop, the last (*Production > The Chop Shop*). The units' `MovementAttrs` (the Seeker's and the Prayer-mobile's
   `FixedTurnRadius`, the Hand of Heaven's `SpeedTurnRadius`, the Sparrow's `Glider`) are their models' since slices
-  M5-H1 (the Glider) and M5-V2 (the FixedTurnRadius); the Hand of Heaven's is data that nothing reads yet, a model the
-  movement doesn't build stepping without a turn limit until slice M5-V3 (*Movement and collision > Movement models*),
-  and nothing produces those units before their buildings' slices. Their `TurretAttrs` are their turrets' since slice
-  M5-U1 (*Combat > Units' turrets*). The wheeled and tracked
+  M5-H1 (the Glider), M5-V2 (the FixedTurnRadius) and M5-V3 (the SpeedTurnRadius: *Movement and collision > Movement
+  models*), and nothing produces those units before their buildings' slices. Their `TurretAttrs` are their
+  turrets' since slice M5-U1 (*Combat > Units' turrets*). The wheeled and tracked
   vehicles don't cross Rugged terrain, so every game's set of grids holds a `(Ground, 1)` grid beside
   `(GroundRugged, 1)` (*Navigation*); the Sparrow is the first air unit kind (`nav_class` `None`: it crosses every
   tile). **The Augmentations** (slice M5-F2; `augmentation.rs`, `factions/cults/augmentation.md >
@@ -1993,7 +1992,12 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   Measured (`tests/vehicles_perf.rs`, 15 Seekers and 15 Hands of Heaven driven through each other, 600 ticks,
   release, load average 4.6 to 7): a whole tick 0.038 ms on average, 0.12 to 0.13 ms at the 99th percentile; the
   movement phase 0.016 and 0.083 ms. `movement_perf` (no turned unit in it) ran A/B against master, interleaved, six
-  rounds each: 1.15 ms on average on master's side, 1.08 ms on this one, within the noise of that load.
+  rounds each: 1.15 ms on average on master's side, 1.08 ms on this one, within the noise of that load. (M5-V3) With
+  the Hands of Heaven tracked, three interleaved rounds at a load average of 2.7 to 3.2: a whole tick 0.039 to 0.046
+  ms on average, 0.14 to 0.20 ms at the 99th percentile (master's side, which had no tread law, 0.032 and 0.10); with
+  30 more Hands of Heaven crossing north of them (`perf_30_vehicles_and_30_more_tracked`), 0.093 ms and 0.24 to 0.25
+  ms. The corner choice tests arcs against the nav grid each tick a unit turns. `movement_perf`: 0.485 ms on master's
+  side, 0.483 on this one.
 - **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
   one step: a lane step (above), else free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
   or oncoming one (`collide/contact.rs`: a glance along its face, else **the contact step** of design change 0323:
@@ -2126,12 +2130,13 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   queueing unit a path request for the row**: no grid shows it. A melee unit behind its owner's attackers is
   within `OCCUPIED_ARRIVAL_GU` of its target, so the occupied-target rule comes first and its approach ends there:
   it gives the target up (design change 0223 point 1, as built).
-- **Movement models** (`movement/follow.rs`, `movement/drag.rs`, `movement/wheeled.rs`; `docs/movement.md > 6.7`,
-  `docs/movement.md > 6.11`): path following, lane seeking, the rules after the sweep, yielding and the stuck clock
-  are shared (`follow`), and a model (`movement/model.rs`, `Model::of`) replaces only the "direction → facing and
-  velocity" part. Three are built so: the units that stop within the tick (every GDO unit and the Legionnaires: the
-  step the rules give is their move), **DragMovement** (the Drone, slice M3-G, plan decision T25) and (slice M5-V2)
-  **FixedTurnRadiusMovement** (below). **GliderMovement** (below) replaces the whole tick.
+- **Movement models** (`movement/follow.rs`, `movement/drag.rs`, `movement/wheeled.rs`, `movement/tracked.rs`;
+  `docs/movement.md > 6.7`, `docs/movement.md > 6.11`, `docs/movement.md > 6.12`): path following, lane seeking, the
+  rules after the sweep, yielding and the stuck clock are shared (`follow`), and a model (`movement/model.rs`,
+  `Model::of`) replaces only the "direction → facing and velocity" part. Four are built so: the units that stop
+  within the tick (every GDO unit and the Legionnaires: the step the rules give is their move), **DragMovement** (the
+  Drone, slice M3-G, plan decision T25), (slice M5-V2) **FixedTurnRadiusMovement** and (slice M5-V3)
+  **SpeedTurnRadiusMovement** (below). **GliderMovement** (below) replaces the whole tick.
   - **The integration scheme is fixed**: turn (at most TurnRate, towards the step the unit wants; it never stands
     to turn), drag (`v ← v × (1 − DragRatio)`, the ratio doubled while the tile under the unit's centre is Rugged:
     design change 0039), thrust (`v ← v + a`: OmniDirectionalAcceleration any way plus up to ForwardAcceleration
@@ -2180,8 +2185,19 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
     doesn't yield (design change 0353). Ask `MovementAttrs::reverse_speed` for how a model backs up, and
     `UnitDef::can_reverse` whether a unit takes the Reverse order (`OrderKind::Reverse`; the gate keeps only those
     units, `Reject::CannotReverse` if none). Invariant W1: it turns by its speed.
-  - SpeedTurnRadiusMovement (the TrackedVehicle) isn't built (slice M5-V3): its units turn without limit and stop
-    within the tick, and can't take the Reverse order.
+  - **SpeedTurnRadiusMovement** (`movement/tracked.rs`, `Tracked::drive`, and `movement/tracked/corner.rs`; slice
+    M5-V3, plan decision T85 as design change 0417 replaced its law; the Hand of Heaven): the tread law, SpinRate =
+    2 × MaxSpeed ÷ TrackWidth (`MovementAttrs::spin_rate`) and at the speed `v` at most SpinRate × (1 − |v| ÷
+    MaxSpeed): it spins in place at rest and can't turn at MaxSpeed. A signed speed in `Mover::momentum` as
+    FixedTurnRadiusMovement's, backing up on a Reverse leg at ReverseMaxSpeed by the same law. **The corner choice**
+    (`Tracked::corner_speed`): the speed it takes a turn at, timed analytically from the law for 33 speeds from a
+    stop to its top speed, the soonest whose tightest arc is clear of the nav grid's tiles (`Tracked::arc_fits`),
+    else a stop and spin; for the turn now and, braking in time, for the corner at its steering waypoint
+    (`Tracked::ahead`). A turn cut short backs off by what its corners sweep, at most what the unit moves in the
+    tick; at rest it takes a glance off a unit and a cut spin's step as they are, its facing kept, and a spin runs
+    the stuck rules. Its contact step (0323) is taken as it is, a turned Silhouette's straight along the face it met;
+    an idle one doesn't yield (design change 0440). Phase 5e's aim has its SpinRate, less what its speed takes
+    (`movement::turn_rate`, `tracked_turn_noted`). Invariant S1: it turns by the law at its speed.
 - **GliderMovement** (`movement/glider.rs`, `Glider::fly`; slice M5-H1, plan decision T81; `docs/movement.md > 6.9`): a
   Glider (the Sparrow) flies instead of following a path, and collides with nothing. Its speed is `Mover::momentum`'s
   length, always between IdleSpeed and MaxSpeed, its turn in a tick at most `MaxCentripetalAcceleration / v`, and its
@@ -2280,7 +2296,9 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   while it holds anything and never past due; (M5-N5) F1 (`buffs`): no object, on the map or held, holds two buffs of
   an ability, each ends within its ability's duration from now, and only a kind the ability affects holds it;
   (M5-V2) W1 (`momentum`): a FixedTurnRadiusMovement unit turns in a tick by at most the speed it can have in it (its
-  momentum and one tick's acceleration) over its MinimumTurnRadius, never in place. A
+  momentum and one tick's acceleration) over its MinimumTurnRadius, never in place; (M5-V3) S1 (`momentum`): a
+  SpeedTurnRadiusMovement unit turns in a tick by at most the tread law's rate at the slowest speed it can have in it
+  (its momentum less one tick's acceleration or braking). A
   `TestSim` checks them after
   every tick
   and panics with a picture of

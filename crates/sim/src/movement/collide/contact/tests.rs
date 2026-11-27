@@ -134,6 +134,7 @@ fn a_blocked_unit_steps_straight_sideways_by_its_own_width_and_walks_on() {
     let step = Some(StepAside {
         along_y: true,
         to: 336.0,
+        end: None,
     });
     let expected: Vec<_> = (0..6u16)
         .map(|i| (20 + Tick::from(i), SPEED, step.filter(|_| i < 5), i + 1))
@@ -206,7 +207,8 @@ fn a_step_that_meets_a_unit_ends_there_and_the_other_side_is_taken() {
         step,
         Some(StepAside {
             along_y: true,
-            to: 274.0
+            to: 274.0,
+            end: None,
         })
     );
 }

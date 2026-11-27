@@ -149,7 +149,25 @@ pub const STEP_HALVINGS: u32 = 5;
 /// (M5-V1) How far the corners of a Silhouette that turns with its facing move at most between two tries of its turn:
 /// 4 su, a 16th of a tile. A turn is tried in parts no longer, so between two tries a corner can cut through at
 /// most the tip of another shape's corner, about half this deep, and it never ends inside one (each try is the
-/// predicates of invariants I1 and I2). The units whose turning isn't built turn without limit (`movement::turn_rate`):
-/// an instant turn of 180° of the Hand of Heaven's Silhouette (64x40, its corners 37.7 su from its centre) takes 30
-/// tries. Placeholder (not in the design: a technical bound).
+/// predicates of invariants I1 and I2). A spin of the Hand of Heaven (64x40, its corners 37.7 su from its centre) at
+/// its SpinRate, 1/3 radian a tick, takes 4 tries. Placeholder (not in the design: a technical bound).
 pub const TURN_TRY_SU: f32 = 4.0;
+
+// (M5-V3) Tracked movement (`movement::tracked`; `systems/units.md > SpeedTurnRadiusMovement`, design change 0417).
+
+/// (M5-V3) How many speeds the corner choice of a SpeedTurnRadiusMovement unit compares (`movement::tracked`): from a
+/// stop up to the leg's top speed, evenly spaced, both ends among them. It takes each turn at the one that makes it
+/// soonest, of those whose arc fits. Placeholder (not in the design, which leaves the method open: "the implementation
+/// may use pre-computed values"): 32 steps, 0.16 su a tick apart for the Hand of Heaven.
+pub const CORNER_SPEEDS: u32 = 32;
+
+/// (M5-V3) The most a SpeedTurnRadiusMovement unit's arc turns between two of the poses at which the corner choice
+/// tests it against the nav grid: 22.5°. Placeholder (not in the design: a technical bound): between two tests the
+/// corners of the Hand of Heaven's Silhouette (37.7 su from its centre) bulge out of both by less than 1 su.
+pub const ARC_TEST_RAD: f32 = core::f32::consts::FRAC_PI_8;
+
+/// (M5-V3) How far a SpeedTurnRadiusMovement unit's heading may miss its steering waypoint, space units, and be held
+/// as it is: at full speed the tread law turns it not at all, so it doesn't slow down to turn for less. It still
+/// passes within a step of the waypoint. And how near to where it passes a waypoint it counts as there, braking for the
+/// corner at it (`Tracked::ahead`). Placeholder (not in the design: a technical bound).
+pub const TRACKED_MISS_SU: f32 = 1.0;

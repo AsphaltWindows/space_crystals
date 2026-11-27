@@ -9,9 +9,9 @@ use crate::player::Faction;
 use crate::units::SU_PER_GU;
 
 /// `factions/cults/units/hand_of_heaven.md`: "The Cults' **long-range, mobile, semi-ballistic missile platform**, built
-/// at the Chop Shop", "a **shoot-and-scoot** unit". Its numbers only (slice M5-G2, plan decision T69), its movement and
-/// its turret as data: nothing reads its speed-dependent turning nor its turret's arc and rate yet (slice V2 turns
-/// vehicles), and its production at the Chop Shop comes with slice M5-N10 (the Chop Shop trains the Seeker since slice
+/// at the Chop Shop", "a **shoot-and-scoot** unit". Its numbers (slice M5-G2, plan decision T69): it drives by the
+/// tread law of SpeedTurnRadiusMovement (slice M5-V3, `crate::movement`), but nothing reads its turret's arc and rate
+/// yet, and its production at the Chop Shop comes with slice M5-N10 (the Chop Shop trains the Seeker since slice
 /// M5-N6), so no building makes it yet. Its missile is a DoublyDisjointed area attack, as the Grenadier's grenade is
 /// (`crate::combat::projectiles`, `crate::combat::area`): "**no homing**: the missile flies to where the target was at
 /// the end of Aiming, so targets can dodge; it can also be fired at the ground". Its numbers are the design's
@@ -39,12 +39,14 @@ pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
     unit: Some(UnitDef {
         base: UnitBase::TrackedVehicle, // UnitBase - TrackedVehicle (turns in place)
         // "SpeedTurnRadiusMovement: MaxSpeed 5 su/frame; Acceleration 0.5 su/frame²; Deceleration 1 su/frame²;
-        // SpeedToTurnRadiusRatio 8 (turns in place when stopped)."
+        // TrackWidth 30 su; ReverseMaxSpeed 2.5 (Q0153; spins about 19° a frame when stopped, can't turn at full
+        // speed)."
         movement: MovementAttrs::SpeedTurnRadius {
-            speed_to_turn_radius_ratio: 8.0,
+            track_width: 30.0,
             acceleration: Some(0.5),
             deceleration: Some(1.0),
             max_speed: 5.0,
+            reverse_max_speed: 2.5,
         },
         rugged_terrain_defense_bonus: None, // only LightInfantry has it
         // "Turret: TurnAngle **20°** total; TurnRate 4°/frame": "the launcher barely turns, so to aim at most targets the
@@ -105,10 +107,10 @@ mod tests {
     use crate::defs::cults::tests::timings;
 
     /// A 64×40 TrackedVehicle, MaxHP 200, PointArmor 2, FullArmor 2, SightRange 7, Groupable; SpeedTurnRadiusMovement
-    /// up to 5 su a frame at a ratio of 8; a launcher that turns 20° in all, 4° a frame; a DoublyDisjointed missile, so
-    /// it can target the ground, ground only, 600 damage over a circle of 1.5 grid units, from 4 to 14 grid units, at 8
-    /// su a frame, one every 150 frames (Aim 48, Fire 2, Cooldown 4, Reload 96); it never deploys; Unit Control 3, the
-    /// Recruits it is made of.
+    /// up to 5 su a frame on treads 30 su apart, backing up at 2.5, spinning 1/3 radian (about 19°) a frame; a launcher
+    /// that turns 20° in all, 4° a frame; a DoublyDisjointed missile, so it can target the ground, ground only, 600
+    /// damage over a circle of 1.5 grid units, from 4 to 14 grid units, at 8 su a frame, one every 150 frames (Aim 48,
+    /// Fire 2, Cooldown 4, Reload 96); it never deploys; Unit Control 3, the Recruits it is made of.
     #[test]
     fn the_hand_of_heaven_follows_the_design() {
         let def = ObjectKind::HandOfHeaven.def();
@@ -126,12 +128,21 @@ mod tests {
         let unit = def.unit.as_ref().unwrap();
         assert_eq!(unit.base, UnitBase::TrackedVehicle);
         let tracked = MovementAttrs::SpeedTurnRadius {
-            speed_to_turn_radius_ratio: 8.0,
+            track_width: 30.0,
             acceleration: Some(0.5),
             deceleration: Some(1.0),
             max_speed: 5.0,
+            reverse_max_speed: 2.5,
         };
         assert_eq!(unit.movement, tracked);
+        assert!(
+            (unit.movement.spin_rate().unwrap().to_degrees() - 19.1).abs() < 0.05,
+            "about 19° a frame"
+        );
+        assert!(
+            unit.can_reverse(),
+            "a TrackedVehicle has CanReverse, and backs up at its ReverseMaxSpeed"
+        );
         let turret = unit.turret.expect("its launcher");
         assert!((turret.turn_angle.to_degrees() - 20.0).abs() < 1e-4, "20° in all");
         assert!((turret.turn_rate.to_degrees() - 4.0).abs() < 1e-4, "4° a frame");
