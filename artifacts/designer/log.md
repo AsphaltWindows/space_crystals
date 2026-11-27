@@ -2411,3 +2411,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0173 (user): keep aiming; Rocketman missiles AoE (normal + locked), domain of target, Damage 40 / radius 32 (0445).
 - Q0175 (user: 4): default rally point 3 GU out for vehicle buildings (0446).
 - 0447: correction, default rally can be cleared by rallying on the building.
+- Session pause (2026-11-26, later): Q0173–Q0175 answered (0444–0447). User away to think about unit designs.
