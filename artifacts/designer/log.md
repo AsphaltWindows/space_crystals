@@ -2399,3 +2399,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0168 answered from docs + placeholders: Prism panel, Thrust queueable, orders held during launch (0434).
 - Q0169 (user): GDO Supply costs on 6 units; Chopper Tower repair at repairers' rate (0435).
 - GDO starting Supplies 1 (0436).
+- Q0170 (user: 1): Sparrow takeoff run always finishes (0437).
