@@ -82,3 +82,13 @@
   - M5's M was split into Ma (the generated playtest docs, beside the content) and Mb (the QA, after X2).
   - Branches with a "(wip)" or "(in progress)" commit, or with merges that carry code, go in as one attributed squash (K, N10, N11).
   - The computer players' 192-row `ai_games` table (since A2d) is the reference every slice is compared with.
+
+## 2026-11-27 (continued): M6 under way
+- **Merged:** GK, SK, SV, GD, GR, GF, SD, GH1, then GA (`df49b7f9`), SN (`c5469988`) and CM (`f4651a44`). M5's X1, X2 and Mb landed before them, and with Mb the playtest build. There are 31 goldens, and the 192 computer-player rows are unchanged through every merge.
+- **Running:** S6a (the answer sweep: 0453, 0454, 0460, 0461 and Z4), GH2 (landing and rearming, with 0458's burst), and SB (the Vault and the Sludge).
+- **Every M6 brief is drafted,** GS2, SR, SA, SC and MQ included. GS split into GS1 (the supply loop) and GS2 (the Chopper's transport).
+- **Design changes triaged to 0461.** 0457–0461 answered Q0182–Q0184 and Q0186, and went into the unlaunched briefs. Q0187 (the Null Chamber's buff) and Q0188 (Mirage's buffs and Shift) were filed.
+- **Process:**
+  - A hash-tag registry, `artifacts/director/hash-tags.md`, assigns each parallel slice its tags in every namespace.
+  - Counts that both sides change the same way merge silently wrong: the merger sets them by hand (an insight, and a line in m6-common).
+  - ST1 waits for GH2, so that the per-object domain check isn't built three times at once (GH2, ST1 and S6a's 0461).
