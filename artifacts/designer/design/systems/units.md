@@ -71,14 +71,14 @@ Applies to all ground units. Overlap caused by the rotation itself (a corner swe
 - **Gliders push apart slowly** (user, 2026-11-27; Q0148): gliders do separate, but with a **much weaker** repulsion than other air units (**a third** of the HoverCraft strength, user, 2026-11-26, Q0152, to try; was a quarter), so they drift apart gradually, mostly while circling, and their attack runs and loops are barely bent. Expect them to take **roughly 10 seconds or more** to spread out after bunching (at a quarter, six Sparrows sent to one point took 11–17 s), not a few seconds. The SeparationRadius rule above applies to them too.
 
 ### Crushing
-Units whose UnitBase can crush (TrackedVehicle, Mech) crush enemy units whose UnitBase has Crushable = true (Light Infantry).
+Units whose UnitBase can crush (TrackedVehicle, Mech, and a **DrillUnit in its above-ground mode**: user, 2026-11-26, Q0153; never underground) crush enemy units whose UnitBase has Crushable = true (Light Infantry).
 - **Effect**: instant death of the crushed unit.
 - **Trigger**: the crusher's Silhouette overlaps a crushable enemy **while the crusher is moving** (Locomotion = Moving or Reversing).
 - **Pathing exception to hard collision**: crushers may path and drive through crushable enemies — those enemies are not obstacles to them.
 - **Stationary crushers do not overlap**: a crusher that is not moving remains a normal hard obstacle; crushable units cannot walk into it.
 - **Crushable units avoid crushers**: crushable units still treat crushers as obstacles in their own pathing (they never walk into a crusher).
 - **No friendly crushing**: crushers cannot run over their own or allied crushable units; those remain hard obstacles and crushers must path around them.
-- TBD: whether a crusher turning in place (Stationary + Turning) can crush, or is blocked by, an adjacent crushable enemy.
+- **Turning in place crushes** (user, 2026-11-26; Q0153): a crusher turning in place (Stationary + Turning) **crushes the crushable enemies its turning Silhouette sweeps over**; they don't block the spin. Own and allied crushable units still block it (No friendly crushing): the spin stops at contact. A crusher that is stationary and **not** turning stays a hard obstacle, as above.
 
 ## MovementModel
 Defines how a unit moves, turns, accelerates, and decelerates. Each UnitBase uses one of five movement models.
