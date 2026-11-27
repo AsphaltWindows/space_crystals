@@ -2209,7 +2209,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **M5-V3 Tracked movement** (Opus; brief `scratchpad/briefs/m5v3-tracked-movement.md`; 0417's tread law, with Q0172 point 1's assumption), launched in V2's slot. It heads M5's critical path.
   - **M5-MM2 Minimap alerts** (Opus; brief `scratchpad/briefs/m5mm2-minimap-alerts.md`; 0443), launched in K's slot.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next, as slots free:** A2d (brief `scratchpad/briefs/a2d-rush-and-syndicate-tunnels.md`); N10 and V4 after V3 and N6, then N11; then X1 → X2 → M.
+- **Next, as slots free:** A2d (brief `scratchpad/briefs/a2d-rush-and-syndicate-tunnels.md`); **V4** after V3 (brief `scratchpad/briefs/m5v4-crushing.md`, with 0418 and 0419) and **N10** after V3 and N6 (brief `scratchpad/briefs/m5n10-hand-of-heaven.md`), then **N11** after N10, which adds the Chop Shop's W before N11's E (brief `scratchpad/briefs/m5n11-prayer-mobile.md`, with 0428's Sparrow look and 0438's Disciple test); then X1 → X2 → M. The three briefs are drafted, waiting for V3's and N6's reports.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
@@ -2659,6 +2659,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0171 | Does a Shift-queued order end a Target Lock or a Shroud channel, or wait behind it? (as built for Shroud, and being built for Target Lock in M5-K: it waits, T76) | no | answered by 0438 (a queued order waits, as built for Shroud and in M5-K) |
 | Q0172 | Which vehicle bases stand when idle (a TrackedVehicle, a surfaced DrillUnit, a HoverVehicle), and whether a group Reverse uses the magic box (from M5-V2; for M5-V3. Assumed: the tracked bases stand, the HoverVehicle yields; the magic box) | no | answered by 0439 (the magic box) and 0440 (the tracked bases and the surfaced DrillUnit stand, the HoverVehicle yields), both as assumed |
 | Q0173 | Rocketmen against a moving Sparrow: the normal missile always misses one in flight (it aims without leading, and a Sparrow never stops), and a lone group can't lock a strafing one (SightRange 6, LockRange 7). Keep it, raise the sight or shorten the lock, or make the missile lead? (from M5-K) | no | open |
+| Q0174 | The Chop Shop's keys for the Hand of Heaven and the Prayer-mobile, and whether its Production list misses the Prayer-mobile (for M5-N10 and N11. Assumed: W: Build Hand of Heaven, E: Build Prayer-mobile, E greyed until a Temple stands) | no | open |
 
 ## Design change entries
 Last triaged: 0282.
