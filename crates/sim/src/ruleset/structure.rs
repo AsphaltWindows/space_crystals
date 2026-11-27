@@ -13,11 +13,17 @@
 //!   from: they apply to what starts after the change.
 //!
 //! A value's structure is its serialization with every number and name blanked ([`Skeleton`]): two rulesets have the
-//! same structure when their skeletons are the same, and the first token where they part names the change.
+//! same structure when their skeletons are the same, and the first token where they part names the change. (M5-X2)
+//! The skeleton keeps each number's value beside its blank, which `Ruleset::check` compares with the built-in rules'
+//! ([`Skeleton::numbers_beside`]).
+
+mod serializer;
 
 use std::fmt;
 
-use serde::ser::{self, Serialize};
+use serde::Serialize;
+
+use serializer::Never;
 
 /// A place in a ruleset: the entry (the kind, the unit base, the tech or the ability, by name, or the part of the
 /// ruleset: `factions`, `tuning`) and the field, the innermost one named. Where a ruleset's structure differs from
@@ -55,6 +61,17 @@ const FREE: &[(&str, &str)] = &[
 /// which the nav grids, the placement of every building and the space of every unit are built on (`Footprint`).
 const KEPT: &[(&str, &str)] = &[("Footprint", "w"), ("Footprint", "h")];
 
+/// (M5-X2) The name of the first enum variant `value` serializes, `""` for none: a kind's (`ObjectKind::HandOfHeaven`'s
+/// "HandOfHeaven"), as a [`RuleField`] names its entry.
+pub(super) fn variant_name<T: Serialize + ?Sized>(value: &T) -> &'static str {
+    let skeleton = Skeleton::of(value);
+    let mut variants = skeleton.steps.iter().filter_map(|step| match step.token {
+        Token::Variant(_, variant) => Some(variant),
+        _ => None,
+    });
+    variants.next().unwrap_or("")
+}
+
 /// One step of a value's serialization, numbers and names blanked.
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Token {
@@ -81,6 +98,9 @@ struct Step {
     token: Token,
     entry: &'static str,
     field: &'static str,
+    /// (M5-X2) A number's value, `None` for any other token: what `Ruleset::check` compares
+    /// ([`Skeleton::numbers_beside`]), which the structure doesn't.
+    value: Option<f64>,
 }
 
 /// A value's structure: its serialization's tokens (module docs).
@@ -136,7 +156,29 @@ impl Skeleton {
         }
     }
 
+    /// (M5-X2) The numbers of `other`, a skeleton of the same structure, each beside this one's at the same place,
+    /// with where they are, in order: up to the first step where the two part, if they do (`Ruleset::check`). The
+    /// numbers in [`FREE`] fields aren't in skeletons.
+    pub(super) fn numbers_beside<'a>(
+        &'a self,
+        other: &'a Skeleton,
+    ) -> impl Iterator<Item = (f64, f64, RuleField)> + 'a {
+        (self.steps.iter().zip(&other.steps))
+            .take_while(|(a, b)| a.token == b.token)
+            .filter_map(|(a, b)| {
+                let at = RuleField {
+                    entry: b.entry,
+                    field: b.field,
+                };
+                Some((a.value?, b.value?, at))
+            })
+    }
+
     fn push(&mut self, token: Token) {
+        self.push_value(token, None);
+    }
+
+    fn push_value(&mut self, token: Token, value: Option<f64>) {
         if self.muted {
             return;
         }
@@ -144,27 +186,29 @@ impl Skeleton {
             token,
             entry: self.entry,
             field: self.field,
+            value,
         });
     }
 
-    /// A float, by its bits: noted where it is if it isn't finite.
-    fn float(&mut self, bits: u64, finite: bool) {
-        if !finite && self.non_finite.is_none() {
+    /// A float, by its bits and its value: noted where it is if it isn't finite.
+    fn float(&mut self, bits: u64, value: f64) {
+        if !value.is_finite() && self.non_finite.is_none() {
             self.non_finite = Some(RuleField {
                 entry: self.entry,
                 field: self.field,
             });
         }
-        self.number(bits);
+        self.number(bits, value);
     }
 
-    fn number(&mut self, bits: u64) {
+    /// A number, by its bits (a structure's, [`KEPT`]) and its value.
+    fn number(&mut self, bits: u64, value: f64) {
         let token = if self.keep_number {
             Token::Number(bits)
         } else {
             Token::Blank
         };
-        self.push(token);
+        self.push_value(token, Some(value));
     }
 
     fn open(&mut self, name: &'static str) {
@@ -199,301 +243,6 @@ impl Skeleton {
             self.keep_number = keep;
         }
         self.field = field;
-        Ok(())
-    }
-}
-
-/// The skeleton's serialization never fails; serde needs an error type all the same.
-#[derive(Debug)]
-pub(super) struct Never;
-
-impl fmt::Display for Never {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("a skeleton never fails")
-    }
-}
-
-impl std::error::Error for Never {}
-
-impl ser::Error for Never {
-    fn custom<T: fmt::Display>(_: T) -> Self {
-        Never
-    }
-}
-
-impl ser::Serializer for &mut Skeleton {
-    type Ok = ();
-    type Error = Never;
-    type SerializeSeq = Self;
-    type SerializeTuple = Self;
-    type SerializeTupleStruct = Self;
-    type SerializeTupleVariant = Self;
-    type SerializeMap = Self;
-    type SerializeStruct = Self;
-    type SerializeStructVariant = Self;
-
-    fn serialize_bool(self, v: bool) -> Result<(), Never> {
-        self.push(Token::Bool(v));
-        Ok(())
-    }
-
-    fn serialize_i8(self, v: i8) -> Result<(), Never> {
-        self.serialize_i64(v.into())
-    }
-
-    fn serialize_i16(self, v: i16) -> Result<(), Never> {
-        self.serialize_i64(v.into())
-    }
-
-    fn serialize_i32(self, v: i32) -> Result<(), Never> {
-        self.serialize_i64(v.into())
-    }
-
-    fn serialize_i64(self, v: i64) -> Result<(), Never> {
-        self.number(v as u64);
-        Ok(())
-    }
-
-    fn serialize_u8(self, v: u8) -> Result<(), Never> {
-        self.serialize_u64(v.into())
-    }
-
-    fn serialize_u16(self, v: u16) -> Result<(), Never> {
-        self.serialize_u64(v.into())
-    }
-
-    fn serialize_u32(self, v: u32) -> Result<(), Never> {
-        self.serialize_u64(v.into())
-    }
-
-    fn serialize_u64(self, v: u64) -> Result<(), Never> {
-        self.number(v);
-        Ok(())
-    }
-
-    fn serialize_f32(self, v: f32) -> Result<(), Never> {
-        self.float(v.to_bits().into(), v.is_finite());
-        Ok(())
-    }
-
-    fn serialize_f64(self, v: f64) -> Result<(), Never> {
-        self.float(v.to_bits(), v.is_finite());
-        Ok(())
-    }
-
-    fn serialize_char(self, _: char) -> Result<(), Never> {
-        self.push(Token::Blank);
-        Ok(())
-    }
-
-    fn serialize_str(self, _: &str) -> Result<(), Never> {
-        self.push(Token::Blank);
-        Ok(())
-    }
-
-    fn serialize_bytes(self, _: &[u8]) -> Result<(), Never> {
-        self.push(Token::Blank);
-        Ok(())
-    }
-
-    fn serialize_none(self) -> Result<(), Never> {
-        self.push(Token::None);
-        Ok(())
-    }
-
-    fn serialize_some<T: Serialize + ?Sized>(self, value: &T) -> Result<(), Never> {
-        self.push(Token::Some);
-        value.serialize(self)
-    }
-
-    fn serialize_unit(self) -> Result<(), Never> {
-        self.push(Token::Unit);
-        Ok(())
-    }
-
-    fn serialize_unit_struct(self, _: &'static str) -> Result<(), Never> {
-        self.push(Token::Unit);
-        Ok(())
-    }
-
-    fn serialize_unit_variant(self, name: &'static str, _: u32, variant: &'static str) -> Result<(), Never> {
-        // A table's key (a kind, a base, a tech, an ability) names the entry its value is.
-        if self.in_key {
-            self.entry = variant;
-        }
-        self.push(Token::Variant(name, variant));
-        Ok(())
-    }
-
-    fn serialize_newtype_struct<T: Serialize + ?Sized>(self, _: &'static str, value: &T) -> Result<(), Never> {
-        value.serialize(self)
-    }
-
-    fn serialize_newtype_variant<T: Serialize + ?Sized>(
-        self,
-        name: &'static str,
-        _: u32,
-        variant: &'static str,
-        value: &T,
-    ) -> Result<(), Never> {
-        self.push(Token::Variant(name, variant));
-        self.within.push((name, self.entry));
-        let result = value.serialize(&mut *self);
-        self.within.pop();
-        result
-    }
-
-    fn serialize_seq(self, _: Option<usize>) -> Result<Self, Never> {
-        self.open("");
-        Ok(self)
-    }
-
-    fn serialize_tuple(self, _: usize) -> Result<Self, Never> {
-        self.open("");
-        Ok(self)
-    }
-
-    fn serialize_tuple_struct(self, name: &'static str, _: usize) -> Result<Self, Never> {
-        self.open(name);
-        Ok(self)
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        name: &'static str,
-        _: u32,
-        variant: &'static str,
-        _: usize,
-    ) -> Result<Self, Never> {
-        self.push(Token::Variant(name, variant));
-        self.open(name);
-        Ok(self)
-    }
-
-    fn serialize_map(self, _: Option<usize>) -> Result<Self, Never> {
-        self.open("");
-        Ok(self)
-    }
-
-    fn serialize_struct(self, name: &'static str, _: usize) -> Result<Self, Never> {
-        self.open(name);
-        Ok(self)
-    }
-
-    fn serialize_struct_variant(
-        self,
-        name: &'static str,
-        _: u32,
-        variant: &'static str,
-        _: usize,
-    ) -> Result<Self, Never> {
-        self.push(Token::Variant(name, variant));
-        self.open(name);
-        Ok(self)
-    }
-}
-
-impl ser::SerializeSeq for &mut Skeleton {
-    type Ok = ();
-    type Error = Never;
-
-    fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Never> {
-        value.serialize(&mut **self)
-    }
-
-    fn end(self) -> Result<(), Never> {
-        self.close();
-        Ok(())
-    }
-}
-
-impl ser::SerializeTuple for &mut Skeleton {
-    type Ok = ();
-    type Error = Never;
-
-    fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Never> {
-        value.serialize(&mut **self)
-    }
-
-    fn end(self) -> Result<(), Never> {
-        self.close();
-        Ok(())
-    }
-}
-
-impl ser::SerializeTupleStruct for &mut Skeleton {
-    type Ok = ();
-    type Error = Never;
-
-    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Never> {
-        value.serialize(&mut **self)
-    }
-
-    fn end(self) -> Result<(), Never> {
-        self.close();
-        Ok(())
-    }
-}
-
-impl ser::SerializeTupleVariant for &mut Skeleton {
-    type Ok = ();
-    type Error = Never;
-
-    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Never> {
-        value.serialize(&mut **self)
-    }
-
-    fn end(self) -> Result<(), Never> {
-        self.close();
-        Ok(())
-    }
-}
-
-impl ser::SerializeMap for &mut Skeleton {
-    type Ok = ();
-    type Error = Never;
-
-    fn serialize_key<T: Serialize + ?Sized>(&mut self, key: &T) -> Result<(), Never> {
-        self.in_key = true;
-        let result = key.serialize(&mut **self);
-        self.in_key = false;
-        result
-    }
-
-    fn serialize_value<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Never> {
-        value.serialize(&mut **self)
-    }
-
-    fn end(self) -> Result<(), Never> {
-        self.close();
-        Ok(())
-    }
-}
-
-impl ser::SerializeStruct for &mut Skeleton {
-    type Ok = ();
-    type Error = Never;
-
-    fn serialize_field<T: Serialize + ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), Never> {
-        self.field(key, value)
-    }
-
-    fn end(self) -> Result<(), Never> {
-        self.close();
-        Ok(())
-    }
-}
-
-impl ser::SerializeStructVariant for &mut Skeleton {
-    type Ok = ();
-    type Error = Never;
-
-    fn serialize_field<T: Serialize + ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), Never> {
-        self.field(key, value)
-    }
-
-    fn end(self) -> Result<(), Never> {
-        self.close();
         Ok(())
     }
 }

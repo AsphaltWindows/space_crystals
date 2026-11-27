@@ -239,6 +239,9 @@ pub enum Reject {
     /// (M5-X1b) A `DebugCommand::SetRules` for which the process has no generation left
     /// (`ruleset::GENERATION_COUNT`): rules other than every generation installed, when all are taken.
     RulesFull,
+    /// (M5-X2) A `DebugCommand::SetRules` whose rules have a number the game isn't made for, here first
+    /// (`Ruleset::check`): `why` says what it must be ("must be positive", ...).
+    RulesInvalid { field: RuleField, why: &'static str },
 }
 
 impl fmt::Display for Reject {
@@ -320,6 +323,7 @@ impl fmt::Display for Reject {
             Reject::RulesStructural(change) => write!(f, "the rules change {change}, which needs a new game"),
             Reject::RulesNotFinite(field) => write!(f, "{field} isn't a finite number in the rules"),
             Reject::RulesFull => write!(f, "no generation of rules is left; restart the game"),
+            Reject::RulesInvalid { field, why } => write!(f, "{field} {why}"),
         }
     }
 }

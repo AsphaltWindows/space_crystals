@@ -5,7 +5,8 @@
 //!   (`ruleset::select`), whatever another game stepped on before, so that every def and tunable read in the tick is
 //!   theirs; a game starts on the built-in rules (`Sim::empty`), and a loaded one on its save's (`sim/load.rs`).
 //! - **A SetRules applies as the next tick starts**, in command order: the gate passes rules of the game's structure
-//!   only (`Ruleset::structural_diff`), their numbers finite (`Ruleset::non_finite`), the command installs them as a
+//!   only (`Ruleset::structural_diff`), their numbers finite (`Ruleset::non_finite`) and (M5-X2) within what the game
+//!   is made for (`Ruleset::check`), the command installs them as a
 //!   generation ([`Sim::set_rules`]; the last of a tick's wins), and the next tick starts on them
 //!   ([`Sim::start_rules`]), with a [`SimEvent::RulesChanged`]. So the tick of the command plays out on the rules it
 //!   started on, and its vision records the objects as those rules left them; the next one sees them follow.

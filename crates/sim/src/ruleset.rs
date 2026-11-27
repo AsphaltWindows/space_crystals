@@ -23,6 +23,7 @@
 //!   two generations would read each other's. The game runs one sim; the tests run many, all on the built-in rules,
 //!   and only one test program installs others, its tests one at a time (`tests/rules.rs`).
 
+mod check;
 mod structure;
 mod table;
 
@@ -31,6 +32,7 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
+pub use check::Invalid;
 pub use structure::RuleField;
 pub use table::{Key, Table};
 

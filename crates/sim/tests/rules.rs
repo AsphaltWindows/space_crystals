@@ -10,7 +10,7 @@
 
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use sc_sim::defs::{AttackAttrs, UnitBase};
+use sc_sim::defs::{AttackAttrs, MovementAttrs, UnitBase};
 use sc_sim::ruleset::RuleField;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
@@ -288,9 +288,10 @@ fn a_save_keeps_the_rules() {
 
 /// Rules that change more than numbers are refused (`Reject::RulesStructural`), naming the first change: a
 /// Peacekeeper's Silhouette of 30 × 30 su, a Mech that doesn't crush. So are rules with a number that isn't finite
-/// (`Reject::RulesNotFinite`): a Guard's Damage of NaN. The game goes on as if it had never been given them, tick by
-/// tick. Numbers alone pass, and the game's own rules too, which change nothing: no `RulesChanged`. With debug
-/// commands off, none passes (`Reject::DebugDisabled`).
+/// (`Reject::RulesNotFinite`): a Guard's Damage of NaN; and (M5-X2) rules with a number the game isn't made for
+/// (`Reject::RulesInvalid`, `Ruleset::check`): a Peacekeeper's speed of 0. The game goes on as if it had never been
+/// given them, tick by tick. Numbers alone pass, and the game's own rules too, which change nothing: no
+/// `RulesChanged`. With debug commands off, none passes (`Reject::DebugDisabled`).
 #[test]
 fn rules_that_change_more_than_numbers_are_refused() {
     let _one = one_at_a_time();
@@ -312,9 +313,29 @@ fn rules_that_change_more_than_numbers_are_refused() {
         field: "damage",
     });
     assert_eq!(check(t.sim(), &nan), Err(not_finite));
+    let mut still = Ruleset::builtin();
+    let unit = still
+        .defs
+        .get_mut(ObjectKind::Peacekeeper)
+        .unit
+        .as_mut()
+        .expect("a unit");
+    match &mut unit.movement {
+        MovementAttrs::TurnRate { max_speed, .. } => *max_speed = 0.0,
+        other => panic!("a Peacekeeper moves by {other:?}"),
+    }
+    let invalid = Reject::RulesInvalid {
+        field: RuleField {
+            entry: "Peacekeeper",
+            field: "max_speed",
+        },
+        why: "must be positive",
+    };
+    assert_eq!(check(t.sim(), &still), Err(invalid));
+    assert_eq!(invalid.to_string(), "Peacekeeper's max_speed must be positive");
 
     let (builtin, builtin_hashes) = run(duel(None));
-    for rules in [silhouette, crushing, nan, Ruleset::builtin()] {
+    for rules in [silhouette, crushing, nan, still, Ruleset::builtin()] {
         let (refused, hashes) = run(duel(Some((20, &rules))));
         assert_eq!(hashes, builtin_hashes);
         assert_eq!(refused.events(), builtin.events());

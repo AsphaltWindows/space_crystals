@@ -213,7 +213,8 @@ pub enum DebugCommand {
     /// path planned) stays as it started. [`crate::SimEvent::RulesChanged`] tells it. The ruleset travels in the
     /// command, so that a replay plays a tuned game back. Rejected for rules whose structure differs from the game's
     /// (`Ruleset::structural_diff`: `Reject::RulesStructural`), which need a new game, for rules with a number that
-    /// isn't finite (`Reject::RulesNotFinite`), and when the process has no generation left for them
+    /// isn't finite (`Reject::RulesNotFinite`), (M5-X2) for rules with a number the game isn't made for
+    /// (`Ruleset::check`: `Reject::RulesInvalid`), and when the process has no generation left for them
     /// (`Reject::RulesFull`). For the data files' tuning, which the client reads and sends (slice M5-X2), and the tests
     /// of tuned rules.
     SetRules(Box<Ruleset>),

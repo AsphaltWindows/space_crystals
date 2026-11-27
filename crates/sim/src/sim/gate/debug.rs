@@ -119,6 +119,12 @@ impl Sim {
                 if let Some(field) = rules.non_finite() {
                     return Err(Reject::RulesNotFinite(field));
                 }
+                if let Some(invalid) = rules.check() {
+                    return Err(Reject::RulesInvalid {
+                        field: invalid.field,
+                        why: invalid.why,
+                    });
+                }
                 if !ruleset::installable(rules) {
                     return Err(Reject::RulesFull);
                 }
