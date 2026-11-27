@@ -2,6 +2,7 @@
 //! collision.
 
 use super::*;
+use crate::mover::{MoveStatus, PathState};
 
 const WALKER: MovementAttrs = MovementAttrs::TurnRate {
     turn_rate: math::PI,

@@ -112,6 +112,41 @@ fn soak(seed: u64) -> (TestSim, Vec<ObjectId>) {
     (t, seekers)
 }
 
+/// The Seekers' moves that arrived and that failed in one seed's soak, without the invariant checks (a measurement).
+fn seeker_outcomes(seed: u64) -> (u32, u32) {
+    let (mut t, seekers) = soak(seed);
+    t.check_invariants(false);
+    let mut seen: Vec<MoveStatus> = seekers.iter().map(|_| MoveStatus::Idle).collect();
+    let (mut arrived, mut failed) = (0, 0);
+    while t.sim().tick() < TICKS {
+        t.step();
+        for (id, was) in seekers.iter().zip(&mut seen) {
+            let status = t.sim().object(*id).unwrap().mover.as_ref().unwrap().status;
+            if status != *was {
+                arrived += u32::from(status == MoveStatus::Arrived);
+                failed += u32::from(status == MoveStatus::Failed);
+            }
+            *was = status;
+        }
+    }
+    (arrived, failed)
+}
+
+/// A measurement, not a check: the Seekers' arrived and failed moves over seeds 1 to 8 of the soak below, the figure
+/// slices M5-V1 and M5-V2 report. (M5-V1, its Seekers turning without limit: 403 arrived and 105 failed; with turning
+/// off, 548 and 19.)
+#[test]
+#[ignore = "a measurement: run in release with --nocapture"]
+fn seeker_outcomes_over_eight_seeds() {
+    let (mut arrived, mut failed) = (0, 0);
+    for seed in 1..=8 {
+        let (a, f) = seeker_outcomes(seed);
+        println!("seed {seed}: {a} of the Seekers' moves arrived, {f} failed");
+        (arrived, failed) = (arrived + a, failed + f);
+    }
+    println!("seeds 1 to 8: {arrived} arrived, {failed} failed");
+}
+
 /// The invariants hold after every tick (`TestSim`). No unit is on its way for ever without getting anywhere, as in
 /// `movement_soak`: a stuck one ends its move within `GIVE_UP_TICKS` of its last progress (design change 0024), and a
 /// grace before each of its attempts if no unit blocks it, as a turn cut by a wall does (`STUCK_GRACE_TICKS`,
