@@ -27,6 +27,7 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
+- **Q0153** (non-blocking): tracked turn rate (same at every speed?), crusher spinning beside enemy crushable, Subterranean Transport surfaced numbers, does it crush.
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends

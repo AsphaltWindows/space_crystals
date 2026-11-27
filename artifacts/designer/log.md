@@ -2375,3 +2375,7 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - User: Shift-/Ctrl-/double-click now work on own buildings too (0410).
 - Q0151 part 2 (user: a): box still selects one building; Halls are multi-selected by modifier clicks (0411). Q0151 closed.
 - Q0152 (user): glider push a third of HoverCraft strength, spreading ~10 s+ (0412). All questions through Q0152 answered.
+- Playtest: full screen by default (F11/Alt+Enter toggle), cursor confined while focused, 8 px pan margin (0413).
+- Playtest: temporary menu on F10 and at game end, Restart / Quit / Resume, pauses (0414). Q0153 arrived.
+- Minimap designed (0415), user asks to prioritise it.
+- Map starts explored by default (neutral objects remembered, no player objects), command-line flag (0416).
