@@ -21,7 +21,8 @@ use crate::scenario::{BuildingOrientation, SpawnAt};
 use crate::shape::Shape;
 use crate::spot_work;
 use crate::testing::{ScenarioBuilder, TestSim};
-use crate::tuning::construction::{BUILD_REACH_SU, RESPOT_TICKS};
+const BUILD_REACH_SU: f32 = crate::tuning::construction::BUILTIN.build_reach_su;
+const RESPOT_TICKS: Tick = crate::tuning::construction::BUILTIN.respot_ticks;
 use crate::units::{Tick, TilePos};
 
 const P1: PlayerId = PlayerId(1);

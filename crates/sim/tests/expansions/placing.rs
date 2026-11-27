@@ -199,7 +199,7 @@ fn an_enemy_building_refuses_it_by_the_truth() {
             orientation: BuildingOrientation::default(),
         },
     );
-    t.run(sc_sim::tuning::vision::FOG_DELAY_TICKS + 2);
+    t.run(sc_sim::tuning::vision::BUILTIN.fog_delay_ticks + 2);
     assert_eq!(ghost(&t, 0, 4).tiles.len(), 4, "{:?}", ghost(&t, 0, 4));
 }
 

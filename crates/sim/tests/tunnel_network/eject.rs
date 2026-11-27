@@ -3,7 +3,7 @@
 
 use sc_sim::defs::TRANSIT_DELAY_TICKS;
 use sc_sim::scenario::BuildingOrientation;
-use sc_sim::tuning::tunnel::PATH_OFFSET_SU;
+const PATH_OFFSET_SU: f32 = sc_sim::tuning::tunnel::BUILTIN.path_offset_su;
 use sc_sim::{PlayerCommand, Reject, Rotation, SideLetter, Target, sides};
 
 use super::*;

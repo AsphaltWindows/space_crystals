@@ -11,10 +11,10 @@ use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
 use crate::production::Production;
+use crate::ruleset::rules;
 use crate::scenario::BuildingOrientation;
 use crate::tech;
 use crate::transform::{self, Transform, follow_max, keep_fraction};
-use crate::tuning::construction::MIN_HP_AFTER_CANCEL;
 
 impl Sim {
     /// The Beacon of a Warp In among `objects` (plan decision T22: "names one Beacon, as Place names one
@@ -121,8 +121,8 @@ impl Sim {
     /// fully-functional Beacon (no HP/Shields loss)"): its owner gets back [`Refund::Ready`] of what it paid, with a
     /// `SimEvent::TransformCancelled`; it turns back into what it was where it stood ([`Sim::change_kind`]: its old
     /// footprint, design change 0109, or for a unit where it is), its capabilities as that kind's; and it keeps the
-    /// fraction of its HP it had, at least 1 ([`keep_fraction`], [`MIN_HP_AFTER_CANCEL`], design change 0111), and
-    /// the fraction of its Shields, with no minimum ("Shields by the same fraction (no minimum needed)").
+    /// fraction of its HP it had, at least 1 ([`keep_fraction`], `Construction::min_hp_after_cancel`, design change
+    /// 0111), and the fraction of its Shields, with no minimum ("Shields by the same fraction (no minimum needed)").
     /// Nothing for an object that isn't an owned one transforming.
     pub(super) fn cancel_transform(&mut self, id: ObjectId) {
         let Some(o) = self.objects.get(&id) else {
@@ -134,7 +134,9 @@ impl Sim {
         let kind = o.kind;
         let restored = t.from.def().max_hp;
         let hp = match (o.hp, o.max_hp(), restored) {
-            (Some(hp), Some(max), Some(restored)) => Some(keep_fraction(hp, max, restored).max(MIN_HP_AFTER_CANCEL)),
+            (Some(hp), Some(max), Some(restored)) => {
+                Some(keep_fraction(hp, max, restored).max(rules().tuning.construction.min_hp_after_cancel))
+            }
             _ => restored,
         };
         // 0111: "Shields by the same fraction (no minimum needed)" (`crate::shields`).

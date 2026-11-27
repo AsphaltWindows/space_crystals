@@ -20,8 +20,9 @@
 //! the new rule.
 
 use super::*;
-use sc_sim::tuning::movement::{GIVE_UP_TICKS, STUCK_GRACE_TICKS};
-use sc_sim::tuning::orders::GIVE_UP_RETRY_TICKS;
+const GIVE_UP_TICKS: sc_sim::Tick = sc_sim::tuning::movement::BUILTIN.give_up_ticks();
+const STUCK_GRACE_TICKS: sc_sim::Tick = sc_sim::tuning::movement::BUILTIN.stuck_grace_ticks;
+const GIVE_UP_RETRY_TICKS: sc_sim::Tick = sc_sim::tuning::orders::BUILTIN.give_up_retry_ticks;
 use sc_sim::{Faction, MoveStatus};
 
 /// A corridor one tile wide leads east from player 1's Deployment Center (tiles (0, 1) to (3, 4)): tile row 3, y

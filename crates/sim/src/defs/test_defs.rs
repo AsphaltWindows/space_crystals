@@ -86,10 +86,15 @@ mod tests {
                 ObjectKind::Guard.def().unit.as_ref().unwrap().attack.unwrap().range,
                 9.0
             );
+            // Another kind's is the rules' own, the built-in one.
             assert!(std::ptr::eq(
                 ObjectKind::Peacekeeper.def(),
-                &super::super::gdo::units::peacekeeper::PEACEKEEPER
+                crate::ruleset::rules().def(ObjectKind::Peacekeeper)
             ));
+            assert_eq!(
+                ObjectKind::Peacekeeper.def(),
+                &super::super::gdo::units::peacekeeper::PEACEKEEPER
+            );
         }
         assert!(std::ptr::eq(ObjectKind::Guard.def(), guard));
     }

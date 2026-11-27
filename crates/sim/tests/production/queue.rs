@@ -4,10 +4,12 @@
 use sc_sim::testing::{TestSim, dangling_references};
 use sc_sim::{
     ArmyResource, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ProductionCommand,
-    QUEUE_LIMIT, Rally, Refusal, Reject, Sim, SimEvent, Target, Tick, UNIT_CONTROL_CAP, Vec2,
+    Rally, Refusal, Reject, Sim, SimEvent, Target, Tick, Vec2,
 };
 
 use super::{BARRACKS, P1, P2, PK, at, base, production, tile};
+const QUEUE_LIMIT: usize = sc_sim::tuning::production::BUILTIN.queue_limit;
+const UNIT_CONTROL_CAP: u32 = sc_sim::FactionRules::BUILTIN.gdo.unit_control_cap;
 
 pub(super) fn train(objects: &[ObjectId]) -> Command {
     production(objects, ProductionCommand::Train(PK))
@@ -115,7 +117,7 @@ fn train_pays_cancel_refunds_and_the_queue_stops_at_twenty() {
         t.at(2, P1, train(&[BARRACKS]));
     }
     t.run(2);
-    assert_eq!(QUEUE_LIMIT, 20);
+    assert_eq!(QUEUE_LIMIT, 20, "the built-in limit");
     assert_eq!((queue(t.sim(), BARRACKS), bank(t.sim(), P1)), (20, 1000));
     assert_eq!(validate(t.sim(), P1, train(&[BARRACKS])), Err(Reject::QueueFull));
     assert_eq!(

@@ -10,7 +10,7 @@
 //!
 //! It also holds the exemptions the Gliders and the soft separation need from I3, I5 and I7 (`super::check_units`):
 //! a Glider moves, and has momentum, without a goal, and an air unit is pushed apart from another by at most
-//! [`SEPARATION_PUSH_SU`] a tick, beyond its own move ((M5-H2) its base's share of it,
+//! `Air::separation_push_su` a tick, beyond its own move ((M5-H2) its base's share of it,
 //! `UnitBaseDef::separation_strength`: a Glider's is (M5-N7) a third, design change 0412; a quarter from design change
 //! 0405).
 
@@ -23,8 +23,8 @@ use crate::defs::{Domain, MovementAttrs, UnitDef};
 use crate::ids::ObjectId;
 use crate::mover::{Locomotion, MoveGoal};
 use crate::object::Object;
+use crate::ruleset::rules;
 use crate::sim::Sim;
-use crate::tuning::air::SEPARATION_PUSH_SU;
 
 /// The rounding a speed may carry: a flight is its facing's unit vector times its speed (`movement::glider`).
 const SPEED_TOLERANCE: f32 = 1e-4;
@@ -89,7 +89,7 @@ pub(super) fn glides(o: &Object) -> bool {
 }
 
 /// If `o` is an air unit that keeps apart from others (`movement::air`): its SeparationRadius, and the most the soft
-/// separation pushes it in a tick, (M5-H2) its base's share of [`SEPARATION_PUSH_SU`]
+/// separation pushes it in a tick, (M5-H2) its base's share of `Air::separation_push_su`
 /// (`UnitBaseDef::separation_strength`), space units.
 fn separation(o: &Object) -> Option<(f32, f32)> {
     let unit = o.def().unit.as_ref()?;
@@ -97,7 +97,10 @@ fn separation(o: &Object) -> Option<(f32, f32)> {
     if base.domain != Domain::Air || o.mover.is_none() {
         return None;
     }
-    Some((unit.separation_radius?, SEPARATION_PUSH_SU * base.separation_strength?))
+    Some((
+        unit.separation_radius?,
+        rules().tuning.air.separation_push_su * base.separation_strength?,
+    ))
 }
 
 /// How far the soft separation may push `o` in a tick beyond its own move, space units: the most it pushes an air unit

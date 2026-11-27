@@ -4,7 +4,7 @@
 //! (0125; design change 0289 point 2).
 
 use super::*;
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::{PlacementProblem, TileProblem, WholeProblem};
 
 /// What a ghost shows whose only problem is its area's overlap with another Tunnel's (design change 0237).

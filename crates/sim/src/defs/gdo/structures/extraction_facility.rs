@@ -5,7 +5,7 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/gdo/economy.md > ExtractionFacility`.
-pub(crate) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
+pub(crate) const EXTRACTION_FACILITY: ObjectDef = ObjectDef {
     kind: ObjectKind::ExtractionFacility,
     name: "Extraction Facility",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization

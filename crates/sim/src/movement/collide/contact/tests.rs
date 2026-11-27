@@ -11,7 +11,7 @@ use crate::movement::collide::World;
 use crate::movement::follow::step_unit;
 use crate::movement::space::{Body, Layer};
 use crate::mover::{MoveGoal, MoveStatus, Mover, Side, StepAside};
-use crate::tuning::movement::AVOID_COMMIT_TICKS;
+const AVOID_COMMIT_TICKS: crate::units::Tick = crate::tuning::movement::BUILTIN.avoid_commit_ticks;
 use crate::units::Tick;
 
 /// An Agent's box and speed (`factions/syndicate/units/agent.md`): 36 su wide, 6 su a tick.

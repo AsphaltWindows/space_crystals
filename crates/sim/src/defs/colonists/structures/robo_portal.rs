@@ -6,7 +6,7 @@ use crate::player::Faction;
 use crate::sides::SideLetter;
 
 /// `factions/colonists/structures/robo_portal.md`: the Drones' producer.
-pub(crate) static ROBO_PORTAL: ObjectDef = ObjectDef {
+pub(crate) const ROBO_PORTAL: ObjectDef = ObjectDef {
     kind: ObjectKind::RoboPortal,
     name: "Robo Portal",
     faction: Some(Faction::Colonists),          // Faction - Colonists

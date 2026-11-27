@@ -4,7 +4,7 @@
 //! revealed attacker's shots at the player's own objects whole).
 
 use sc_sim::testing::ScenarioBuilder;
-use sc_sim::tuning::vision::REVEAL_TICKS;
+const REVEAL_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.reveal_ticks;
 use sc_sim::{GameSetup, OrderKind, Slot};
 use space_crystals::combat_effects::{CombatEffects, TRACER_TICKS, Tracer, shot_spans, visible_spans};
 

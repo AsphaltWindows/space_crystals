@@ -14,9 +14,9 @@
 //!   its way ([`ask_ahead`]). The group parts instead of being shoved along.
 //! - **(M4-S2) A pop-up turret that wants to rise** asks its owner's idle units over its footprint the same way
 //!   ([`make_way`], design change 0296 point 3).
-//! - **Dense idle groups**: a sidestep that another idle unit of the owner blocks passes the request on, the same
-//!   way, at most `YIELD_CHAIN_DEPTH` units deep. A unit that can't get out of the way stands, and the mover treats
-//!   it as an ordinary blocker (`docs/movement.md > 6.5`).
+//! - **Dense idle groups**: a sidestep that another idle unit of the owner blocks passes the request on, the same way,
+//!   at most `Movement::yield_chain_depth` units deep. A unit that can't get out of the way stands, and the mover
+//!   treats it as an ordinary blocker (`docs/movement.md > 6.5`).
 
 use std::collections::BTreeMap;
 
@@ -30,7 +30,7 @@ use crate::defs::MovementAttrs;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::{Locomotion, MoveGoal, Mover, Orientation, Side, Sidestep};
 use crate::object::Object;
-use crate::tuning::movement::{YIELD_CENTRED_SU, YIELD_CHAIN_DEPTH, YIELD_MIN_SIDESTEP_SU, YIELD_SIDESTEP_WIDTHS};
+use crate::ruleset::rules;
 
 /// A sidestep asked of a unit this tick.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -99,25 +99,26 @@ pub(super) fn yields_to(other: &Body, owner: Option<PlayerId>, group: Option<u32
     other.yields && owner.is_some() && other.owner == owner && !(group.is_some() && other.arrived_with == group)
 }
 
-/// The longest sidestep of a unit with half extents `half`: `YIELD_SIDESTEP_WIDTHS` of its silhouette.
+/// The longest sidestep of a unit with half extents `half`: `Movement::yield_sidestep_widths` of its silhouette.
 fn longest(half: Vec2) -> f32 {
-    (half.max_element() * 2.0 * YIELD_SIDESTEP_WIDTHS).max(YIELD_MIN_SIDESTEP_SU)
+    let tuning = &rules().tuning.movement;
+    (half.max_element() * 2.0 * tuning.yield_sidestep_widths).max(tuning.yield_min_sidestep_su)
 }
 
 /// `systems/units.md > Friendly yielding` (design change 0022): the unit of `world` wanted to move `d` from `pos`, and
 /// `moved` is what became of it. If a unit that yields to it was in its way, that unit is asked for a sidestep:
-/// - **Direction**: half across the mover's way and half along it, so the unit gets out of the lane and away from
-///   the mover at once. A sidestep straight across the way left a line of movers facing a group as wide as itself
-///   with nowhere to send it: each unit stepped into its neighbour's lane. Across the way it goes to the side of
-///   the mover's line it already stands on; in the middle of the way ([`YIELD_CENTRED_SU`]), to the side the mover
-///   isn't going round on (the side it stepped to this tick, else its `Mover::avoid_side`), so the two never chase
-///   each other.
+/// - **Direction**: half across the mover's way and half along it, so the unit gets out of the lane and away from the
+///   mover at once. A sidestep straight across the way left a line of movers facing a group as wide as itself with
+///   nowhere to send it: each unit stepped into its neighbour's lane. Across the way it goes to the side of the mover's
+///   line it already stands on; in the middle of the way (`Movement::yield_centred_su`), to the side the mover isn't
+///   going round on (the side it stepped to this tick, else its `Mover::avoid_side`), so the two never chase each
+///   other.
 /// - **(G) Straight across** instead, with no step along the way, when the mover only clips the unit (its line
 ///   passes beside the unit's box) or walks between the units of a group (`in_lanes`: `World::lane` gave it a
 ///   lane). Half the step along the way is what shoved an idle group ahead of a group walking through it, a few
 ///   widths at a time; a mover that aims between two units needs each a little to its side, and nothing more.
-/// - **Distance**: as far as takes its box out of the mover's lane, at most `YIELD_SIDESTEP_WIDTHS` of its own
-///   width. A mover still blocked when the sidestep is over asks again.
+/// - **Distance**: as far as takes its box out of the mover's lane, at most `Movement::yield_sidestep_widths` of its
+///   own width. A mover still blocked when the sidestep is over asks again.
 pub(super) fn ask(
     world: &World,
     pos: Vec2,
@@ -127,6 +128,7 @@ pub(super) fn ask(
     mover: &Mover,
     requests: &mut Vec<Request>,
 ) {
+    let tuning = &rules().tuning.movement;
     let Some(index) = moved.blocker else {
         return;
     };
@@ -140,7 +142,7 @@ pub(super) fn ask(
     // The mover's Right: clockwise on screen.
     let right = Vec2::new(-ahead.y, ahead.x);
     let offset = (other.pos - pos).dot(right);
-    let side = if offset.abs() > YIELD_CENTRED_SU {
+    let side = if offset.abs() > tuning.yield_centred_su {
         offset.signum()
     } else {
         let stepped = (moved.pos - pos).dot(right);
@@ -165,7 +167,7 @@ pub(super) fn ask(
     requests.push(Request {
         yielder: index,
         dir,
-        dist: dist.clamp(YIELD_MIN_SIDESTEP_SU, longest(other.half)),
+        dist: dist.clamp(tuning.yield_min_sidestep_su, longest(other.half)),
         depth: 0,
         for_group: mover.group,
     });
@@ -178,6 +180,7 @@ pub(super) fn ask(
 /// line, as far as its box reaches into the mover's lane. So the group parts, and nobody is shoved along. A unit
 /// exactly on the line is left to [`ask`], which knows the side the mover goes round on.
 pub(super) fn ask_ahead(world: &World, d: Vec2, shift: f32, mover: &Mover, requests: &mut Vec<Request>) {
+    let tuning = &rules().tuning.movement;
     let step = d.length();
     let Some(ahead) = d.try_normalize() else {
         return;
@@ -193,7 +196,7 @@ pub(super) fn ask_ahead(world: &World, d: Vec2, shift: f32, mover: &Mover, reque
         requests.push(Request {
             yielder: lane.index as usize,
             dir: right * offset.signum(),
-            dist: (reach - offset.abs()).clamp(YIELD_MIN_SIDESTEP_SU, longest(other.half)),
+            dist: (reach - offset.abs()).clamp(tuning.yield_min_sidestep_su, longest(other.half)),
             depth: 0,
             for_group: mover.group,
         });
@@ -222,6 +225,7 @@ pub(super) fn make_way(
     bodies: &[Body],
     requests: &mut Vec<Request>,
 ) {
+    let tuning = &rules().tuning.movement;
     // A unit listed in several of the footprint's cells is asked more than once: the first request wins ([`apply`]).
     ground.near(centre - half, centre + half, |index| {
         let other = &bodies[index as usize];
@@ -237,7 +241,7 @@ pub(super) fn make_way(
         requests.push(Request {
             yielder: index as usize,
             dir,
-            dist: overlap[axis].max(YIELD_MIN_SIDESTEP_SU),
+            dist: overlap[axis].max(tuning.yield_min_sidestep_su),
             depth: 0,
             for_group: None,
         });
@@ -248,8 +252,8 @@ pub(super) fn make_way(
 /// sidestep's direction, the whole step if it is free, else each axis as far as tiles and units allow. Its facing stays
 /// ((M5-V2, M5-V3) a base that can't step sideways doesn't yield, [`can_yield`]: a WheeledVehicle's and a
 /// TrackedVehicle's, design change 0440). An idle unit of its owner in its way is asked on, the same way
-/// ([`YIELD_CHAIN_DEPTH`]). The sidestep ends when its distance is done or its time is up; the unit stays where it got
-/// to, with no way back (design change 0022: one short sidestep).
+/// (`Movement::yield_chain_depth`). The sidestep ends when its distance is done or its time is up; the unit stays where
+/// it got to, with no way back (design change 0022: one short sidestep).
 pub(super) fn sidestep(
     pos: &mut Vec2,
     mover: &mut Mover,
@@ -258,6 +262,7 @@ pub(super) fn sidestep(
     touched: &mut Vec<usize>,
     requests: &mut Vec<Request>,
 ) {
+    let tuning = &rules().tuning.movement;
     let Some(mut step) = mover.sidestep else {
         return;
     };
@@ -268,7 +273,7 @@ pub(super) fn sidestep(
     *pos = at;
     step.left -= went.dot(step.dir);
     step.ticks_left = step.ticks_left.saturating_sub(1);
-    if went != d && step.depth < YIELD_CHAIN_DEPTH {
+    if went != d && step.depth < tuning.yield_chain_depth {
         let owner = world.body().owner;
         for &index in touched.iter() {
             let other = &world.bodies[index];
@@ -276,7 +281,7 @@ pub(super) fn sidestep(
                 requests.push(Request {
                     yielder: index,
                     dir: step.dir,
-                    dist: step.left.clamp(YIELD_MIN_SIDESTEP_SU, longest(other.half)),
+                    dist: step.left.clamp(tuning.yield_min_sidestep_su, longest(other.half)),
                     depth: step.depth + 1,
                     for_group: step.for_group,
                 });

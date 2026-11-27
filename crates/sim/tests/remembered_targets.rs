@@ -10,7 +10,7 @@
 //! Every `TestSim` checks the invariants I1–I7 and V1 after each tick.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::{
     Command, DebugCommand, MoveGoal, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId,
     ProductionCommand, Reject, SimEvent, SpawnAt, Target, TargetView, Tick, TilePos, Vec2,
@@ -167,7 +167,7 @@ fn peacekeepers_walk_to_a_remembered_building_and_attack_it_if_it_stands() {
         "the Move completes by the Generator"
     );
     let gap = sc_sim::Shape::of(mover).gap(&sc_sim::Shape::of(unit(&t, GENERATOR.0)));
-    assert!(gap <= sc_sim::tuning::orders::PROXIMITY_SU, "{gap}");
+    assert!(gap <= sc_sim::tuning::orders::BUILTIN.proximity_su, "{gap}");
 }
 
 /// Design change 0139, "Nothing about the real state leaks", and its Verification: "Right-click a remembered enemy

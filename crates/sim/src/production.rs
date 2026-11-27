@@ -4,7 +4,7 @@
 //! rally point gives.
 //!
 //! - **State** ([`Production`], `Object::production`): the BuildQueue, whose head is CurrentBuild (design change
-//!   0081: the limit of [`QUEUE_LIMIT`] includes it), CurrentBuildProgress in the economy's fixed point
+//!   0081: the limit of `Production::queue_limit` includes it), CurrentBuildProgress in the economy's fixed point
 //!   (`economy::RATIO_ONE` a frame at full power, plan decision T6) and the RallyPoint ([`Rally`], `rally.rs`), which
 //!   an unfinished building of a type that has one keeps alone until it completes ([`takes_rally`], design change
 //!   0396).
@@ -34,7 +34,7 @@
 //!   `factions/cults/structures/README.md > Cults Vehicles`), or one for a Release ([`QueueEntry::Release`], design
 //!   change 0337) or an Altar's augmentation order ([`QueueEntry::Augment`], slice M5-N1b). Its queue is bounded by its
 //!   capacity alone, the reserved units being inside (design change 0347 point 5: "Queues are limited by capacity, not
-//!   by a separate 20"), so [`QUEUE_LIMIT`] isn't its.
+//!   by a separate 20"), so `Production::queue_limit` isn't its.
 //! - **The step** (`Sim::step_production`, in the economy phase): a unit at 0% starts if there is room for it, or
 //!   waits (0143); then the unit in production advances by its owner's power ratio (design change 0089). When it is
 //!   complete it is released into the building's doorway (`exit.rs`): half inside the middle of an exit side
@@ -54,7 +54,7 @@ use crate::economy::{ArmyResource, RATIO_ONE};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::orders::Target;
-use crate::tuning::production::QUEUE_LIMIT;
+use crate::ruleset::rules;
 use crate::units::Tick;
 
 pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor, Runway};
@@ -114,7 +114,7 @@ pub enum ProductionCommand {
 /// when queuing"); a unit without room waits at the front of its queue instead ([`Production::blocked`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Refusal {
-    /// Its BuildQueue holds [`QUEUE_LIMIT`] units.
+    /// Its BuildQueue holds `Production::queue_limit` units.
     QueueFull,
     /// The player's Space Crystals don't cover the unit, after what the producers before it took.
     Crystals,
@@ -126,8 +126,8 @@ pub enum Refusal {
 /// `factions/gdo/structures/barracks.md > BarracksInstanceState`: a producing structure's state.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Production {
-    /// BuildQueue, at most [`QUEUE_LIMIT`] long (a pool producer's TrainingQueue, by its capacity: module docs). Its
-    /// first entry is CurrentBuild, the unit in production.
+    /// BuildQueue, at most `Production::queue_limit` long (a pool producer's TrainingQueue, by its capacity: module
+    /// docs). Its first entry is CurrentBuild, the unit in production.
     pub queue: Vec<QueueEntry>,
     /// CurrentBuildProgress of the first entry, in [`RATIO_ONE`]s: a frame at full power adds one `RATIO_ONE`, a
     /// frame at negative power the power ratio. A Recruitment Hall's in tiles: a frame adds the tiles it claims (plan
@@ -223,7 +223,7 @@ impl Production {
 
     /// Whether the BuildQueue is full (design change 0081: 20 with the unit in production).
     pub fn is_full(&self) -> bool {
-        self.queue.len() >= QUEUE_LIMIT
+        self.queue.len() >= rules().tuning.production.queue_limit
     }
 
     /// The unit in production (design change 0143): the one at the front once the building has begun progress on it,

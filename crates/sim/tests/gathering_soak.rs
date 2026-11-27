@@ -35,15 +35,15 @@
 //!   428 before 0205, 357 before slice M3-H3 and 578 in an earlier build of M3-H2: the figure swings with any change to
 //!   the movement or the rules. It is no jam: every Drone moves, and the income is steady.
 //! - **The waiting Drones' re-check costs income** (design change 0132, `factions/colonists/units/drone.md > Waiting
-//!   and re-checking`: every 16 frames, `tuning::gathering::RECHECK_TICKS`, a waiting Drone goes to a patch that has
-//!   freed up nearby): the patch it leaves for is usually one whose own Drones are on their way back to it, so it
-//!   chases a patch it often loses, and leaves its own without a Drone waiting. Against the curve before slice M3-H3
+//!   and re-checking`: every 16 frames, `tuning::gathering::Gathering::recheck_ticks`, a waiting Drone goes to a patch
+//!   that has freed up nearby): the patch it leaves for is usually one whose own Drones are on their way back to it, so
+//!   it chases a patch it often loses, and leaves its own without a Drone waiting. Against the curve before slice M3-H3
 //!   (14.7, 17.9, 20.7, 25.6, 26.5 and 27.3 with 10, 12, 14, 20, 22 and 24 Drones; the worst gaps 130, 305, 348 and 357
 //!   with 12, 20, 22 and 24) that is up to 0.6 per second below 16 Drones and 1.0 to 1.3 with 20 to 24 (none with 16,
 //!   0.2 with 18), and up to 110 ticks more of the worst gap. Slice M3-H3 measured it with the re-check switched off:
 //!   the curve was the one before within 0.3 per second, so the re-check alone takes it (return to the last mined patch
 //!   and id order don't). With each Drone re-checking on its own count rather than all in the same ticks it took
-//!   another 0.5 with 20 and 24 Drones (`tuning::gathering::RECHECK_TICKS`).
+//!   another 0.5 with 20 and 24 Drones (`tuning::gathering::Gathering::recheck_ticks`).
 //!
 //! ```sh
 //! cargo test -p sc_sim --release --test sim gathering_soak::saturation_curve -- --ignored --nocapture --test-threads=1

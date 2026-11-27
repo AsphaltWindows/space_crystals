@@ -15,7 +15,7 @@ fn seen(t: &TestSim, player: PlayerId, n: u32) -> (bool, bool) {
 /// Player 2's Chop Shop sees 4 grid units, and the Hand of Heaven fires at it from 10, with player 1's Recruit for a
 /// spotter: player 2 doesn't see the Hand of Heaven as it aims, nor as the missile leaves, nor while it flies; the
 /// missile lands in tick `launch + 96`, and from that tick on player 2 sees the Hand of Heaven, revealed (for 1.5 s,
-/// `tuning::vision::REVEAL_TICKS`).
+/// `tuning::vision::Vision::reveal_ticks`).
 #[test]
 fn fired_from_beyond_the_target_s_owner_s_sight_it_is_revealed_when_the_missile_lands() {
     let mut t = shooting_range();

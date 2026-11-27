@@ -4,7 +4,8 @@
 //! This test scans the sim's and the client's code for the reads past them, outside the definitions (`defs/`), the
 //! accessors (`augmentation/`) and the tests:
 //! - `.max_hp()`: `Object::max_hp`, the MaxHP before the Augmentations (and `LastKnown::max_hp`, a record's);
-//! - `.movement` that isn't a call: a `UnitDef`'s movement numbers, before them;
+//! - `.movement` that isn't a call: a `UnitDef`'s movement numbers, before them (not the ruleset's movement tunables,
+//!   `rules().tuning.movement`, slice M5-X1);
 //! - `weapon_of(`: a kind's weapon (`combat::weapon_of`), before them.
 //!
 //! Each read the list below doesn't allow, with the reason it isn't a unit's augmented stat, fails it: a new read goes
@@ -100,12 +101,14 @@ fn skipped(path: &str) -> bool {
         || matches!(name, "tests.rs" | "testing.rs")
 }
 
-/// How many times `pattern` occurs in `code`: for [`MOVEMENT`], only as a whole name that isn't called.
+/// How many times `pattern` occurs in `code`: for [`MOVEMENT`], only as a whole name that isn't called, nor the
+/// ruleset's movement tunables (`tuning.movement`).
 fn count(code: &str, pattern: &str) -> usize {
     let after = |i: usize| code[i + pattern.len()..].chars().next();
     let whole = |i: usize| !after(i).is_some_and(|c| c.is_alphanumeric() || c == '_' || c == '(');
+    let tunables = |i: usize| code[..i].ends_with("tuning");
     code.match_indices(pattern)
-        .filter(|&(i, _)| pattern != MOVEMENT || whole(i))
+        .filter(|&(i, _)| pattern != MOVEMENT || (whole(i) && !tunables(i)))
         .count()
 }
 
@@ -169,6 +172,7 @@ fn the_scan_counts_reads_not_calls() {
     assert_eq!(count("(&unit.movement, x)", MOVEMENT), 1);
     assert_eq!(count("o.movement(research)", MOVEMENT), 0);
     assert_eq!(count("o.movement_of(x)", MOVEMENT), 0);
+    assert_eq!(count("rules().tuning.movement.lean", MOVEMENT), 0);
     assert_eq!(count("a.max_hp() + b.max_hp()", MAX_HP), 2);
     assert_eq!(count("o.max_hp_with(research)", MAX_HP), 0);
     assert!(skipped("crates/sim/src/defs/cults/units/recruit.rs") && skipped("crates/sim/src/orders/tests.rs"));

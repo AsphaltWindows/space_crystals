@@ -21,7 +21,7 @@ pub struct Pursuit {
 }
 
 /// A target a unit gave up on, and the tick until which it doesn't pick it again
-/// (`tuning::orders::GIVE_UP_RETRY_TICKS`).
+/// (`tuning::orders::Orders::give_up_retry_ticks`).
 pub type Ignored = Option<(ObjectId, Tick)>;
 
 /// `> BaseAutoTargeting > Active during Idle`: what a unit without an order is doing.
@@ -149,9 +149,9 @@ pub struct Judged {
     /// `nav_version` for a unit without an owner).
     pub knowledge: u32,
     /// Design change 0243 (answering question Q0074): where the unit stood when it judged, for a rejection its own
-    /// movement re-checks: one by the reach rule, the leash included (`tuning::orders::REJUDGE_SELF_SU`). `None` for
-    /// the judgement a chase goes by, and for the rejection of a chase given up by the Failure rule (design change
-    /// 0235) or lost to the fog, which "keep 0230's triggers".
+    /// movement re-checks: one by the reach rule, the leash included (`tuning::orders::Orders::rejudge_self_su`).
+    /// `None` for the judgement a chase goes by, and for the rejection of a chase given up by the Failure rule (design
+    /// change 0235) or lost to the fog, which "keep 0230's triggers".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<Vec2>,
 }
@@ -179,8 +179,8 @@ pub enum GatherPhase {
     /// At an occupied patch with no other patch free, or as close as it got to a patch it can't reach, since tick
     /// `since` (`factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch)`: it "waits right at the
     /// patch it tried to mine, within MiningReach, and mines it as soon as it frees up", design change 0132; "it waits
-    /// as close as it can get", 0141). It looks again every `tuning::gathering::RECHECK_TICKS`, in the ticks that are
-    /// multiples of it.
+    /// as close as it can get", 0141). It looks again every `tuning::gathering::Gathering::recheck_ticks`, in the ticks
+    /// that are multiples of it.
     Waiting { since: Tick },
     /// Mining the order's patch, which it occupies: `done` of MiningDuration frames
     /// (`economy::gathering::step` counts them and takes the load).
@@ -209,7 +209,7 @@ pub struct Gather {
     /// The unit's current move is this phase's leg, so the mover's status is the leg's outcome.
     pub moving: bool,
     /// The leg to the drop-off ended short of it: the next one begins no sooner than this tick
-    /// (`tuning::gathering::LEG_RETRY_TICKS`). 0 while no leg has.
+    /// (`tuning::gathering::Gathering::leg_retry_ticks`). 0 while no leg has.
     pub retry_at: Tick,
     /// Where the order's patch is, its centre, while the worker can't go by the patch itself: out of its owner's sight,
     /// where the owner remembers it (design change 0139), and once it has left the game, where it was (design change

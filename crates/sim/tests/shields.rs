@@ -4,7 +4,7 @@
 //! `combat/damage.rs`'s unit tests. `TestSim` checks the movement invariants after every tick.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::shields::SHIELD_REGEN_PER_TICK;
+const SHIELD_REGEN_PER_TICK: f32 = sc_sim::tuning::shields::BUILTIN.shield_regen_per_tick;
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, DebugCommand, Faction, Object, ObjectId, ObjectKind, OrderKind,
     PlayerCommand, PlayerId, Sim, SimEvent, SpawnAt, Tick, TickInputs, TilePos, Vec2,

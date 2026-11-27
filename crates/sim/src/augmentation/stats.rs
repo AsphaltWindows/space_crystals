@@ -1,22 +1,24 @@
 //! What a unit's Augmentations do to its stats (slice M5-N1a, plan decision T73; `factions/cults/augmentation.md >
-//! Increments`, `> Augmentation Effects`), read through the accessors here: MaxHP ([`Object::max_hp_with`]), top
-//! speed ([`Object::movement`], [`Object::max_speed`]) and the weapon ([`augmented`], which `combat::weapon` applies).
-//! The numbers are data (`defs::AUGMENTATION`); a unit's net increments are derived from them and its owner's levels
-//! whenever a stat is read, never stored ([`Increments`]). A unit without an Augmentation reads its kind's stats
+//! Increments`, `> Augmentation Effects`), read through the accessors here: MaxHP ([`Object::max_hp_with`]), top speed
+//! ([`Object::movement`], [`Object::max_speed`]) and the weapon ([`augmented`], which `combat::weapon` applies). The
+//! numbers are data (`defs::CultsRules::augmentation`); a unit's net increments are derived from them and its owner's
+//! levels whenever a stat is read, never stored ([`Increments`]). A unit without an Augmentation reads its kind's stats
 //! unchanged, at the cost of one branch. (M5-N11) The same accessors add an Inspire's top speed and faster attack, the
 //! one buff that changes a stat (`crate::buffs::max_speed_bonus`, `crate::buffs::inspired`): a unit without an
 //! Augmentation nor a buff reads its kind's.
 
 use super::{Augmentation, Levels, Research};
 use crate::buffs;
-use crate::defs::{AUGMENTATION, AttackAttrs, Augmentable, MovementAttrs, ObjectKind};
+use crate::defs::{AttackAttrs, Augmentable, MovementAttrs, ObjectKind};
 use crate::object::Object;
+use crate::ruleset::rules;
 use crate::transform;
 
 /// A unit's net increments of each kind (`factions/cults/augmentation.md > Increments`): Constitution and Metabolism,
 /// either of which can be negative ("Increments can be negative. A negative increment applies the opposite effect").
 /// Also a row of the effects table (`defs::AugmentationTable`).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Increments {
     pub constitution: i32,
     pub metabolism: i32,
@@ -39,7 +41,7 @@ impl Augmentation {
     /// row at its own line's level, and "A unit with both sums their effects" (both at no research: "+1 Constitution /
     /// +1 Metabolism").
     pub fn increments(self, levels: Levels) -> Increments {
-        let table = &AUGMENTATION;
+        let table = &rules().factions.cults.augmentation;
         let rows = [
             (
                 self.constitution,
@@ -154,7 +156,7 @@ fn augmented_increments(o: &Object, research: Research) -> Increments {
 pub(crate) fn max_hp_of(max: f32, increments: Increments) -> f32 {
     match increments.constitution {
         0 => max,
-        constitution => max + constitution as f32 * AUGMENTATION.increments.max_hp,
+        constitution => max + constitution as f32 * rules().factions.cults.augmentation.increments.max_hp,
     }
 }
 
@@ -165,7 +167,10 @@ pub(crate) fn max_hp_of(max: f32, increments: Increments) -> f32 {
 pub(crate) fn movement_of(movement: MovementAttrs, increments: Increments) -> MovementAttrs {
     match increments.metabolism {
         0 => movement,
-        metabolism => faster(movement, metabolism as f32 * AUGMENTATION.increments.max_speed),
+        metabolism => faster(
+            movement,
+            metabolism as f32 * rules().factions.cults.augmentation.increments.max_speed,
+        ),
     }
 }
 
@@ -216,7 +221,7 @@ pub(super) fn unarmed_weapon(attrs: &AttackAttrs, increments: Increments) -> Att
         constitution,
         metabolism,
     } = increments;
-    let effects = AUGMENTATION.increments;
+    let effects = rules().factions.cults.augmentation.increments;
     let firing = i64::from(attrs.firing_ticks) - i64::from(metabolism) * i64::from(effects.firing_ticks);
     AttackAttrs {
         damage: attrs.damage + constitution as f32 * effects.melee_damage,

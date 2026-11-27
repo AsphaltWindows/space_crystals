@@ -7,7 +7,7 @@ use super::*;
 use crate::economy::RATIO_ONE;
 use crate::ids::ObjectId;
 use crate::progress::Progress;
-use crate::tuning::construction::MIN_HP_AFTER_CANCEL;
+const MIN_HP_AFTER_CANCEL: f32 = crate::tuning::construction::BUILTIN.min_hp_after_cancel;
 use crate::units::TilePos;
 
 use ObjectKind::{Beacon, BioPortal, EgressNode, RoboPortal};

@@ -15,8 +15,8 @@
 //!   the negative way (west, north) and the other the positive: no randomness, and two idle units part.
 //!   If nothing lets it move that way (a wall, a unit it doesn't overlap), it tries the other axis, then the
 //!   two ways back through the unit.
-//! - **How far**: [`SEPARATE_SPEED_SU`] a tick, at most its own speed, and no farther than to where the two boxes
-//!   touch: minimal, just until clear. It is a plain step for every movement model, like a yielding unit's
+//! - **How far**: `Movement::separate_speed_su` a tick, at most its own speed, and no farther than to where the two
+//!   boxes touch: minimal, just until clear. It is a plain step for every movement model, like a yielding unit's
 //!   sidestep: a unit with momentum takes it without any, so it neither overshoots nor swings back.
 //! - **Collision stays hard**: the step goes through `World::shuffle` like any other, so it never enters a unit
 //!   the mover doesn't already overlap, nor a blocked tile. A unit shut in on every side stays where it is.
@@ -30,11 +30,12 @@ use glam::Vec2;
 use super::collide::World;
 use super::space::{overlaps, resting};
 use crate::mover::{Locomotion, Mover, Orientation};
-use crate::tuning::movement::SEPARATE_SPEED_SU;
+use crate::ruleset::rules;
 
 /// One tick of an idle unit at rest (module docs): if its box overlaps another unit's, it takes a step off it.
 /// Returns whether it overlapped one, moved or not. `speed` is its own, space units per tick.
 pub(super) fn step(pos: &mut Vec2, mover: &mut Mover, speed: f32, world: &mut World, touched: &mut Vec<usize>) -> bool {
+    let tuning = &rules().tuning.movement;
     let (Some(layer), me) = (world.layer, *world.body()) else {
         return false;
     };
@@ -60,7 +61,7 @@ pub(super) fn step(pos: &mut Vec2, mover: &mut Mover, speed: f32, world: &mut Wo
         }
     };
     let near = usize::from(overlap.y < overlap.x);
-    let step = speed.min(SEPARATE_SPEED_SU);
+    let step = speed.min(tuning.separate_speed_su);
     let from = *pos;
     for (axis, positive) in [
         (near, away(near)),

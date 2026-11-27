@@ -41,7 +41,8 @@ const ROW: i32 = 8;
 const FIELD_Y: i32 = 18;
 /// Each player's Legionnaires, half Sabres and half Rifles.
 const LEGIONNAIRES: usize = 10;
-/// A waiting Drone looks round again in the ticks that are multiples of 16 (`tuning::gathering::RECHECK_TICKS`).
+/// A waiting Drone looks round again in the ticks that are multiples of 16
+/// (`tuning::gathering::Gathering::recheck_ticks`).
 const RECHECK_TICKS: Tick = 16;
 /// The game is timed to 3 minutes.
 const TICKS: Tick = 3 * 60 * 16;

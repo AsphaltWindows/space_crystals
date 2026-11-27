@@ -201,7 +201,7 @@ fn the_lock_breaks_when_its_owner_loses_sight_of_the_target() {
         assert!(was_seen, "held unseen");
         assert!(t.sim().tick() < blinded + 30, "the lock never broke");
     }
-    assert!(t.sim().tick() > blinded + crate::tuning::vision::FOG_DELAY_TICKS);
+    assert!(t.sim().tick() > blinded + crate::tuning::vision::BUILTIN.fog_delay_ticks);
     assert_eq!(t.pos(2), AT + Vec2::new(east, 0.0), "where it stood, within LockRange");
     t.step();
     assert_eq!(current(&t), None);

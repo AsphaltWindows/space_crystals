@@ -2,6 +2,10 @@
 //! list applied.
 
 use super::*;
+const DIRECTIONAL_FRONT: f32 = crate::tuning::combat::BUILTIN.directional_front;
+const DIRECTIONAL_REAR: f32 = crate::tuning::combat::BUILTIN.directional_rear;
+const DIRECTIONAL_SIDE: f32 = crate::tuning::combat::BUILTIN.directional_side;
+const MINIMUM_DAMAGE: f32 = crate::tuning::combat::BUILTIN.minimum_damage;
 
 #[test]
 fn single_target_damage_follows_the_modifier_order() {

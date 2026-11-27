@@ -14,7 +14,7 @@ use crate::player::Faction;
 /// (`movement::air`), and fires from its turret (slice M5-U1). (M5-N7) The Airstrip trains it of a Recruit, and it
 /// takes off along the runway (`production::Runway`: "On completion it **takes off from the Airstrip** and **never
 /// lands** again"). Its numbers are the design's "Placeholder stats".
-pub(crate) static SPARROW: ObjectDef = ObjectDef {
+pub(crate) const SPARROW: ObjectDef = ObjectDef {
     kind: ObjectKind::Sparrow,
     name: "Sparrow",
     faction: Some(Faction::Cults),                         // Faction - TheCults

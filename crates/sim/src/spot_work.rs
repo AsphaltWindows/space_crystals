@@ -14,19 +14,20 @@
 //!   stored apart. The spots' step (`Sim::step_spots`) gives each unit without one, those nearest the footprint first,
 //!   the first free spot of 0339's search (`placement::Wall`): "each Recruit walks to the **part of the footprint
 //!   closest to it**; if that part is taken (blocked), it **wall-hugs** along the footprint until it reaches a part
-//!   where it can work". The search runs along the builders' wall, `tuning::construction::BUILD_STANDOFF_SU` off the
-//!   footprint, so that builders stand a little off it and off each other; once that wall is full, along a wall
-//!   further out, where a unit waits and doesn't count (0339: "Recruits still walking, waiting for a spot or doing
-//!   anything else add nothing"), the row next to the builders left free as the way round them. A unit walks round the
-//!   footprint to its spot, never over it. Every `tuning::construction::RESPOT_TICKS`, a unit whose walk is over within
-//!   reach takes the place where it stands as its spot, and one whose walk is over out of reach looks again along the
-//!   builders' wall and walks to the free spot it finds.
+//!   where it can work". The search runs along the builders' wall,
+//!   `tuning::construction::Construction::build_standoff_su` off the footprint, so that builders stand a little off it
+//!   and off each other; once that wall is full, along a wall further out, where a unit waits and doesn't count (0339:
+//!   "Recruits still walking, waiting for a spot or doing anything else add nothing"), the row next to the builders
+//!   left free as the way round them. A unit walks round the footprint to its spot, never over it. Every
+//!   `tuning::construction::Construction::respot_ticks`, a unit whose walk is over within reach takes the place where
+//!   it stands as its spot, and one whose walk is over out of reach looks again along the builders' wall and walks to
+//!   the free spot it finds.
 //! - **The count of those at work** ([`counts`], [`at_work`]): the units whose current order works at a target,
-//!   standing within `tuning::construction::BUILD_REACH_SU` of its edge with their walk over (0339: "a building needs a
-//!   fixed number of **Recruit-frames** (BaseConstructionTime with 1 Recruit). Every frame, each Recruit that is
-//!   building during that frame adds 1. Recruits still walking, waiting for a spot or doing anything else add
-//!   nothing"), derived in each tick, so that n of them give exactly n times one's rate. A site built from outside
-//!   gains a frame for each (`sim/sites.rs`), and a repaired object its share of HP for each repairer
+//!   standing within `tuning::construction::Construction::build_reach_su` of its edge with their walk over (0339: "a
+//!   building needs a fixed number of **Recruit-frames** (BaseConstructionTime with 1 Recruit). Every frame, each
+//!   Recruit that is building during that frame adds 1. Recruits still walking, waiting for a spot or doing anything
+//!   else add nothing"), derived in each tick, so that n of them give exactly n times one's rate. A site built from
+//!   outside gains a frame for each (`sim/sites.rs`), and a repaired object its share of HP for each repairer
 //!   (`sim/repairs.rs`). The edge is a footprint's, or a unit's Silhouette for a vehicle's repairers, which work at no
 //!   spot but follow the vehicle (`orders::repair`).
 //!
@@ -48,8 +49,8 @@ use crate::orders::OrderKind;
 use crate::orders::build::build_site;
 use crate::orders::state::{Behaviour, RepairWork};
 use crate::repair;
+use crate::ruleset::rules;
 use crate::shape::Shape;
-use crate::tuning::construction::BUILD_REACH_SU;
 
 /// What a unit works at from a spot beside it (module docs).
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -116,9 +117,9 @@ pub fn suits(order: OrderKind, unit: &Object, target: &Object, research: Researc
 }
 
 /// Whether a unit whose shape is `shape` is within reach of the footprint `at` (module docs): within
-/// `tuning::construction::BUILD_REACH_SU` of its edge, edge to edge (`crate::shape`).
+/// `tuning::construction::Construction::build_reach_su` of its edge, edge to edge (`crate::shape`).
 pub fn within_reach(shape: &Shape, at: &Placement) -> bool {
-    shape.gap(&Shape::footprint(at)) <= BUILD_REACH_SU
+    shape.gap(&Shape::footprint(at)) <= rules().tuning.construction.build_reach_su
 }
 
 /// A spot a unit claims beside a footprint it works at (module docs).
@@ -129,8 +130,8 @@ pub struct Claim {
     /// The footprint it works at.
     pub at: Placement,
     pub spot: Vec2,
-    /// Half the room it keeps clear at the spot along each axis: its box, and `tuning::construction::BUILD_STANDOFF_SU`
-    /// round it.
+    /// Half the room it keeps clear at the spot along each axis: its box, and
+    /// `tuning::construction::Construction::build_standoff_su` round it.
     pub room: Vec2,
 }
 
@@ -161,7 +162,7 @@ pub fn at_work(
     let target = target_of(order)?;
     let t = objects.get(&target).filter(|t| suits(order, o, t, research))?;
     let walking = o.mover.as_ref().is_some_and(|mover| mover.status == MoveStatus::Moving);
-    (!walking && Shape::of(o).gap(&Shape::of(t)) <= BUILD_REACH_SU).then_some(target)
+    (!walking && Shape::of(o).gap(&Shape::of(t)) <= rules().tuning.construction.build_reach_su).then_some(target)
 }
 
 /// The count of those at work (module docs): for each target, the units of `objects` at work on it by `target_of`

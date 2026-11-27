@@ -19,11 +19,11 @@
 //!   T39; [`rules`]).
 //! - **Side A's two paths** ([`Paths`], design changes 0225 and 0248): "the exit path is the half of Side A nearer the
 //!   crystal hatch (Side B), the entry path the half nearer the Supplies hatch (Side D). Both turn and flip with the
-//!   Tunnel." Each has one fixed spot on the side's line, [`PATH_OFFSET_SU`] from its middle, where the client draws
-//!   the path (`object_render::tunnel`).
+//!   Tunnel." Each has one fixed spot on the side's line, `Tunnel::path_offset_su` from its middle, where the client
+//!   draws the path (`object_render::tunnel`).
 //! - **Which Tunnels** ([`admits`]): one whose tier's Transit lists the unit's base, at "the tier it had before the
 //!   upgrade began" while it upgrades (0249; `TunnelState::tier` is that tier until an upgrade completes, slice
-//!   M4-G). **No air unit passes in M4** ([`AIR_DOORS`]).
+//!   M4-G). **No air unit passes in M4** (`Tunnel::air_doors`).
 //!
 //! The steps that take units in and let them out are the sim's (`sim/network.rs`); the walk to the entry path is the
 //! Enter order's (`orders::enter`).
@@ -37,13 +37,8 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::object::{Object, Placement};
 use crate::sides::{DIRECTIONS, SideLetter, sides};
-use crate::tuning::tunnel::{AIR_DOORS, ENTRY_REACH_SU, WALK_OUT_SU};
 use crate::units::{SU_PER_GU, Tick};
 use crate::{regeneration, tunnel};
-
-/// A tunable of `tuning::tunnel`, re-exported here for the client, which draws the paths by it
-/// (`object_render::tunnel`).
-pub use crate::tuning::tunnel::PATH_OFFSET_SU;
 
 /// The Tunnel Network's rules (module docs), the Tunnel type's def: its transit delay and its regeneration
 /// (`factions/syndicate/tunnels.md > Tunnel Network > Transit delay`, `factions/syndicate/tunnels.md > Regeneration
@@ -131,9 +126,9 @@ impl Held {
 pub struct Paths {
     /// The unit vector out of Side A.
     pub outward: Vec2,
-    /// The entry path's spot: on Side A's line, [`PATH_OFFSET_SU`] from its middle towards Side D.
+    /// The entry path's spot: on Side A's line, `Tunnel::path_offset_su` from its middle towards Side D.
     pub entry: Vec2,
-    /// The exit path's spot: on Side A's line, [`PATH_OFFSET_SU`] from its middle towards Side B.
+    /// The exit path's spot: on Side A's line, `Tunnel::path_offset_su` from its middle towards Side B.
     pub exit: Vec2,
 }
 
@@ -150,10 +145,11 @@ impl Paths {
         let (outward, towards_b, towards_d) = (facing(SideLetter::A)?, facing(SideLetter::B)?, facing(SideLetter::D)?);
         let half = Vec2::new(placement.w as f32, placement.h as f32) * (SU_PER_GU / 2.0);
         let middle = placement.center() + outward * outward.abs().dot(half);
+        let offset = crate::ruleset::rules().tuning.tunnel.path_offset_su;
         Some(Paths {
             outward,
-            entry: middle + towards_d * PATH_OFFSET_SU,
-            exit: middle + towards_b * PATH_OFFSET_SU,
+            entry: middle + towards_d * offset,
+            exit: middle + towards_b * offset,
         })
     }
 
@@ -192,9 +188,9 @@ impl Paths {
         self.entry_path().reached(pos, half)
     }
 
-    /// Where a unit that appeared at `stand` with no order walks to: [`WALK_OUT_SU`] "straight out of Side A".
+    /// Where a unit that appeared at `stand` with no order walks to: `Tunnel::walk_out_su` "straight out of Side A".
     pub fn walk_out(&self, stand: Vec2) -> Vec2 {
-        stand + self.outward * WALK_OUT_SU
+        stand + self.outward * crate::ruleset::rules().tuning.tunnel.walk_out_su
     }
 }
 
@@ -211,7 +207,7 @@ pub struct EntryPath {
     /// The spot, on the side's line.
     pub spot: Vec2,
     /// How far clear of the wall an entering unit's walk ends ([`EntryPath::stand`]), space units: none for a
-    /// Tunnel's, whose units walk up against it (M4-C); `holding::ENTRY_STANDOFF_SU` for a building that holds units.
+    /// Tunnel's, whose units walk up against it (M4-C); `Holding::entry_standoff_su` for a building that holds units.
     pub standoff: f32,
 }
 
@@ -231,11 +227,11 @@ impl EntryPath {
         self.spot + self.outward * (self.outward.abs().dot(half) + WALL_CLEARANCE + self.standoff)
     }
 
-    /// Whether a unit with half extents `half` at `pos` has walked into the path: its box is within [`ENTRY_REACH_SU`]
-    /// of the spot.
+    /// Whether a unit with half extents `half` at `pos` has walked into the path: its box is within
+    /// `Tunnel::entry_reach_su` of the spot.
     pub fn reached(&self, pos: Vec2, half: Vec2) -> bool {
         let apart = (pos - self.spot).abs() - half;
-        apart.max(Vec2::ZERO).length() <= ENTRY_REACH_SU
+        apart.max(Vec2::ZERO).length() <= crate::ruleset::rules().tuning.tunnel.entry_reach_su
     }
 }
 
@@ -249,7 +245,7 @@ pub enum NoTransit {
     NotAUnit,
     /// Its tier's Transit doesn't list the unit's base (`factions/syndicate/tunnels.md > Transit Tier Requirements`).
     Tier,
-    /// An air unit: no air doors in M4 ([`AIR_DOORS`]).
+    /// An air unit: no air doors in M4 (`Tunnel::air_doors`).
     Air,
     /// (M5-F1) A building that holds units, whose type doesn't take units of the kind in (`HoldsDef::accepts`;
     /// `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only").
@@ -260,7 +256,7 @@ pub enum NoTransit {
 /// M5-F1), and a Tunnel into or out of the network by
 /// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: it is a Tunnel in operation
 /// ([`is_exit`]) whose tier's Transit lists the unit's base: "Tier 1+: Infantry", "Tier 2+: Vehicles", "Tier 3+: Air
-/// units", the last not in M4 ([`AIR_DOORS`]). The tier is the one the Tunnel has (`TunnelState::tier`), which an
+/// units", the last not in M4 (`Tunnel::air_doors`). The tier is the one the Tunnel has (`TunnelState::tier`), which an
 /// upgrade under way leaves alone until it completes (design change 0249: "until the upgrade has fully finished, a
 /// Tunnel only accepts, and only lets out, units supported by the tier it had before the upgrade began").
 pub fn admits(target: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
@@ -276,18 +272,18 @@ pub fn admits(target: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
     let class = Transit::of(unit.base);
     if passes(row.transit, class) {
         Ok(())
-    } else if class == Transit::Air && !AIR_DOORS {
+    } else if class == Transit::Air && !crate::ruleset::rules().tuning.tunnel.air_doors {
         Err(NoTransit::Air)
     } else {
         Err(NoTransit::Tier)
     }
 }
 
-/// Whether a Tunnel whose tier's Transit is `transit` lets a unit of `class` through: the tier lists the class, and
-/// the unit isn't an air unit while there are no air doors ([`AIR_DOORS`]). The one rule of the gate, the steps and
+/// Whether a Tunnel whose tier's Transit is `transit` lets a unit of `class` through: the tier lists the class, and the
+/// unit isn't an air unit while there are no air doors (`Tunnel::air_doors`). The one rule of the gate, the steps and
 /// the default command (`orders::resolution`).
 pub fn passes(transit: &[Transit], class: Transit) -> bool {
-    transit.contains(&class) && (class != Transit::Air || AIR_DOORS)
+    transit.contains(&class) && (class != Transit::Air || crate::ruleset::rules().tuning.tunnel.air_doors)
 }
 
 /// Whether `tunnel` is a way into and out of the network: a Tunnel with an owner, in operation
@@ -362,6 +358,7 @@ mod tests {
     use crate::object::Rotation;
     use crate::scenario::BuildingOrientation;
     use crate::units::TilePos;
+    const PATH_OFFSET_SU: f32 = crate::tuning::tunnel::BUILTIN.path_offset_su;
 
     fn tunnel_at(rotation: Rotation, flip_h: bool) -> Placement {
         let turned = BuildingOrientation {

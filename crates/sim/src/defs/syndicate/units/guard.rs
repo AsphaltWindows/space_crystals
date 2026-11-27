@@ -8,7 +8,7 @@ use crate::math::PI;
 use crate::player::Faction;
 
 /// `factions/syndicate/units/guard.md`.
-pub(crate) static GUARD: ObjectDef = ObjectDef {
+pub(crate) const GUARD: ObjectDef = ObjectDef {
     kind: ObjectKind::Guard,
     name: "Guard",
     faction: Some(Faction::Syndicate),                     // Faction - TheSyndicate

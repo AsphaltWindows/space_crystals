@@ -10,7 +10,7 @@ use crate::player::Faction;
 /// own energy pool, which it spends on its spells. It regenerates naturally over time", `crate::energy`), which the
 /// Cathedral trains it with (`factions/cults/structures/cathedral.md > Training`), and since slice M5-N4b its spell
 /// (`> Spells > Shroud`, `crate::shroud`). Its numbers are the design's "Placeholder stats".
-pub(crate) static DISCIPLE: ObjectDef = ObjectDef {
+pub(crate) const DISCIPLE: ObjectDef = ObjectDef {
     kind: ObjectKind::Disciple,
     name: "Disciple",
     faction: Some(Faction::Cults),                         // Faction - TheCults

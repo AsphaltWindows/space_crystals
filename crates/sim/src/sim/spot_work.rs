@@ -16,22 +16,23 @@ use crate::mover::{MoveGoal, MoveStatus};
 use crate::object::Placement;
 use crate::orders::OrderKind;
 use crate::placement::{self, PlacementCheck, Wall};
+use crate::ruleset::rules;
 use crate::shape::Shape;
 use crate::spot_work::{self, Claim, Work, WorkAt, suits, within_reach, work_of};
-use crate::tuning::construction::{BUILD_STANDOFF_SU, HUG_STEP_SU, RESPOT_TICKS};
 use crate::units::SU_PER_GU;
 
 /// The room a builder whose box has half extents `half` keeps clear round itself (`spot_work::Claim::room`): its box
-/// and `tuning::construction::BUILD_STANDOFF_SU` all round, so that it stands that far off the footprint, and twice
-/// that far from the builders beside it. One row of the walls round a footprint ([`Sim::free_spot`]) is twice this.
+/// and `tuning::construction::Construction::build_standoff_su` all round, so that it stands that far off the footprint,
+/// and twice that far from the builders beside it. One row of the walls round a footprint ([`Sim::free_spot`]) is twice
+/// this.
 fn room(half: Vec2) -> Vec2 {
-    half + Vec2::splat(BUILD_STANDOFF_SU)
+    half + Vec2::splat(rules().tuning.construction.build_standoff_su)
 }
 
 /// The builders' wall round the footprint `at` for a unit whose box has half extents `half` (`placement::Wall`):
-/// its box `tuning::construction::BUILD_STANDOFF_SU` off the footprint, within reach of it.
+/// its box `tuning::construction::Construction::build_standoff_su` off the footprint, within reach of it.
 fn builders_wall(at: &Placement, half: Vec2) -> Wall {
-    Wall::around(at, half, BUILD_STANDOFF_SU)
+    Wall::around(at, half, rules().tuning.construction.build_standoff_su)
 }
 
 impl Sim {
@@ -44,13 +45,13 @@ impl Sim {
     ///   [`Sim::free_spot`]'s search that no other unit of its owner's working at the same footprint claims, on the
     ///   builders' wall (row 0), or else on every row on the map from the third on (row 1 left free, the way round the
     ///   builders), and walk there ([`Sim::send_to`]); with none on the whole map, the order ends ([`Sim::no_spot`]);
-    /// - in the ticks that are multiples of `tuning::construction::RESPOT_TICKS`, a unit whose walk is over takes the
-    ///   place where it stands as its spot if it is within reach of the footprint, so that a unit that stopped short
-    ///   of its spot doesn't keep another from the spot it stands on; out of reach, it looks for a free spot on the
-    ///   builders' wall, its own claim aside, and walks there if it finds one. (M5-J1) One whose walk ended on the
-    ///   footprint itself, short of its spot ([`on_site`], as the placement check counts a unit on it: a group's Build
-    ///   before its site starts), looks as one without a spot does, on row 0 and then on every row from the third on,
-    ///   and with none on the whole map its order ends ([`Sim::no_spot`]): the site waits for its own Recruits to
+    /// - in the ticks that are multiples of `tuning::construction::Construction::respot_ticks`, a unit whose walk is
+    ///   over takes the place where it stands as its spot if it is within reach of the footprint, so that a unit that
+    ///   stopped short of its spot doesn't keep another from the spot it stands on; out of reach, it looks for a free
+    ///   spot on the builders' wall, its own claim aside, and walks there if it finds one. (M5-J1) One whose walk ended
+    ///   on the footprint itself, short of its spot ([`on_site`], as the placement check counts a unit on it: a group's
+    ///   Build before its site starts), looks as one without a spot does, on row 0 and then on every row from the third
+    ///   on, and with none on the whole map its order ends ([`Sim::no_spot`]): the site waits for its own Recruits to
     ///   step off (design change 0362, `sim/builds/shared.rs`), so none may stand still there.
     pub(super) fn step_spots(&mut self, first_new: ObjectId) {
         let workers: Vec<(ObjectId, Work)> = (self.objects.range(..first_new))
@@ -95,7 +96,7 @@ impl Sim {
                 None => self.no_spot(id, work.order),
             }
         }
-        if !self.tick.is_multiple_of(RESPOT_TICKS) {
+        if !self.tick.is_multiple_of(rules().tuning.construction.respot_ticks) {
             return;
         }
         // The units whose walk is over, by whether they stand within reach, off the footprint.
@@ -179,11 +180,11 @@ impl Sim {
     /// **part of the footprint closest to it**; if that part is taken (blocked), it **wall-hugs** along the footprint
     /// until it reaches a part where it can work"), along each row's wall in turn (`placement::Wall::hug`): row 0 the
     /// builders' wall, each next one a [`room`] twice over further out. Along it, the point nearest the unit first,
-    /// then further and further from there both ways, `tuning::construction::HUG_STEP_SU` at a time, of two as far the
-    /// clockwise one first (**Placeholder (not in the design: the way along the wall, and how finely it is searched)**:
-    /// the nearest part either way, 0339 leaving it to the implementation, "shorter way first, with a fixed
-    /// tie-break"). A spot fits by the rule of every unit put on the map (`Sim::check_unit_fits`), the unit itself
-    /// aside: on the map, its box clear of blocked tiles, of blocking footprints and of the units of its layer.
+    /// then further and further from there both ways, `tuning::construction::Construction::hug_step_su` at a time, of
+    /// two as far the clockwise one first (**Placeholder (not in the design: the way along the wall, and how finely it
+    /// is searched)**: the nearest part either way, 0339 leaving it to the implementation, "shorter way first, with a
+    /// fixed tie-break"). A spot fits by the rule of every unit put on the map (`Sim::check_unit_fits`), the unit
+    /// itself aside: on the map, its box clear of blocked tiles, of blocking footprints and of the units of its layer.
     ///
     /// A unit claims its spot as it gets the order, not on arrival (**Placeholder (not in the design: when a builder
     /// claims its part of the wall)**, 0339 leaving it to the implementation), so that the units of a group, those
@@ -201,7 +202,9 @@ impl Sim {
         let (kind, owner, pos, half) = (o.kind, o.owner, o.pos, o.def().half_extents()?);
         let (room, wall) = (room(half), builders_wall(at, half));
         rows.into_iter().find_map(|row| {
-            let mut hug = wall.out(room * (2.0 * row as f32)).hug(pos, HUG_STEP_SU);
+            let mut hug = wall
+                .out(room * (2.0 * row as f32))
+                .hug(pos, rules().tuning.construction.hug_step_su);
             hug.find(|&spot| {
                 self.map.contains_point(spot)
                     && !claims.iter().any(|claim| claim.keeps(id, owner, at, spot, room))

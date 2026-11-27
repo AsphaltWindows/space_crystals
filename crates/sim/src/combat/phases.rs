@@ -49,12 +49,12 @@ use crate::movement;
 use crate::object::Object;
 use crate::shape::Shape;
 use crate::suppress;
-use crate::tuning::combat::FACING_TOLERANCE;
 use crate::units::Tick;
 use crate::vision::PlayerVision;
 
 mod effects;
 
+use crate::ruleset::rules;
 use effects::{fire, launch, strike};
 
 /// What one tick of attack sequences puts out (`super::step`): the hits of single-target attacks, for the tick's list,
@@ -257,8 +257,9 @@ impl<'a> Shooter<'a> {
         (to != Vec2::ZERO).then(|| math::wrap_angle(math::vector_angle(to)))
     }
 
-    /// Whether a unit facing `facing` faces the point `at`, its target's centre or a location ([`FACING_TOLERANCE`]):
-    /// (M5-U1) its turret in `turret` does, on that base (`super::turret::aim_facing`); a structure always does.
+    /// Whether a unit facing `facing` faces the point `at`, its target's centre or a location
+    /// (`Combat::facing_tolerance`): (M5-U1) its turret in `turret` does, on that base (`super::turret::aim_facing`); a
+    /// structure always does.
     fn faces(&self, facing: f32, turret: Option<TurretState>, at: Vec2) -> bool {
         let aim = match self.source {
             Source::Base => facing,
@@ -266,7 +267,7 @@ impl<'a> Shooter<'a> {
             Source::Structure => return true,
         };
         self.bearing(at)
-            .is_none_or(|wanted| math::wrap_angle(wanted - aim).abs() <= FACING_TOLERANCE)
+            .is_none_or(|wanted| math::wrap_angle(wanted - aim).abs() <= rules().tuning.combat.facing_tolerance)
     }
 
     /// (M5-U1) Whether the point `at` is within its turret's arc, on its base facing `facing` (`super::turret::in_arc`);

@@ -6,12 +6,12 @@
 use serde::{Deserialize, Deserializer};
 
 /// A `&'static str` field: a name.
-pub(super) fn str<'de, D: Deserializer<'de>>(deserializer: D) -> Result<&'static str, D::Error> {
+pub(crate) fn str<'de, D: Deserializer<'de>>(deserializer: D) -> Result<&'static str, D::Error> {
     String::deserialize(deserializer).map(|name| &*name.leak())
 }
 
 /// A `&'static [T]` field: a list, such as a producer's recipes or a Tunnel's tiers.
-pub(super) fn slice<'de, D: Deserializer<'de>, T: Deserialize<'de>>(deserializer: D) -> Result<&'static [T], D::Error> {
+pub(crate) fn slice<'de, D: Deserializer<'de>, T: Deserialize<'de>>(deserializer: D) -> Result<&'static [T], D::Error> {
     Vec::<T>::deserialize(deserializer).map(|list| &*list.leak())
 }
 

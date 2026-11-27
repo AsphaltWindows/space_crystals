@@ -27,7 +27,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::map::Map;
-use crate::tuning::paths::{RESOURCES_BLOCK, RUGGED_IMPASSABLE};
+use crate::ruleset::rules;
 use crate::units::{SU_PER_GU, TilePos};
 
 pub use grid::NavGrid;
@@ -87,17 +87,17 @@ pub enum BlockerKind {
 /// The switches for the open terrain questions. [`NavRules::default`] holds the defaults of Q0011.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct NavRules {
-    /// [`RESOURCES_BLOCK`] (Q0011, G10).
+    /// `Paths::resources_block` (Q0011, G10).
     pub resources_block: bool,
-    /// [`RUGGED_IMPASSABLE`] (Q0011, G11).
+    /// `Paths::rugged_impassable` (Q0011, G11).
     pub rugged_impassable: bool,
 }
 
 impl Default for NavRules {
     fn default() -> Self {
         Self {
-            resources_block: RESOURCES_BLOCK,
-            rugged_impassable: RUGGED_IMPASSABLE,
+            resources_block: rules().tuning.paths.resources_block,
+            rugged_impassable: rules().tuning.paths.rugged_impassable,
         }
     }
 }

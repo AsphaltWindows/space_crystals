@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::defs::ObjectKind;
 use crate::defs::cults::units::prayer_mobile::{INSPIRE, SUPPRESS};
 use crate::hash::{StateHash, StateHasher};
+use crate::ruleset::{Key, Table};
 use crate::units::{Tick, seconds};
 
 /// An area ability (`factions/cults/structures/shrine.md > Abilities`): the two of the Shrine's table, and (M5-N11) the
@@ -43,14 +44,10 @@ impl AreaAbility {
         AreaAbility::Suppress,
     ];
 
-    /// Its numbers.
+    /// Its numbers, in the current rules (`crate::ruleset::rules`).
+    #[inline]
     pub fn def(self) -> &'static AbilityDef {
-        match self {
-            AreaAbility::HealthRegeneration => &HEALTH_REGENERATION,
-            AreaAbility::EnergyRegeneration => &ENERGY_REGENERATION,
-            AreaAbility::Inspire => &INSPIRE,
-            AreaAbility::Suppress => &SUPPRESS,
-        }
+        &crate::ruleset::rules().factions.cults.abilities[self]
     }
 
     /// Whether its buff goes to an object of `kind` (the table's "Affects", [`Affects`]), whoever's it is.
@@ -64,6 +61,22 @@ impl AreaAbility {
     }
 }
 
+impl Key for AreaAbility {
+    const ALL: &'static [AreaAbility] = &AreaAbility::ALL;
+
+    #[inline]
+    fn index(self) -> usize {
+        self as usize
+    }
+}
+
+/// Every area ability's numbers, by ability (`CultsRules::abilities`).
+pub type Abilities = Table<AreaAbility, AbilityDef, 4>;
+
+/// The built-in area abilities' numbers, in [`AreaAbility::ALL`]'s order: the Shrine's here, the Prayer-mobile's in
+/// its def module.
+pub const ABILITIES: Abilities = Abilities::new([HEALTH_REGENERATION, ENERGY_REGENERATION, INSPIRE, SUPPRESS]);
+
 impl StateHash for AreaAbility {
     fn hash(&self, h: &mut StateHasher) {
         // Fieldless enum: the discriminant is the declaration index.
@@ -72,7 +85,7 @@ impl StateHash for AreaAbility {
 }
 
 /// What an ability's buff does every tick it lasts (`crate::buffs`).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum BuffEffect {
     /// So many HP a second, up to the unit's MaxHP with its Augmentations (`Object::max_hp_with`).
     Health { per_second: f32 },
@@ -84,6 +97,7 @@ pub enum BuffEffect {
     Inspire {
         max_speed: f32,
         attack_cycle: f32,
+        #[serde(deserialize_with = "crate::defs::leak::slice")]
         faster_attacks: &'static [ObjectKind],
     },
     /// (M5-N11) Suppress's: the unit starts no attack while it lasts (`crate::suppress`).
@@ -91,7 +105,7 @@ pub enum BuffEffect {
 }
 
 /// (M5-N11) Where an ability's area lies as it is cast, its radius its [`AbilityDef::radius`].
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum AbilityArea {
     /// A circle round the point the player casts it at: the Shrine's ("cast on an area anywhere the player currently
     /// has vision").
@@ -105,11 +119,11 @@ pub enum AbilityArea {
 }
 
 /// (M5-N11) Whose objects an ability's buff goes to (the table's "Affects").
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Affects {
     /// The caster's owner's units of these types: "Only the caster's own units are affected" (the Shrine's), "every
     /// own infantry type" (Inspire's).
-    Own(&'static [ObjectKind]),
+    Own(#[serde(deserialize_with = "crate::defs::leak::slice")] &'static [ObjectKind]),
     /// Every unit, whoever owns it, in the air too, and no building: Suppress's
     /// (`factions/cults/units/prayer_mobile.md > Abilities`: "**Affects every unit in the arc, enemies and own alike**
     /// [...] **Not buildings** [...] **Air units in the arc are affected** too").
@@ -133,10 +147,12 @@ impl Affects {
 
 /// An area ability's numbers (plan decision T75): `factions/cults/structures/shrine.md > Abilities`, a row of its
 /// table, and `> Placeholder stats`. "Cooldowns: none."
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AbilityDef {
     /// Its name, as the table has it ("name TBD").
-    pub name: &'static str,
+    #[serde(deserialize_with = "crate::defs::leak::str")]
+    pub name: crate::defs::StaticStr,
     /// What it spends of its caster's energy, points: "Energy cost".
     pub cost: f32,
     /// (M5-N11) Where its area lies ([`AbilityArea`]): the Shrine's at a point.
@@ -157,7 +173,7 @@ pub struct AbilityDef {
 /// duration — Cults infantry have no natural regeneration | 75 | radius 4 grid units | 15 s"; `> Placeholder stats`:
 /// "**Health regeneration** (hotkey Q): 75 energy; circle of radius 4 grid units; **+2 HP per second for 15
 /// seconds**".
-static HEALTH_REGENERATION: AbilityDef = AbilityDef {
+const HEALTH_REGENERATION: AbilityDef = AbilityDef {
     name: "Health regeneration",
     cost: 75.0,
     area: AbilityArea::AtPoint,
@@ -177,7 +193,7 @@ static HEALTH_REGENERATION: AbilityDef = AbilityDef {
 /// "Energy regeneration (name TBD) | Own Disciples | Increases Disciple energy regeneration (+1/s, placeholder) for the
 /// duration | 50 | radius 4 grid units | 20 s"; `> Placeholder stats`: "**Energy regeneration** (hotkey W): 50 energy;
 /// circle of radius 4 grid units; affected Disciples' energy regeneration is **+1 per second for 20 seconds**".
-static ENERGY_REGENERATION: AbilityDef = AbilityDef {
+const ENERGY_REGENERATION: AbilityDef = AbilityDef {
     name: "Energy regeneration",
     cost: 50.0,
     area: AbilityArea::AtPoint,

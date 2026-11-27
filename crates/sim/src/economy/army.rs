@@ -65,9 +65,7 @@ use serde::{Deserialize, Serialize};
 
 use self::tunnel_space::TunnelSpace;
 // The caps are the factions' own rules, with their defs (`defs/<faction>.rs`).
-use crate::defs::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Category, ObjectKind, UNIT_CONTROL_CAP};
-#[cfg(test)]
-use crate::defs::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
+use crate::defs::{Category, ObjectKind};
 use crate::ids::PlayerId;
 use crate::map::Map;
 use crate::object::Object;
@@ -161,9 +159,10 @@ pub struct ArmyCap {
     /// It may exceed `available` when Colonists buildings are lost or a deployment is cancelled
     /// (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112).
     pub used: u32,
-    /// [`UNIT_CONTROL_CAP`] for Unit Control; min([`BEACON_CAPACITY_CAP`], [`BEACON_CAPACITY_PER_BUILDING`] × the
-    /// player's Colonists structures) for Beacon Capacity; min([`crate::defs::TUNNEL_SPACE_CAP`], ⌊the unused
-    /// tunnel-region cells of the player's Tunnels / [`crate::defs::CELLS_PER_TUNNEL_SPACE`]⌋) for Tunnel Space; the
+    /// `GdoRules::unit_control_cap` for Unit Control; min(`ColonistsRules::beacon_capacity_cap`,
+    /// `ColonistsRules::beacon_capacity_per_building` × the player's Colonists structures) for Beacon Capacity;
+    /// min(`SyndicateRules::tunnel_space_cap`, ⌊the unused tunnel-region cells of the player's Tunnels /
+    /// `SyndicateRules::cells_per_tunnel_space`⌋) for Tunnel Space; the
     /// sum of the player's completed Halls' capacities, rounded down, for the Cults' Unit Control (`cults.rs`).
     pub available: u32,
 }
@@ -209,10 +208,10 @@ pub(crate) fn cap<'a>(
         providers = providers.saturating_add(u32::from(provides_capacity(o)));
     }
     let available = match resource {
-        ArmyResource::UnitControl => UNIT_CONTROL_CAP,
+        ArmyResource::UnitControl => crate::ruleset::rules().factions.gdo.unit_control_cap,
         ArmyResource::BeaconCapacity => providers
-            .saturating_mul(BEACON_CAPACITY_PER_BUILDING)
-            .min(BEACON_CAPACITY_CAP),
+            .saturating_mul(crate::ruleset::rules().factions.colonists.beacon_capacity_per_building)
+            .min(crate::ruleset::rules().factions.colonists.beacon_capacity_cap),
         ArmyResource::TunnelSpace => space.available(),
         // Returned above.
         ArmyResource::CultsUnitControl => 0,
@@ -251,11 +250,15 @@ mod tests {
 
     #[test]
     fn the_caps_and_the_costs_follow_the_design() {
-        assert_eq!(UNIT_CONTROL_CAP, 200);
+        assert_eq!(crate::defs::FactionRules::BUILTIN.gdo.unit_control_cap, 200);
         // `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "caps at 200";
         // `factions/colonists/economy.md > Beacon
         // > BeaconCapacity provided - 5`.
-        assert_eq!((BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING), (200, 5));
+        let colonists = crate::defs::FactionRules::BUILTIN.colonists;
+        assert_eq!(
+            (colonists.beacon_capacity_cap, colonists.beacon_capacity_per_building),
+            (200, 5)
+        );
         // `factions/gdo/units/peacekeeper.md > UnitControlCost - 1`; the Syndicate's Guard has none.
         let cost = |kind: ObjectKind| kind.def().unit.as_ref().and_then(|u| u.unit_control_cost);
         assert_eq!(
@@ -293,7 +296,8 @@ mod tests {
         assert_eq!(ts.cost_of(ObjectKind::Hideout), 0);
         // `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "floor((...) / 4) ... capped at a hard maximum
         // of 200".
-        assert_eq!((TUNNEL_SPACE_CAP, CELLS_PER_TUNNEL_SPACE), (200, 4));
+        let syndicate = crate::defs::FactionRules::BUILTIN.syndicate;
+        assert_eq!((syndicate.tunnel_space_cap, syndicate.cells_per_tunnel_space), (200, 4));
     }
 
     /// Each faction has its own cap, named as its DisplayHud names it: the GDO's and the Cults' are both "Unit

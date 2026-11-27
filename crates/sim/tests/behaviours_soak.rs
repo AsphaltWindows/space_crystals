@@ -304,11 +304,11 @@ fn random_order(t: &TestSim, rng: &mut Rng) -> Option<(PlayerId, Command)> {
     Some((player, Command::Order { units, kind, queue }))
 }
 
-/// The idle units that end the tick watching (`systems/controls/behaviors.md > BaseAutoTargeting > Active during
-/// Idle`) with an enemy in reach that they may pick: one their attack reaches where both stand, which their owner
-/// sees (`combat::can_attack_now`), and which isn't the one they gave up on for the next tick
-/// (`tuning::orders::GIVE_UP_RETRY_TICKS`). Nobody, while auto-targeting is off. Each comes with the enemies its scan
-/// takes in ([`scanned`]): the one it engages in the next tick is among them.
+/// The idle units that end the tick watching (`systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`)
+/// with an enemy in reach that they may pick: one their attack reaches where both stand, which their owner sees
+/// (`combat::can_attack_now`), and which isn't the one they gave up on for the next tick
+/// (`tuning::orders::Orders::give_up_retry_ticks`). Nobody, while auto-targeting is off. Each comes with the enemies
+/// its scan takes in ([`scanned`]): the one it engages in the next tick is among them.
 ///
 /// An idle unit scans its SightRange, which takes in its Range, so in the next tick each of them engages an enemy,
 /// unless an order comes first. Not yet in this one: phase 5a decides from where the units stood when the tick

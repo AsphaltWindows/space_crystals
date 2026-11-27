@@ -3,8 +3,8 @@
 use glam::Vec2;
 
 use super::Eye;
-use crate::elevation::{Elevation, sight_range};
-use crate::tuning::vision::ELEVATION_MODIFIER;
+use crate::elevation::{Elevation, sight_range_by};
+use crate::ruleset::rules;
 use crate::units::{SU_PER_GU, gu};
 
 /// The point of a tile that has to lie within a source's sight for the source to see the tile: its centre, as an
@@ -21,9 +21,10 @@ const SCAN_MARGIN: f32 = 1.0;
 /// with the ElevationModifier between the eye and the ground there (`tile_levels`: the elevation level at each
 /// tile's sight point, `width` × `height`, row-major), the boundary included.
 pub(super) fn stamp(eye: &Eye, width: u32, height: u32, tile_levels: &[u8], out: &mut Vec<u32>) {
+    let modifier = rules().tuning.vision.elevation_modifier;
     out.clear();
     // No tile is seen from further than one modifier beyond the SightRange.
-    let reach = gu(eye.sight + ELEVATION_MODIFIER) + SCAN_MARGIN;
+    let reach = gu(eye.sight + modifier) + SCAN_MARGIN;
     let rows = scan_span(eye.at.y, reach, TILE_SIGHT_POINT.y, height);
     let columns = scan_span(eye.at.x, reach, TILE_SIGHT_POINT.x, width);
     for y in rows {
@@ -32,7 +33,12 @@ pub(super) fn stamp(eye: &Eye, width: u32, height: u32, tile_levels: &[u8], out:
             let i = y * width + x;
             let dx = x as f32 * SU_PER_GU + TILE_SIGHT_POINT.x - eye.at.x;
             let level = tile_levels[i as usize];
-            let radius = gu(sight_range(eye.sight, eye.elevation, Elevation::Level(level)));
+            let radius = gu(sight_range_by(
+                modifier,
+                eye.sight,
+                eye.elevation,
+                Elevation::Level(level),
+            ));
             if dx * dx + dy * dy <= radius * radius {
                 out.push(i);
             }

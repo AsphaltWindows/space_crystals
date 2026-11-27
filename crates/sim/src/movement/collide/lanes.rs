@@ -12,12 +12,10 @@ use crate::ids::ObjectId;
 use crate::movement::space::{KIND_YIELDS, blocks, kinds_against};
 use crate::movement::yielding::yields_to;
 use crate::mover::{Mover, Side};
-use crate::tuning::movement::{
-    LANE_AROUND_IDLE, LANE_LOOK, LANE_MARGIN_SU, LANE_NEAR, LANE_ONCOMING_COS, LANE_REACH, LANE_TIE_SU,
-};
+use crate::ruleset::rules;
 
 /// (G) The lane of a unit ahead, as the unit being moved sees it ([`World::lane`]): the sideways shifts of its
-/// own centre, positive to its Right, at which the two would meet, widened by [`LANE_MARGIN_SU`].
+/// own centre, positive to its Right, at which the two would meet, widened by `Movement::lane_margin_su`.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct Lane {
     pub(in crate::movement) lo: f32,
@@ -34,7 +32,11 @@ impl Lane {
     /// The shift at which the mover would walk straight at the unit's centre, and how far to either side of it
     /// the two boxes would still meet.
     pub(in crate::movement) fn centre_and_reach(&self) -> (f32, f32) {
-        ((self.lo + self.hi) * 0.5, (self.hi - self.lo) * 0.5 - LANE_MARGIN_SU)
+        let tuning = &rules().tuning.movement;
+        (
+            (self.lo + self.hi) * 0.5,
+            (self.hi - self.lo) * 0.5 - tuning.lane_margin_su,
+        )
     }
 }
 
@@ -44,23 +46,23 @@ impl World<'_> {
     /// pedestrians form lanes. `None` if none is in its way (or only one idle unit, below). Afterwards
     /// `self.lanes` holds the lanes it found.
     ///
-    /// It looks [`LANE_LOOK`] of its lengths ahead (and beside itself), no farther than `to_goal`, the end of its
-    /// way: it never has to pass a unit beyond that, so units converging on one point from all sides aren't in
-    /// each other's way. `aim` is the object it heads for, which isn't in its way either. Two kinds of unit count:
+    /// It looks `Movement::lane_look` of its lengths ahead (and beside itself), no farther than `to_goal`, the end of
+    /// its way: it never has to pass a unit beyond that, so units converging on one point from all sides aren't in each
+    /// other's way. `aim` is the object it heads for, which isn't in its way either. Two kinds of unit count:
     /// - **Oncoming units**: their heading (`Body::heading`: where they are going, not their latest step) is
-    ///   against `ahead` ([`LANE_ONCOMING_COS`]), whether they move or are jammed.
+    ///   against `ahead` (`Movement::lane_oncoming_cos`), whether they move or are jammed.
     /// - **Idle units that yield to it** (`yielding::yields_to`, for its order group `group`): a group of them
     ///   parts for it, so it walks between them instead of at one of them.
     ///
     /// Each one's **lane** is the range of shifts at which the two boxes would meet, widened by
-    /// [`LANE_MARGIN_SU`]. With the lanes that hang together around the unit:
+    /// `Movement::lane_margin_su`. With the lanes that hang together around the unit:
     /// - **One idle unit alone**: `None`. The unit walks on and asks it to step aside, as before
     ///   (`docs/movement.md > 6.6`).
-    /// - **A clear lane within reach** ([`LANE_REACH`] of its widths; around an idle group only
-    ///   [`LANE_AROUND_IDLE`]): the nearest shift outside every lane. Left and right about equally far
-    ///   ([`LANE_TIE_SU`]): the side `prefer`, the unit's `Mover::avoid_side`.
+    /// - **A clear lane within reach** (`Movement::lane_reach` of its widths; around an idle group only
+    ///   `Movement::lane_around_idle`): the nearest shift outside every lane. Left and right about equally far
+    ///   (`Movement::lane_tie_su`): the side `prefer`, the unit's `Mover::avoid_side`.
     /// - **None within reach** (a dense group ahead): the middle of the widest gap between two neighbouring
-    ///   lanes within reach, a nearer gap before a slightly wider one ([`LANE_NEAR`]), then the side `prefer`.
+    ///   lanes within reach, a nearer gap before a slightly wider one (`Movement::lane_near`), then the side `prefer`.
     ///   The units of two oncoming groups all do this, so the groups mesh like combs; the units on the outside
     ///   find a clear lane and move out, the gaps next to them widen, and the comb spreads until every lane is
     ///   clear.
@@ -76,6 +78,7 @@ impl World<'_> {
         group: Option<u32>,
         prefer: Side,
     ) -> Option<f32> {
+        let tuning = &rules().tuning.movement;
         let layer = self.layer?;
         let me = *self.body();
         let right = turned_90(ahead, Side::Right);
@@ -83,7 +86,7 @@ impl World<'_> {
         let extent = |half: Vec2, dir: Vec2| dir.x.abs() * half.x + dir.y.abs() * half.y;
         let (my_along, my_across) = (extent(me.half, ahead), extent(me.half, right));
         // The distances of lane seeking are in the unit's own lengths and widths.
-        let (look, reach) = (LANE_LOOK * 2.0 * my_along, LANE_REACH * 2.0 * my_across);
+        let (look, reach) = (tuning.lane_look * 2.0 * my_along, tuning.lane_reach * 2.0 * my_across);
         // The corridor from `back` behind the unit to `front` ahead of it, `aside` wide to either side: the box
         // around it.
         let corridor = |back: f32, front: f32, aside: f32| {
@@ -94,7 +97,7 @@ impl World<'_> {
         let bodies = self.bodies;
         let lane_of = |index: u32| {
             let other = &bodies[index as usize];
-            let oncoming = other.heads_against(ahead, LANE_ONCOMING_COS);
+            let oncoming = other.heads_against(ahead, tuning.lane_oncoming_cos);
             let standing = !oncoming && yields_to(other, me.owner, group);
             if !(oncoming || standing) || aim == Some(other.id) || !blocks(&me, other) {
                 return None;
@@ -105,8 +108,8 @@ impl World<'_> {
             let reach_across = my_across + extent(other.half, right);
             let ahead_of_it = along > -reach_along && along - reach_along < look && along < to_goal;
             (ahead_of_it && across.abs() - reach_across < reach).then_some(Lane {
-                lo: across - reach_across - LANE_MARGIN_SU,
-                hi: across + reach_across + LANE_MARGIN_SU,
+                lo: across - reach_across - tuning.lane_margin_su,
+                hi: across + reach_across + tuning.lane_margin_su,
                 index,
                 standing,
                 free: along - reach_along,
@@ -118,12 +121,12 @@ impl World<'_> {
         // its way; only a unit that has one looks at the lanes to either side. A unit in its way has its centre
         // within the reach of the two boxes of its lane, and no box reaches farther than `widest` from its centre
         // in any direction, so the first search misses none that the second would find.
-        let kinds = kinds_against(ahead, LANE_ONCOMING_COS) | KIND_YIELDS;
+        let kinds = kinds_against(ahead, tuning.lane_oncoming_cos) | KIND_YIELDS;
         let widest = layer.widest() * core::f32::consts::SQRT_2;
         let (lo, hi) = corridor(
             my_along + widest,
             look + my_along + widest,
-            my_across + widest + LANE_MARGIN_SU,
+            my_across + widest + tuning.lane_margin_su,
         );
         let (mut tests, mut in_its_way) = (0, false);
         layer.near_any(lo, hi, kinds, |index| {
@@ -175,14 +178,14 @@ impl World<'_> {
         }
         // An idle group makes way, so the unit walks around it only when it is barely in its way.
         let around = if all_standing {
-            LANE_AROUND_IDLE * 2.0 * my_across
+            tuning.lane_around_idle * 2.0 * my_across
         } else {
             reach
         };
         let prefers_right = prefer == Side::Right;
         let (to_right, to_left) = (right_end, -left);
         if to_right.min(to_left) <= around {
-            let tie = (to_right - to_left).abs() < LANE_TIE_SU;
+            let tie = (to_right - to_left).abs() < tuning.lane_tie_su;
             let go_right = if tie { prefers_right } else { to_right < to_left };
             return Some(if go_right { to_right } else { -to_left });
         }
@@ -190,10 +193,10 @@ impl World<'_> {
         let mut best: Option<(f32, f32)> = None;
         let mut covered = f32::NEG_INFINITY;
         for lane in lanes.iter() {
-            let (lo, hi) = (lane.lo + LANE_MARGIN_SU, lane.hi - LANE_MARGIN_SU);
+            let (lo, hi) = (lane.lo + tuning.lane_margin_su, lane.hi - tuning.lane_margin_su);
             if covered != f32::NEG_INFINITY {
                 let (width, middle) = (lo - covered, (lo + covered) * 0.5);
-                let score = width - LANE_NEAR * middle.abs();
+                let score = width - tuning.lane_near * middle.abs();
                 let better = best.is_none_or(|(best_score, _)| {
                     score > best_score || (score == best_score && (middle > 0.0) == prefers_right)
                 });
@@ -316,6 +319,7 @@ mod tests {
     /// (G) `docs/movement.md > 6.3`, lane seeking. East is the mover's way, so its Right is south (+y).
     #[test]
     fn a_unit_seeks_a_lane_among_the_units_it_has_to_pass() {
+        let tuning = &rules().tuning.movement;
         let (east, west) = (Vec2::X, -Vec2::X);
         let me = lane_body(1, Vec2::new(300.0, 300.0), east, false);
         let oncoming = |id: u32, dy: f32| lane_body(id, Vec2::new(360.0, 300.0 + dy), west, false);
@@ -335,7 +339,7 @@ mod tests {
         );
         assert_eq!(lane_of(&[me, stranger, behind], Side::Right), None);
         // Head-on: a clear lane is 24 su and the margin to either side; the side it prefers decides.
-        let clear = 24.0 + LANE_MARGIN_SU;
+        let clear = 24.0 + tuning.lane_margin_su;
         assert_eq!(lane_of(&[me, oncoming(2, 0.0)], Side::Right), Some(clear));
         assert_eq!(lane_of(&[me, oncoming(2, 0.0)], Side::Left), Some(-clear));
         // Off centre: the short way round, whatever it prefers.
@@ -375,7 +379,7 @@ mod tests {
             .collect();
         assert_eq!(lane_of(&row, Side::Right), Some(20.0));
         assert_eq!(lane_of(&row, Side::Left), Some(-20.0));
-        // A wider gap a little farther off wins; a much farther one doesn't ([`LANE_NEAR`]).
+        // A wider gap a little farther off wins; a much farther one doesn't (`Movement::lane_near`).
         let mut wider = row.clone();
         for body in &mut wider[1..4] {
             body.pos.y -= 12.0;

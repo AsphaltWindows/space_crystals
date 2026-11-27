@@ -19,12 +19,12 @@ use crate::mover::{MoveGoal, MoveStatus};
 use crate::object::Placement;
 use crate::placement::footprint_size;
 use crate::scenario::BuildingOrientation;
-use crate::tuning::movement::JAMMED_TICKS;
 use crate::units::{Tick, TilePos};
 
 use super::state::SiteWalk;
 use super::world::Unit;
 use super::{OrderGroup, OrderKind};
+use crate::ruleset::rules;
 
 /// A lingering build ghost (`core/entities.md > Placement Validation > Lingering build ghosts`): a worker's order to
 /// build, current or queued, until the construction starts or the order goes. A group's Build is one ghost, however
@@ -87,7 +87,7 @@ pub(super) fn begin(site: &Placement, unit: &mut Unit, tick: Tick) -> SiteWalk {
 /// reachable point nearest to it, or stopped within 3 grid units of it behind units that won't move
 /// (`MoveStatus::Arrived`), or given up (`Failed`); the arrival then sees whether the worker overlaps the footprint
 /// ([`on_site`]). It is also over when the worker, still on its way, is "stopped by a blocker on the way while already
-/// overlapping the footprint" (design change 0117): it found no way forward for [`JAMMED_TICKS`] in a row, the
+/// overlapping the footprint" (design change 0117): it found no way forward for `Movement::jammed_ticks` in a row, the
 /// movement's own notion of a unit at a standstill (`docs/movement.md > 6.3`), or (M4-W3) it began the contact step
 /// of design change 0323 round a unit in its way (`Mover::step_aside`), which would take it a whole width off the
 /// footprint: until 0323 a blocked worker shuffled a step and stood. Never complete (module docs).
@@ -103,7 +103,7 @@ pub(super) fn run(site: &Placement, state: &mut SiteWalk, unit: &mut Unit) -> bo
     }
     // (M4-W3) Or it began a contact step (design change 0323): a blocker stopped it, and the step, a whole width
     // sideways, would take it off the footprint it overlaps.
-    let stopped = unit.mover.blocked_ticks >= JAMMED_TICKS || unit.mover.step_aside.is_some();
+    let stopped = unit.mover.blocked_ticks >= rules().tuning.movement.jammed_ticks || unit.mover.step_aside.is_some();
     let stuck_on_site = || stopped && on_site(unit.kind, unit.pos, site);
     if ended || stuck_on_site() {
         state.arrived = true;

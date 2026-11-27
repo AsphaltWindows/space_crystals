@@ -330,7 +330,7 @@ fn an_attack_move_takes_shielded_peacekeepers_past_the_enemies() {
     // The last one in may find the others of its order standing in its way, and has then arrived where they
     // stopped it, within the 3 grid units of design change 0183. (Since slice M3-G2 the Guards go round each other
     // in their fight, and the fourth Peacekeeper comes in behind the third: it stands 76 su from its place.)
-    let radius = sc_sim::gu(sc_sim::mover::OCCUPIED_ARRIVAL_GU);
+    let radius = sc_sim::gu(sc_sim::tuning::movement::BUILTIN.occupied_arrival_gu);
     for (id, destination) in PKS.iter().zip(destinations) {
         assert_eq!(object_orders(&app, *id).current, None, "{id} arrived");
         let distance = pos(&app, *id).distance(destination);

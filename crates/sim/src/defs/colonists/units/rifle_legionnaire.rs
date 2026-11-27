@@ -11,7 +11,7 @@ use crate::player::Faction;
 
 /// `factions/colonists/units/rifle_legionnaire.md`: the ranged form of the Legionnaire, "Not directly produced —
 /// reached only by converting a Sabre Legionnaire" (slice M3-B).
-pub(crate) static RIFLE_LEGIONNAIRE: ObjectDef = ObjectDef {
+pub(crate) const RIFLE_LEGIONNAIRE: ObjectDef = ObjectDef {
     kind: ObjectKind::RifleLegionnaire,
     name: "Rifle Legionnaire",
     faction: Some(Faction::Colonists),                     // Faction - Colonists

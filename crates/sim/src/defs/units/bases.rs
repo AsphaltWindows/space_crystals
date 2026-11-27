@@ -117,7 +117,7 @@ pub struct UnitBaseDef {
     pub yields: bool,
     /// (M5-H2) `systems/units.md > Air Collision`: how strongly the soft separation of air units pushes a unit of this
     /// base off another (`movement::air`), as the share it takes of the full push (half of what the pair lacks, at
-    /// most `tuning::air::SEPARATION_PUSH_SU` a tick): a HoverCraft all of it, as in slice M5-H1, a Glider a third
+    /// most `tuning::air::Air::separation_push_su` a tick): a HoverCraft all of it, as in slice M5-H1, a Glider a third
     /// (design change 0412; a quarter from design change 0405). `None` for the bases that don't fly, which collide
     /// hard (`Domain::hard_collision`).
     pub separation_strength: Option<f32>,
@@ -140,18 +140,31 @@ impl UnitBase {
         UnitBase::Glider,
     ];
 
+    /// How many unit bases there are.
+    pub const COUNT: usize = UnitBase::ALL.len();
+
+    /// The base's def, in the current rules (`crate::ruleset::rules`).
+    #[inline]
     pub fn def(self) -> &'static UnitBaseDef {
-        match self {
-            UnitBase::LightInfantry => &LIGHT_INFANTRY,
-            UnitBase::HeavyInfantry => &HEAVY_INFANTRY,
-            UnitBase::WheeledVehicle => &WHEELED_VEHICLE,
-            UnitBase::TrackedVehicle => &TRACKED_VEHICLE,
-            UnitBase::DrillUnit => &DRILL_UNIT,
-            UnitBase::HoverVehicle => &HOVER_VEHICLE,
-            UnitBase::Mech => &MECH,
-            UnitBase::HoverCraft => &HOVER_CRAFT,
-            UnitBase::Glider => &GLIDER,
-        }
+        &crate::ruleset::rules().bases[self]
+    }
+
+    /// Every base's def in the built-in rules (`crate::ruleset::Ruleset::BUILTIN`), in [`UnitBase::ALL`]'s order.
+    pub(crate) const BUILTIN_DEFS: [UnitBaseDef; UnitBase::COUNT] = [
+        LIGHT_INFANTRY,
+        HEAVY_INFANTRY,
+        WHEELED_VEHICLE,
+        TRACKED_VEHICLE,
+        DRILL_UNIT,
+        HOVER_VEHICLE,
+        MECH,
+        HOVER_CRAFT,
+        GLIDER,
+    ];
+
+    /// The base's def in the built-in rules (`crate::ruleset::Ruleset::builtin`): its own here.
+    pub fn builtin_def(self) -> &'static UnitBaseDef {
+        &crate::ruleset::Ruleset::builtin_ref().bases[self]
     }
 
     /// Whether it is an infantry base (`systems/units.md > UnitBase`: LightInfantry and HeavyInfantry): the units
@@ -159,6 +172,15 @@ impl UnitBase {
     /// vehicles to a repairer (slice M5-N8, `crate::repair::is_vehicle`).
     pub fn is_infantry(self) -> bool {
         matches!(self, UnitBase::LightInfantry | UnitBase::HeavyInfantry)
+    }
+}
+
+impl crate::ruleset::Key for UnitBase {
+    const ALL: &'static [UnitBase] = &UnitBase::ALL;
+
+    #[inline]
+    fn index(self) -> usize {
+        self as usize
     }
 }
 
@@ -176,7 +198,7 @@ impl UnitBaseDef {
 }
 
 /// `systems/units.md > LightInfantry`.
-static LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
+const LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
     base: UnitBase::LightInfantry,
     domain: Domain::Ground,
     can_have_turret: false,
@@ -194,7 +216,7 @@ static LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
 };
 
 /// `systems/units.md > HeavyInfantry`.
-static HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
+const HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
     base: UnitBase::HeavyInfantry,
     domain: Domain::Ground,
     can_have_turret: false,
@@ -212,7 +234,7 @@ static HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
 };
 
 /// `systems/units.md > WheeledVehicle`.
-static WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
+const WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
     base: UnitBase::WheeledVehicle,
     domain: Domain::Ground,
     can_have_turret: true,
@@ -230,7 +252,7 @@ static WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
 };
 
 /// `systems/units.md > TrackedVehicle`.
-static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
+const TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
     base: UnitBase::TrackedVehicle,
     domain: Domain::Ground,
     can_have_turret: true,
@@ -248,7 +270,7 @@ static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
 };
 
 /// `systems/units.md > DrillUnit`.
-static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
+const DRILL_UNIT: UnitBaseDef = UnitBaseDef {
     base: UnitBase::DrillUnit,
     domain: Domain::Underground,
     can_have_turret: true,
@@ -268,7 +290,7 @@ static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
 };
 
 /// `systems/units.md > HoverVehicle`.
-static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
+const HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
     base: UnitBase::HoverVehicle,
     domain: Domain::Ground,
     can_have_turret: true,
@@ -289,7 +311,7 @@ static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
 };
 
 /// `systems/units.md > Mech`.
-static MECH: UnitBaseDef = UnitBaseDef {
+const MECH: UnitBaseDef = UnitBaseDef {
     base: UnitBase::Mech,
     domain: Domain::Ground,
     can_have_turret: true,
@@ -309,7 +331,7 @@ static MECH: UnitBaseDef = UnitBaseDef {
 };
 
 /// `systems/units.md > HoverCraft`.
-static HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
+const HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
     base: UnitBase::HoverCraft,
     domain: Domain::Air,
     can_have_turret: true,
@@ -329,7 +351,7 @@ static HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
 };
 
 /// `systems/units.md > Glider`.
-static GLIDER: UnitBaseDef = UnitBaseDef {
+const GLIDER: UnitBaseDef = UnitBaseDef {
     base: UnitBase::Glider,
     domain: Domain::Air,
     can_have_turret: true,

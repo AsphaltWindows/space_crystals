@@ -10,8 +10,8 @@
 //! Peacekeepers); and (slice M5-K) with a Barracks in focus, selected with Peacekeepers and Rocketmen (design change
 //! 0407's Verification).
 
+use sc_sim::Faction;
 use sc_sim::testing::ScenarioBuilder;
-use sc_sim::{Faction, mover};
 
 use super::*;
 
@@ -76,9 +76,10 @@ fn current(app: &App, id: u32) -> Option<OrderKind> {
 }
 
 /// Whether unit `id` has done its orders where the ground point `to` is, within the 3 grid units of a crowd's
-/// arrival (design change 0183, `sc_sim::mover::OCCUPIED_ARRIVAL_GU`).
+/// arrival (design change 0183, `sc_sim::tuning::movement::BUILTIN.occupied_arrival_gu`).
 fn arrived(app: &App, id: u32, to: Vec2) -> bool {
-    current(app, id).is_none() && pos(app, id).distance(to) < sc_sim::gu(mover::OCCUPIED_ARRIVAL_GU)
+    current(app, id).is_none()
+        && pos(app, id).distance(to) < sc_sim::gu(sc_sim::tuning::movement::BUILTIN.occupied_arrival_gu)
 }
 
 fn flat() -> String {

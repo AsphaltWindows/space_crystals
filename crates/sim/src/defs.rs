@@ -1,12 +1,17 @@
 //! Static object type definitions (`core/entities.md > Object Type`).
 //!
-//! One `ObjectKind` per object type in the design; its numbers live in a `static` [`ObjectDef`] whose comments cite
-//! the design section they come from, in a module of its own named like the type's design file: `defs/<faction>/
+//! One `ObjectKind` per object type in the design; its built-in numbers live in a `static` [`ObjectDef`] whose comments
+//! cite the design section they come from, in a module of its own named like the type's design file: `defs/<faction>/
 //! {units,structures}/<object>.rs` (`factions/<faction>/{units,structures}/<object>.md`; the economy buildings cite
 //! their faction's `factions/<faction>/economy.md`, the Tunnel `factions/syndicate/tunnels.md`) and
 //! `defs/map/<object>.rs` for the map's (`core/map.md`). A faction's root module, `defs/<faction>.rs`, holds the
 //! faction's own rules. Unit bases and the attributes of unit types are in `defs/units.rs`, those of structure types in
 //! `defs/structures.rs`.
+//!
+//! (M5-X1) The statics are the built-in rules (`crate::ruleset::Ruleset::builtin`); the sim reads the current rules,
+//! which a game may tune (`DebugCommand::SetRules`): [`ObjectKind::def`], `UnitBase::def`, `Tech::def` and
+//! `AreaAbility::def` hand out their entries, and the factions' own numbers are their rules structs
+//! ([`FactionRules`]), read as `rules().factions.<faction>.<field>`.
 
 mod colonists;
 mod cults;
@@ -26,14 +31,14 @@ use serde::{Deserialize, Serialize};
 use crate::player::Faction;
 use crate::scenario::SpawnSettings;
 
+pub use colonists::ColonistsRules;
 pub use colonists::units::drone::BEACON_DEPLOYMENT;
 pub use colonists::units::weapon_conversion::CONVERT_TICKS;
-pub use colonists::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING};
-pub use cults::abilities::{AbilityArea, AbilityDef, Affects, AreaAbility, BuffEffect};
-pub use cults::augmentation::{AUGMENTATION, AugmentationTable, IncrementEffects};
-pub use cults::research::{ResearchLine, Tech, TechDef};
-pub use cults::{CONSTRUCT_MENU, ConstructEntry, ConstructMenu, ConstructSlot};
-pub use gdo::UNIT_CONTROL_CAP;
+pub use cults::abilities::{Abilities, AbilityArea, AbilityDef, Affects, AreaAbility, BuffEffect};
+pub use cults::augmentation::{AugmentationTable, IncrementEffects};
+pub use cults::research::{ResearchLine, Tech, TechDef, Techs};
+pub use cults::{CONSTRUCT_MENU, ConstructEntry, ConstructMenu, ConstructSlot, CultsRules};
+pub use gdo::GdoRules;
 pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
 pub use map::crystal_patch::DEFAULT_STARTING_AMOUNT;
 pub use map::supply_delivery_station::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_SUPPLIES};
@@ -44,7 +49,7 @@ pub use structures::{
     Transit, TunnelDef, UpgradeDef,
 };
 pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
-pub use syndicate::{CELLS_PER_TUNNEL_SPACE, EJECT_MENU_ORDER, EXPAND_MENU, ExpandEntry, TUNNEL_SPACE_CAP};
+pub use syndicate::{EJECT_MENU_ORDER, EXPAND_MENU, ExpandEntry, SyndicateRules};
 pub use units::{
     AttackAttrs, AttackType, Augmentable, BlastDomain, ContactStep, ConversionDef, Domain, DropOffChoice,
     FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest, RepairDef, RepairPayment,
@@ -67,16 +72,36 @@ macro_rules! kind_registry {
             /// list new types automatically. A test checks that it stays complete.
             pub const ALL: &'static [ObjectKind] = &[$(ObjectKind::$kind,)+];
 
-            /// The type's def: all its numbers, from its def module.
+            /// How many object types there are.
+            pub const COUNT: usize = ObjectKind::ALL.len();
+
+            /// The type's def: all its numbers, in the current rules (`crate::ruleset::rules`).
+            #[inline]
             pub fn def(self) -> &'static ObjectDef {
                 // The sim's own unit tests may give a kind other numbers (`test_defs`).
                 #[cfg(test)]
                 if let Some(def) = test_defs::get(self) {
                     return def;
                 }
-                match self {
-                    $(ObjectKind::$kind => &$def,)+
-                }
+                crate::ruleset::rules().def(self)
+            }
+
+            /// Every type's def in the built-in rules (`crate::ruleset::Ruleset::BUILTIN`), from its def module, in
+            /// [`ObjectKind::ALL`]'s order.
+            pub(crate) const BUILTIN_DEFS: [ObjectDef; ObjectKind::COUNT] = [$($def,)+];
+
+            /// The type's def in the built-in rules (`crate::ruleset::Ruleset::builtin`): its def module's.
+            pub fn builtin_def(self) -> &'static ObjectDef {
+                crate::ruleset::Ruleset::builtin_ref().def(self)
+            }
+        }
+
+        impl crate::ruleset::Key for ObjectKind {
+            const ALL: &'static [ObjectKind] = ObjectKind::ALL;
+
+            #[inline]
+            fn index(self) -> usize {
+                self as usize
             }
         }
     };
@@ -189,6 +214,27 @@ kind_registry! {
     Rocketman => gdo::units::rocketman::ROCKETMAN,
 }
 
+/// The factions' own rules (plan decision T66), each faction's from its root module (`defs/<faction>.rs`): the
+/// ruleset's `factions`. The menus each faction's root module also holds are structure, and stay code.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FactionRules {
+    pub gdo: GdoRules,
+    pub syndicate: SyndicateRules,
+    pub cults: CultsRules,
+    pub colonists: ColonistsRules,
+}
+
+impl FactionRules {
+    /// The built-in rules of every faction.
+    pub const BUILTIN: FactionRules = FactionRules {
+        gdo: gdo::BUILTIN,
+        syndicate: syndicate::BUILTIN,
+        cults: cults::BUILTIN,
+        colonists: colonists::BUILTIN,
+    };
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Category {
     Unit,
@@ -208,7 +254,7 @@ pub enum Footprint {
 
 /// A name in the defs, `&'static str`. Spelt so that serde's derive doesn't borrow it from the text a def is read from,
 /// as it does with every field it sees spelt `&str`: [`leak::str`] reads it instead.
-type StaticStr = &'static str;
+pub(crate) type StaticStr = &'static str;
 
 /// Attributes shared by every object type (`core/entities.md > Object Type`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

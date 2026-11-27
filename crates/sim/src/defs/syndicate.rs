@@ -7,15 +7,19 @@ pub(crate) mod units;
 
 use super::ObjectKind;
 
-/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "capped at a hard maximum of 200"
-/// (`factions/syndicate/overview.md > DisplayHud`: "Tunnel Space: current used / current available (max 200)";
-/// `economy::army`).
-pub const TUNNEL_SPACE_CAP: u32 = 200;
+crate::tuning::tunables! {
+    /// The Syndicate's own rules (`crate::ruleset::Ruleset::factions`).
+    SyndicateRules;
 
-/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: the unused tunnel-region cells that make one Tunnel
-/// Space ("... /
-/// 4) — rounded down to a whole number"; `economy::army`).
-pub const CELLS_PER_TUNNEL_SPACE: u32 = 4;
+    /// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "capped at a hard maximum of 200"
+    /// (`factions/syndicate/overview.md > DisplayHud`: "Tunnel Space: current used / current available (max 200)";
+    /// `economy::army`).
+    tunnel_space_cap: u32 = 200,
+
+    /// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: the unused tunnel-region cells that make one
+    /// Tunnel Space ("... / 4) — rounded down to a whole number"; `economy::army`).
+    cells_per_tunnel_space: u32 = 4,
+}
 
 /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState` (design change 0257, answering Q0068 point 4):
 /// the EjectMenu's unit types, in the order they take the grid's slots: "entries take the grid slots in order (Q, W, E,

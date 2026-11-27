@@ -16,8 +16,7 @@ use crate::mover::{MoveGoal, MoveStatus, PathState};
 use crate::nav::{self, PathFail, PathRequest};
 use crate::object::Object;
 use crate::production::ExitDoor;
-use crate::tuning::movement::STAGGER;
-use crate::tuning::paths::{CHASE_REPLAN_TICKS, PATH_BUDGET};
+use crate::ruleset::rules;
 use crate::units::Tick;
 
 /// Where the object a unit heads for was when its path was planned, else `goal`.
@@ -68,9 +67,19 @@ enum Direct {
     Straight { path: Vec<Vec2>, goal: Vec2 },
 }
 
+/// Whether `count` is a multiple of `period` (`count % period == 0`; with a `period` of 0, whether `count` is 0): by a
+/// mask when `period` is a power of two, as the built-in rules' are, rather than a division for every unit.
+#[inline]
+fn one_in(count: Tick, period: Tick) -> bool {
+    match period.is_power_of_two() {
+        true => count & (period - 1) == 0,
+        false => count.is_multiple_of(period),
+    }
+}
+
 /// Phase 5c (`docs/movement.md > 4`, `docs/movement.md > 5.5`): run the staggered path checks ([`staggered_check`]),
-/// then serve the units' path requests in `(since, id)` order within `tuning::paths::PATH_BUDGET`, units of one order
-/// group sharing a field. Units before `first_new` only. A unit that can't get a path fails its move
+/// then serve the units' path requests in `(since, id)` order within `tuning::paths::Paths::path_budget`, units of one
+/// order group sharing a field. Units before `first_new` only. A unit that can't get a path fails its move
 /// (`SimEvent::MoveFailed`).
 ///
 /// **Whose grids** (`systems/controls/behaviors.md > PathKnowledge`): each unit's checks and plans run on its
@@ -97,12 +106,14 @@ pub(crate) fn serve(
     tick: Tick,
     events: &mut Vec<SimEvent>,
 ) {
+    let tuning_movement = &rules().tuning.movement;
+    let tuning_paths = &rules().tuning.paths;
     let version_of = |owner: Option<PlayerId>| {
         owner
             .and_then(|player| knowledge.version(player))
             .unwrap_or(nav_version)
     };
-    let staggered = |id: ObjectId| tick.wrapping_add(id.0).is_multiple_of(STAGGER);
+    let staggered = |id: ObjectId| one_in(tick.wrapping_add(id.0), tuning_movement.stagger);
     // Where the objects being chased are now, by chaser, in id order.
     let chased: Vec<(ObjectId, Vec2)> = objects
         .range(..first_new)
@@ -129,7 +140,7 @@ pub(crate) fn serve(
         });
         if let Ok(i) = chased.binary_search_by_key(&o.id, |&(chaser, _)| chaser) {
             let half = def.half_extents().unwrap_or(Vec2::ZERO);
-            let due = tick.wrapping_add(o.id.0).is_multiple_of(CHASE_REPLAN_TICKS);
+            let due = one_in(tick.wrapping_add(o.id.0), tuning_paths.chase_replan_ticks);
             chase_check(grid.map(|(grid, _)| grid), o.pos, half, mover, chased[i].1, due, tick);
             if mover.path_state != PathState::Ready {
                 continue;
@@ -218,7 +229,7 @@ pub(crate) fn serve(
     }
 
     let navs = super::navs(&state.nav, &state.known);
-    let output = nav::serve_on(&navs, &on, &mut state.search, &requests, PATH_BUDGET);
+    let output = nav::serve_on(&navs, &on, &mut state.search, &requests, tuning_paths.path_budget);
     state.counters = output.counters;
     // `requests` is in id order. A path to an object notes where the object was, not the point beside it.
     let planned_goal = |id: ObjectId| {

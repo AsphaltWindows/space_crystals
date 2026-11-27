@@ -23,7 +23,7 @@ mod pending;
 use sc_sim::deploy::{self, on_site};
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references, every_command};
 use sc_sim::transform::warp_in_footprint;
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::{
     Command, ConstructionCommand, DebugCommand, Faction, MoveStatus, Object, ObjectId, ObjectKind, OrderKind,
     PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, Reject, Replay, Rng, Sim, SimEvent, SpawnAt, Target,

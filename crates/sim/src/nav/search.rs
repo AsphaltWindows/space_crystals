@@ -8,7 +8,7 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 
 use super::{NavCounters, NavGrid};
-use crate::tuning::paths::{DIAGONAL_COST, STEP_COST};
+use crate::ruleset::rules;
 use crate::units::TilePos;
 
 /// Neighbour offsets in the fixed expansion order E, S, W, N, SE, SW, NW, NE (`docs/movement.md > 5.3`), with the
@@ -77,8 +77,17 @@ enum Aim {
     },
 }
 
-fn octile(dx: u32, dy: u32) -> u32 {
-    STEP_COST * dx.max(dy) + (DIAGONAL_COST - STEP_COST) * dx.min(dy)
+/// The costs of an orthogonal step and of a diagonal one (`tuning::paths::Paths::step_cost`, `diagonal_cost`), read
+/// once per search by its caller, so that the search loop reads no rules.
+fn costs() -> (u32, u32) {
+    let paths = &rules().tuning.paths;
+    (paths.step_cost, paths.diagonal_cost)
+}
+
+/// The octile distance of `dx` by `dy` tiles, at `step` an orthogonal step and `diagonal` a diagonal one.
+#[inline]
+fn octile(dx: u32, dy: u32, (step, diagonal): (u32, u32)) -> u32 {
+    step * dx.max(dy) + (diagonal - step) * dx.min(dy)
 }
 
 impl Search {
@@ -116,7 +125,7 @@ impl Search {
     /// `limit`: the search gives up at the first node whose `f` is beyond it. Nodes come off the heap by ascending
     /// `f`, and `f` never exceeds the cost of the cheapest path, so it gives up exactly when that path costs more
     /// than `limit`, having expanded what the unlimited search expands up to there.
-    fn run(&mut self, grid: &NavGrid, start: u32, aim: Aim, limit: u32) -> bool {
+    fn run(&mut self, grid: &NavGrid, start: u32, aim: Aim, limit: u32, costs: (u32, u32)) -> bool {
         let (w, h) = (grid.width() as i32, grid.height() as i32);
         let generation = self.generation;
         let goal = match aim {
@@ -130,12 +139,14 @@ impl Search {
         let heuristic = |x: i32, y: i32| match aim {
             Aim::Tile(goal) => {
                 let (gx, gy) = (goal as i32 % w, goal as i32 / w);
-                octile((x - gx).unsigned_abs(), (y - gy).unsigned_abs())
+                octile((x - gx).unsigned_abs(), (y - gy).unsigned_abs(), costs)
             }
             Aim::Everything => 0,
-            Aim::Targets { x0, y0, x1, y1, .. } => {
-                octile((x0 - x).max(x - x1).max(0) as u32, (y0 - y).max(y - y1).max(0) as u32)
-            }
+            Aim::Targets { x0, y0, x1, y1, .. } => octile(
+                (x0 - x).max(x - x1).max(0) as u32,
+                (y0 - y).max(y - y1).max(0) as u32,
+                costs,
+            ),
         };
         let start_h = heuristic(start as i32 % w, start as i32 / w);
         self.nodes[start as usize] = Node {
@@ -178,9 +189,9 @@ impl Search {
                 }
                 let cost = if n < 4 {
                     free[n] = true;
-                    STEP_COST
+                    costs.0
                 } else if free[orthogonal[0]] && free[orthogonal[1]] {
-                    DIAGONAL_COST
+                    costs.1
                 } else {
                     // No corner cutting: nothing squeezes between diagonal obstacles.
                     continue;
@@ -233,7 +244,7 @@ impl Search {
     }
 
     /// [`Search::astar`] that gives up, with `None`, once the cheapest path is known to cost more than `max_cost`
-    /// ([`STEP_COST`] per orthogonal step): the same search up to there, so a path it returns is the one
+    /// (`Paths::step_cost` per orthogonal step): the same search up to there, so a path it returns is the one
     /// [`Search::astar`] returns. It expands only tiles through which a path of at most `max_cost` could lead.
     pub fn astar_within(
         &mut self,
@@ -255,7 +266,7 @@ impl Search {
         }
         self.counters.searches += 1;
         self.begin((grid.width() * grid.height()) as usize);
-        if !self.run(grid, start, Aim::Tile(goal), max_cost) {
+        if !self.run(grid, start, Aim::Tile(goal), max_cost, costs()) {
             return None;
         }
         let mut path = self.chain(grid, goal);
@@ -273,7 +284,7 @@ impl Search {
         self.avoid.clear();
         self.counters.fields += 1;
         self.begin((grid.width() * grid.height()) as usize);
-        self.run(grid, anchor, Aim::Everything, u32::MAX);
+        self.run(grid, anchor, Aim::Everything, u32::MAX, costs());
         self.field = Some((anchor, grid.width(), grid.height()));
         true
     }
@@ -315,7 +326,7 @@ impl Search {
         } else {
             Aim::Targets { x0, y0, x1, y1, left }
         };
-        self.run(grid, anchor, aim, u32::MAX);
+        self.run(grid, anchor, aim, u32::MAX, costs());
         self.field = Some((anchor, grid.width(), grid.height()));
         true
     }

@@ -1,6 +1,8 @@
 use super::player::tile_span;
 use super::*;
 use crate::defs::ObjectKind;
+const FOG_DELAY_TICKS: crate::units::Tick = crate::tuning::vision::BUILTIN.fog_delay_ticks;
+const REVEAL_TICKS: crate::units::Tick = crate::tuning::vision::BUILTIN.reveal_ticks;
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);

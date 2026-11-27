@@ -6,7 +6,7 @@ use crate::player::Faction;
 use crate::sides::SideLetter;
 
 /// `factions/gdo/structures/barracks.md`.
-pub(crate) static BARRACKS: ObjectDef = ObjectDef {
+pub(crate) const BARRACKS: ObjectDef = ObjectDef {
     kind: ObjectKind::Barracks,
     name: "Barracks",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization

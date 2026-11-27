@@ -38,7 +38,7 @@
 //!    4), so it doesn't leave by the open south, and its attempts at another route bring back the path it has
 //!    (`docs/movement.md > 6.5`, rule 3: the Agents in its way stand in its own tile or the next). Its leg to the
 //!    patch ends as arrived or failed, it waits "at its patch" where it stands, and tries again every
-//!    `tuning::gathering::RECHECK_TICKS`, for ever.
+//!    `tuning::gathering::Gathering::recheck_ticks`, for ever.
 //! 3. The loaded Agents are out of reach (in the soak the nearest one by 1 space unit, held by the corner of the
 //!    next), and under 0315 they **press on** where until then they stood and set off again every 32 ticks. Pressing
 //!    isn't making way: each heads for a point the pocketed Agent's Silhouette covers, or for a place beside it that

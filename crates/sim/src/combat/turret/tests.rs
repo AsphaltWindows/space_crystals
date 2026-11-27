@@ -54,7 +54,7 @@ fn the_arc_is_split_equally_either_side_of_the_base_s_facing() {
     for d in [46.0, -46.0, 90.0, 180.0] {
         assert!(!in_arc(&ninety, 0.0, Vec2::ZERO, at(d)), "{d}°");
     }
-    // The bounds: a point diagonally off is the game's own 45° (`tuning::orders::ROTATION_STEP`).
+    // The bounds: a point diagonally off is the game's own 45° (`tuning::orders::Orders::rotation_step`).
     let quarter = crate::defs::TurretAttrs {
         turn_angle: math::PI / 2.0,
         turn_rate: 1.0,

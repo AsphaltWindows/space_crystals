@@ -5,7 +5,7 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/gdo/economy.md > Generator`.
-pub(crate) static GENERATOR: ObjectDef = ObjectDef {
+pub(crate) const GENERATOR: ObjectDef = ObjectDef {
     kind: ObjectKind::Generator,
     name: "Generator",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization

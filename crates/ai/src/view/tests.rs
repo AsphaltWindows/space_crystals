@@ -3,7 +3,7 @@
 //! another player that its player neither sees nor remembers, and shows every one it does.
 
 use sc_sim::testing::TestSim;
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::{DebugCommand, ObjectKind, PlayerId, Sim, Vec2, gu, scenarios};
 
 use super::{Known, Start, View};

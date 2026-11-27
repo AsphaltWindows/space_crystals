@@ -5,7 +5,7 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/colonists/economy.md > Egress Node`: where Drones drop off what they gather (`> Drop Off`, slice M3-H).
-pub(crate) static EGRESS_NODE: ObjectDef = ObjectDef {
+pub(crate) const EGRESS_NODE: ObjectDef = ObjectDef {
     kind: ObjectKind::EgressNode,
     name: "Egress Node",
     faction: Some(Faction::Colonists),          // Faction - Colonists

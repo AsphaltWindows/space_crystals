@@ -1,5 +1,9 @@
 use super::*;
-use crate::tuning::movement::{GIVE_UP_TICKS, HALF_STUCK_TICKS, YIELD_WAIT_TICKS};
+const MAX_REPATHS: u8 = crate::tuning::movement::BUILTIN.max_repaths;
+const JAMMED_TICKS: u16 = crate::tuning::movement::BUILTIN.jammed_ticks;
+const GIVE_UP_TICKS: crate::units::Tick = crate::tuning::movement::BUILTIN.give_up_ticks();
+const HALF_STUCK_TICKS: crate::units::Tick = crate::tuning::movement::BUILTIN.half_stuck_ticks();
+const YIELD_WAIT_TICKS: u8 = crate::tuning::movement::BUILTIN.yield_wait_ticks();
 
 #[test]
 fn go_to_wants_a_path_and_stop_drops_it() {

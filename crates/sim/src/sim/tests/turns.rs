@@ -4,7 +4,7 @@
 use super::*;
 use crate::math::{self, PI};
 use crate::mover::MoveGoal;
-use crate::tuning::combat::FACING_TOLERANCE;
+const FACING_TOLERANCE: f32 = crate::tuning::combat::BUILTIN.facing_tolerance;
 
 /// A Peacekeeper that walks off to the south-west turns 135° in phase 5d, and in 5e of the same tick begins to aim
 /// at an enemy to its north-west, about 90° further. The aim has only the 45° left of the tick's 180°: the unit ends

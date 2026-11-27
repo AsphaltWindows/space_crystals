@@ -10,7 +10,7 @@ use crate::player::Faction;
 /// "list, costs, BaseResearchTimes TBD"), and "Until its research is designed it has no panel commands and Recruits
 /// can't enter it": it holds no one, so the Recruits' right-click on it is a Move (`Sim::aimed`), and its panel is
 /// none. Its numbers are the design's "Placeholder stats".
-pub(crate) static MACHINE_SHOP: ObjectDef = ObjectDef {
+pub(crate) const MACHINE_SHOP: ObjectDef = ObjectDef {
     kind: ObjectKind::MachineShop,
     name: "Machine Shop",
     faction: Some(Faction::Cults), // Faction - TheCults

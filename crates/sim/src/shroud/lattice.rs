@@ -1,6 +1,6 @@
 //! A release's areas (plan decision T77): "areas are integer counts on a 4-su lattice (a 3-GU circle is about 7,200
 //! points): deterministic, and within about 1% of exact". The lattice's points are the centres of the cells of a square
-//! grid [`LATTICE_STEP`] space units on a side, from the map's origin: the point of column `i` and row `j` is at
+//! grid `Spells::lattice_step` space units on a side, from the map's origin: the point of column `i` and row `j` is at
 //! `((i + ½) × step, (j + ½) × step)`. A cloud's area is the number of points under its circles ([`Union`]: inside one
 //! or on its edge, as for what is under a cloud), an object's the number inside its shape's box, its left and top edges
 //! in and its right and bottom ones out, so that a box whose sides are whole steps holds exactly its area's worth (a 3x3
@@ -13,21 +13,21 @@ use glam::Vec2;
 
 use super::Member;
 use crate::math;
-use crate::tuning::spells::LATTICE_STEP;
+use crate::ruleset::rules;
 
 /// The first index of the lattice's points at or beyond the coordinate `v`, space units.
 fn first_at_or_after(v: f32) -> i32 {
-    (v / LATTICE_STEP - 0.5).ceil() as i32
+    (v / rules().tuning.spells.lattice_step - 0.5).ceil() as i32
 }
 
 /// The last index of the lattice's points at or before the coordinate `v`, space units.
 fn last_at_or_before(v: f32) -> i32 {
-    (v / LATTICE_STEP - 0.5).floor() as i32
+    (v / rules().tuning.spells.lattice_step - 0.5).floor() as i32
 }
 
 /// The coordinate of the lattice's points of index `i`, space units.
 fn coordinate(i: i32) -> f32 {
-    (i as f32 + 0.5) * LATTICE_STEP
+    (i as f32 + 0.5) * rules().tuning.spells.lattice_step
 }
 
 /// The lattice's points under the circles of a cloud (module docs), row by row.
@@ -139,7 +139,7 @@ mod tests {
     /// box of whole steps holds its area's worth wherever it stands, a 24x24 Silhouette 36 points.
     #[test]
     fn a_cloud_s_area_and_a_box_s_are_counted_on_the_lattice() {
-        let exact = PI * 192.0 * 192.0 / (LATTICE_STEP * LATTICE_STEP);
+        let exact = PI * 192.0 * 192.0 / (rules().tuning.spells.lattice_step * rules().tuning.spells.lattice_step);
         for (x, y) in [(500.0, 500.0), (513.3, 487.9), (1001.0, 66.6)] {
             let count = Union::of(&[circle(x, y, 192.0)]).count() as f32;
             assert!((count - exact).abs() / exact < 0.01, "({x}, {y}): {count} for {exact}");

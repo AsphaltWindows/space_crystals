@@ -6,7 +6,7 @@ use crate::player::Faction;
 
 /// `factions/colonists/economy.md > Beacon`: a deployed Drone (`> Beacon Deployment`, slice M3-F), onto which every
 /// other Colonists building is warped in (`> Warp In`, slice M3-E). "Full ObjectInterfaceState still TBD".
-pub(crate) static BEACON: ObjectDef = ObjectDef {
+pub(crate) const BEACON: ObjectDef = ObjectDef {
     kind: ObjectKind::Beacon,
     name: "Beacon",
     faction: Some(Faction::Colonists),          // Faction - Colonists

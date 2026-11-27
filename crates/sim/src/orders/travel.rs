@@ -8,12 +8,12 @@ use crate::defs::AttackAttrs;
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav::PathGroup;
-use crate::tuning::orders::{PATROL_FAILED_LEGS, PROXIMITY_SU};
 
 use super::engage::{Closing, close_in};
 use super::reach::{self, Reach, Verdict};
 use super::state::{Approach, Judged, Leg, Patrol, Pursuit};
 use super::world::{Candidate, Known, Scan, Unit, View, World};
+use crate::ruleset::rules;
 
 /// Design change 0139 (`core/vision.md > Explored > Targeting remembered objects`: "The order goes to the object's
 /// **last-known position**"): one tick of a unit's walk to `spot`, the last-known position of an object its owner
@@ -37,7 +37,7 @@ pub(super) fn walk_to_remembered(unit: &mut Unit, walking: &mut bool, spot: Vec2
 /// `> MovingToObject`: one tick of a Move to the object `id`, as the unit's owner knows it ([`World::known`]).
 /// Returns whether the behaviour is complete.
 ///
-/// **Proximity** (`> Proximity`, design change 0032): a gap of at most [`PROXIMITY_SU`] between the unit's
+/// **Proximity** (`> Proximity`, design change 0032): a gap of at most `Orders::proximity_su` between the unit's
 /// Silhouette and the object's shape, edge to edge.
 ///
 /// **A static object** (`> Completion`: a structure, a map resource): complete within proximity. The move also
@@ -88,9 +88,9 @@ pub(super) fn approach(unit: &mut Unit, id: ObjectId, state: &mut Approach, worl
     }
     let goal = MoveGoal::Object {
         id,
-        reach: PROXIMITY_SU,
+        reach: rules().tuning.orders.proximity_su,
     };
-    let within = unit.shape().gap(&target.shape) <= PROXIMITY_SU;
+    let within = unit.shape().gap(&target.shape) <= rules().tuning.orders.proximity_su;
     if !target.is_unit {
         if within {
             unit.halt();
@@ -393,7 +393,7 @@ fn pursue(unit: &mut Unit, leg: &mut Leg, pursuit: &mut Pursuit, world: &World, 
 /// The unit attack-moves ([`march`]) to and fro between the PatrolOrigin, where it was when the Patrol started
 /// executing (design change 0036), and the PatrolDestination, and never completes on its own, except by `> Failed
 /// legs` (design change 0037): a leg that fails counts as arrived and the unit turns around; after
-/// [`PATROL_FAILED_LEGS`] failed legs in a row the Patrol ends and the unit goes idle. Unreachable or crowded
+/// `Orders::patrol_failed_legs` failed legs in a row the Patrol ends and the unit goes idle. Unreachable or crowded
 /// endpoints end a leg as arrived, and fighting on the way isn't a failure. Each leg takes its targets by
 /// AttackMove's reach rule (design change 0230: "and Patrol, which uses AttackMove's scanning"), and starts with no
 /// rejections of the leg before.
@@ -407,7 +407,7 @@ pub(super) fn patrol(unit: &mut Unit, state: &mut Patrol, group: PathGroup, worl
             LegStatus::Arrived => state.failed_legs = 0,
             LegStatus::Failed => {
                 state.failed_legs = state.failed_legs.saturating_add(1);
-                if state.failed_legs >= PATROL_FAILED_LEGS {
+                if state.failed_legs >= rules().tuning.orders.patrol_failed_legs {
                     return true;
                 }
             }

@@ -6,7 +6,7 @@
 
 use sc_sim::orders::{Auto, Behaviour};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::vision::REVEAL_TICKS;
+const REVEAL_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.reveal_ticks;
 use sc_sim::{
     Command, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, Sim, SimEvent, Tick, TickInputs,
     TilePos, Vec2, VisibilityState,

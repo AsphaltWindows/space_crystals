@@ -1,15 +1,15 @@
 //! The fog delay — `core/vision.md > Visible > Fog delay` (design change 0178, answering question Q0018 point 1): a
-//! tile that leaves the sight of all of a player's sources stays Visible for [`FOG_DELAY_TICKS`] before it turns
+//! tile that leaves the sight of all of a player's sources stays Visible for `Vision::fog_delay_ticks` before it turns
 //! Explored, and one that comes back into sight meanwhile simply stays Visible. During the delay the tile is
 //! genuinely Visible: everything on it shows and counts as seen, for the player's units as for its views. So a target
 //! at the very edge of sight no longer blinks out of view for a tick. This is the one fix for that: AttackingObject
 //! and Follow have no grace period of their own (design change 0200, Q0051's option A: "the fog delay stays per
 //! tile"), and their target lost from vision ends them (`orders::engage`, `orders::travel`) once the delay is over.
 //!
-//! - **Ticks**: a tile that no source sees any more in phase 5f of tick `t` lingers. It is Visible at the end of
-//!   ticks `t` to `t + FOG_DELAY_TICKS − 1`, and phase 5f of tick `t + FOG_DELAY_TICKS` (its end) turns it Explored,
-//!   unless a source sees it again first. The last tick it was in sight is `t − 1`, so it stays Visible for the 8
-//!   ticks after it ("Visible if in sight now or within 8 frames", 0178's Implementation impact).
+//! - **Ticks**: a tile that no source sees any more in phase 5f of tick `t` lingers. It is Visible at the end of ticks
+//!   `t` to `t + Vision::fog_delay_ticks − 1`, and phase 5f of tick `t + Vision::fog_delay_ticks` (its end) turns it
+//!   Explored, unless a source sees it again first. The last tick it was in sight is `t − 1`, so it stays Visible for
+//!   the 8 ticks after it ("Visible if in sight now or within 8 frames", 0178's Implementation impact).
 //! - **State**: the tiles that linger, and the tick each one's delay ends. Nothing in the objects says when a tile
 //!   left sight, so both are history, like the Explored tiles: hashed, serialized, and kept by a loaded save.
 //! - **Cost**: phase 5f touches the tiles that leave sight or come back, as it did without the delay, and those whose
@@ -22,7 +22,7 @@ use std::collections::VecDeque;
 
 use super::player::TileBits;
 use crate::hash::{StateHash, StateHasher};
-use crate::tuning::vision::FOG_DELAY_TICKS;
+use crate::ruleset::rules;
 use crate::units::Tick;
 
 /// One player's tiles that linger: still Visible for the fog delay, though none of its sources sees them.
@@ -58,9 +58,10 @@ impl Linger {
     }
 
     /// Phase 5f of `tick`: no source sees tile `i` any more. It lingers until phase 5f of `tick +
-    /// FOG_DELAY_TICKS`. The ticks of successive calls never go down, so the queue stays in order.
+    /// Vision::fog_delay_ticks`. The ticks of successive calls never go down, so the queue stays in order.
     pub(super) fn start(&mut self, i: u32, tick: Tick) {
-        self.set(i, tick + FOG_DELAY_TICKS);
+        let tuning = &rules().tuning.vision;
+        self.set(i, tick + tuning.fog_delay_ticks);
     }
 
     fn set(&mut self, i: u32, end: Tick) {

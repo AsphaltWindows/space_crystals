@@ -7,7 +7,7 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/gdo/structures/career_campus.md`: its placeholder stats (design change 0328).
-pub(crate) static CAREER_CAMPUS: ObjectDef = ObjectDef {
+pub(crate) const CAREER_CAMPUS: ObjectDef = ObjectDef {
     kind: ObjectKind::CareerCampus,
     name: "Career Campus",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization

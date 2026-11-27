@@ -17,7 +17,7 @@ use glam::Vec2;
 use super::collide::World;
 use super::space::sweep;
 use crate::nav;
-use crate::tuning::movement::ROW_CLEARANCE_SU;
+use crate::ruleset::rules;
 
 /// A row is followed through at most this many units (a technical bound on [`detour`]'s walk; a larger crowd is
 /// gone round as far as it was followed).
@@ -68,9 +68,9 @@ struct Route {
 /// round.
 ///
 /// The row's **box** is the bounding box of its units, grown by the unit's own half extents and
-/// [`ROW_CLEARANCE_SU`]: outside it the unit's box is clear of every unit of the row. The unit stands in it, against
-/// its blocker. The box's **front** is the side that faces the target, and the detour leads to one of the front's
-/// two ends: there the unit is beside the row's end and as near the target as the row is, which is in range if
+/// `Movement::row_clearance_su`: outside it the unit's box is clear of every unit of the row. The unit stands in it,
+/// against its blocker. The box's **front** is the side that faces the target, and the detour leads to one of the
+/// front's two ends: there the unit is beside the row's end and as near the target as the row is, which is in range if
 /// the row is and there is room (the units of the row stopped as soon as they were). It goes
 /// 1. straight **out** of the box by a side, and
 /// 2. **round** the box from corner to corner, either way, to that end.
@@ -82,6 +82,7 @@ struct Route {
 /// units ([`sweep`]): a row bent round the unit shuts the sides it covers. Other units on the way are met as any
 /// unit is.
 pub(super) fn detour(world: &World, blocker: usize, pos: Vec2, target: Vec2, other_end: bool) -> Vec<Vec2> {
+    let tuning = &rules().tuning.movement;
     let me = *world.body();
     let row = row(world, blocker);
     let (mut lo, mut hi) = (Vec2::MAX, Vec2::MIN);
@@ -90,7 +91,7 @@ pub(super) fn detour(world: &World, blocker: usize, pos: Vec2, target: Vec2, oth
         lo = lo.min(body.pos - body.half);
         hi = hi.max(body.pos + body.half);
     }
-    let grown = me.half + Vec2::splat(ROW_CLEARANCE_SU);
+    let grown = me.half + Vec2::splat(tuning.row_clearance_su);
     let (lo, hi) = (lo - grown, hi + grown);
     // Clockwise on screen from the north-west corner. Side `i` runs from corner `i` to corner `i + 1`: north,
     // east, south, west.

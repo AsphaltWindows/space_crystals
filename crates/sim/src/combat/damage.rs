@@ -25,11 +25,9 @@ use crate::map::Map;
 use crate::math::{self, PI};
 use crate::object::Object;
 use crate::riot_shield;
+use crate::ruleset::rules;
 use crate::shroud::Clouds;
 use crate::shroud::lattice::Union;
-use crate::tuning::combat::{
-    DIRECTIONAL_FRONT, DIRECTIONAL_HALF_ARC, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, MINIMUM_DAMAGE,
-};
 use crate::units::{Tick, TilePos};
 use crate::vision::Hiding;
 
@@ -75,7 +73,7 @@ impl Hit {
             pre_armor,
             armor: point_armor,
             directional,
-            minimum: MINIMUM_DAMAGE,
+            minimum: rules().tuning.combat.minimum_damage,
         }
     }
 }
@@ -93,7 +91,13 @@ pub struct Taken {
 /// multiplier, MinimumDamage)`, in the order of `> DamageModifierOrder`. HP is fractional (`> MinimumDamage`), so
 /// nothing is rounded. The HP a hit takes from a target without Shields ([`resolve`]).
 pub fn hit_damage(damage: f32, pre_armor: f32, point_armor: f32, directional: f32) -> f32 {
-    hp_damage(damage, pre_armor, point_armor, directional, MINIMUM_DAMAGE)
+    hp_damage(
+        damage,
+        pre_armor,
+        point_armor,
+        directional,
+        rules().tuning.combat.minimum_damage,
+    )
 }
 
 /// Steps 1 to 4 of `> DamageModifierOrder` on `damage`, with `armor` as step 2's and `minimum` as step 4's floor.
@@ -162,15 +166,15 @@ pub fn pre_armor_multiplier(map: &Map, o: &Object) -> f32 {
 /// say), and one right on top of the unit as front.
 pub fn directional_multiplier(facing: f32, to_source: Vec2) -> f32 {
     if to_source == Vec2::ZERO {
-        return DIRECTIONAL_FRONT;
+        return rules().tuning.combat.directional_front;
     }
     let off = math::wrap_angle(math::vector_angle(to_source) - facing).abs();
-    if off <= DIRECTIONAL_HALF_ARC {
-        DIRECTIONAL_FRONT
-    } else if off >= PI - DIRECTIONAL_HALF_ARC {
-        DIRECTIONAL_REAR
+    if off <= rules().tuning.combat.directional_half_arc {
+        rules().tuning.combat.directional_front
+    } else if off >= PI - rules().tuning.combat.directional_half_arc {
+        rules().tuning.combat.directional_rear
     } else {
-        DIRECTIONAL_SIDE
+        rules().tuning.combat.directional_side
     }
 }
 

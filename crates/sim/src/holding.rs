@@ -39,8 +39,8 @@ use glam::Vec2;
 use crate::defs::{HoldsDef, ObjectKind};
 use crate::network::{EntryPath, NoTransit};
 use crate::object::{Object, Placement};
+use crate::ruleset::rules;
 use crate::sides::{DIRECTIONS, SideLetter, sides};
-use crate::tuning::tunnel::ENTRY_REACH_SU;
 use crate::units::SU_PER_GU;
 
 /// The holding of `o`'s type ([`HoldsDef`]): `None` for anything but a building that holds units.
@@ -88,18 +88,10 @@ pub fn admits(building: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
     }
 }
 
-/// How far clear of the wall a unit's walk into a building that holds units ends (`EntryPath::stand`), space units:
-/// half of `ENTRY_REACH_SU`, within which it goes in all the same. Placeholder (not in the design: where a unit on its
-/// way in stops is the implementation's). Against the wall, as at a Tunnel (M4-C), the spot is one that a unit pressed
-/// along the wall by a crowd coming round a corner of the entrance side can't get round the corner to: it slid towards
-/// it ever more slowly and gave up (slice M5-F1's QA run, `tests/holding/entering.rs`: two of eleven Recruits walking
-/// round an Armory to side B).
-pub(crate) const ENTRY_STANDOFF_SU: f32 = ENTRY_REACH_SU / 2.0;
-
 /// The entry path of `building`, a placed building that holds units: the doorway at the middle of its entrance side
 /// (`HoldsDef::entrance`), facing out of it (design change 0347 point 1, `core/entities.md > Entrance and exit
 /// (production and research buildings)`: "The entrance is a dedicated doorway at the middle of the entrance side"),
-/// walked to [`ENTRY_STANDOFF_SU`] clear of the wall. `None` for anything else.
+/// walked to `Holding::entry_standoff_su` clear of the wall. `None` for anything else.
 pub fn entry_path(building: &Object) -> Option<EntryPath> {
     let holds = holds(building)?;
     let placement = building.placement.as_ref()?;
@@ -107,7 +99,7 @@ pub fn entry_path(building: &Object) -> Option<EntryPath> {
     Some(EntryPath {
         outward,
         spot: side_middle(placement, outward),
-        standoff: ENTRY_STANDOFF_SU,
+        standoff: rules().tuning.holding.entry_standoff_su,
     })
 }
 

@@ -18,7 +18,7 @@ use crate::player::Faction;
 /// Aiming and the shot lands there at the end of Firing, so a target that moves during the Firing phase is missed,
 /// and whatever unit stands at the spot then is hit instead (any owner)". It may attack the ground
 /// (`crate::orders::attack_ground`), and keeps firing there until another order.
-pub(crate) static GUNNER: ObjectDef = ObjectDef {
+pub(crate) const GUNNER: ObjectDef = ObjectDef {
     kind: ObjectKind::Gunner,
     name: "Gunner",
     faction: Some(Faction::Cults),                         // Faction - TheCults

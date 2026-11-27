@@ -5,7 +5,7 @@
 //! `TestSim` checks the invariants after every tick, the vision invariant V1 included.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::vision::PlayerVision;
 use sc_sim::{
     DebugCommand, Faction, LayoutObject, ObjectId, ObjectKind, OrderKind, PlacementCheck, PlayerId, ScenarioProblem,

@@ -12,7 +12,7 @@ use crate::player::Faction;
 /// "a melee attack for basic self-defense". What it does besides fight comes with each system's slice (plan §3.2): its
 /// gathering (`> Gathering`, slice M5-D) and its building (`> Building`, slice M5-E) in its `worker`; its entering an
 /// Armory (`> Armory Entry`), slice M5-F1.
-pub(crate) static RECRUIT: ObjectDef = ObjectDef {
+pub(crate) const RECRUIT: ObjectDef = ObjectDef {
     kind: ObjectKind::Recruit,
     name: "Recruit",
     faction: Some(Faction::Cults),                         // Faction - TheCults

@@ -36,16 +36,32 @@ impl Tech {
         Tech::ImprovedMetabolismL2,
     ];
 
-    /// Its numbers.
+    /// Its numbers, in the current rules (`crate::ruleset::rules`).
+    #[inline]
     pub fn def(self) -> &'static TechDef {
-        match self {
-            Tech::EnhancedConstitutionL1 => &ENHANCED_CONSTITUTION_L1,
-            Tech::EnhancedConstitutionL2 => &ENHANCED_CONSTITUTION_L2,
-            Tech::ImprovedMetabolismL1 => &IMPROVED_METABOLISM_L1,
-            Tech::ImprovedMetabolismL2 => &IMPROVED_METABOLISM_L2,
-        }
+        &crate::ruleset::rules().factions.cults.techs[self]
     }
 }
+
+impl crate::ruleset::Key for Tech {
+    const ALL: &'static [Tech] = &Tech::ALL;
+
+    #[inline]
+    fn index(self) -> usize {
+        self as usize
+    }
+}
+
+/// Every technology's numbers, by technology (`CultsRules::techs`).
+pub type Techs = crate::ruleset::Table<Tech, TechDef, 4>;
+
+/// The built-in technologies' numbers, in [`Tech::ALL`]'s order.
+pub const TECHS: Techs = Techs::new([
+    ENHANCED_CONSTITUTION_L1,
+    ENHANCED_CONSTITUTION_L2,
+    IMPROVED_METABOLISM_L1,
+    IMPROVED_METABOLISM_L2,
+]);
 
 impl StateHash for Tech {
     fn hash(&self, h: &mut StateHasher) {
@@ -57,7 +73,7 @@ impl StateHash for Tech {
 /// A research line (`factions/cults/structures/temple.md > Research (first set)`: "Each Augmentation has its own
 /// two-level improvement line"): the Augmentation whose amounts its levels raise (`factions/cults/augmentation.md >
 /// Augmentation Effects`, a row of the table).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum ResearchLine {
     EnhancedConstitution,
     ImprovedMetabolism,
@@ -97,10 +113,12 @@ impl ResearchLine {
 
 /// A technology's numbers (plan decision T74): `factions/cults/structures/temple.md > Research (first set)`, a row of
 /// its table, and `> Placeholder stats`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TechDef {
     /// Its name, as the table has it.
-    pub name: &'static str,
+    #[serde(deserialize_with = "crate::defs::leak::str")]
+    pub name: crate::defs::StaticStr,
     /// The line it is a level of.
     pub line: ResearchLine,
     /// The level of its line it gives once completed: the effects table's column (`augmentation::Level`).
@@ -120,13 +138,14 @@ pub struct TechDef {
     /// The structure types its player must own when it is queued, each at least once (`core/tech_and_research.md > Tech
     /// Prerequisites > Research Prerequisites`: "**checked only when it is queued**"; `crate::tech`'s counting rule).
     /// Empty for none.
+    #[serde(deserialize_with = "crate::defs::leak::slice")]
     pub requires_structures: &'static [ObjectKind],
 }
 
 /// "Enhanced Constitution Level 1 | — | Enhanced Constitution becomes +4 Constitution / −2 Metabolism | 100 SC / 960
 /// frames (placeholder)"; `> Placeholder stats`: "Enhanced Constitution L1 and Improved Metabolism L1: **100 SC, 960
 /// frames (60 s)** each".
-static ENHANCED_CONSTITUTION_L1: TechDef = TechDef {
+const ENHANCED_CONSTITUTION_L1: TechDef = TechDef {
     name: "Enhanced Constitution Level 1",
     line: ResearchLine::EnhancedConstitution,
     level: Level::L1,
@@ -139,7 +158,7 @@ static ENHANCED_CONSTITUTION_L1: TechDef = TechDef {
 /// "Enhanced Constitution Level 2 | Enhanced Constitution Level 1; player owns at least one Cathedral | Enhanced
 /// Constitution becomes +6 Constitution / −3 Metabolism | 150 SC / 1440 frames (placeholder)"; `> Placeholder stats`:
 /// "L2 of each: **150 SC, 1440 frames (90 s)**".
-static ENHANCED_CONSTITUTION_L2: TechDef = TechDef {
+const ENHANCED_CONSTITUTION_L2: TechDef = TechDef {
     name: "Enhanced Constitution Level 2",
     line: ResearchLine::EnhancedConstitution,
     level: Level::L2,
@@ -151,7 +170,7 @@ static ENHANCED_CONSTITUTION_L2: TechDef = TechDef {
 
 /// "Improved Metabolism Level 1 | — | Improved Metabolism becomes +4 Metabolism / −2 Constitution | 100 SC / 960 frames
 /// (placeholder)".
-static IMPROVED_METABOLISM_L1: TechDef = TechDef {
+const IMPROVED_METABOLISM_L1: TechDef = TechDef {
     name: "Improved Metabolism Level 1",
     line: ResearchLine::ImprovedMetabolism,
     level: Level::L1,
@@ -163,7 +182,7 @@ static IMPROVED_METABOLISM_L1: TechDef = TechDef {
 
 /// "Improved Metabolism Level 2 | Improved Metabolism Level 1; player owns at least one Cathedral | Improved Metabolism
 /// becomes +6 Metabolism / −3 Constitution | 150 SC / 1440 frames (placeholder)".
-static IMPROVED_METABOLISM_L2: TechDef = TechDef {
+const IMPROVED_METABOLISM_L2: TechDef = TechDef {
     name: "Improved Metabolism Level 2",
     line: ResearchLine::ImprovedMetabolism,
     level: Level::L2,

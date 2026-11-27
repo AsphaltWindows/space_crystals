@@ -52,9 +52,9 @@ use crate::nav;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target, gather};
 use crate::production::ExitDoor;
+use crate::ruleset::rules;
 use crate::shape::Shape;
 use crate::sim::Sim;
-use crate::tuning::movement::MAX_REPATHS;
 use crate::units::Tick;
 
 /// I6: a path request is served within this many ticks. Requests are served oldest first and at least one per
@@ -340,7 +340,7 @@ impl Invariants {
             // A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase, a Patrol's next
             // leg, the way back to an IdleOrigin). `go_to` in this tick left a full count and its tick behind,
             // also when the move ended in the same tick.
-            let new_leg = mover.repaths_left == MAX_REPATHS && mover.last_repath == tick;
+            let new_leg = mover.repaths_left == rules().tuning.movement.max_repaths && mover.last_repath == tick;
             let began = order_started || new_leg;
             // (M3-G) A unit with momentum that still had some brakes to a stop, moving meanwhile (`momentum`): a
             // DragMovement unit and (M5-V2) a FixedTurnRadiusMovement one. (M5-H1) A Glider's is its speed, and it
@@ -416,7 +416,7 @@ impl Invariants {
                 return fail("I7", format!("has a goal with status {:?}", mover.status));
             }
             // I6: repaths per leg are capped, and a request doesn't wait for ever.
-            if mover.repaths_left > MAX_REPATHS {
+            if mover.repaths_left > rules().tuning.movement.max_repaths {
                 return fail("I6", format!("has {} repaths left", mover.repaths_left));
             }
             // Only a new leg gives repaths back.

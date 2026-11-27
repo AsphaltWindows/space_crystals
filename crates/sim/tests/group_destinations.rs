@@ -7,7 +7,7 @@
 //! checks the invariants I1–I7 after each tick (`docs/movement.md > 8`), and the runs replay to the same state.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::movement::OCCUPIED_ARRIVAL_GU;
+const OCCUPIED_ARRIVAL_GU: f32 = sc_sim::tuning::movement::BUILTIN.occupied_arrival_gu;
 use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, Target, Vec2, gu};
 
 const P1: PlayerId = PlayerId(1);

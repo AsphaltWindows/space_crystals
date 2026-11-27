@@ -11,9 +11,7 @@ use crate::defs::{AttackAttrs, ObjectKind, TurretAttrs};
 use crate::elevation::{self, Elevation};
 use crate::ids::ObjectId;
 use crate::math;
-use crate::tuning::combat::FACING_TOLERANCE;
-use crate::tuning::orders::ROTATION_STEP;
-use crate::tuning::vision::ELEVATION_MODIFIER;
+use crate::ruleset::rules;
 use crate::units::gu;
 
 /// Which enemies a scan takes. Never one inside the unit's MinRange (`systems/controls/behaviors.md >
@@ -38,13 +36,17 @@ pub(crate) struct Candidate<'v> {
     pub in_range: bool,
 }
 
-/// The 45° step ([`ROTATION_STEP`]) of a rotation of `rotation` radians, 0 to π (either direction): 0 for 0° to 45°,
-/// 1 for over 45° to 90°, 2 for over 90° to 135°, 3 for over 135° to 180°. Targets in one step count as needing
+/// The 45° step (`Orders::rotation_step`) of a rotation of `rotation` radians, 0 to π (either direction): 0 for 0° to
+/// 45°, 1 for over 45° to 90°, 2 for over 90° to 135°, 3 for over 135° to 180°. Targets in one step count as needing
 /// equal rotation. **The bounds**: the design's steps ("0–45°, 45–90°, 90–135°, 135–180°") share their bounds; a
 /// placeholder reading takes each step up to its upper bound, so a target exactly 45° off is in the first step, with
 /// those dead ahead.
 pub(crate) fn rotation_step(rotation: f32) -> u8 {
-    let bounds = [ROTATION_STEP, 2.0 * ROTATION_STEP, 3.0 * ROTATION_STEP];
+    let bounds = [
+        rules().tuning.orders.rotation_step,
+        2.0 * rules().tuning.orders.rotation_step,
+        3.0 * rules().tuning.orders.rotation_step,
+    ];
     bounds.iter().filter(|&&bound| rotation > bound).count() as u8
 }
 
@@ -104,8 +106,8 @@ impl World<'_> {
     /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
     ///
     /// `facing_only`: a non-turret unit that can't turn in place engages only what it already faces
-    /// (`systems/controls/command_behaviors.md > HoldingPosition` 4, within `tuning::combat::FACING_TOLERANCE`, the
-    /// exact angle).
+    /// (`systems/controls/command_behaviors.md > HoldingPosition` 4, within `tuning::combat::Combat::facing_tolerance`,
+    /// the exact angle).
     // Inlined into each caller, whose `admit` it specializes on: the behaviours' hottest scan. Without the hint, how
     // the release build splits the crate into codegen units can leave a call to it out of line (slice M4-S1: the one
     // in `travel::march`, 3% of `behaviours_perf`'s battle, though nothing on the path had changed).
@@ -122,7 +124,7 @@ impl World<'_> {
         let my_domain = unit.unit_def()?.base_def().domain;
         // Everything a scan can reach lies within the unit's longest range, plus the modifier, of the unit's shape:
         // its centre lies within that and the two half shapes along each axis, in the cells this box touches.
-        let longest = unit.kind.def().sight_range.max(attrs.range) + ELEVATION_MODIFIER;
+        let longest = unit.kind.def().sight_range.max(attrs.range) + rules().tuning.vision.elevation_modifier;
         let own_half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO).max_element();
         let radius = gu(longest) + own_half + self.candidate_half;
         let (x0, x1) = (
@@ -152,7 +154,7 @@ impl World<'_> {
                         continue;
                     }
                     let rotation = Self::rotation(unit.pos, facing, view);
-                    if facing_only && rotation > FACING_TOLERANCE {
+                    if facing_only && rotation > rules().tuning.combat.facing_tolerance {
                         continue;
                     }
                     let in_range = within_range(attrs, gap, source, view.elevation);

@@ -7,7 +7,7 @@
 //!     nothing gathers or costs them (design change 0077);
 //!   - Power as used / available: what the player's structures consume over what they generate (`Sim::power`),
 //!     shown in red while consumption exceeds generation (design change 0090);
-//!   - Unit Control as used / the cap (`Sim::unit_control`, `UNIT_CONTROL_CAP`). "Used" counts the units in
+//!   - Unit Control as used / the cap (`Sim::unit_control`, `GdoRules::unit_control_cap`). "Used" counts the units in
 //!     production too, not the ones only queued (design change 0143: "The HUD's 'used' count includes in-production
 //!     units, not merely queued ones"): the sim's one accessor counts them, so the bar follows it without a rule of
 //!     its own.
@@ -40,7 +40,7 @@
 //! value after the name, side by side.
 
 use bevy::prelude::*;
-use sc_sim::{ArmyResource, Faction, PlayerId, Sim, UNIT_CONTROL_CAP};
+use sc_sim::{ArmyResource, Faction, PlayerId, Sim};
 
 use super::{TEXT_COLOR, set_text, show_node, text};
 use crate::sim_driver::{LocalPlayer, SimRes};
@@ -164,9 +164,11 @@ pub fn resource_bar(sim: &Sim, player: PlayerId) -> Vec<(ResourceFigure, Reading
                 alert: power.is_negative(),
             }
         }
-        ResourceFigure::UnitControl => {
-            Reading::plain(format!("Unit Control {}/{UNIT_CONTROL_CAP}", sim.unit_control(player)))
-        }
+        ResourceFigure::UnitControl => Reading::plain(format!(
+            "Unit Control {}/{}",
+            sim.unit_control(player),
+            sc_sim::rules().factions.gdo.unit_control_cap
+        )),
         ResourceFigure::Alloys => Reading::plain(format!("Alloys {}", p.alloys)),
         ResourceFigure::Essence => Reading::plain(format!("Essence {}", p.essence)),
         ResourceFigure::Flux => Reading::plain(format!("Flux {}", p.flux)),

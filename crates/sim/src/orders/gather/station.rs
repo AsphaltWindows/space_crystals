@@ -11,8 +11,8 @@
 //!   waiting for the next supply delivery"): with every Supply claimed or none left, the worker waits beside the
 //!   station (`GatherPhase::Waiting`), and begins its pick-up as soon as a Supply is free for it. It never looks round
 //!   for another station. One whose leg ended short of the station (design change 0141's rule for a patch it can't
-//!   reach) waits as close as it got, and sets off again, for a spot free by then, every [`RECHECK_TICKS`] while its
-//!   owner's grids show a way.
+//!   reach) waits as close as it got, and sets off again, for a spot free by then, every `Gathering::recheck_ticks`
+//!   while its owner's grids show a way.
 //! - **Gather while carrying a load** (design change 0128, one of the Drone's rules): a worker that carries a Supply
 //!   goes to the station all the same, and on arrival turns round to deliver it, without picking up. One that carries
 //!   Space Crystals picks up as any other, and its crystals are lost when its pick-up ends (0256 point 4; design change
@@ -23,13 +23,13 @@
 
 use crate::defs::{Resource, WorkerDef};
 use crate::mover::MoveStatus;
-use crate::tuning::gathering::RECHECK_TICKS;
 use crate::units::Tick;
 
 use super::super::state::{Gather, GatherPhase};
 use super::super::world::{KnownStation, Unit, World};
 use super::patch::end;
 use super::{Claims, Flow, carrying};
+use crate::ruleset::rules;
 
 mod spot;
 
@@ -87,8 +87,8 @@ pub(super) fn to_station(
 }
 
 /// `GatherPhase::Waiting` beside `station`, since tick `since` (module docs): the pick-up begins as soon as a Supply is
-/// free; out of reach, the worker sets off again in the ticks that are multiples of [`RECHECK_TICKS`], but in the
-/// one it began to wait in, if its owner's grids show a way.
+/// free; out of reach, the worker sets off again in the ticks that are multiples of `Gathering::recheck_ticks`, but in
+/// the one it began to wait in, if its owner's grids show a way.
 pub(super) fn wait_at_station(
     state: &mut Gather,
     unit: &mut Unit,
@@ -105,7 +105,7 @@ pub(super) fn wait_at_station(
     if in_reach && station.seen && supply_free(world, claims, &station) {
         return begin_pick_up(state, unit, &station, claims);
     }
-    if in_reach || since == world.tick || !world.tick.is_multiple_of(RECHECK_TICKS) {
+    if in_reach || since == world.tick || !world.tick.is_multiple_of(rules().tuning.gathering.recheck_ticks) {
         return Flow::Stay;
     }
     if world.reachable(unit, &station.shape) {

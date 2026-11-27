@@ -17,8 +17,8 @@
 //! - **It attacks** (`super::phases`): a sequence starts at its LockedTarget once its owner sees it and it is within
 //!   Range, beyond MinRange and within the arc (`systems/controls/action_channels.md > TurretAttackChannel`, whose
 //!   values are the phases); Aiming counts from then, lasts until the turret faces the target as well (within
-//!   `tuning::combat::FACING_TOLERANCE`, as a base's aim), and is cancelled once the target leaves the arc or the range
-//!   (plan decision T80). An Attack Ground's location is aimed at the same way, its turret's arc included
+//!   `tuning::combat::Combat::facing_tolerance`, as a base's aim), and is cancelled once the target leaves the arc or
+//!   the range (plan decision T80). An Attack Ground's location is aimed at the same way, its turret's arc included
 //!   (`systems/controls/command_behaviors.md > AttackingLocation`: "Range/arc check is against the target location").
 //! - **(M5-N10) A hull that aims too** ([`aims_by_hull`]): a unit whose base turns in place (a TrackedVehicle: the Hand
 //!   of Heaven, whose launcher turns 20° in all) stops where its target is in range, outside the arc as well
@@ -51,7 +51,7 @@ use crate::defs::{ObjectKind, TurretAttrs, UnitDef};
 use crate::ids::ObjectId;
 use crate::math;
 use crate::object::Object;
-use crate::tuning::combat::FACING_TOLERANCE;
+use crate::ruleset::rules;
 
 /// A unit's turret (module docs): `systems/units.md > Unit Instance > TurretCommandState`, and its facing.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -99,10 +99,11 @@ pub(crate) fn aims_by_hull(unit: &UnitDef) -> bool {
 }
 
 /// Whether the arc of `attrs` is a full turn, which the turret turns round the shorter way (the Seeker's "360° (full
-/// rotation)", `factions/cults/units/seeker.md > TurretAttributes`). Technical: an arc whose gap behind is narrower than
-/// [`FACING_TOLERANCE`] counts as one, so that a TurnAngle of 360° converted to radians is one whatever its rounding.
+/// rotation)", `factions/cults/units/seeker.md > TurretAttributes`). Technical: an arc whose gap behind is narrower
+/// than `Combat::facing_tolerance` counts as one, so that a TurnAngle of 360° converted to radians is one whatever its
+/// rounding.
 fn full_turn(attrs: &TurretAttrs) -> bool {
-    attrs.turn_angle + FACING_TOLERANCE >= math::TAU
+    attrs.turn_angle + rules().tuning.combat.facing_tolerance >= math::TAU
 }
 
 /// The direction of `at` from `from`, relative to `facing`, radians in `(-PI, PI]`; `None` if `at` is right there.

@@ -4,7 +4,8 @@
 //!
 //! - **An entry** ([`Mark`]) is the mark's sentence, and the one before it when the mark opens its sentence, as the
 //!   comment says it, with its file, the item it documents (a constant's or a field's name and value, `WAVE_SIZE =
-//!   32`) and the questions it names (`Q0147`). A relative citation (`> Types`) is given its module's file.
+//!   32`; a tunable's, a field of a `tunables!` struct, `lane_look = 4.0`) and the questions it names (`Q0147`). A
+//!   relative citation (`> Types`) is given its module's file.
 //! - **Grouped** by faction where the path names one (a `cults/` folder, or a folder or file named after a type of
 //!   the faction, `chop_shop/`), and the rest by crate and system ([`System`]).
 //! - **Not kept current**: the list is rewritten only by `UPDATE_DOCS=1` ([`super::rewrite_if_updating`]); its test
@@ -30,7 +31,7 @@ const OWN: &str = "crates/game/tests/playtest_docs";
 const DESIGN: &str = "artifacts/designer/design";
 
 /// The list's test: the scan finds marks in each crate, each with its text and its group; and the doc is rewritten
-/// only while updating, however stale it is (slice M5-X1 moves the constants; slice M5-Mb regenerates it).
+/// only while updating, however stale it is (slice M5-Mb regenerates it).
 #[test]
 fn the_placeholders_list() {
     let root = root();
@@ -63,13 +64,20 @@ fn an_entry_is_its_sentence_with_its_item() {
                 pub mod tuning {\n    \
                     /// Placeholder (Q0147 point 2): the first wave.\n    \
                     pub const FIRST_WAVE: usize = 8;\n\
+                }\n\
+                tunables! {\n    \
+                    /// The tunables (module docs).\n    \
+                    Lanes;\n\
+                    \n    \
+                    /// How near counts. Placeholder (not in the design).\n    \
+                    lane_near: f32 = 0.5,\n\
                 }\n";
     let marks = marks_in("crates/x/src/lane.rs", text, &prefixes(&root()));
     let said: Vec<(Option<&str>, &str, &[String])> = (marks.iter())
         .map(|mark| (mark.item.as_deref(), mark.text.as_str(), &mark.questions[..]))
         .collect();
     let q = |questions: &[&str]| questions.iter().map(|q| (*q).to_owned()).collect::<Vec<_>>();
-    assert_eq!(said.len(), 3, "{marks:?}");
+    assert_eq!(said.len(), 4, "{marks:?}");
     assert_eq!(
         said[0],
         (
@@ -93,6 +101,14 @@ fn an_entry_is_its_sentence_with_its_item() {
             Some("tuning::FIRST_WAVE = 8"),
             "Placeholder (Q0147 point 2): the first wave.",
             &q(&["Q0147"])[..]
+        )
+    );
+    assert_eq!(
+        said[3],
+        (
+            Some("lane_near = 0.5"),
+            "How near counts. Placeholder (not in the design).",
+            &q(&[])[..]
         )
     );
 }
@@ -240,8 +256,8 @@ fn inline_module(line: &str) -> Option<&str> {
 }
 
 /// The item a doc comment documents, from its line: a constant's or a static's name, with its value when the line
-/// gives it and it is short (`LANE_LOOK = 4.0`); a field's, with its value or type (`search_radius: 6.0`). `None` for
-/// any other item.
+/// gives it and it is short (`LANE_LOOK = 4.0`); a tunable's, a field of a `tunables!` struct (`crate::tuning`), with
+/// its value (`lane_look = 4.0`); a field's, with its value or type (`search_radius: 6.0`). `None` for any other item.
 fn item(line: &str) -> Option<String> {
     let mut line = line.trim();
     if let Some(rest) = line.strip_prefix("pub") {
@@ -266,6 +282,13 @@ fn item(line: &str) -> Option<String> {
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
     let value = value.strip_suffix(',').filter(|_| field)?;
+    // A tunable: `name: Type = value,`.
+    if let Some((_, value)) = value.split_once(" = ") {
+        return Some(match short(value) {
+            true => format!("{name} = {value}"),
+            false => name.to_owned(),
+        });
+    }
     Some(if short(value) {
         format!("{name}: {value}")
     } else {

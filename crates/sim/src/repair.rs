@@ -47,7 +47,7 @@ pub(crate) mod tests;
 use crate::augmentation::Research;
 use crate::defs::{Category, MovementModel, ObjectKind, Recipe, RepairPayment, RepairTargets, SitePrice};
 use crate::object::Object;
-use crate::tuning::repair::{REPAIR_COST_SHARE, REPAIR_TIME_SHARE};
+use crate::ruleset::rules;
 
 /// The terms of the repair of an object of some kind (module docs, [`terms`]): its build's, shared out by
 /// `tuning::repair`.
@@ -77,10 +77,10 @@ pub fn terms(kind: ObjectKind) -> Option<Terms> {
         let recipe = recipe_of(kind)?;
         (recipe.frames, Some(recipe.cost))
     };
-    let frames = frames as f32 * REPAIR_TIME_SHARE;
+    let frames = frames as f32 * rules().tuning.repair.repair_time_share;
     (frames > 0.0).then(|| Terms {
         frames,
-        price: price.map(|crystals| crystals as f32 * REPAIR_COST_SHARE),
+        price: price.map(|crystals| crystals as f32 * rules().tuning.repair.repair_cost_share),
     })
 }
 

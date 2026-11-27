@@ -22,7 +22,11 @@ mod yielding;
 
 use sc_sim::testing::invariants::Invariants;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::movement::{GIVE_UP_TICKS, MAX_REPATHS, OCCUPIED_ARRIVAL_GU, REPATH_WAITS, STUCK_TICKS};
+const GIVE_UP_TICKS: sc_sim::Tick = sc_sim::tuning::movement::BUILTIN.give_up_ticks();
+const MAX_REPATHS: u8 = sc_sim::tuning::movement::BUILTIN.max_repaths;
+const OCCUPIED_ARRIVAL_GU: f32 = sc_sim::tuning::movement::BUILTIN.occupied_arrival_gu;
+const REPATH_WAITS: [sc_sim::Tick; 3] = sc_sim::tuning::movement::BUILTIN.repath_waits;
+const STUCK_TICKS: sc_sim::Tick = sc_sim::tuning::movement::BUILTIN.stuck_ticks;
 use sc_sim::{
     Ability, Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Shape, Sim,
     SimEvent, SpawnAt, Target, TickInputs, TilePos, Vec2, gu,

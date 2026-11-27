@@ -17,7 +17,7 @@ use crate::player::Faction;
 use crate::units::SU_PER_GU;
 
 /// `factions/gdo/units/rocketman.md`: its placeholder stats (design change 0356).
-pub(crate) static ROCKETMAN: ObjectDef = ObjectDef {
+pub(crate) const ROCKETMAN: ObjectDef = ObjectDef {
     kind: ObjectKind::Rocketman,
     name: "Rocketman",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization

@@ -93,7 +93,7 @@ fn recruits_from_every_side_go_round_to_the_entrance() {
 /// the Armory in a crowd and along its wall to side B. Ten go in again, and again only the last one's Enter fails, for
 /// want of room. With the walk ending against the wall, as into a Tunnel, two didn't: one, pressed along the wall,
 /// slid ever more slowly towards a spot it couldn't get round the corner to, the one behind it waited, and both gave
-/// up (`holding::ENTRY_STANDOFF_SU`).
+/// up (`Holding::entry_standoff_su`).
 #[test]
 fn ejected_recruits_go_round_to_side_b_and_back_in() {
     // The QA run's game: a 32 × 24 map, the Armory at tile (7, 5) (x 448..640, y 320..448: side B is x = 640), a

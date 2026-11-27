@@ -26,7 +26,7 @@ fn the_enemy_never_sees_it() {
         queue: false,
     };
     next(&mut t, P2, hold);
-    t.run(sc_sim::tuning::vision::FOG_DELAY_TICKS + 1);
+    t.run(sc_sim::tuning::vision::BUILTIN.fog_delay_ticks + 1);
     next(&mut t, P1, expand(2, 6));
     let site = building(&t);
     let unseen = |t: &TestSim| {

@@ -5,7 +5,7 @@
 //! (What the orders on a remembered object do, and that nothing about the real state leaks: `remembered_targets.rs`.)
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::{
     Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, SpawnAt, Target,
     TickInputs, TilePos, Vec2, VisibilityState,
@@ -191,7 +191,7 @@ fn remembered_objects_on_explored_ground_are_targets() {
         assert!(unit.orders.as_ref().unwrap().is_idle(), "#{}", unit.id.0);
         let target = sc_sim::Shape::of(t.sim().object(id(target)).unwrap());
         assert!(
-            sc_sim::Shape::of(unit).gap(&target) <= sc_sim::tuning::orders::PROXIMITY_SU,
+            sc_sim::Shape::of(unit).gap(&target) <= sc_sim::tuning::orders::BUILTIN.proximity_su,
             "#{}",
             unit.id.0
         );

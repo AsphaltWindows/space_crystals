@@ -7,7 +7,10 @@
 
 use sc_sim::combat::{self, AttackPhase};
 use sc_sim::testing::{self, ScenarioBuilder, TestSim};
-use sc_sim::tuning::combat::{DIRECTIONAL_FRONT, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, MINIMUM_DAMAGE};
+const DIRECTIONAL_FRONT: f32 = sc_sim::tuning::combat::BUILTIN.directional_front;
+const DIRECTIONAL_REAR: f32 = sc_sim::tuning::combat::BUILTIN.directional_rear;
+const DIRECTIONAL_SIDE: f32 = sc_sim::tuning::combat::BUILTIN.directional_side;
+const MINIMUM_DAMAGE: f32 = sc_sim::tuning::combat::BUILTIN.minimum_damage;
 use sc_sim::vision::Hiding;
 use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, SimEvent, Target, Tick, Vec2};
 

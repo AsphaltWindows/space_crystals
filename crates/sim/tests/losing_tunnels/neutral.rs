@@ -225,7 +225,7 @@ fn every_expansion_of_a_lost_tunnel_is_seen_by_every_player_at_once() {
         .spawn(GUARD, Some(P2), point(11, 10)) // 8
         .start();
     t.without_auto_targeting();
-    run_until(&mut t, sc_sim::tuning::vision::FOG_DELAY_TICKS + 1);
+    run_until(&mut t, sc_sim::tuning::vision::BUILTIN.fog_delay_ticks + 1);
     let expansions = [H1, id(4), id(5), id(6)];
     let mut kinds: Vec<ObjectKind> = expansions.iter().map(|&e| object(&t, e).kind).collect();
     kinds.sort();

@@ -9,7 +9,7 @@ use crate::defs::test_defs::TestDef;
 use crate::defs::{ObjectKind, UnitBase};
 use crate::ids::{ObjectId, PlayerId};
 use crate::testing::{ScenarioBuilder, TestSim};
-use crate::tuning::air::SEPARATION_PUSH_SU;
+const SEPARATION_PUSH_SU: f32 = crate::tuning::air::BUILTIN.separation_push_su;
 
 const P1: PlayerId = PlayerId(1);
 

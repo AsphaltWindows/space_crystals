@@ -11,7 +11,7 @@ use crate::player::Faction;
 /// its research is designed it has no panel commands and Recruits can't enter it** (a right-click on it with Recruits
 /// is a Move; Q0093)": it holds no one, so the Recruits' right-click on it is a Move (`Sim::aimed`), and its panel is
 /// none. Its numbers are the design's "Placeholder stats".
-pub(crate) static GUNWORKS: ObjectDef = ObjectDef {
+pub(crate) const GUNWORKS: ObjectDef = ObjectDef {
     kind: ObjectKind::Gunworks,
     name: "Gunworks",
     faction: Some(Faction::Cults), // Faction - TheCults

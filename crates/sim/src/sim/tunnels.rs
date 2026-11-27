@@ -43,14 +43,14 @@
 //!     (`placement`), and Tunnel Space counts neutral expansions (`economy::army`).
 //! - **The decay** ([`Sim::step_decay`], in the economy phase, `Object::decay`): "They **slowly lose HP** until
 //!   destroyed. **Decay is a percentage of MaxHP per second**: 1% per second, placeholder (a Hideout lasts 100 s)"
-//!   ([`DECAY_PERCENT_PER_SECOND`]). A `Progress` counts it out exactly in fixed point: [`DECAY_TICKS`] ticks of
-//!   decay at 1% a second, a tick taking `DECAY_PERCENT_PER_SECOND` of them. Its HP follows the share of the MaxHP the
-//!   decay has left, falling by as much as it does each tick, and never above it ([`decayed`]), so that an expansion
-//!   at full HP lasts exactly the decay's length whatever the rounding: from full HP, a Hideout dies in its 1600th
-//!   tick of decay (100 s at 16 ticks a second; a Laser Turret too, losing 3 HP a second of its 300), the first being
-//!   the tick its Tunnel fell, as the first frame of a transformation is the tick that starts it (`crate::transform`).
-//!   It dies as in combat, its HP at 0, with a `SimEvent::Died` (owner `None`) before it goes, and the grids follow
-//!   (`paths::sync`).
+//!   (`Tunnel::decay_percent_per_second`). A `Progress` counts it out exactly in fixed point: [`DECAY_TICKS`] ticks of
+//!   decay at 1% a second, a tick taking `Tunnel::decay_percent_per_second` of them. Its HP follows the share of the
+//!   MaxHP the decay has left, falling by as much as it does each tick, and never above it ([`decayed`]), so that an
+//!   expansion at full HP lasts exactly the decay's length whatever the rounding: from full HP, a Hideout dies in its
+//!   1600th tick of decay (100 s at 16 ticks a second; a Laser Turret too, losing 3 HP a second of its 300), the first
+//!   being the tick its Tunnel fell, as the first frame of a transformation is the tick that starts it
+//!   (`crate::transform`). It dies as in combat, its HP at 0, with a `SimEvent::Died` (owner `None`) before it goes,
+//!   and the grids follow (`paths::sync`).
 //! - **Reclaiming** ([`Sim::reclaim`]): "if a Tunnel is built whose Tunnel Area fully covers a neutral expansion, and
 //!   that Tunnel's tier meets the expansion's Tier Requirement, the expansion becomes owned by that Tunnel's owner —
 //!   the original Syndicate player or an enemy Syndicate player — and stops decaying"; "**Reclaiming happens** the
@@ -84,13 +84,13 @@ use crate::object::Object;
 use crate::paths;
 use crate::popup::{self, PopUp};
 use crate::progress::Progress;
-use crate::tuning::tunnel::DECAY_PERCENT_PER_SECOND;
+use crate::ruleset::rules;
 use crate::tunnel::{self, BASE_TIER, area};
 use crate::units::TICKS_PER_SECOND;
 use crate::vision::Hiding;
 
 /// The length of the decay at 1% of the MaxHP a second, in ticks: the whole MaxHP in 100 seconds. A tick of decay
-/// counts [`DECAY_PERCENT_PER_SECOND`] of them (module docs).
+/// counts `Tunnel::decay_percent_per_second` of them (module docs).
 pub(crate) const DECAY_TICKS: u32 = 100 * TICKS_PER_SECOND;
 
 /// A Tunnel the removal path takes ([`Sim::lost_tunnels`]), as it was before it went.
@@ -284,7 +284,7 @@ impl Sim {
                 continue;
             };
             let before = *decay;
-            decay.step(DECAY_PERCENT_PER_SECOND.saturating_mul(RATIO_ONE));
+            decay.step(rules().tuning.tunnel.decay_percent_per_second.saturating_mul(RATIO_ONE));
             let hp = decayed(hp, max, &before, decay);
             if hp > 0.0 {
                 o.hp = Some(hp);
@@ -363,7 +363,7 @@ mod tests {
         let (mut full, mut hurt) = (max, 250.0);
         for tick in 1..=DECAY_TICKS {
             let before = decay;
-            decay.step(DECAY_PERCENT_PER_SECOND * RATIO_ONE);
+            decay.step(rules().tuning.tunnel.decay_percent_per_second * RATIO_ONE);
             full = decayed(full, max, &before, &decay);
             hurt = decayed(hurt, max, &before, &decay);
             if tick == 16 {

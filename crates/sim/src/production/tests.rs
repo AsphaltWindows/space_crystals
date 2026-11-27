@@ -4,7 +4,8 @@ use super::*;
 use crate::defs::ExitRule;
 use crate::defs::Recipe;
 use crate::sides::SideLetter;
-use crate::tuning::production::RELEASE_FRAMES;
+const QUEUE_LIMIT: usize = crate::tuning::production::BUILTIN.queue_limit;
+const RELEASE_FRAMES: u32 = crate::tuning::production::BUILTIN.release_frames;
 
 const PK: QueueEntry = QueueEntry::Unit(ObjectKind::Peacekeeper);
 

@@ -25,12 +25,12 @@ use crate::elevation::Elevation;
 use crate::ids::ObjectId;
 use crate::math;
 use crate::mover::{MoveGoal, MoveStatus};
-use crate::tuning::orders::{GIVE_UP_RETRY_TICKS, IDLE_LEASH_GU};
 use crate::units::{SU_PER_GU, gu};
 
 use super::state::{AttackGround, AttackOrder, Auto, Pursuit};
 use super::travel::{approach, walk_to_remembered};
 use super::world::{Known, Scan, Unit, View, World};
+use crate::ruleset::rules;
 
 /// How an approach stands after [`close_in`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -170,8 +170,8 @@ fn strafe(
 ///   target it gave up waits for the idle unit too** (`auto`; design change 0181, `> BaseAutoTargeting > Unreachable
 ///   auto-targets`: "gives up by the give-up rule, and retries after 32 ticks"; question Q0057: the idle unit "takes
 ///   the target again by itself after 32 ticks"): idle from this tick on, the unit doesn't acquire that target for
-///   [`GIVE_UP_RETRY_TICKS`], as if its own auto-targeting had given it up, instead of setting off for it again in
-///   the tick its Attack ends. A queued order that starts instead resets it (`orders::update`).
+///   `Orders::give_up_retry_ticks`, as if its own auto-targeting had given it up, instead of setting off for it again
+///   in the tick its Attack ends. A queued order that starts instead resets it (`orders::update`).
 pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, auto: &mut Auto, world: &World) -> bool {
     let target = match world.known(unit.owner, id) {
         Known::Seen(target) => target,
@@ -226,7 +226,7 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, aut
         Closing::GaveUp => {
             unit.engage(None);
             *auto = Auto::Watching {
-                ignored: Some((id, world.tick.saturating_add(GIVE_UP_RETRY_TICKS))),
+                ignored: Some((id, world.tick.saturating_add(rules().tuning.orders.give_up_retry_ticks))),
             };
             true
         }
@@ -436,7 +436,7 @@ pub(super) fn hold(unit: &mut Unit, target: &mut Option<ObjectId>, world: &World
 ///   IdleOrigin, it disengages and returns there (MovingToLocation). If the target is destroyed or leaves SightRange
 ///   (or is no longer a ValidTarget, or comes inside the unit's MinRange: design change 0182, `Scan::Sight`), the
 ///   unit is idle again where it stands, with a new IdleOrigin next time. A target it can't get to is left alone for
-///   [`GIVE_UP_RETRY_TICKS`] (design change 0181), so the unit doesn't set off for it tick after tick.
+///   `Orders::give_up_retry_ticks` (design change 0181), so the unit doesn't set off for it tick after tick.
 /// - **Returning**: no scanning (`> Not active during`: Move); idle again once the move ends.
 pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
     // Returning → Watching → Engaging at most: each pass moves on by one.
@@ -474,7 +474,7 @@ pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
                     *auto = Auto::default();
                     continue;
                 };
-                if unit.pos.distance(origin) > gu(IDLE_LEASH_GU) {
+                if unit.pos.distance(origin) > gu(rules().tuning.orders.idle_leash_gu) {
                     if unit.may_move() {
                         unit.engage(None);
                         unit.mover.go_to(MoveGoal::Point(origin), None, world.tick);
@@ -487,7 +487,10 @@ pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
                     Closing::GaveUp => {
                         unit.engage(None);
                         Auto::Watching {
-                            ignored: Some((pursuit.target, world.tick.saturating_add(GIVE_UP_RETRY_TICKS))),
+                            ignored: Some((
+                                pursuit.target,
+                                world.tick.saturating_add(rules().tuning.orders.give_up_retry_ticks),
+                            )),
                         }
                     }
                 };

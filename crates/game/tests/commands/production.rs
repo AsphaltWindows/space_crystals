@@ -6,7 +6,8 @@
 //! production starts, and the player hears when a Barracks waits for it (design change 0143).
 
 use bevy::prelude::*;
-use sc_sim::{ArmyResource, Command, ObjectKind, PlayerId, ProductionCommand, UNIT_CONTROL_CAP};
+use sc_sim::{ArmyResource, Command, ObjectKind, PlayerId, ProductionCommand};
+const UNIT_CONTROL_CAP: u32 = sc_sim::FactionRules::BUILTIN.gdo.unit_control_cap;
 use space_crystals::command_ui::feedback::{NO_CRYSTALS_TEXT, TargetFeedback, UNIT_CONTROL_TEXT};
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand};
 use space_crystals::hud::command_panel::CommandButton;

@@ -64,9 +64,9 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::Object;
-use crate::tuning::vision::{FOG_DELAY_TICKS, REVEAL_TICKS};
 use crate::units::{Tick, TilePos};
 
+use crate::ruleset::rules;
 pub use hidden::{Hiding, hidden_from};
 use memory::Footprints;
 pub use memory::LastKnown;
@@ -338,19 +338,20 @@ impl Vision {
     }
 
     /// Checks the incremental state against a vision built from scratch out of `objects` (all of the sim's, in id
-    /// order) at the end of `tick`, from the same history (records, tiles that linger, reveals): the same sources,
-    /// the same Visible tiles seen by as many of them, and the same tiles lingering until the same ticks, for every
-    /// player; every Visible tile Explored; no tile lingering while a source sees it, and no delay or reveal that
-    /// ends in the past or beyond its length ([`FOG_DELAY_TICKS`], [`REVEAL_TICKS`]); the same reveals, so none was
-    /// due to end; and the memory a fresh build makes of the same records: none dropped or refreshed, none of an
-    /// object the player owns, and the same objects in sight. The test harness runs it after every tick
-    /// (`testing::invariants`, V1). The first difference, and where on the map (space units).
+    /// order) at the end of `tick`, from the same history (records, tiles that linger, reveals): the same sources, the
+    /// same Visible tiles seen by as many of them, and the same tiles lingering until the same ticks, for every player;
+    /// every Visible tile Explored; no tile lingering while a source sees it, and no delay or reveal that ends in the
+    /// past or beyond its length (`Vision::fog_delay_ticks`, `Vision::reveal_ticks`); the same reveals, so none was due
+    /// to end; and the memory a fresh build makes of the same records: none dropped or refreshed, none of an object the
+    /// player owns, and the same objects in sight. The test harness runs it after every tick (`testing::invariants`,
+    /// V1). The first difference, and where on the map (space units).
     pub(crate) fn check<'a>(
         &self,
         map: &Map,
         objects: impl IntoIterator<Item = &'a Object>,
         tick: Tick,
     ) -> Result<(), (Vec2, String)> {
+        let tuning = &rules().tuning.vision;
         let objects: BTreeMap<ObjectId, &Object> = objects.into_iter().map(|o| (o.id, o)).collect();
         let mut fresh = Vision::new(map, self.players.iter().map(|p| p.id));
         for (fresh, have) in fresh.players.iter_mut().zip(&self.players) {
@@ -378,7 +379,7 @@ impl Vision {
                 let end = have.linger.end(i);
                 match end {
                     Some(_) if n > 0 => return fail(format!("lingers, though {n} sources see it")),
-                    Some(end) if end <= tick || end > tick + FOG_DELAY_TICKS => {
+                    Some(end) if end <= tick || end > tick + tuning.fog_delay_ticks => {
                         return fail(format!("lingers until tick {end}, outside the delay after tick {tick}"));
                     }
                     _ => {}
@@ -394,7 +395,7 @@ impl Vision {
             let player = have.id.0;
             if let Some((id, end)) = have
                 .revealed()
-                .find(|&(_, end)| end <= tick || end > tick + REVEAL_TICKS)
+                .find(|&(_, end)| end <= tick || end > tick + tuning.reveal_ticks)
             {
                 let message = format!(
                     "player {player}: #{} is revealed until tick {end}, outside the reveal after tick {tick}",

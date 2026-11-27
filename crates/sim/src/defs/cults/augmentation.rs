@@ -4,11 +4,14 @@
 //! its owner's levels, and its accessors apply them. Which kinds take them is each kind's own
 //! (`UnitDef::augmentable`).
 
+use serde::{Deserialize, Serialize};
+
 use crate::augmentation::Increments;
 
 /// `factions/cults/augmentation.md > Increments`: what one increment does. "Increments can be negative. A negative
 /// increment applies the opposite effect".
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct IncrementEffects {
     /// "**Constitution increment**: +10 MaxHP", every augmentable unit's.
     pub max_hp: f32,
@@ -27,7 +30,8 @@ pub struct IncrementEffects {
 /// The two Augmentations' increments by research level (`factions/cults/augmentation.md > Augmentation Effects`: "Each
 /// Augmentation grants a positive amount of its own increment and a negative amount of the other"), each row's three
 /// columns "No research", "Level 1 researched" and "Level 2 researched", in that order (`crate::augmentation::Level`).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AugmentationTable {
     pub increments: IncrementEffects,
     /// Enhanced Constitution: "+2 Constitution / −1 Metabolism | +4 Constitution / −2 Metabolism | +6 Constitution /
@@ -38,8 +42,8 @@ pub struct AugmentationTable {
     pub improved_metabolism: [Increments; 3],
 }
 
-/// The Cults' augmentation numbers (module docs).
-pub static AUGMENTATION: AugmentationTable = AugmentationTable {
+/// The Cults' augmentation numbers (module docs), the built-in rules' (`CultsRules::augmentation`).
+pub const AUGMENTATION: AugmentationTable = AugmentationTable {
     increments: IncrementEffects {
         max_hp: 10.0,
         melee_damage: 1.0,

@@ -209,8 +209,9 @@ pub fn follow_max(current: f32, before: f32, after: f32) -> f32 {
 /// The current value that a cancel leaves of `current` out of `max`, on the restored maximum `restored` (design
 /// change 0111: "the same fraction of HP and Shields the transforming object had at cancel time", "original_max ×
 /// current_before ÷ max_before"), at most `restored`: an undamaged object is exactly at its old maximum again, a
-/// damaged one keeps the damage in proportion. HP keeps at least 1 more (`tuning::construction::MIN_HP_AFTER_CANCEL`);
-/// the Shields take the fraction as it is ("no minimum needed", `crate::shields`).
+/// damaged one keeps the damage in proportion. HP keeps at least 1 more
+/// (`tuning::construction::Construction::min_hp_after_cancel`); the Shields take the fraction as it is ("no minimum
+/// needed", `crate::shields`).
 pub fn keep_fraction(current: f32, max: f32, restored: f32) -> f32 {
     if max > 0.0 {
         (restored * current / max).min(restored)

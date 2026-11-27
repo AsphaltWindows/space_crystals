@@ -6,7 +6,7 @@ use crate::map::Map;
 use crate::movement::MoveCounters;
 use crate::movement::space::Body;
 use crate::nav::{Nav, NavClass, NavRules};
-use crate::tuning::movement::MAX_REPATHS;
+const MAX_REPATHS: u8 = crate::tuning::movement::BUILTIN.max_repaths;
 
 /// `factions/colonists/units/drone.md > UnitBaseAttributes[HoverVehicle]`, since design change 0205
 /// (`movement/drag/tests.rs` checks them against the Drone's def).

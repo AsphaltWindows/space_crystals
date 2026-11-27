@@ -15,7 +15,7 @@ use crate::player::Faction;
 /// by a `Command::Cast`, `crate::buffs`) and its production at the Chop Shop, where its TechPrerequisite is its
 /// recipe's (`> TechPrerequisite - player owns at least one **Temple**`, `Recipe::requires`). Its numbers are the
 /// design's "Placeholder stats".
-pub(crate) static PRAYER_MOBILE: ObjectDef = ObjectDef {
+pub(crate) const PRAYER_MOBILE: ObjectDef = ObjectDef {
     kind: ObjectKind::PrayerMobile,
     name: "Prayer-mobile",
     faction: Some(Faction::Cults), // Faction - TheCults
@@ -88,7 +88,7 @@ pub(crate) static PRAYER_MOBILE: ObjectDef = ObjectDef {
 /// infantry type (Recruit, Militant, Gunner, Disciple) gets the movement speed; Recruits also get the attack speed".
 /// "**Stacks with augmentation** (e.g. Improved Metabolism): different sources add up. **Recasting** on units that
 /// are already inspired **restarts the duration**; Inspire doesn't stack with itself" (`crate::buffs`).
-pub(crate) static INSPIRE: AbilityDef = AbilityDef {
+pub(crate) const INSPIRE: AbilityDef = AbilityDef {
     name: "Inspire",
     cost: 75.0,
     area: AbilityArea::AroundCaster,
@@ -111,7 +111,7 @@ pub(crate) static INSPIRE: AbilityDef = AbilityDef {
 /// total** in front of the vehicle's current facing, **5 grid units** long; units whose centre is inside can't attack
 /// for **4 s**"; `> Abilities`: "**Affects every unit in the arc, enemies and own alike** (user, 2026-11-27), like
 /// friendly fire. **Not buildings** [...] **Air units in the arc are affected** too" (`crate::suppress`).
-pub(crate) static SUPPRESS: AbilityDef = AbilityDef {
+pub(crate) const SUPPRESS: AbilityDef = AbilityDef {
     name: "Suppress",
     cost: 100.0,
     area: AbilityArea::Ahead { arc: PI / 2.0 },

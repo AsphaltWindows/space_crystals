@@ -45,8 +45,8 @@ use crate::math;
 use crate::mover::{MoveGoal, Mover, PathState};
 use crate::object::Object;
 use crate::production::ExitDoor;
+use crate::ruleset::rules;
 use crate::shape::Shape;
-use crate::tuning::movement::TURN_TRY_SU;
 use crate::vision::Hiding;
 
 /// One crush of the tick (module docs).
@@ -154,11 +154,11 @@ fn brakes(movement: &MovementAttrs, mover: &Mover, ahead: impl FnOnce() -> Vec2)
 /// The crushes of the crusher `me` (an index into `bodies`) in its turn of this tick, whose move crushed ([`drives`]),
 /// noted in `crushed`: it moved from `from`, facing `start`, to where its body now lies (`bodies[me]`, as it
 /// committed). Each crushable enemy of its layer that its shape overlaps there, or overlapped on the way: along its
-/// turn, which every model makes before its move and where it stands, tried as `World::turn` tries it (in parts
-/// along which its corners move at most `TURN_TRY_SU`), and along its move in the shape it ends in (`Shape::sweep`,
-/// which counts touching as free). None if it neither moved nor turned ("a crusher that is stationary
-/// and **not** turning stays a hard obstacle"). Those crushed earlier in the tick have left the layer. Once each, in
-/// the grid's order.
+/// turn, which every model makes before its move and where it stands, tried as `World::turn` tries it (in parts along
+/// which its corners move at most `Movement::turn_try_su`), and along its move in the shape it ends in (`Shape::sweep`,
+/// which counts touching as free). None if it neither moved nor turned ("a crusher that is stationary and **not**
+/// turning stays a hard obstacle"). Those crushed earlier in the tick have left the layer. Once each, in the grid's
+/// order.
 pub(super) fn victims(bodies: &[Body], layer: &Layer, me: usize, from: Vec2, start: f32, crushed: &mut Vec<Crush>) {
     let now = bodies[me];
     let turned = match now.oriented {
@@ -212,9 +212,10 @@ struct Swept {
 impl Swept {
     /// What the crusher whose body is now `now` swept, from `from` and the facing `start`, having turned by `turned`.
     fn of(now: &Body, from: Vec2, start: f32, turned: f32) -> Self {
+        let tuning = &rules().tuning.movement;
         let (half, parts) = match now.oriented {
             Some(lies) if turned != 0.0 => {
-                let parts = (turned.abs() * lies.half.length() / TURN_TRY_SU).ceil().max(1.0) as u32;
+                let parts = (turned.abs() * lies.half.length() / tuning.turn_try_su).ceil().max(1.0) as u32;
                 (lies.half, parts)
             }
             _ => (Vec2::ZERO, 0),

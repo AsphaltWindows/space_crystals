@@ -16,7 +16,7 @@
 
 use sc_sim::orders::{Auto, Behaviour};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::orders::IDLE_LEASH_GU;
+const IDLE_LEASH_GU: f32 = sc_sim::tuning::orders::BUILTIN.idle_leash_gu;
 use sc_sim::{
     Command, DebugCommand, MoveGoal, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Shape,
     SimEvent, SpawnAt, Target, TargetView, Tick, TilePos, Vec2, gu,

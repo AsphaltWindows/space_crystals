@@ -5,7 +5,7 @@
 //! display`, design changes 0299 and 0300). Its problems are the sim's, and a click on a red ghost says the first of
 //! them. An own Tunnel's upgrade reserves its larger area against it (slice M4-G).
 
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::{PlacementCheck, PlacementProblem, TileProblem, TunnelCommand, WholeProblem};
 use space_crystals::command_ui::feedback::placement_text;
 use space_crystals::placement::ghost_area::ShownArea;

@@ -71,7 +71,7 @@ const STORAGE_PRICE: u32 = 100;
 const STORAGE_FRAMES: u32 = 320;
 /// The starting bank of [`world`].
 const BANK: u32 = 1000;
-/// `tuning::construction::BUILD_REACH_SU`, design change 0339: "within its 8 su reach of the edge".
+/// `tuning::construction::Construction::build_reach_su`, design change 0339: "within its 8 su reach of the edge".
 const REACH: f32 = 8.0;
 /// The longest walk to a site in these tests, ticks.
 const WALK: Tick = 400;

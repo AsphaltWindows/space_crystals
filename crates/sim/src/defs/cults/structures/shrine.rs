@@ -11,7 +11,7 @@ use crate::sides::SideLetter;
 /// T69), and its design's "Placeholder stats"; its ritual (`> Ritual Participation`: the Recruits it holds, `holds`),
 /// its energy (`> Energy`, `energy`, `crate::energy`) and its abilities (`> Abilities`, `abilities`, `crate::buffs`)
 /// slice M5-N5's. Recruits build it from outside ([`SHRINE_SITE`]).
-pub(crate) static SHRINE: ObjectDef = ObjectDef {
+pub(crate) const SHRINE: ObjectDef = ObjectDef {
     kind: ObjectKind::Shrine,
     name: "Shrine",
     faction: Some(Faction::Cults), // Faction - TheCults

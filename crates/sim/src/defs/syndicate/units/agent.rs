@@ -11,7 +11,7 @@ use crate::player::Faction;
 /// `factions/syndicate/units/agent.md`: the Syndicate's worker, with its pistol (slice M4-A) and its gathering of
 /// Space Crystals and Supplies (`> Gathering`: its `worker`, slices M4-D and M4-I), and its Tunnels (`> Building`:
 /// its worker's `builds`, slice M4-E).
-pub(crate) static AGENT: ObjectDef = ObjectDef {
+pub(crate) const AGENT: ObjectDef = ObjectDef {
     kind: ObjectKind::Agent,
     name: "Agent",
     faction: Some(Faction::Syndicate),                     // Faction - TheSyndicate

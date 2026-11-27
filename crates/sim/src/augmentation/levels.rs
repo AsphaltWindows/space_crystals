@@ -16,7 +16,7 @@ use crate::player::Player;
 /// A research level of one Augmentation's line (`factions/cults/structures/temple.md > Research (first set)`: "Each
 /// Augmentation has its own two-level improvement line"): a column of the effects table
 /// (`factions/cults/augmentation.md > Augmentation Effects`, `defs::AugmentationTable`).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Level {
     /// "No research".
     #[default]

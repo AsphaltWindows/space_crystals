@@ -11,7 +11,7 @@ use crate::player::Faction;
 /// `factions/cults/units/militant.md`: "the Cults' basic combat infantry, trained from a Recruit at the Armory. A light
 /// infantry unit with a fully connected attack effective against both ground and air targets." Its training comes with
 /// slice M5-F2 (the Armory's `production`).
-pub(crate) static MILITANT: ObjectDef = ObjectDef {
+pub(crate) const MILITANT: ObjectDef = ObjectDef {
     kind: ObjectKind::Militant,
     name: "Militant",
     faction: Some(Faction::Cults),                         // Faction - TheCults

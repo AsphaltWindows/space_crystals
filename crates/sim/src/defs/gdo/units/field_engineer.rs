@@ -9,7 +9,7 @@ use crate::math::PI;
 use crate::player::Faction;
 
 /// `factions/gdo/units/field_engineer.md`: its placeholder stats (design change 0328).
-pub(crate) static FIELD_ENGINEER: ObjectDef = ObjectDef {
+pub(crate) const FIELD_ENGINEER: ObjectDef = ObjectDef {
     kind: ObjectKind::FieldEngineer,
     name: "Field Engineer",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization

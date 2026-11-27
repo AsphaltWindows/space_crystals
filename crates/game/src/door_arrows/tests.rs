@@ -1,7 +1,8 @@
-use sc_sim::network::PATH_OFFSET_SU;
 use sc_sim::{BuildingOrientation, Footprint, Rotation, TilePos};
 
 use super::*;
+
+const PATH_OFFSET_SU: f32 = sc_sim::tuning::tunnel::BUILTIN.path_offset_su;
 
 /// The doorways of a `kind` building placed with its top-left tile at (3, 2), turned by `orientation`: each arrow's
 /// way, the letter of its side as turned, and where it stands.

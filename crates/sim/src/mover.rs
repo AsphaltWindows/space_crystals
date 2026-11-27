@@ -30,11 +30,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::ObjectId;
 use crate::nav::PathGroup;
-use crate::tuning::movement::{JAMMED_TICKS, MAX_REPATHS};
+use crate::ruleset::rules;
 use crate::units::{Tick, TilePos};
 
 /// A tunable of `tuning::movement`, re-exported here for the client, whose tests read it by this path.
-pub use crate::tuning::movement::OCCUPIED_ARRIVAL_GU;
 pub use aside::StepAside;
 pub use flight::{Pass, Strafe, Takeoff};
 pub use sidestep::Sidestep;
@@ -66,7 +65,7 @@ pub enum MoveStatus {
     /// On the way, or waiting for its path.
     Moving,
     /// Reached the goal, or the reachable point nearest to it (design change 0025), or stopped within
-    /// [`OCCUPIED_ARRIVAL_GU`] of it behind units that won't move (design changes 0026, 0032, 0033 and 0169).
+    /// `Movement::occupied_arrival_gu` of it behind units that won't move (design changes 0026, 0032, 0033 and 0169).
     Arrived,
     /// Gave up: no path, or stuck with no repath left (`systems/controls/command_behaviors.md > MovingToLocation >
     /// Failure`; the numbers are design change 0024). Two units head-on in a passage too narrow to pass both end here
@@ -285,6 +284,7 @@ fn is_false(flag: &bool) -> bool {
 impl Default for Mover {
     /// An idle unit.
     fn default() -> Self {
+        let tuning = &rules().tuning.movement;
         Self {
             goal: MoveGoal::None,
             status: MoveStatus::Idle,
@@ -298,7 +298,7 @@ impl Default for Mover {
             path_state: PathState::None,
             nav_version: 0,
             planned_target: Vec2::ZERO,
-            repaths_left: MAX_REPATHS,
+            repaths_left: tuning.max_repaths,
             last_repath: 0,
             avoid_tiles: Vec::new(),
             // Finite, like every float in the state (`docs/movement.md > 7`).
@@ -327,12 +327,13 @@ impl Mover {
     /// A behaviour sends the unit to `goal` (a new leg, `docs/movement.md > 5.6`): it wants a path from tick `tick`
     /// on and stands still until it has one. `group` is the order group, for a shared path field.
     pub fn go_to(&mut self, goal: MoveGoal, group: Option<PathGroup>, tick: Tick) {
+        let tuning = &rules().tuning.movement;
         self.goal = goal;
         self.status = MoveStatus::Moving;
         self.group = group.map(|g| g.id);
         self.clear_path();
         self.path_state = PathState::Wanted { since: tick, group };
-        self.repaths_left = MAX_REPATHS;
+        self.repaths_left = tuning.max_repaths;
         self.last_repath = tick;
         self.avoid_tiles.clear();
         self.best_remaining = f32::MAX;
@@ -421,9 +422,10 @@ impl Mover {
     }
 
     /// `docs/movement.md > 6.3`: whether the unit counts as stationary for the others: its locomotion is
-    /// Stationary, or it found no way forward for [`JAMMED_TICKS`].
+    /// Stationary, or it found no way forward for `Movement::jammed_ticks`.
     pub fn is_stationary(&self) -> bool {
-        self.locomotion == Locomotion::Stationary || self.blocked_ticks >= JAMMED_TICKS
+        let tuning = &rules().tuning.movement;
+        self.locomotion == Locomotion::Stationary || self.blocked_ticks >= tuning.jammed_ticks
     }
 
     /// The point the current path ends on: the goal, or the reachable point nearest to it.

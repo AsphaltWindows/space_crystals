@@ -9,7 +9,7 @@ use crate::player::Faction;
 /// Unlocks`). Recruits build it from outside ([`SCRAP_HANGAR_SITE`], slice M5-G2), once their player owns an Airstrip.
 /// "No panel commands (it only unlocks)", and no one enters it, so the Recruits' right-click on it is a Move
 /// (`Sim::aimed`). Its numbers are the design's "Placeholder stats".
-pub(crate) static SCRAP_HANGAR: ObjectDef = ObjectDef {
+pub(crate) const SCRAP_HANGAR: ObjectDef = ObjectDef {
     kind: ObjectKind::ScrapHangar,
     name: "Scrap Hangar",
     faction: Some(Faction::Cults), // Faction - TheCults

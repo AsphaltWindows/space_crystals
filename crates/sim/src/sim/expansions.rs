@@ -52,9 +52,9 @@ use crate::orders::build::footprint;
 use crate::popup::{self, PopUp};
 use crate::progress::Progress;
 use crate::regeneration;
+use crate::ruleset::rules;
 use crate::scenario::BuildingOrientation;
 use crate::tech;
-use crate::tuning::tunnel::EXPANSION_REGEN_PER_SECOND;
 use crate::tunnel::{self, Operation};
 use crate::units::TilePos;
 
@@ -255,8 +255,8 @@ impl Sim {
     /// (M5-N8) The expansions' regeneration (module docs), in the economy phase beside the decay: each complete
     /// underground expansion (`StructureDef::underground`; a Laser Turret, which Agents repair, is none) with a parent
     /// Tunnel (`tunnel::area::parent`: its owner's Tunnel in operation whose area contains it) regains
-    /// `tuning::tunnel::EXPANSION_REGEN_PER_SECOND` of its MaxHP a second, up to it (`crate::regeneration`), in id
-    /// order. A neutral one, its Tunnel lost, decays instead (`sim/tunnels.rs`).
+    /// `tuning::tunnel::Tunnel::expansion_regen_per_second` of its MaxHP a second, up to it (`crate::regeneration`), in
+    /// id order. A neutral one, its Tunnel lost, decays instead (`sim/tunnels.rs`).
     pub(super) fn regenerate_expansions(&mut self) {
         let research = Research::new(&self.players);
         let damaged = |o: &Object| {
@@ -276,7 +276,7 @@ impl Sim {
             .collect();
         for id in regenerating {
             if let Some(o) = self.objects.get_mut(&id) {
-                regeneration::regenerate(o, EXPANSION_REGEN_PER_SECOND, research);
+                regeneration::regenerate(o, rules().tuning.tunnel.expansion_regen_per_second, research);
             }
         }
     }

@@ -27,8 +27,8 @@
 //!   unit on, so `Mover::blocked_ticks` counts its ticks (not for a unit with momentum that moves), and the stuck
 //!   clock runs. The unit ahead of it, if one is still in its way, stays its blocker for the stuck rules and is
 //!   asked to yield.
-//! - **A step commits its side** for `AVOID_COMMIT_TICKS` (1 s), as a switch of sides always did: it becomes the
-//!   unit's `avoid_side`, and until `avoid_until` the unit takes its next step to the same side, whatever its lean.
+//! - **A step commits its side** for `Movement::avoid_commit_ticks` (1 s), as a switch of sides always did: it becomes
+//!   the unit's `avoid_side`, and until `avoid_until` the unit takes its next step to the same side, whatever its lean.
 //!   A step of a whole width can leave the unit just short of clear of a blocker that stands a little to that side,
 //!   leaning back the way it came: by its lean it stepped straight back, to and fro for good (a Guard between two of
 //!   its firing line, `tests/attack_behind_friends/`). So the unit goes round on the side it began on, "to its right
@@ -48,8 +48,8 @@
 //! to the side the rules above choose (the near side at a standing blocker), if that is free; the unit's model turns it
 //! to head along that step and drives on (`super::super::wheeled`): its side scrapes past the blocker, and a move that
 //! meets it is blocked as any (design change 0035), so the unit creeps and keeps turning until it is past. It commits
-//! its side for `AVOID_COMMIT_TICKS` from each such step, as a contact step does: a unit that turns by its speed would
-//! not get round a blocker by turning one way and then the other.
+//! its side for `Movement::avoid_commit_ticks` from each such step, as a contact step does: a unit that turns by its
+//! speed would not get round a blocker by turning one way and then the other.
 
 use core::f32::consts::FRAC_1_SQRT_2;
 
@@ -58,7 +58,7 @@ use glam::Vec2;
 use super::{Hit, Moved, World, turned_90};
 use crate::defs::ContactStep;
 use crate::mover::{Mover, Side, StepAside};
-use crate::tuning::movement::{AVOID_COMMIT_TICKS, LEAN};
+use crate::ruleset::rules;
 use crate::units::Tick;
 
 /// `(x, y)` turned 45° towards `side`, same length. Constants, no trigonometry (`docs/movement.md > 6.3`).
@@ -106,12 +106,12 @@ impl World<'_> {
     /// The move `d` splits into a part straight at the face and a part along it, its **lean**.
     /// - **Glance** (the lean is at least half of `d`, squared): the unit only clips the blocker and slides along
     ///   it, the lean alone.
-    /// - **Leaning** (the lean is at least [`LEAN`] of `d`): the unit goes around on the side it leans to, by the
-    ///   sidestep that way. It never steps back along the face: the side it took becomes its `Mover::avoid_side`,
+    /// - **Leaning** (the lean is at least `Movement::lean` of `d`): the unit goes around on the side it leans to, by
+    ///   the sidestep that way. It never steps back along the face: the side it took becomes its `Mover::avoid_side`,
     ///   so when its own step along the face turns the contact head-on, it carries on the same way.
     /// - **Head-on**: the side is `Mover::avoid_side`, Right for everyone at first, so head-on units pass like
     ///   traffic: the sidestep that way. If it fails and `avoid_until` has passed, the side switches for at least
-    ///   `AVOID_COMMIT_TICKS` and its sidestep is tried. A blocker that itself moves along its face is passed
+    ///   `Movement::avoid_commit_ticks` and its sidestep is tried. A blocker that itself moves along its face is passed
     ///   **behind**: once `avoid_until` has passed, the side switches (and commits) to the one the blocker comes
     ///   from; stepping the way it goes would keep the two side by side.
     /// - **(M3-G) The near side**, for a unit with momentum (`near_side`), and (M4-W3) for every unit whose base
@@ -121,7 +121,7 @@ impl World<'_> {
     ///   it back, as the lean does when the target is close behind the blocker (the target then lies back across
     ///   the face, and the unit stepped to and fro for good). A unit that stops within the tick loses a few steps
     ///   that way; one with momentum loses all its speed at each turn, and never got round. If that side is shut,
-    ///   it takes the other and keeps to it for `AVOID_COMMIT_TICKS`, like a head-on unit.
+    ///   it takes the other and keeps to it for `Movement::avoid_commit_ticks`, like a head-on unit.
     #[expect(
         clippy::too_many_arguments,
         reason = "one unit's move, and how its model goes round a blocker"
@@ -137,6 +137,7 @@ impl World<'_> {
         touched: &mut Vec<usize>,
         near_side: bool,
     ) -> Option<(Vec2, bool)> {
+        let tuning = &rules().tuning.movement;
         // (M5-V1) The face met: an axis for two boxes, else the edge direction of the shapes (`space::Face`).
         let face = hit.contact.face();
         let lean = face.along(d);
@@ -160,7 +161,7 @@ impl World<'_> {
                     Side::Left
                 };
             }
-        } else if lean.abs() >= LEAN * d.length() && !self.keeps_its_side(mover, tick) {
+        } else if lean.abs() >= tuning.lean * d.length() && !self.keeps_its_side(mover, tick) {
             let side = if towards(Side::Right) * lean > 0.0 {
                 Side::Right
             } else {
@@ -181,7 +182,7 @@ impl World<'_> {
             };
             if behind != mover.avoid_side {
                 mover.avoid_side = behind;
-                mover.avoid_until = tick.saturating_add(AVOID_COMMIT_TICKS);
+                mover.avoid_until = tick.saturating_add(tuning.avoid_commit_ticks);
             }
         }
         let step = self.sidestep(pos, d, at_face, mover.avoid_side, speed, mover, tick, touched);
@@ -189,13 +190,13 @@ impl World<'_> {
             return step;
         }
         mover.avoid_side = mover.avoid_side.other();
-        mover.avoid_until = tick.saturating_add(AVOID_COMMIT_TICKS);
+        mover.avoid_until = tick.saturating_add(tuning.avoid_commit_ticks);
         self.sidestep(pos, d, at_face, mover.avoid_side, speed, mover, tick, touched)
     }
 
     /// Whether the unit is going round on the side it last took a contact step to, whatever its lean (design change
-    /// 0323, the module docs): a contact step commits its side for `AVOID_COMMIT_TICKS`, and (M5-V2) so does a graze.
-    /// A `ContactStep::Diagonal` base never does: its lean chooses in every tick, as before.
+    /// 0323, the module docs): a contact step commits its side for `Movement::avoid_commit_ticks`, and (M5-V2) so does
+    /// a graze. A `ContactStep::Diagonal` base never does: its lean chooses in every tick, as before.
     fn keeps_its_side(&self, mover: &Mover, tick: Tick) -> bool {
         self.contact != ContactStep::Diagonal && tick < mover.avoid_until
     }
@@ -220,6 +221,7 @@ impl World<'_> {
         tick: Tick,
         touched: &mut Vec<usize>,
     ) -> Option<(Vec2, bool)> {
+        let tuning = &rules().tuning.movement;
         let along = turned_90(at_face, side);
         match self.contact {
             ContactStep::Diagonal => [(turned_45(d, side), true), (along, false)]
@@ -231,7 +233,7 @@ impl World<'_> {
                     return None;
                 }
                 mover.avoid_side = side;
-                mover.avoid_until = tick.saturating_add(AVOID_COMMIT_TICKS);
+                mover.avoid_until = tick.saturating_add(tuning.avoid_commit_ticks);
                 Some((pos + along, false))
             }
             ContactStep::Sideways => {
@@ -265,7 +267,7 @@ impl World<'_> {
                 }
                 mover.step_aside = Some(aside);
                 mover.avoid_side = side;
-                mover.avoid_until = tick.saturating_add(AVOID_COMMIT_TICKS);
+                mover.avoid_until = tick.saturating_add(tuning.avoid_commit_ticks);
                 Some((at, false))
             }
         }

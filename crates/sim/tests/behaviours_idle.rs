@@ -5,7 +5,7 @@
 
 use sc_sim::orders::Auto;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::orders::IDLE_LEASH_GU;
+const IDLE_LEASH_GU: f32 = sc_sim::tuning::orders::BUILTIN.idle_leash_gu;
 use sc_sim::{
     Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, Shape,
     SimConfig, SimEvent, SpawnAt, Target, Tick, Vec2, gu,

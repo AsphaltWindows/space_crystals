@@ -2,7 +2,8 @@
 //! (nav unit tests). Grids, line of sight and smoothing are in `nav_grid.rs`.
 
 use sc_sim::nav::{NavClass, NavGrid, NavRules, PathFail, Search, box_clear, find_path, los};
-use sc_sim::tuning::paths::{DIAGONAL_COST, STEP_COST};
+const DIAGONAL_COST: u32 = sc_sim::tuning::paths::BUILTIN.diagonal_cost;
+const STEP_COST: u32 = sc_sim::tuning::paths::BUILTIN.step_cost;
 use sc_sim::{Map, Rng, Tile, TilePos, TilePresetId, Vec2};
 
 fn t(x: i32, y: i32) -> TilePos {

@@ -13,14 +13,14 @@
 //!   (the target on a cliff, across water) is a chase the unit can't finish either, and so is one too long to keep
 //!   the target in sight ([`JUDGE_PATH_SIGHTS`], which bounds the search).
 //! - **No memory** (0230: "the same enemy, or an identical one swapped in unseen, must get the same response"). A
-//!   rejection is kept ([`Judged`], `Leg::rejected`) only to save judging again, and only while nothing the
-//!   judgement depends on has changed (the Director's decision under 0230's "the exact triggers and caching are the
-//!   Director's call"): the enemy stands within [`REJUDGE_MOVE_SU`] of where it was judged, the unit's owner knows
-//!   the same obstacles (`PlayerKnowledge::version`), and the PathReference is the same route (`Leg::rejected` is
-//!   cleared when a detour replaces it, [`Leg::set_reference`]).
+//!   rejection is kept ([`Judged`], `Leg::rejected`) only to save judging again, and only while nothing the judgement
+//!   depends on has changed (the Director's decision under 0230's "the exact triggers and caching are the Director's
+//!   call"): the enemy stands within `Orders::rejudge_move_su` of where it was judged, the unit's owner knows the same
+//!   obstacles (`PlayerKnowledge::version`), and the PathReference is the same route (`Leg::rejected` is cleared when a
+//!   detour replaces it, [`Leg::set_reference`]).
 //! - **The unit's own movement** (design change 0243, answering question Q0074: "the unit itself has moved a
 //!   meaningful distance since it judged that enemy … so the same situation always gets the same response"): a
-//!   rejection by the reach rule stands only while the unit stands within [`REJUDGE_SELF_SU`] of where it judged
+//!   rejection by the reach rule stands only while the unit stands within `Orders::rejudge_self_su` of where it judged
 //!   ([`Judged::from`]). That covers the chases that end beyond the leash, which is part of the rule. So a unit that
 //!   rounds a wall into the open judges the enemy it passed over again, as a fresh unit there would judge it.
 //! - **A chase that ends without the target reached is a rejection too** (design change 0235: "A chase given up by
@@ -39,12 +39,11 @@ use crate::defs::AttackAttrs;
 use crate::elevation::{self, Elevation};
 use crate::nav::Search;
 use crate::shape::Shape;
-use crate::tuning::orders::{ATTACK_MOVE_LEASH_GU, REJUDGE_MOVE_SU, REJUDGE_SELF_SU};
-use crate::tuning::vision::ELEVATION_MODIFIER;
 use crate::units::{SU_PER_GU, gu};
 
 use super::state::{Judged, Leg};
 use super::world::{Unit, View, World};
+use crate::ruleset::rules;
 
 /// The most paths one unit plans in one tick to judge enemies by the reach rule (the Director's decision under design
 /// change 0230, "Performance is a priority here"). Technical: measured in `tests/attack_move_perf.rs`.
@@ -77,7 +76,7 @@ pub struct ReachCounters {
     pub paths: u32,
     /// The most one unit planned.
     pub most_per_unit: u32,
-    /// Nodes their searches expanded (apart from `tuning::paths::PATH_BUDGET`, which phase 5c's requests share).
+    /// Nodes their searches expanded (apart from `tuning::paths::Paths::path_budget`, which phase 5c's requests share).
     pub expansions: u32,
 }
 
@@ -133,7 +132,7 @@ impl Judged {
     }
 
     /// A rejection of `target` by the reach rule, the leash included, by a unit standing at `from`: its own movement
-    /// re-checks it too (design change 0243, [`REJUDGE_SELF_SU`]).
+    /// re-checks it too (design change 0243, `Orders::rejudge_self_su`).
     pub(super) fn by_reach(target: &View, version: u32, from: Vec2) -> Self {
         Self {
             from: Some(from),
@@ -145,8 +144,10 @@ impl Judged {
     pub(super) fn stands(&self, target: &View, version: u32, unit: Vec2) -> bool {
         self.target == target.id
             && self.knowledge == version
-            && self.at.distance(target.pos) < REJUDGE_MOVE_SU
-            && self.from.is_none_or(|from| from.distance(unit) < REJUDGE_SELF_SU)
+            && self.at.distance(target.pos) < rules().tuning.orders.rejudge_move_su
+            && self
+                .from
+                .is_none_or(|from| from.distance(unit) < rules().tuning.orders.rejudge_self_su)
     }
 }
 
@@ -217,7 +218,7 @@ pub(super) fn distance_to_route(p: Vec2, route: &[Vec2]) -> f32 {
 
 /// Whether `p` is within AttackMoveLeashDistance of the PathReference `reference`.
 pub(super) fn within_leash(p: Vec2, reference: &[Vec2]) -> bool {
-    distance_to_route(p, reference) <= gu(ATTACK_MOVE_LEASH_GU)
+    distance_to_route(p, reference) <= gu(rules().tuning.orders.attack_move_leash_gu)
 }
 
 /// Whether any firing position on `target` can lie within the leash of `reference` at all: a unit that reaches the
@@ -227,8 +228,9 @@ pub(super) fn within_leash(p: Vec2, reference: &[Vec2]) -> bool {
 pub(super) fn near_route(unit: &Unit, attrs: &AttackAttrs, target: &View, reference: &[Vec2]) -> bool {
     let (lo, hi) = target.shape.bounds();
     let own_half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO);
-    let slack = gu(attrs.range + ELEVATION_MODIFIER) + ((hi - lo) / 2.0).length() + own_half.length();
-    distance_to_route(target.pos, reference) <= gu(ATTACK_MOVE_LEASH_GU) + slack
+    let slack =
+        gu(attrs.range + rules().tuning.vision.elevation_modifier) + ((hi - lo) / 2.0).length() + own_half.length();
+    distance_to_route(target.pos, reference) <= gu(rules().tuning.orders.attack_move_leash_gu) + slack
 }
 
 /// The reach rule (module docs): whether `unit`, on a leg whose PathReference is `reference`, can finish a chase of
@@ -252,7 +254,8 @@ pub(super) fn judge(
     reach.counters.paths += 1;
     reach.counters.most_per_unit = reach.counters.most_per_unit.max(reach.planned);
     let before = reach.search.counters().expansions;
-    let max_tiles = (JUDGE_PATH_SIGHTS * (unit.kind.def().sight_range + ELEVATION_MODIFIER)).ceil() as u32;
+    let max_tiles =
+        (JUDGE_PATH_SIGHTS * (unit.kind.def().sight_range + rules().tuning.vision.elevation_modifier)).ceil() as u32;
     let path = world.chase_path(unit, target, max_tiles, &mut reach.search);
     reach.counters.expansions += reach.search.counters().expansions - before;
     match path {

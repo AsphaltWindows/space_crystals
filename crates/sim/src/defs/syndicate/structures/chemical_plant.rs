@@ -12,7 +12,7 @@ use crate::player::Faction;
 /// Hideout does (slice M4-U), and the Vehicle Assembly will after M4. Hidden from the other players while owned, walked
 /// over, and destroyed as any structure. A Tunnel builds it in its Tunnel Area ([`CHEMICAL_PLANT_EXPANSION`]); it
 /// counts as a prerequisite once complete (`crate::tech`).
-pub(crate) static CHEMICAL_PLANT: ObjectDef = ObjectDef {
+pub(crate) const CHEMICAL_PLANT: ObjectDef = ObjectDef {
     kind: ObjectKind::ChemicalPlant,
     name: "Chemical Plant",
     faction: Some(Faction::Syndicate),          // `factions/syndicate/`

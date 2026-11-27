@@ -5,7 +5,6 @@
 use crate::defs::{Resource, WorkerDef};
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::MoveStatus;
-use crate::tuning::gathering::RECHECK_TICKS;
 use crate::units::Tick;
 
 use super::super::OrderKind;
@@ -16,6 +15,7 @@ use super::search::{claim, search, taken};
 use super::site::{Site, site};
 use super::station::{to_station, wait_at_station};
 use super::{Claims, Flow, carrying, loaded, returning};
+use crate::ruleset::rules;
 
 pub(super) fn to_patch(
     kind: &mut OrderKind,
@@ -99,9 +99,9 @@ pub(super) fn wait(
         state.enter(GatherPhase::Mining { done: 0 });
         return Flow::Stay;
     }
-    // 0132, item 2: "it re-checks at intervals for a nearby patch that has freed up. If one has, it goes there."
-    // All of them in the same ticks ([`RECHECK_TICKS`]); not in the tick it began to wait, when it just looked.
-    if since == world.tick || !world.tick.is_multiple_of(RECHECK_TICKS) {
+    // 0132, item 2: "it re-checks at intervals for a nearby patch that has freed up. If one has, it goes there." All of
+    // them in the same ticks (`Gathering::recheck_ticks`); not in the tick it began to wait, when it just looked.
+    if since == world.tick || !world.tick.is_multiple_of(rules().tuning.gathering.recheck_ticks) {
         return Flow::Stay;
     }
     if let Some(other) = search(world, claims, unit, def, Some(patch.id)).free {

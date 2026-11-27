@@ -28,7 +28,7 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use sc_sim::testing::ScenarioBuilder;
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::{
     Command, DebugCommand, GameSetup, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, Scenario,
     SimConfig, Slot, SpawnAt, Tick, TickInputs, TilePos, VisibilityState,

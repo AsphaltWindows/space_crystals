@@ -14,7 +14,7 @@ use crate::sides::SideLetter;
 /// research (`> Research (first set)`, `StructureDef::research`) runs on its queue (`production`, plan decision T70),
 /// staffed by the Recruits it holds (`holds`, `> Recruit Staffing`; slice M5-N3, `sim/producers/research.rs`). Recruits
 /// build it from outside ([`TEMPLE_SITE`]).
-pub(crate) static TEMPLE: ObjectDef = ObjectDef {
+pub(crate) const TEMPLE: ObjectDef = ObjectDef {
     kind: ObjectKind::Temple,
     name: "Temple",
     faction: Some(Faction::Cults), // Faction - TheCults

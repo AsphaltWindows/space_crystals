@@ -5,7 +5,7 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/gdo/structures/deployment_center.md`.
-pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
+pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
     kind: ObjectKind::DeploymentCenter,
     name: "Deployment Center",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization

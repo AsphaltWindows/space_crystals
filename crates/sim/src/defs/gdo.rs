@@ -4,6 +4,11 @@
 pub(crate) mod structures;
 pub(crate) mod units;
 
-/// `factions/gdo/overview.md > GDOResources > Unit Control`: "Hard cap of 200". A unit that would take the used Unit
-/// Control past it doesn't start production until there is room (design change 0143; `economy::army`).
-pub const UNIT_CONTROL_CAP: u32 = 200;
+crate::tuning::tunables! {
+    /// The GDO's own rules (`crate::ruleset::Ruleset::factions`).
+    GdoRules;
+
+    /// `factions/gdo/overview.md > GDOResources > Unit Control`: "Hard cap of 200". A unit that would take the used
+    /// Unit Control past it doesn't start production until there is room (design change 0143; `economy::army`).
+    unit_control_cap: u32 = 200,
+}

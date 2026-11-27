@@ -447,7 +447,7 @@ fn the_enemy_sees_neither_nor_their_sites() {
         queue: false,
     };
     next(&mut t, P2, hold);
-    t.run(sc_sim::tuning::vision::FOG_DELAY_TICKS + 1);
+    t.run(sc_sim::tuning::vision::BUILTIN.fog_delay_ticks + 1);
     let unseen = |t: &TestSim, id: ObjectId| {
         let o = object(t, id);
         assert!(t.sim().hidden_from(o, P2) && !t.sim().hidden_from(o, P1), "{id:?}");

@@ -5,7 +5,7 @@
 use super::*;
 use crate::defs::ObjectKind;
 use crate::math::PI;
-use crate::tuning::movement::CORNER_SPEEDS;
+const CORNER_SPEEDS: u32 = crate::tuning::movement::BUILTIN.corner_speeds;
 
 /// The Hand of Heaven's movement numbers (`factions/cults/units/hand_of_heaven.md`).
 fn hand_of_heaven(reverses: bool) -> Tracked {

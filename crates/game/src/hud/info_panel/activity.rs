@@ -27,7 +27,7 @@
 
 use sc_sim::construction::recipe;
 use sc_sim::tunnel::Operation;
-use sc_sim::{Category, Constructor, Object, PlayerId, QUEUE_LIMIT, QueueEntry, Rally, RecruitKind, Sim, TargetView};
+use sc_sim::{Category, Constructor, Object, PlayerId, QueueEntry, Rally, RecruitKind, Sim, TargetView};
 use sc_sim::{holding, recruitment};
 
 use crate::fog::Sight;
@@ -219,7 +219,10 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
             Some(holds) => lines.push(format!("Queue: {} ({reserved} / {})", entries(), holds.capacity)),
             None => match research {
                 Some(research) => lines.push(format!("Queue: {} ({queued} / {})", entries(), research.queue)),
-                None if !recruits => lines.push(format!("Queue: {queued} / {QUEUE_LIMIT}")),
+                None if !recruits => {
+                    let limit = sc_sim::rules().tuning.production.queue_limit;
+                    lines.push(format!("Queue: {queued} / {limit}"));
+                }
                 None => {}
             },
         }

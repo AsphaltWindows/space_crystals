@@ -6,7 +6,7 @@ use crate::player::Faction;
 
 /// `factions/gdo/economy.md > ExtractionPlate`: placed onto a Space Crystals Patch (`StructureDef::onto`), which it
 /// shares its tile with (`ObjectKind::may_overlap`).
-pub(crate) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
+pub(crate) const EXTRACTION_PLATE: ObjectDef = ObjectDef {
     kind: ObjectKind::ExtractionPlate,
     name: "Extraction Plate",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization

@@ -17,7 +17,7 @@ use crate::sides::SideLetter;
 /// Recruits; requires a Temple"), its recipe after the Hand of Heaven's, once its player owns a Temple. Recruits build
 /// it (`factions/cults/units/recruit.md > Constructs`) once their player owns an Armory. Its numbers are the design's
 /// "Placeholder stats".
-pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
+pub(crate) const CHOP_SHOP: ObjectDef = ObjectDef {
     kind: ObjectKind::ChopShop,
     name: "Chop Shop",
     faction: Some(Faction::Cults), // Faction - TheCults

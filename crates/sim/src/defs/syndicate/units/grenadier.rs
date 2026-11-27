@@ -15,7 +15,7 @@ use crate::units::SU_PER_GU;
 /// attack that can miss, it can Attack Ground (`systems/combat.md > AttackType`: "CanTargetGround - derived (... true
 /// for TailDisjointed/DoublyDisjointed)"). Its numbers are the design's "Placeholder stats (designer, 2026-11-25,
 /// Q0071; tune later)" (design change 0260).
-pub(crate) static GRENADIER: ObjectDef = ObjectDef {
+pub(crate) const GRENADIER: ObjectDef = ObjectDef {
     kind: ObjectKind::Grenadier,
     name: "Grenadier",
     faction: Some(Faction::Syndicate),                     // Faction - TheSyndicate

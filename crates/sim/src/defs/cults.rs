@@ -13,8 +13,9 @@
 //! structure's site. A Cults unit's Unit Control cost is the
 //! Recruits consumed to make it (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`), kept in
 //! `UnitDef::unit_control_cost`; each point of it counts against the Hall its Recruit came from (`Object::lineage`,
-//! plan decision T56). The faction's own rule so far: the Recruits' two Construct menus ([`CONSTRUCT_MENU`], slice
-//! M5-J1), which the client's panel reads.
+//! plan decision T56). The faction's own rules: the Recruits' two Construct menus ([`CONSTRUCT_MENU`], slice
+//! M5-J1), which the client's panel reads, and (M5-X1) its numbers in the ruleset ([`CultsRules`]): the augmentation
+//! table, the technologies' and the area abilities'.
 
 pub(crate) mod abilities;
 pub(crate) mod augmentation;
@@ -26,6 +27,21 @@ pub(crate) mod units;
 mod tests;
 
 use crate::defs::ObjectKind;
+
+crate::tuning::tunables! {
+    /// The Cults' own rules (`crate::ruleset::Ruleset::factions`).
+    CultsRules;
+
+    /// (M5-N1a) What one increment does and each Augmentation's increments by research level
+    /// (`defs/cults/augmentation.rs`).
+    augmentation: augmentation::AugmentationTable = augmentation::AUGMENTATION,
+
+    /// (M5-N3) Each technology's numbers (`defs/cults/research.rs`), which `Tech::def` reads.
+    techs: research::Techs = research::TECHS,
+
+    /// (M5-N5, M5-N11) Each area ability's numbers (`defs/cults/abilities.rs`), which `AreaAbility::def` reads.
+    abilities: abilities::Abilities = abilities::ABILITIES,
+}
 
 /// One of the Recruits' two build menus (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState >
 /// DefaultState commands`, design change 0327: "Two build menus ... "basic and advanced", as the GDO's Deployment

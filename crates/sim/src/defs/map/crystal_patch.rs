@@ -7,7 +7,7 @@ use crate::scenario::SpawnSettings;
 pub const DEFAULT_STARTING_AMOUNT: u32 = 1500;
 
 /// `core/map.md > SpaceCrystalsPatch`, `> Resource`.
-pub(crate) static CRYSTAL_PATCH: ObjectDef = ObjectDef {
+pub(crate) const CRYSTAL_PATCH: ObjectDef = ObjectDef {
     kind: ObjectKind::CrystalPatch,
     name: "Space Crystals",
     faction: None,

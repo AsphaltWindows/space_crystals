@@ -6,7 +6,7 @@
 //! (M3-C), the Beacon's Warp In list (M3-E). The HoverVehicle's DragMovement attributes are the Drone's movement
 //! (`movement::drag`, slice M3-G). "BeaconCapacity provided - 5" is no field: every Colonists
 //! building provides it (`factions/colonists/economy.md > Warp In > Beacon Capacity Retention`), a faction rule M3-C
-//! derives (plan decision T14): [`BEACON_CAPACITY_PER_BUILDING`].
+//! derives (plan decision T14): [`ColonistsRules::beacon_capacity_per_building`].
 //!
 //! The Colonists have neither Power nor a build area: their stat blocks list no Power nor BuildRadiusExtension, so
 //! both are 0 (plan decision T21), and a Beacon may be deployed with "no range limit from other Colonists buildings"
@@ -15,13 +15,19 @@
 pub(crate) mod structures;
 pub(crate) mod units;
 
-/// `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "Total Beacon Capacity caps at 200"
-/// (`economy::army`).
-pub const BEACON_CAPACITY_CAP: u32 = 200;
+crate::tuning::tunables! {
+    /// The Colonists' own rules (`crate::ruleset::Ruleset::factions`).
+    ColonistsRules;
 
-/// `factions/colonists/economy.md > Beacon > BeaconCapacity provided - 5`, which every Colonists building provides
-/// (`> Warp In > Beacon Capacity Retention`: "Every Colonists building provides 5 BeaconCapacity"; `economy::army`).
-pub const BEACON_CAPACITY_PER_BUILDING: u32 = 5;
+    /// `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "Total Beacon Capacity caps at 200"
+    /// (`economy::army`).
+    beacon_capacity_cap: u32 = 200,
+
+    /// `factions/colonists/economy.md > Beacon > BeaconCapacity provided - 5`, which every Colonists building
+    /// provides (`> Warp In > Beacon Capacity Retention`: "Every Colonists building provides 5 BeaconCapacity";
+    /// `economy::army`).
+    beacon_capacity_per_building: u32 = 5,
+}
 
 #[cfg(test)]
 mod tests;

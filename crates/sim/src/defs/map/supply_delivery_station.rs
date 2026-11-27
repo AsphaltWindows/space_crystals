@@ -12,7 +12,7 @@ pub const DEFAULT_DELIVERY_SIZE: u32 = 4;
 pub const DEFAULT_DELIVERY_INTERVAL: Tick = 60 * TICKS_PER_SECOND;
 
 /// `core/map.md > SupplyDeliveryStation`, `> Resource`.
-pub(crate) static SUPPLY_DELIVERY_STATION: ObjectDef = ObjectDef {
+pub(crate) const SUPPLY_DELIVERY_STATION: ObjectDef = ObjectDef {
     kind: ObjectKind::SupplyDeliveryStation,
     name: "Supply Delivery Station",
     faction: None,

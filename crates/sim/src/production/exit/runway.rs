@@ -16,16 +16,17 @@
 //!   MaxSpeed, until its centre is past the `toward` end; then it goes where its order sends it, as any Glider
 //!   (`movement::glider`). **Placeholder (not in the design: where the run ends)**.
 //! - **No rally point** ([`Runway::circle_point`]): "it circles 2 grid units past the runway's C end" (design change
-//!   0354 point 4; `tuning::air::RUNWAY_CIRCLE_PAST_GU`), the point that far along the runway past the middle of the
-//!   `toward` end, or the point of the map nearest to it (`Map::clamp_point`: a Glider's orbit is a point of the map).
+//!   0354 point 4; `tuning::air::Air::runway_circle_past_gu`), the point that far along the runway past the middle of
+//!   the `toward` end, or the point of the map nearest to it (`Map::clamp_point`: a Glider's orbit is a point of the
+//!   map).
 
 use glam::Vec2;
 
 use crate::defs::ExitRule;
 use crate::mover::Takeoff;
 use crate::object::{Object, Placement};
+use crate::ruleset::rules;
 use crate::sides::{DIRECTIONS, sides};
-use crate::tuning::air::RUNWAY_CIRCLE_PAST_GU;
 use crate::units::{SU_PER_GU, gu};
 
 /// A runway as its building is placed (module docs): its two ends, by the middles of their sides.
@@ -70,7 +71,7 @@ impl Runway {
     /// the middle of the `toward` end, along the runway. It may lie off the map: the caller takes the nearest point of
     /// the map (`Map::clamp_point`).
     pub fn circle_point(&self) -> Vec2 {
-        self.toward + self.along * gu(RUNWAY_CIRCLE_PAST_GU)
+        self.toward + self.along * gu(rules().tuning.air.runway_circle_past_gu)
     }
 
     /// The takeoff run of an aircraft that appears on it (module docs): along the runway to the `toward` end.

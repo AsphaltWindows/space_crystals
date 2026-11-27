@@ -7,7 +7,7 @@
 //! under its cloud, and player 2 fires at the Militant from the high ground in the east, beyond player 1's sight.
 
 use sc_sim::TilePos;
-use sc_sim::tuning::vision::REVEAL_TICKS;
+const REVEAL_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.reveal_ticks;
 
 use super::*;
 

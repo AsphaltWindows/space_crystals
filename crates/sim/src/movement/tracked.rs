@@ -60,7 +60,7 @@ use super::wheeled::Driven;
 use crate::defs::MovementAttrs;
 use crate::math;
 use crate::mover::{Locomotion, Mover};
-use crate::tuning::movement::TRACKED_MISS_SU;
+use crate::ruleset::rules;
 
 /// One unit's SpeedTurnRadiusMovement numbers for this tick, the way its leg drives, in space units and ticks.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -87,10 +87,11 @@ fn speed_of(momentum: Vec2, ahead: Vec2) -> f32 {
 }
 
 /// Whether a unit whose steering waypoint is `aim` away makes the turn `turn` (signed, radians) onto its step now (the
-/// corner choice's turn now, module docs): a heading that misses the waypoint by less than `TRACKED_MISS_SU` is held as
-/// it is.
+/// corner choice's turn now, module docs): a heading that misses the waypoint by less than `Movement::tracked_miss_su`
+/// is held as it is.
 fn turns_now(turn: f32, aim: f32) -> bool {
-    turn != 0.0 && aim * math::sin(turn.abs().min(core::f32::consts::FRAC_PI_2)) >= TRACKED_MISS_SU
+    let tuning = &rules().tuning.movement;
+    turn != 0.0 && aim * math::sin(turn.abs().min(core::f32::consts::FRAC_PI_2)) >= tuning.tracked_miss_su
 }
 
 /// Whether the shared rules' step `probe` from `from`, for the step `asked` of them, is a glance (module docs, at

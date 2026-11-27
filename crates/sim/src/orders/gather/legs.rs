@@ -11,22 +11,22 @@
 //! `systems/controls/command_behaviors.md > MovingToLocation > Occupied target location`, or gave up) counts as
 //! arriving there, out of reach: "a patch the Drone can't get within MiningReach of (path blocked by units, structures
 //! or terrain) is treated like an occupied patch" (design change 0141). A leg back to the drop-off that ends short is
-//! begun again after [`LEG_RETRY_TICKS`], a back-off: what stopped it is a unit that won't move, and that is rarely
-//! gone a tick later. A worker that set off again at once would ask for a path every dozen ticks and jitter against
-//! its blocker; standing, it is a unit at rest, which the units behind it route around at once. **Not an Agent's leg
-//! back to a hatch** (design change 0315, [`return_leg`]): that one never ends short behind standing units, and
-//! begins again at once when the mover gives it up.
+//! begun again after `Gathering::leg_retry_ticks`, a back-off: what stopped it is a unit that won't move, and that is
+//! rarely gone a tick later. A worker that set off again at once would ask for a path every dozen ticks and jitter
+//! against its blocker; standing, it is a unit at rest, which the units behind it route around at once. **Not an
+//! Agent's leg back to a hatch** (design change 0315, [`return_leg`]): that one never ends short behind standing units,
+//! and begins again at once when the mover gives it up.
 
 use glam::Vec2;
 
 use crate::defs::ObjectKind;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::shape::Shape;
-use crate::tuning::gathering::LEG_RETRY_TICKS;
 use crate::units::SU_PER_GU;
 
 use super::super::state::Gather;
 use super::super::world::{Unit, World};
+use crate::ruleset::rules;
 
 /// The shape a Space Crystals patch centred on `spot` had: where a patch that is gone was (design change 0134,
 /// `state::Gather::spot`).
@@ -122,9 +122,9 @@ pub(super) fn leg_to(state: &mut Gather, unit: &mut Unit, to: Vec2, world: &Worl
     }
 }
 
-/// The leg back to the drop-off point `target`: it begins, or begins again [`LEG_RETRY_TICKS`] after it ended short
-/// of the drop-off (module docs). The worker never gives up (design change 0255: "Agents waiting at the hatch wait
-/// forever"; "The Drones' code placeholder (retry every 2 s, never give up) is consistent with this; consider the
+/// The leg back to the drop-off point `target`: it begins, or begins again `Gathering::leg_retry_ticks` after it ended
+/// short of the drop-off (module docs). The worker never gives up (design change 0255: "Agents waiting at the hatch
+/// wait forever"; "The Drones' code placeholder (retry every 2 s, never give up) is consistent with this; consider the
 /// same rule for Drones settled").
 ///
 /// To a hatch (`hatch_reach`: the worker's DropOffReach there, `None` for a drop-off that takes loads anywhere) it
@@ -143,8 +143,8 @@ pub(super) fn leg_to(state: &mut Gather, unit: &mut Unit, to: Vec2, world: &Worl
 /// - when the mover gives the leg up, stuck with no attempt left (`systems/controls/command_behaviors.md >
 ///   MovingToLocation > Failure`), the next leg begins **at once**, for the point nearest to where the Agent is by
 ///   then: out of reach it doesn't stand and wait;
-/// - [`LEG_RETRY_TICKS`] is left for the one end the rule doesn't speak of: a leg that got to the end of its path
-///   out of reach, or found no path at all (the hatch walled off). Nothing is in its way to steer round, and a leg
+/// - `Gathering::leg_retry_ticks` is left for the one end the rule doesn't speak of: a leg that got to the end of its
+///   path out of reach, or found no path at all (the hatch walled off). Nothing is in its way to steer round, and a leg
 ///   begun in every tick would only be a path request in every tick.
 ///
 /// Only the leg to a hatch: a Drone's and a Recruit's return (`hatch_reach` `None`) are as they were (0315 is the
@@ -154,7 +154,11 @@ pub(super) fn return_leg(state: &mut Gather, unit: &mut Unit, target: &Shape, ha
     if state.moving && unit.mover.status != MoveStatus::Moving {
         state.moving = false;
         let gave_up = unit.mover.status == MoveStatus::Failed && unit.mover.repaths_left == 0;
-        let wait = if presses_on && gave_up { 0 } else { LEG_RETRY_TICKS };
+        let wait = if presses_on && gave_up {
+            0
+        } else {
+            rules().tuning.gathering.leg_retry_ticks
+        };
         state.retry_at = world.tick.saturating_add(wait);
     }
     if world.tick >= state.retry_at && !state.moving {

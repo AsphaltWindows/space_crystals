@@ -11,7 +11,7 @@ use sc_sim::defs::Armor;
 use super::*;
 
 /// The decay of a neutral turret from full HP, `ticks` ticks of it: its 300 HP over 1600 ticks, 1% of its MaxHP a
-/// second (`sc_sim::tuning::tunnel::DECAY_PERCENT_PER_SECOND`), 3 HP a second.
+/// second (`sc_sim::tuning::tunnel::Tunnel::decay_percent_per_second`), 3 HP a second.
 fn decayed(ticks: u32) -> f32 {
     300.0 - 300.0 * ticks as f32 / 1600.0
 }

@@ -8,7 +8,7 @@ use crate::player::Faction;
 /// players while owned, it is walked over, and can be destroyed. It produces into its owner's Tunnel Network (slice
 /// M4-C, `crate::network`): Agents, Guards and Grenadiers. A Tunnel builds it in its Tunnel Area
 /// ([`HIDEOUT_EXPANSION`], slice M4-F).
-pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
+pub(crate) const HIDEOUT: ObjectDef = ObjectDef {
     kind: ObjectKind::Hideout,
     name: "Hideout",
     faction: Some(Faction::Syndicate),          // `factions/syndicate/`

@@ -20,7 +20,7 @@ pub const BEACON_DEPLOYMENT: Recipe = Recipe {
 /// Rugged terrain, and brakes with its omni-directional thrust. Design change 0205 raised its thrust and drag ×1.5
 /// (from 0.6 / 0.2 / 0.1), the same top speed reached sooner: about 65% of it after 7 frames, close to all of it
 /// after 20 (slice M3-K3).
-pub(crate) static DRONE: ObjectDef = ObjectDef {
+pub(crate) const DRONE: ObjectDef = ObjectDef {
     kind: ObjectKind::Drone,
     name: "Drone",
     faction: Some(Faction::Colonists),                     // Faction - Colonists

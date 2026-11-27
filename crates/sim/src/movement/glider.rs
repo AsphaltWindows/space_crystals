@@ -23,9 +23,9 @@
 //!   f(currentSpeed, MaxCentripetalAcceleration)", "Moving + Maintaining: valid"), so its tightest circle at v has a
 //!   radius of v² / a. It turns, then flies its speed along its new facing: its Locomotion is always Moving.
 //! - **Circling** ([`Aim::Circle`]): without a goal it circles its orbit (`Mover::orbit`) at IdleSpeed, on the idle
-//!   circle's radius of [`IDLE_CIRCLE_GU`] (design change 0354: a fixed radius of 1 grid unit), clockwise:
+//!   circle's radius of `Air::idle_circle_gu` (design change 0354: a fixed radius of 1 grid unit), clockwise:
 //!   **Placeholder (not in the design: which way a Glider circles)**. Its heading blends the circle's tangent with the
-//!   way to the circle, by how far off the circle it is ([`CIRCLE_PULL`]), plus half a tick's turn along the circle,
+//!   way to the circle, by how far off the circle it is (`Air::circle_pull`), plus half a tick's turn along the circle,
 //!   so that from the circle it flies the chord to the circle's next point. A Glider whose orbit isn't set yet (its
 //!   goal ended, or it was stopped) circles the point of the map nearest to where it is, which becomes its orbit.
 //! - **A goal** (a point, or an object as this phase finds it, `super::Chased`): it flies at it at MaxSpeed. It has
@@ -65,8 +65,8 @@ use crate::defs::MovementAttrs;
 use crate::map::Map;
 use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, Pass};
+use crate::ruleset::rules;
 use crate::shape::Shape;
-use crate::tuning::air::{CIRCLE_PULL, IDLE_CIRCLE_GU};
 use crate::units::gu;
 
 /// A Glider's numbers (`MovementAttrs::Glider`, `systems/units.md > GliderMovement`), as its Augmentations make them.
@@ -115,9 +115,10 @@ impl Glider {
         }
     }
 
-    /// The radius of its idle circle, space units ([`IDLE_CIRCLE_GU`]).
+    /// The radius of its idle circle, space units (`Air::idle_circle_gu`).
     pub(crate) fn idle_radius() -> f32 {
-        gu(IDLE_CIRCLE_GU)
+        let tuning = &rules().tuning.air;
+        gu(tuning.idle_circle_gu)
     }
 
     /// The speed it flies at after `speed`, wanting `wanted`: by at most its Acceleration or Deceleration, within
@@ -251,10 +252,11 @@ impl Glider {
 }
 
 /// The way a Glider at `pos`, flying along `heading` at `speed`, wants to go to circle `centre` clockwise on its idle
-/// circle (module docs): the circle's tangent where it is, turned toward the circle by [`CIRCLE_PULL`] times its
+/// circle (module docs): the circle's tangent where it is, turned toward the circle by `Air::circle_pull` times its
 /// distance off the circle over the radius, and by half the turn of a tick on the circle. Its heading as it is right
 /// on the centre, from which every way leads out.
 fn circling(pos: Vec2, heading: Vec2, centre: Vec2, speed: f32) -> Vec2 {
+    let tuning = &rules().tuning.air;
     let radius = Glider::idle_radius();
     let off = pos - centre;
     let distance = off.length();
@@ -264,7 +266,7 @@ fn circling(pos: Vec2, heading: Vec2, centre: Vec2, speed: f32) -> Vec2 {
     let out = off / distance;
     // Clockwise on screen (+y south): the tangent is the outward direction turned a quarter clockwise.
     let tangent = Vec2::new(-out.y, out.x);
-    let pull = CIRCLE_PULL * (distance - radius) / radius;
+    let pull = tuning.circle_pull * (distance - radius) / radius;
     let toward = tangent - out * pull;
     // Half of the tick's turn along the circle: the chord to the circle's next point, not the tangent.
     let chord = math::vector_angle(toward) + speed / (2.0 * radius);

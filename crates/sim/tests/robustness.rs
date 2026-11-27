@@ -12,7 +12,7 @@
 use sc_sim::defs::Domain;
 use sc_sim::testing::invariants::Invariants;
 use sc_sim::testing::{self, ScenarioBuilder};
-use sc_sim::tuning::air::SEPARATION_PUSH_SU;
+const SEPARATION_PUSH_SU: f32 = sc_sim::tuning::air::BUILTIN.separation_push_su;
 use sc_sim::{
     Ability, BuildingOrientation, Command, DebugCommand, ExitDoor, ObjectId, ObjectKind, OrderKind, PlayerCommand,
     PlayerId, Reject, Replay, Rng, Rotation, SU_PER_GU, Scenario, Shape, Sim, SimConfig, SimEvent, Spawn, SpawnAt,

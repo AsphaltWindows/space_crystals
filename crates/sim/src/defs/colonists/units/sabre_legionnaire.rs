@@ -13,7 +13,7 @@ use crate::player::Faction;
 /// `factions/colonists/units/sabre_legionnaire.md`: the melee form of the Legionnaire.
 /// `factions/colonists/units/weapon_conversion.md`: it shares the Rifle Legionnaire's physical profile and differs
 /// only in its AttackAttributes (a test keeps the two stat blocks so).
-pub(crate) static SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
+pub(crate) const SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
     kind: ObjectKind::SabreLegionnaire,
     name: "Sabre Legionnaire",
     faction: Some(Faction::Colonists),                     // Faction - Colonists

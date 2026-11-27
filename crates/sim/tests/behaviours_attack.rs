@@ -3,7 +3,9 @@
 //! target goes into the fog (design change 0200; more in `target_lost.rs`), and giving up a target out of reach.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::movement::{GIVE_UP_TICKS, REPATH_WAITS, STUCK_GRACE_TICKS};
+const GIVE_UP_TICKS: sc_sim::Tick = sc_sim::tuning::movement::BUILTIN.give_up_ticks();
+const REPATH_WAITS: [sc_sim::Tick; 3] = sc_sim::tuning::movement::BUILTIN.repath_waits;
+const STUCK_GRACE_TICKS: sc_sim::Tick = sc_sim::tuning::movement::BUILTIN.stuck_grace_ticks;
 use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, Target, Tick, Vec2, gu};
 
 const P1: PlayerId = PlayerId(1);

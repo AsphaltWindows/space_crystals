@@ -7,8 +7,9 @@ use sc_sim::economy::RATIO_ONE;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Reject, Replay, Sim, SimConfig, SpawnAt,
-    SpawnSettings, Tick, TilePos, UNIT_CONTROL_CAP,
+    SpawnSettings, Tick, TilePos,
 };
+const UNIT_CONTROL_CAP: u32 = sc_sim::FactionRules::BUILTIN.gdo.unit_control_cap;
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);

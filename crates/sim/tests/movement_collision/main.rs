@@ -18,7 +18,8 @@ mod paths;
 
 use sc_sim::mover::Locomotion;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::movement::{GIVE_UP_TICKS, MAX_REPATHS};
+const GIVE_UP_TICKS: sc_sim::Tick = sc_sim::tuning::movement::BUILTIN.give_up_ticks();
+const MAX_REPATHS: u8 = sc_sim::tuning::movement::BUILTIN.max_repaths;
 use sc_sim::{
     DebugCommand, MoveGoal, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, SpawnAt, Target, TilePos,
     Vec2,

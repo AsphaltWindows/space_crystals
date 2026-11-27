@@ -84,7 +84,7 @@ pub enum Refund {
     /// two Cancellation sections).
     Ready,
     /// A Tunnel's expansion cancelled while it is built (slice M4-F, `sim/expansions.rs`): its share,
-    /// [`EXPANSION_CANCEL_REFUND`](crate::tuning::construction::EXPANSION_CANCEL_REFUND), rounded down
+    /// [`EXPANSION_CANCEL_REFUND`](crate::tuning::construction::Construction::expansion_cancel_refund), rounded down
     /// (`factions/syndicate/tunnel_menus.md > Expansions under construction`, design change 0254). So is a Cults
     /// building's site (`factions/cults/economy.md > Cancel Construction`: "refunds 75% of the building's Space
     /// Crystals cost (rounded down)"; `construction::site::BuildPrice::cancelled`).
@@ -99,7 +99,7 @@ impl Refund {
             // In 64 bits: no overflow for any cost.
             Refund::Ready => (u64::from(cost) * 3 / 4) as u32,
             Refund::Expansion => {
-                let share = u64::from(crate::tuning::construction::EXPANSION_CANCEL_REFUND);
+                let share = u64::from(crate::ruleset::rules().tuning.construction.expansion_cancel_refund);
                 (u64::from(cost) * share / 100) as u32
             }
         }

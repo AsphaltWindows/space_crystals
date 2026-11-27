@@ -8,7 +8,7 @@ use crate::augmentation::AugmentOrder;
 use crate::defs::{ObjectKind, ProductionDef, Tech};
 use crate::economy::ArmyResource;
 use crate::hash::{StateHash, StateHasher};
-use crate::tuning::production::RELEASE_FRAMES;
+use crate::ruleset::rules;
 
 /// An entry of a BuildQueue (`factions/gdo/structures/barracks.md > BarracksInstanceState`), of a pool building's
 /// TrainingQueue (`factions/cults/structures/armory.md > ArmoryInstanceState`) or of an Altar's AugmentationQueue
@@ -57,13 +57,13 @@ impl QueueEntry {
         }
     }
 
-    /// Its frames at a `def` producer: its recipe's, a Release's [`RELEASE_FRAMES`], its order's recipe's
+    /// Its frames at a `def` producer: its recipe's, a Release's `Production::release_frames`, its order's recipe's
     /// (`ProductionDef::augment`), or its technology's BaseResearchTime (`TechDef::frames`, the time with one Recruit
     /// inside). 0 for a unit or an order `def` has no recipe for.
     pub fn frames(self, def: &ProductionDef) -> u32 {
         match self {
             QueueEntry::Unit(kind) => def.recipe(kind).map_or(0, |recipe| recipe.frames),
-            QueueEntry::Release => RELEASE_FRAMES,
+            QueueEntry::Release => rules().tuning.production.release_frames,
             QueueEntry::Augment { order } => def.augment_recipe(order).map_or(0, |recipe| recipe.frames),
             QueueEntry::Research { tech } => tech.def().frames,
         }

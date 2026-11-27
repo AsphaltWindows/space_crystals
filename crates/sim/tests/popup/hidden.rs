@@ -28,7 +28,7 @@ fn lowered_the_enemy_doesnt_see_it_and_rising_it_does() {
     next_debug(&mut t, spawn(GUARD, P2, east(0.5)));
     let guard = newest(&t);
     next(&mut t, P2, order(guard, OrderKind::Hold));
-    t.run(sc_sim::tuning::vision::FOG_DELAY_TICKS + 1);
+    t.run(sc_sim::tuning::vision::BUILTIN.fog_delay_ticks + 1);
     let attack = || order(guard, OrderKind::Attack(POPUP));
     let record = |t: &TestSim| {
         t.sim()

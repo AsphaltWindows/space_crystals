@@ -4,7 +4,8 @@ use sc_sim::nav::{
     Nav, NavClass, NavGrid, NavRules, Path, PathFail, PathGroup, PathRequest, Search, ServeOutput, box_clear,
     find_path, los, serve,
 };
-use sc_sim::tuning::paths::{GROUP_FIELD_MIN, PATH_BUDGET};
+const GROUP_FIELD_MIN: usize = sc_sim::tuning::paths::BUILTIN.group_field_min;
+const PATH_BUDGET: u32 = sc_sim::tuning::paths::BUILTIN.path_budget;
 use sc_sim::{Map, ObjectId, Rng, Tile, TilePos, TilePresetId, Vec2};
 
 const HALF: Vec2 = Vec2::splat(12.0);

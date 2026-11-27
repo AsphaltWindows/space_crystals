@@ -6,7 +6,7 @@ use crate::player::Faction;
 use crate::sides::SideLetter;
 
 /// `factions/colonists/structures/bio_portal.md`: the infantry's producer.
-pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
+pub(crate) const BIO_PORTAL: ObjectDef = ObjectDef {
     kind: ObjectKind::BioPortal,
     name: "Bio Portal",
     faction: Some(Faction::Colonists),          // Faction - Colonists

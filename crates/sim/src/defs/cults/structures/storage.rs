@@ -7,7 +7,7 @@ use crate::player::Faction;
 /// `factions/cults/structures/storage.md`: "Drop-off point for Space Crystals collected by Recruits", and the Armory's
 /// TechPrerequisite (`factions/cults/structures/armory.md`). Recruits build it from outside ([`STORAGE_SITE`], slice
 /// M5-E), and the starting one comes with slice M5-B. "ObjectInterfaceState: None (info display only)".
-pub(crate) static STORAGE: ObjectDef = ObjectDef {
+pub(crate) const STORAGE: ObjectDef = ObjectDef {
     kind: ObjectKind::Storage,
     name: "Storage",
     faction: Some(Faction::Cults), // Faction - TheCults

@@ -9,7 +9,7 @@
 use sc_sim::elevation::Elevation;
 use sc_sim::nav::NavClass;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::tunnel::TunnelState;
 use sc_sim::vision::PlayerVision;
 use sc_sim::{

@@ -90,9 +90,9 @@ fn an_agent_in_line_keeps_waiting_and_delivers_when_its_turn_comes() {
 /// takes; it never gives up". Five Guards on Hold Position stand along the wall in front of the hatch. The Agent comes
 /// back with its load and stops against them, 3 grid units or less from where it is going. Its leg never ends as
 /// arrived: it presses on, looks for other routes, and when the mover gives it up (104 ticks,
-/// `tuning::movement::GIVE_UP_TICKS`) the next leg begins in the next tick, with no wait
-/// (`tuning::gathering::LEG_RETRY_TICKS` was the wait until 0315). It keeps its order and its load; once the Guards
-/// are gone it delivers.
+/// `tuning::movement::Movement::give_up_ticks`) the next leg begins in the next tick, with no wait
+/// (`tuning::gathering::Gathering::leg_retry_ticks` was the wait until 0315). It keeps its order and its load; once the
+/// Guards are gone it delivers.
 #[test]
 fn an_agent_blocked_from_the_hatch_presses_on_and_never_gives_up() {
     // The wall is at x = 640, the hatch square at y 512 to 576: no Agent fits between the Guards and the wall.

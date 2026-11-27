@@ -25,7 +25,7 @@ const PEACEKEEPER_RIOT_SHIELD: RiotShieldDef = RiotShieldDef {
 };
 
 /// `factions/gdo/units/peacekeeper.md`, shield down.
-pub(crate) static PEACEKEEPER: ObjectDef = PEACEKEEPER_DEF;
+pub(crate) const PEACEKEEPER: ObjectDef = PEACEKEEPER_DEF;
 
 /// `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types` (design change 0173): "Peacekeeper (Shielded)",
 /// the Peacekeeper with its shield up or on its way up, like the Sabre and Rifle Legionnaire ("They share everything
@@ -33,7 +33,7 @@ pub(crate) static PEACEKEEPER: ObjectDef = PEACEKEEPER_DEF;
 /// (`crate::riot_shield::allows_attack`), so its weapon is the Peacekeeper's, whose reload goes on through a toggle
 /// (`Sim::change_kind`), as do its cost and its Unit Control ("Cost and Unit Control are the same for both types").
 /// The Barracks produces the unshielded type only.
-pub(crate) static PEACEKEEPER_SHIELDED: ObjectDef = ObjectDef {
+pub(crate) const PEACEKEEPER_SHIELDED: ObjectDef = ObjectDef {
     kind: ObjectKind::PeacekeeperShielded,
     name: "Peacekeeper (Shielded)",
     unit: Some(UnitDef {

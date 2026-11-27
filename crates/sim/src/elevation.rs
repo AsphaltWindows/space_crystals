@@ -13,7 +13,7 @@ use glam::Vec2;
 use crate::defs::{Domain, ObjectKind};
 use crate::map::Map;
 use crate::object::Object;
-use crate::tuning::vision::ELEVATION_MODIFIER;
+use crate::ruleset::rules;
 
 /// Where an object stands for the ElevationModifier.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -57,10 +57,17 @@ impl Elevation {
 /// higher ground, −1 from lower ground, 0 at equal elevation or when either is exempt. `core/vision.md > Binary`: any
 /// difference in level counts the same, whatever its size.
 pub fn modifier(source: Elevation, target: Elevation) -> f32 {
+    modifier_by(rules().tuning.vision.elevation_modifier, source, target)
+}
+
+/// [`modifier`], at `amount` grid units (`tuning::vision::Vision::elevation_modifier`): for a caller that reads it
+/// once for many tiles.
+#[inline]
+pub fn modifier_by(amount: f32, source: Elevation, target: Elevation) -> f32 {
     match (source, target) {
         (Elevation::Level(s), Elevation::Level(t)) => match s.cmp(&t) {
-            Ordering::Greater => ELEVATION_MODIFIER,
-            Ordering::Less => -ELEVATION_MODIFIER,
+            Ordering::Greater => amount,
+            Ordering::Less => -amount,
             Ordering::Equal => 0.0,
         },
         (Elevation::Exempt, _) | (_, Elevation::Exempt) => 0.0,
@@ -76,10 +83,16 @@ pub fn attack_range(range: f32, source: Elevation, target: Elevation) -> f32 {
 /// A `sight` range (grid units) from `source` towards `target`, with the modifier; never below 0. Something that
 /// provides no vision (`sight` 0) gains none from high ground.
 pub fn sight_range(sight: f32, source: Elevation, target: Elevation) -> f32 {
+    sight_range_by(rules().tuning.vision.elevation_modifier, sight, source, target)
+}
+
+/// [`sight_range`], with the modifier at `amount` grid units ([`modifier_by`]).
+#[inline]
+pub fn sight_range_by(amount: f32, sight: f32, source: Elevation, target: Elevation) -> f32 {
     if sight <= 0.0 {
         return 0.0;
     }
-    (sight + modifier(source, target)).max(0.0)
+    (sight + modifier_by(amount, source, target)).max(0.0)
 }
 
 #[cfg(test)]

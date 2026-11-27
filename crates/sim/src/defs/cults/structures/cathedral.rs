@@ -13,7 +13,7 @@ use crate::sides::SideLetter;
 /// Armory's pool path as data (plan decision T71, `sim/producers/pool.rs`): Recruits walk into its pool (`holds`), and
 /// it trains them into Disciples (`production`); Recruits build it from outside ([`CATHEDRAL_SITE`]) while their player
 /// owns a Temple, as the Build is given (`Sim::check_build`). Its numbers are the design's "Placeholder stats".
-pub(crate) static CATHEDRAL: ObjectDef = ObjectDef {
+pub(crate) const CATHEDRAL: ObjectDef = ObjectDef {
     kind: ObjectKind::Cathedral,
     name: "Cathedral",
     faction: Some(Faction::Cults), // Faction - TheCults

@@ -15,7 +15,7 @@ use crate::sides::SideLetter;
 /// its augmentation orders (`ProductionDef::augment`, `QueueEntry::Augment`) and Releases, of the units inside
 /// (`sim/producers/pool.rs`; slice M5-N1b). Its numbers and its site are slice M5-G2's (plan decision T69), and
 /// Recruits build it from outside ([`ALTAR_SITE`]).
-pub(crate) static ALTAR: ObjectDef = ObjectDef {
+pub(crate) const ALTAR: ObjectDef = ObjectDef {
     kind: ObjectKind::Altar,
     name: "Altar",
     faction: Some(Faction::Cults), // Faction - TheCults

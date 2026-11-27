@@ -24,7 +24,7 @@ use crate::units::SU_PER_GU;
 /// where the target was at the end of Aiming, so targets can dodge; it can also be fired at the ground". "**Can't be
 /// shot down** in flight" needs no code: no attack targets a projectile. Its numbers are the design's "Placeholder
 /// stats".
-pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
+pub(crate) const HAND_OF_HEAVEN: ObjectDef = ObjectDef {
     kind: ObjectKind::HandOfHeaven,
     name: "Hand of Heaven",
     faction: Some(Faction::Cults), // Faction - TheCults

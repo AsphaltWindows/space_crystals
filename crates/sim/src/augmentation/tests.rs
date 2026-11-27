@@ -4,8 +4,9 @@
 
 use super::stats::{movement_of, unarmed_weapon};
 use super::*;
-use crate::defs::{AUGMENTATION, MovementAttrs, ObjectKind};
+use crate::defs::{MovementAttrs, ObjectKind};
 use crate::transform;
+const AUGMENTATION: crate::defs::AugmentationTable = crate::defs::FactionRules::BUILTIN.cults.augmentation;
 
 fn levels(constitution: Level, metabolism: Level) -> Levels {
     Levels {
@@ -115,7 +116,7 @@ fn an_unarmed_unit_s_firing_duration_stops_at_two_frames() {
     };
     assert_eq!(unarmed_weapon(&quick, Increments::new(0, 6)).firing_ticks, 2);
     assert_eq!(unarmed_weapon(&quick, Increments::new(0, -6)).firing_ticks, 9);
-    assert_eq!(AUGMENTATION.increments.min_firing_ticks, 2);
+    assert_eq!(AUGMENTATION.increments.min_firing_ticks, 2, "the built-in floor");
 }
 
 /// The top speed of each movement model moves by the increments' amount: the field that is its MaxSpeed, the forward

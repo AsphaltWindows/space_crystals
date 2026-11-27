@@ -26,9 +26,9 @@
 //!   hitting its target", each hit's raw damage ([`Clouds::absorb`]); "The buffer is released **0.5 s (8 frames),
 //!   placeholder, after the first hit it absorbs** (each connected cloud keeps its own timer; user, 2026-11-26; Q0113),
 //!   as **one area hit over the whole connected cloud**, and empties; the next absorbed hit starts the timer again"
-//!   ([`Cloud::release_at`], `tuning::spells::RELEASE_DELAY`).
-//! - **Under the cloud**: "an object is under a cloud when its **centre** is inside the cloud's area (this decides whose
-//!   damage is absorbed and which attackers fire from under it). Shares of a release still go by overlap area"
+//!   ([`Cloud::release_at`], `tuning::spells::Spells::release_delay`).
+//! - **Under the cloud**: "an object is under a cloud when its **centre** is inside the cloud's area (this decides
+//!   whose damage is absorbed and which attackers fire from under it). Shares of a release still go by overlap area"
 //!   ([`Clouds::over`]: a circle's edge counts as inside, as touching circles join). The release's areas are counted on
 //!   a lattice ([`lattice`], plan decision T77).
 //! - **State**: `Sim::clouds`, history (the buffers, the timers), hashed and saved only while there is a cloud or a
@@ -47,7 +47,7 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::object::Object;
 use crate::orders::{ActiveOrder, OrderKind};
-use crate::tuning::spells::RELEASE_DELAY;
+use crate::ruleset::rules;
 use crate::units::{Tick, gu};
 
 /// One channel of a cloud: a unit that channels Shroud, and its circle (module docs).
@@ -101,8 +101,8 @@ pub struct Cloud {
     pub members: Vec<Member>,
     /// The damage it has absorbed since its last release: each absorbed hit's raw damage, before any modifier.
     pub buffer: f32,
-    /// The tick of its next release, [`RELEASE_DELAY`] after the first hit it absorbed since its last; none while it has
-    /// absorbed nothing since.
+    /// The tick of its next release, `Spells::release_delay` after the first hit it absorbed since its last; none while
+    /// it has absorbed nothing since.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub release_at: Option<Tick>,
 }
@@ -258,7 +258,7 @@ impl Clouds {
     pub(crate) fn absorb(&mut self, cloud: usize, damage: f32, tick: Tick) {
         if let Some(c) = self.clouds.get_mut(cloud) {
             c.buffer += damage;
-            c.release_at.get_or_insert(tick + RELEASE_DELAY);
+            c.release_at.get_or_insert(tick + rules().tuning.spells.release_delay);
         }
     }
 

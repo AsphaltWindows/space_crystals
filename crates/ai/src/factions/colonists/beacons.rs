@@ -47,8 +47,8 @@ use sc_sim::deploy;
 use sc_sim::nav::TileRect;
 use sc_sim::transform::warp_in_footprint;
 use sc_sim::{
-    ArmyResource, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, BuildingOrientation, Command, Object, ObjectId,
-    ObjectKind, OrderKind, SU_PER_GU, Tick, TilePos, Vec2, gu,
+    ArmyResource, BuildingOrientation, Command, Object, ObjectId, ObjectKind, OrderKind, SU_PER_GU, Tick, TilePos,
+    Vec2, gu,
 };
 
 use super::Base;
@@ -172,8 +172,9 @@ pub(super) fn wanted(turn: &Turn<'_, '_>, base: &Base<'_>) -> bool {
     let Some(cap) = view.army_cap() else {
         return false;
     };
-    let per = BEACON_CAPACITY_PER_BUILDING;
-    if cap.available + per * (base.deploying + base.walking) >= BEACON_CAPACITY_CAP {
+    let rules = &sc_sim::rules().factions.colonists;
+    let per = rules.beacon_capacity_per_building;
+    if cap.available + per * (base.deploying + base.walking) >= rules.beacon_capacity_cap {
         return false;
     }
     if base.beacon_wanted {
@@ -188,9 +189,10 @@ pub(super) fn wanted(turn: &Turn<'_, '_>, base: &Base<'_>) -> bool {
 /// Portal trained for a Beacon that was no longer wanted when it came out. Never once the Beacons standing and on
 /// their way reach the cap.
 fn spare(view: &View<'_>, base: &Base<'_>) -> bool {
-    let per = BEACON_CAPACITY_PER_BUILDING;
+    let rules = &sc_sim::rules().factions.colonists;
+    let per = rules.beacon_capacity_per_building;
     let below_cap = (view.army_cap())
-        .is_some_and(|cap| cap.available + per * (base.deploying + base.walking) < BEACON_CAPACITY_CAP);
+        .is_some_and(|cap| cap.available + per * (base.deploying + base.walking) < rules.beacon_capacity_cap);
     below_cap && base.workers.len() + base.drones_queued > base.seats()
 }
 

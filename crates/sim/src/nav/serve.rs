@@ -9,7 +9,7 @@ use super::los::clamp_to_clear;
 use super::{Nav, NavClass, NavCounters, NavGrid, Search, los, smooth_avoiding};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
-use crate::tuning::paths::GROUP_FIELD_MIN;
+use crate::ruleset::rules;
 use crate::units::{Tick, TilePos};
 
 /// A unit's wish for a path: what `PathState::Wanted { since }` on its `Mover` turns into in phase 5c
@@ -159,11 +159,11 @@ pub fn find_path_within(
 }
 
 /// `docs/movement.md > 5.5`: serves one tick's path requests in `(since, id)` order within `budget` node
-/// expansions (normally [`crate::tuning::paths::PATH_BUDGET`]).
+/// expansions (normally [`crate::tuning::paths::Paths::path_budget`]).
 ///
 /// - A job starts while the expansions of this call are below the budget, and always finishes. So the oldest
 ///   request is served every tick, and every request within bounded ticks.
-/// - A job is one request's A\*, or a **group field**: when at least [`GROUP_FIELD_MIN`] pending requests share
+/// - A job is one request's A\*, or a **group field**: when at least `Paths::group_field_min` pending requests share
 ///   a group id, class, size class and component, have no avoid tiles, and their goals can be seen from the
 ///   group's anchor tile (`field_members`), one Dijkstra from the anchor serves them all, each with the parent
 ///   chain from its own tile, smoothed, ending on its own goal.
@@ -184,6 +184,7 @@ pub fn serve_on(
     requests: &[PathRequest],
     budget: u32,
 ) -> ServeOutput {
+    let tuning = &rules().tuning.paths;
     assert_eq!(on.len(), requests.len(), "one set of grids per request");
     let before = search.counters();
     let spent = |search: &Search| search.counters().expansions - before.expansions;
@@ -209,7 +210,7 @@ pub fn serve_on(
             continue;
         };
         let field = field_members(grid, requests, on, &order, &done, i);
-        if let Some((anchor, members)) = field.filter(|(_, members)| members.len() >= GROUP_FIELD_MIN) {
+        if let Some((anchor, members)) = field.filter(|(_, members)| members.len() >= tuning.group_field_min) {
             for (member, path) in members
                 .iter()
                 .zip(field_paths(grid, search, requests, anchor, &members))

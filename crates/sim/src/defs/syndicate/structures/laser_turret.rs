@@ -15,7 +15,7 @@ use crate::player::Faction;
 /// air units". A pop-up (`> Pop-up turret`): underground and hidden while it has no target, up and firing at one;
 /// raised, it "blocks movement like any building" (`factions/syndicate/structures/laser_turret.md > Pop-up rules`).
 /// "The turret has no commands" (design change 0298 point 8): it picks its own targets (`combat::structures`).
-pub(crate) static LASER_TURRET: ObjectDef = ObjectDef {
+pub(crate) const LASER_TURRET: ObjectDef = ObjectDef {
     kind: ObjectKind::LaserTurret,
     name: "Laser Turret",
     faction: Some(Faction::Syndicate),          // `factions/syndicate/`

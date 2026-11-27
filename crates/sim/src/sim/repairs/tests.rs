@@ -18,7 +18,7 @@ use crate::shape::Shape;
 use crate::sim::gate::Reject;
 use crate::testing::ScenarioBuilder;
 use crate::testing::invariants::Invariants;
-use crate::tuning::orders::PROXIMITY_SU;
+const PROXIMITY_SU: f32 = crate::tuning::orders::BUILTIN.proximity_su;
 
 const P1: PlayerId = PlayerId(1);
 /// Player 1's vehicle in [`game`], and their two Recruits west of it.

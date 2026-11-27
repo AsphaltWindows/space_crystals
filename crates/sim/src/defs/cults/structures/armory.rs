@@ -12,7 +12,7 @@ use crate::sides::SideLetter;
 /// `crate::holding`), its training (`> Training`) its `production`, of the Recruits inside (slice M5-F2,
 /// `sim/producers/pool.rs`), and Recruits build it from outside ([`ARMORY_SITE`], slice M5-E), its TechPrerequisite
 /// checked as the Build is given (`Sim::check_build`).
-pub(crate) static ARMORY: ObjectDef = ObjectDef {
+pub(crate) const ARMORY: ObjectDef = ObjectDef {
     kind: ObjectKind::Armory,
     name: "Armory",
     faction: Some(Faction::Cults), // Faction - TheCults

@@ -26,7 +26,7 @@ use super::targeting::{TargetView, Targets};
 use crate::defs::{AttackAttrs, BlastDomain, Domain, TargetDomain, TargetType};
 use crate::ids::ObjectId;
 use crate::math::{self, PI};
-use crate::tuning::combat::MINIMUM_DAMAGE;
+use crate::ruleset::rules;
 
 /// An area attack's effect where it lands (`systems/combat.md > AoEDamage`): a circle of uniform damage.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -220,7 +220,7 @@ pub(super) fn share(
         pre_armor: t.pre_armor,
         armor: t.full_armor * fraction,
         directional,
-        minimum: MINIMUM_DAMAGE * fraction,
+        minimum: rules().tuning.combat.minimum_damage * fraction,
     }
 }
 

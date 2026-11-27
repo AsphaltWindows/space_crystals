@@ -11,7 +11,7 @@ use crate::player::Faction;
 /// Turret's (`StructureDef::requires`, slice M4-S1). Hidden from the other players while owned, walked over, and
 /// destroyed as any structure. A Tunnel builds it in its Tunnel Area ([`OPTICS_LAB_EXPANSION`]); it counts as a
 /// prerequisite once complete (`crate::tech`).
-pub(crate) static OPTICS_LAB: ObjectDef = ObjectDef {
+pub(crate) const OPTICS_LAB: ObjectDef = ObjectDef {
     kind: ObjectKind::OpticsLab,
     name: "Optics Lab",
     faction: Some(Faction::Syndicate),          // `factions/syndicate/`

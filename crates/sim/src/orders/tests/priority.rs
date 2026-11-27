@@ -5,7 +5,7 @@ use glam::Vec2;
 
 use crate::math;
 use crate::orders::world::scan::rotation_step;
-use crate::tuning::orders::ROTATION_STEP;
+const ROTATION_STEP: f32 = crate::tuning::orders::BUILTIN.rotation_step;
 
 /// "Required rotation (0–180°, either direction) is bucketed into 45° steps": a step reaches up to its upper bound
 /// (the placeholder reading at the shared bounds), and a target exactly 45° off, by the game's own angle, is in the

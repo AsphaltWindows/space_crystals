@@ -6,7 +6,7 @@
 
 use sc_sim::recruitment::preview::{Claimer, PreviewTile};
 use sc_sim::testing::ScenarioBuilder;
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::{Faction, SU_PER_GU};
 use space_crystals::camera::{CameraZoom, view_rect};
 use space_crystals::coords::world_to_view;

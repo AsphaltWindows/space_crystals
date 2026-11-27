@@ -4,7 +4,7 @@
 //! again must not keep the units behind it from ever looking for a way round.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::movement::MAX_REPATHS;
+const MAX_REPATHS: u8 = sc_sim::tuning::movement::BUILTIN.max_repaths;
 use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, SpawnAt, Target, Tick, TilePos, Vec2};
 
 const P1: PlayerId = PlayerId(1);

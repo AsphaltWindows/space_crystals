@@ -82,7 +82,7 @@ pub(crate) const TUNNEL_SITE: SiteDef = SiteDef {
 /// sees and can be destroyed (slice M4-A), and takes the Agents' Space Crystals at its Side B hatch (slice M4-D). An
 /// Agent builds it (`> Constructed by - Agent`, slice M4-E: [`TUNNEL_SITE`]). The network, the Supplies at Side D and
 /// its upgrades come with slices M4-C to M4-I.
-pub(crate) static TUNNEL: ObjectDef = ObjectDef {
+pub(crate) const TUNNEL: ObjectDef = ObjectDef {
     kind: ObjectKind::Tunnel,
     name: "Tunnel",
     faction: Some(Faction::Syndicate),          // `factions/syndicate/`

@@ -367,7 +367,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     `Reject::NotAccepted` when none of the units is let in). The walk ends at `network::EntryPath` (`outward`, `spot`;
     `stand(half)`, `reached(pos, half)`), `EntryPath::of_object`: a Tunnel's from `Paths::entry_path`, a holder's
     the middle of its entrance side (`holding::entry_path`; 0347 point 1: "a dedicated doorway at the middle of the
-    entrance side": a unit goes in once its box is within `ENTRY_REACH_SU`, 8 su, of that one point, and nowhere
+    entrance side": a unit goes in once its box is within `Tunnel::entry_reach_su`, 8 su, of that one point, and nowhere
     else along the side, `entering.rs`). A Tunnel's units walk up
     against the wall (M4-C, unchanged); a holder's stop `holding::ENTRY_STANDOFF_SU` (4 su, within the reach) clear
     of it (`EntryPath::standoff`): against it, a Recruit pressed along the wall by the crowd coming round the corner of
@@ -570,7 +570,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   neutral, *The pop-up form*); then the units in the owner's network that no remaining Tunnel lets out
   (`network::admits`, the one exit rule: a site is none) are removed (`Sim::remove_held`). A neutral expansion decays:
   **`Object::decay: Option<Progress>`**, hashed (a tag) and saved only while set, steps
-  `tuning::tunnel::DECAY_PERCENT_PER_SECOND` (1%, placeholder) of a 100-second decay a tick, and its HP follows the
+  `tuning::tunnel::Tunnel::decay_percent_per_second` (1%, placeholder) of a 100-second decay a tick, and its HP follows the
   share of its MaxHP the decay has left (`decayed`, computed from the whole ticks in 64 bits, so that a full Hideout
   dies in its 1600th tick of decay, the first being its Tunnel's last; a turret loses 3 HP a second of its 300). An
   owned one under its Tunnel regenerates instead (slice M5-N8, *Economy > Expansions' regeneration*).
@@ -603,11 +603,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Tests: `tests/upgrades/` (`costs`, with the books over random orders; `blocked`, every edge; `during`; `completion`)
   and `sim/upgrades.rs`'s (0231's 500/600 to 700/800).
 - **Side A's paths** (`network::Paths`, design changes 0225 and 0248): the one geometry of a Tunnel's entry and
-  exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `PATH_OFFSET_SU`): two spots on Side
+  exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `Tunnel::path_offset_su`): two spots on Side
   A's line, 30 su from its middle, the exit towards Side B and the entry towards Side D, wherever the sides face
   (`sides`). A unit stands on one with its box against the wall (`entry_stand`, `exit_stand`). `network::admits(tunnel,
   kind)` is the one tier rule (`factions/syndicate/tunnels.md > Transit Tier Requirements`; the tier a Tunnel has, which
-  an upgrade leaves until it completes, 0249); **air units pass nowhere in M4** (`tuning::tunnel::AIR_DOORS`, whose doc
+  an upgrade leaves until it completes, 0249); **air units pass nowhere in M4** (`tuning::tunnel::Tunnel::air_doors`, whose doc
   holds the rule to come with the first Syndicate air unit, design changes 0250 and 0251). `tunnel::area::parent`
   derives an expansion's parent Tunnel (plan decision T32: the owner's Tunnel whose Tunnel Area, `tunnel::area::of`,
   fully contains it; `Sim::parent_tunnel`).
@@ -848,8 +848,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   scenarios and tests*).
 - **Spots for units that work at a footprint** (slice M5-E, `crate::spot_work`, `Sim::free_spot` in
   `sim/spot_work.rs`; *Economy > Cults construction*): design change 0339's wall-hug, `placement::Wall`
-  (`placement/wall.rs`, geometry alone): the loop round the footprint where a unit's box stands `BUILD_STANDOFF_SU` off
-  it, searched from its point nearest the unit (`Wall::hug`), then both ways along it, `HUG_STEP_SU` at a time, of two
+  (`placement/wall.rs`, geometry alone): the loop round the footprint where a unit's box stands `Construction::build_standoff_su` off
+  it, searched from its point nearest the unit (`Wall::hug`), then both ways along it, `Construction::hug_step_su` at a time, of two
   as far the clockwise one first; `Wall::out` is a row further out, `Wall::next_corner` where the way along it turns.
   (Slice M5-F1's spots around a footprint, plan decision T62's one search for a unit put on the map beside a building,
   `placement::Spots` and `Sim::spot_around`, went once nothing used them: the units of a destroyed building that holds
@@ -909,12 +909,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      after the deployments, in id order. Each unit whose current order works at a footprint from a spot beside it (a
      group's Build, an Assist, a building's Repair) and has no spot gets one and walks there, round the footprint, a
      unit on its way heading on at each corner (`Sim::head_on`); an order on a structure that no longer suits it ends;
-     every `RESPOT_TICKS`, a unit whose walk is over keeps where it stands within reach, or looks again along the
+     every `Construction::respot_ticks`, a unit whose walk is over keeps where it stands within reach, or looks again along the
      builders' wall, and one whose walk ended on the footprint itself looks again as far out as needed (slice M5-J1: its
      site waits for it, design change 0362). Before 5b, so that its walks get their paths in the tick.
    - Entries, `Sim::step_entries` (slice M4-C, `sim/network.rs`; `factions/syndicate/tunnels.md > Tunnel Network >
      Walking in`): part of 5a, right after the deployments, in id order. Each unit whose current order is an Enter
-     and whose box is within `ENTRY_REACH_SU` of its Tunnel's entry spot leaves the map for the network
+     and whose box is within `Tunnel::entry_reach_su` of its Tunnel's entry spot leaves the map for the network
      (`Sim::take_off_map`, `SimEvent::EnteredNetwork`), on its way or at the end of its walk alike: no hold between
      units (design change 0246). An Enter whose Tunnel is gone or no longer suits the unit, or whose walk ended short
      of the path (the normal Failure rule, 0247), ends (`SimEvent::EnterFailed`). Into a building that holds units
@@ -937,7 +937,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
      its owner's path knowledge changed, line of sight along its remaining path, and a new plan only if that is
      cut; the farthest waypoint in sight becomes its steering target). Then every `PathState::Wanted` becomes a
-     `nav::PathRequest`, served by `nav::serve_on` within `PATH_BUDGET` (group fields for move groups). A unit that
+     `nav::PathRequest`, served by `nav::serve_on` within `Paths::path_budget` (group fields for move groups). A unit that
      gets no path fails its move (`SimEvent::MoveFailed`). Each unit checks and plans on its owner's known grids,
      as of the end of the last tick (see *Navigation > Path knowledge*).
    - 5d `movement::step`: steering and hard collision, the only code that writes a unit's `pos` besides a teleport
@@ -959,7 +959,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      `paths::sync` runs again. Before 5f, so that a turret is seen from the tick it starts to rise and hidden from the
      tick it is down.
    - Shields, `shields::step` (slice M3-B, see *Combat > Shields*): every object's Shields regenerate
-     `SHIELD_REGEN_PER_TICK`, up to its MaxShields now (`Object::max_shields`). Right after 5e's removals, so that the
+     `Shields::shield_regen_per_tick`, up to its MaxShields now (`Object::max_shields`). Right after 5e's removals, so that the
      dead regenerate nothing and a hit's tick ends with the regeneration on top of it; before the economy, so that a
      transforming object regenerates up to the maximum its tick began with, which `Sim::step_transforms` then raises,
      its Shields with it.
@@ -1093,7 +1093,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   hit can overwrite, because the old prototype lost hits that way.
 - Lessons from the prototype, for M1 and on:
   - **Movement**: the arrival radius must be at least one tick of travel. Otherwise units overshoot and oscillate.
-  - **Pathfinding**: cap repath attempts (`tuning::movement::MAX_REPATHS`). A* needs a correct closed set, a best-cost
+  - **Pathfinding**: cap repath attempts (`tuning::movement::Movement::max_repaths`). A* needs a correct closed set, a best-cost
     map and deterministic tie-breaking. Overwriting a parent at equal cost made zigzag paths.
   - **Occupancy** is domain-aware. For example, underground expansions don't block surface units.
 
@@ -1109,7 +1109,7 @@ ticks spent in it. Hashed and serialized like all state.
   Cooldown + Reload ticks (Peacekeeper 17, Guard 24: its laser rifle, design change 0186). Ordered in tick `t`, the
   first hit lands at the end of tick `t + Aim + Firing − 1`.
   Aiming turns the base towards the target at TurnRate (the attack writes `facing`) and lasts until it faces it
-  within `FACING_TOLERANCE`. Aiming and Reloading are interruptible: another order, or a target that is gone or out
+  within `Combat::facing_tolerance`. Aiming and Reloading are interruptible: another order, or a target that is gone or out
   of range, cancels an aim; a reload keeps counting. Firing and Cooldown run on whatever happens.
 - **Queries**: `combat::may_move(&Object)` and `may_turn(&Object)`: whether the attack leaves the base free to move
   or turn this tick (`systems/combat.md > UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units
@@ -1140,7 +1140,7 @@ ticks spent in it. Hashed and serialized like all state.
   `attack_range` and `sight_range` apply it; melee attacks don't take it.
 - **Melee** (`systems/combat.md > FullyConnected > Melee`: "Short reach: 8 space units"; the Sabre Legionnaire):
   every melee attack has the Range `defs::MELEE_CONTACT_GU`, a gap of 8 su, the one that counts as Proximity
-  (`tuning::orders::PROXIMITY_SU`), and no MinRange (`defs_are_consistent` checks both). It is a placeholder (design
+  (`tuning::orders::Orders::proximity_su`), and no MinRange (`defs_are_consistent` checks both). It is a placeholder (design
   change 0149): exactly 0 would be fragile, since a unit closing in may stop a little short of touching. `max_range`
   gives melee no ElevationModifier.
 - **Hits** (`combat/damage.rs`): every attacker acts against one snapshot of the targets, and an attack's effect
@@ -1159,7 +1159,7 @@ ticks spent in it. Hashed and serialized like all state.
   MinimumDamage > Shield overflow`: 10.25 on 10 Shields and PointArmor 1 takes 0.25 HP); a hit the Shields take whole
   costs no HP, and no armour is consulted. No modifier touches the Shields: the pre-armor multipliers and the
   DirectionalArmor touch the overflow only (design change 0147). `SimEvent::Hit` says what each hit took (`damage` of
-  the HP, `shield_damage`). The Shields regenerate 0.25 a tick (`SHIELD_REGEN_PER_TICK`; `systems/combat.md >
+  the HP, `shield_damage`). The Shields regenerate 0.25 a tick (`Shields::shield_regen_per_tick`; `systems/combat.md >
   ShieldRegenRate`: "continuously (not gated by a delay after taking damage)") up to the maximum now, a neutral object's
   too (design change 0146), in their own step (see *Tick pipeline*). A transforming object's follow its interpolated
   maximum as its HP do and regenerate up to it (design changes 0110 and 0146, `transform::follow_max`), and a cancel
@@ -1377,7 +1377,7 @@ ticks spent in it. Hashed and serialized like all state.
   behaviour engages; the turret's sequence runs at `locked` (`Shooter::aimed`). **In 5e**, before the phases
   (`turret::step`): a lock its attack can't target at all is let go, then the turret turns toward an Attack Ground's
   location or its LockedTarget, the latter only while its owner sees it (design change 0376, answering Q0137: "A
-  turret turns only toward a lock its owner sees"), by its TurnRate, a full circle (`turret::full_turn`, within `FACING_TOLERANCE`
+  turret turns only toward a lock its owner sees"), by its TurnRate, a full circle (`turret::full_turn`, within `Combat::facing_tolerance`
   of 360°) the shorter way, a limited arc only within it, to its edge toward a point outside; not when the tick
   starts in Firing or Cooldown (their TurretSourceActions are None). A sequence starts at a seen lock in range and
   in the arc (`turret::in_arc`, bounds included), Aiming lasts until the turret faces it too and is cancelled when
@@ -1464,7 +1464,7 @@ ticks spent in it. Hashed and serialized like all state.
   targets; an air unit's hits stay, slice M5-H1's to test), whose attack doesn't leave from under the same cloud
   (`damage::Origins`, where each attack left, kept only while there is a cloud; Placeholder: a projectile's launch
   point, judged as it lands), into the cloud's buffer at its raw damage; the first starts the 8-tick timer
-  (`tuning::spells::RELEASE_DELAY`). An absorbed hit still reveals its attacker to the owner of the object it was
+  (`tuning::spells::Spells::release_delay`). An absorbed hit still reveals its attacker to the owner of the object it was
   aimed at, as if it had landed (design change 0386, answering Q0143: "whether a direct shot, a projectile or an area
   hit"). Then **`damage::release`** turns each buffer due into one area hit: `SimEvent::ShroudReleased`, which every
   player is told of, then a `Hit` for each object under the cloud by its overlap share of the cloud's area (counted on
@@ -1657,7 +1657,7 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   takes the same rule through the same code (slice M5-O3: `TooNear` is what the unit backs off from, `BackOff` the
   order's parts the rule works on), and fails with `SimEvent::LocationTooClose`.
 - **Idle units** (`engage::idle`): scan their SightRange every tick; the acquired enemy is engaged with `close_in`
-  from the IdleOrigin, where the unit stood. Farther than `IDLE_LEASH_GU` (4) from it the unit disengages and walks
+  from the IdleOrigin, where the unit stood. Farther than `Orders::idle_leash_gu` (4) from it the unit disengages and walks
   back without scanning; a target destroyed or out of SightRange leaves it idle where it is.
 - **Hold Position** (`engage::hold`): scans its weapon's range only, never moves, and disengages the moment the
   target leaves that range. A unit with a turret engages nothing from its base: its turret scans and fires on its own
@@ -1666,7 +1666,7 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   base's behaviour, whatever that is, a Move's included; it locks and lets go of the turret's target and never moves
   the unit (*Combat > Units' turrets*).
 - **Move to an object** (`orders/travel.rs::approach`; design changes 0032 and 0033): proximity is a gap of at most
-  `PROXIMITY_SU` (8). A static object completes the order there (also at the nearest point the unit can reach, or
+  `Orders::proximity_su` (8). A static object completes the order there (also at the nearest point the unit can reach, or
   stuck within 3 GU of it behind units that won't move). **A unit is followed**: the order never completes by
   itself; the follower waits within proximity (or where it was stopped near it, without re-routing) and sets off
   again when the target moves. It ends with a new order, the target's death, a failed move, or an enemy target
@@ -1679,7 +1679,7 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   its SightRange and engages with `close_in`, by **the reach rule** (design changes 0230 and 0235, `orders/reach.rs`,
   `travel::acquire`): an enemy within weapon range is always taken; one out of range only if the path to a firing
   position (the path phase 5c would serve the chase, `World::chase_path`, walked in quarter-tile steps,
-  `reach::judge`) stays within `ATTACK_MOVE_LEASH_GU` (6) of its **PathReference** and keeps the target within the
+  `reach::judge`) stays within `Orders::attack_move_leash_gu` (6) of its **PathReference** and keeps the target within the
   unit's SightRange, measured as the scan measures it. **The leash limits chasing only** (design change 0180): a
   target in weapon range is always fought, wherever the unit stands (`travel::pursue`); a chase goes on while the
   unit stands within the leash and its judgement stands (`Leg::chase`), and is judged again otherwise. The
@@ -1689,10 +1689,10 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   target is destroyed, rejected or no longer valid (out of sight: its attack completes, design change 0200).
   - **No memory of targets let go** (0230). A rejection (`Leg::rejected`, `state::Judged`) only saves judging an
     enemy again, and stands only while nothing the judgement depends on has changed: the enemy within
-    `REJUDGE_MOVE_SU` (1 GU, a placeholder) of where it was judged, the owner's `PlayerKnowledge::version` the same,
+    `Orders::rejudge_move_su` (1 GU, a placeholder) of where it was judged, the owner's `PlayerKnowledge::version` the same,
     the PathReference the same (`Leg::set_reference` clears them). A rejection by the reach rule (a chase the unit
     can't finish, or one that ended beyond the leash) also records where the unit stood (`Judged::from`), and stands
-    only while it stands within `REJUDGE_SELF_SU` (1 GU, the design's placeholder) of there: design change 0243,
+    only while it stands within `Orders::rejudge_self_su` (1 GU, the design's placeholder) of there: design change 0243,
     answering Q0074, "so the same situation always gets the same response" (a unit that rounds a wall judges the
     building it passed over again, as a fresh unit there would). A chase that ends without the target reached is a
     rejection too: given up by the Failure rule or as near as the unit gets (0235), beyond the leash, or out of the
@@ -1705,12 +1705,12 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     farther from the PathReference than any firing position could be costs none (`reach::near_route`); and a
     judgement's search gives up beyond `JUDGE_PATH_SIGHTS` (2) SightRanges of path (`nav::find_path_within`), so it
     never floods the map round a long wall. The searches run in phase 5a on their own scratch (`reach::Reach`, kept
-    in `NavState`), outside `PATH_BUDGET`; `Sim::reach_counters` reports them. The rejections and the chase's
+    in `NavState`), outside `Paths::path_budget`; `Sim::reach_counters` reports them. The rejections and the chase's
     judgement are hashed and serialized only while set, and so is a judgement's `from`. The own-movement trigger
     costs a path for each grid unit a unit walks with a rejected enemy in its sight, within the same bound
     (`attack_move_perf.rs` measures it).
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
-  change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
+  change 0036) and the destination. A failed leg counts as arrived; `Orders::patrol_failed_legs` (2) in a row end it (design
   change 0037).
 - **Gathering** (`orders/gather.rs` with `gather/patch.rs` (the job at its patch), `gather/station.rs` and
   `gather/station/spot.rs` (the job at a Supply Delivery Station), `gather/deliver.rs` (the way back and the line at
@@ -1764,7 +1764,7 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     (`Claims::take_supply`); the Supply leaves the station as the pick-up ends (`stations::take`), never before, and
     a pick-up stopped earlier takes nothing (0130). **An empty station** (point 3): the worker waits beside it
     (`Waiting`), keeping its Gather, for ever, and picks up as soon as a Supply is free; one that can't get within
-    reach sets off again every `RECHECK_TICKS`, for a spot free by then (0141's rule). The pick-up that takes the last
+    reach sets off again every `Gathering::recheck_ticks`, for a spot free by then (0141's rule). The pick-up that takes the last
     Supply emits `SimEvent::SupplyStationEmpty { station, owner }` once for each player whose workers' Gather names
     the station (the notification, a placeholder reading of "the owner"). **Switching resources** (point 4; design
     change 0292 point 3): `Worker::resource` says what the load is; a worker with crystals sent to a station (or
@@ -1787,7 +1787,7 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     leg is exempt from the occupied-target rule (`Mover::presses_on`, set by `legs::return_leg` on the leg to a
     hatch only; `docs/movement.md > 6.5`, rule 1), so behind standing Agents it stays a unit on its way, and when
     the mover gives it up (stuck with no attempt left, 104 ticks) the next leg begins in the next tick, for ever
-    ("It waits as long as it takes; it never gives up"). `LEG_RETRY_TICKS` (32) is left for a leg that ends out of
+    ("It waits as long as it takes; it never gives up"). `Gathering::leg_retry_ticks` (32) is left for a leg that ends out of
     reach with nothing in its way (the end of its path, or no path), and for the Drones' and Recruits' legs back. A
     worker pushed out of reach loses its place. **0315 doesn't end the jam of four or more Agents that come to the
     hatch along the wall** (`docs/playtest/m4.md > Known issues`, `tests/agent_gathering/jam.rs`).
@@ -1811,7 +1811,7 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     so `OrderKind::Gather` names the patch the worker heads for, and after a delivery the one it last mined (0132).
     With none free the worker waits, at its patch or as close to it as it got.
   - **Waiting** (`Waiting { since }`, 0132): the worker mines its patch as soon as it frees, and every
-    `RECHECK_TICKS` (16, a placeholder), in the ticks that are multiples of it, every waiting worker looks round
+    `Gathering::recheck_ticks` (16, a placeholder), in the ticks that are multiples of it, every waiting worker looks round
     again: it goes to a patch that has freed up, or, short of an unreachable one, tries its leg again. One phase for
     all: counted from each worker's own start, the waiters looked round in different ticks and each went for the
     same freed patch (measured: 0.5 Space Crystals per second less with 20 and with 24 Drones).
@@ -1843,14 +1843,14 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     its target (`legs::approach_point`), and the behaviour measures MiningReach and DropOffReach itself. Not
     `MoveGoal::Object`: that is planned to the point nearest the object's centre, the north side of every patch
     and node. A leg to a patch that ends short counts as arriving there, out of reach (0141); a leg back to the
-    drop-off that ends short begins again after `LEG_RETRY_TICKS` (32, a placeholder) of standing, a back-off;
+    drop-off that ends short begins again after `Gathering::leg_retry_ticks` (32, a placeholder) of standing, a back-off;
     but an Agent's leg back to a hatch presses on instead (design change 0315, above).
   - **Gathering Drones pass through each other** (design change 0106; `gather::on_gather_job`, see *Movement and
     collision > Collision exceptions*): a worker of a type with `WorkerDef::pass_through` (the Drone) whose current
     order is a Gather or a Drop Off. They collide with everything else and, having an order, never yield.
 - **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin.
 - **Unreachable auto-targets** (design change 0181, "for now"): an idle unit doesn't re-acquire a target it couldn't
-  get to for `GIVE_UP_RETRY_TICKS` (32). On an AttackMove or a Patrol such a target is rejected by the reach rule
+  get to for `Orders::give_up_retry_ticks` (32). On an AttackMove or a Patrol such a target is rejected by the reach rule
   instead (0235). A target an explicit Attack gave up (`engage::attack`, the Failure rule) waits the same 32 ticks
   before the idle unit takes it again: the Attack leaves it in `Orders::auto` as the target given up.
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): "within SightRange" for
@@ -1885,7 +1885,7 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   (`NavGrid::nearest_in_component`), as `find_path` does.
 - **`los`, `box_clear`, `smooth`**: line of sight and waypoints for a unit's box (half extents). Touching is free.
 - **`serve(nav, search, requests, PATH_BUDGET)`** serves a tick's `PathRequest`s in `(since, id)` order within the
-  expansion budget, with one shared field per order group of `GROUP_FIELD_MIN` or more, anchored on the click's tile.
+  expansion budget, with one shared field per order group of `Paths::group_field_min` or more, anchored on the click's tile.
   A member whose goal the anchor can't see plans alone: through the anchor it would take a detour. The field is
   built only as far as the members stand (`Search::field_to`: towards their tiles' bounding rectangle, until each
   is expanded), and the members share the smoothing of the chains they share (`smooth_shared`, same waypoints as
@@ -1895,7 +1895,7 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 - **`NavGrid::open_around(p)`**: the tile of `p` and its eight neighbours are free of solid tiles. The movement
   step asks it before `box_clear` and `los`, which hold there for a small box and a short move. A `Path` is unit
   state (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
-- **Switches** of Q0011's answers: `RESOURCES_BLOCK` (design change 0038) and `RUGGED_IMPASSABLE` (0039).
+- **Switches** of Q0011's answers: `Paths::resources_block` (design change 0038) and `Paths::rugged_impassable` (0039).
 - **In the sim** (`paths.rs`, `paths/`): `NavState` holds the **true grids**, the `Nav` of the `(class, size class)`
   of each unit in the game (*Which grids*, below) under every blocking footprint (structures and map resources; an
   underground expansion's, `BlockerKind::UndergroundExpansion`, blocks none: units walk over it, plan decision T32
@@ -2023,7 +2023,7 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   carries it as `space::Body::oriented`, and `space::overlaps` and `space::contact` take the box arithmetic for two
   boxes, untouched, and the shapes' otherwise; so do invariants I1 and I2, the debug teleport and the spots units
   are put on or kept off. **A turn is tried before the move** (`collide/turn.rs`, `World::turn`): in parts across
-  which a corner moves at most `TURN_TRY_SU`, the first blocked part halved `STEP_HALVINGS` times and its free part
+  which a corner moves at most `Movement::turn_try_su`, the first blocked part halved `Movement::step_halvings` times and its free part
   kept; a cut turn is a blocked move (momentum zeroed, the blocker asked to yield, the stuck clock running), and the
   unit takes its step in the shape it has (`follow::creep_on`). Where a move meets a turned shape, the go-around
   rules read the face the two meet on (`space::Face`), which for two boxes gives back the coordinates exactly. Never
@@ -2056,7 +2056,7 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   move. `yielding::can_yield` is the one place that says who yields (an owner, no order at all, no goal, not in an
   attack sequence, `Mover::can_move`: the hook for units that can't move in their mode), and `yields_to` to whom
   (its owner's units, but not the group order it arrived with). A blocked sidestep passes the request on, at most
-  `YIELD_CHAIN_DEPTH` deep. Moving units never yield or swap. A lone unit squarely in the way steps at 45° to the
+  `Movement::yield_chain_depth` deep. Moving units never yield or swap. A lone unit squarely in the way steps at 45° to the
   mover's way; a unit that is only clipped, or stands in the way of a mover walking between the units of a group,
   steps straight across it, and such a mover asks the units on both sides of its gap two steps before it reaches
   them (`yielding::ask_ahead`): the group parts and isn't shoved along. **A pop-up turret that wants to rise asks the
@@ -2138,12 +2138,12 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   *Combat*) stands for the tick and keeps its goal, path and stuck clock (`wait`), like a unit waiting for its path.
 - **Stuck and recovery** (`stuck.rs`; the numbers, in `mover/schedule.rs`, are the design's placeholders of changes
   0024 and 0026): progress is the remaining path length; waiting behind a unit that is getting on counts. A unit is
-  stuck after `STUCK_TICKS` (24) without it (`Mover::is_stuck`); it then tries another route `MAX_REPATHS` times,
-  after waits of `REPATH_WAITS` (8, 16, 32; `Mover::recovery_due`), around the tile of a blocker that stands, and
-  gives up 24 ticks after the last: `MoveStatus::Failed` and `SimEvent::MoveFailed`, `GIVE_UP_TICKS` (104) after its
-  last progress. **Occupied target**: within `OCCUPIED_ARRIVAL_GU` (3, design change 0169; 2 under 0026) of its goal
+  stuck after `Movement::stuck_ticks` (24) without it (`Mover::is_stuck`); it then tries another route `Movement::max_repaths` times,
+  after waits of `Movement::repath_waits` (8, 16, 32; `Mover::recovery_due`), around the tile of a blocker that stands, and
+  gives up 24 ticks after the last: `MoveStatus::Failed` and `SimEvent::MoveFailed`, `Movement::give_up_ticks()` (104) after its
+  last progress. **Occupied target**: within `Movement::occupied_arrival_gu` (3, design change 0169; 2 under 0026) of its goal
   behind a stationary unit that won't yield to it, the unit has arrived instead, without a repath: when stuck, or
-  after `JAMMED_TICKS` without a way forward if the blocker has no goal. That covers a unit walled out of its
+  after `Movement::jammed_ticks` without a way forward if the blocker has no goal. That covers a unit walled out of its
   magic-box spot by its own group's arrivals (design change 0183): arrived within the radius, given up beyond it.
   Two moving units head-on in a passage too narrow to pass both fail. **The crowd sweep** of slice M1-G3 is kept as
   the ignored `movement_crowds.rs::crowd_sweep` (two blocks crossing head-on, 288 layouts, run in release): for
@@ -2170,20 +2170,20 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   `systems/units.md > UnitCollision > Ground Collision`: "Moving units must pathfind around occupied space").
   The row is the unit in its way and the units standing for good next to it, nearer to each other than the unit
   is wide. The detour leads straight out of the row's box (grown by the unit's half extents and
-  `ROW_CLEARANCE_SU`), round it from corner to corner, to an end of the side that faces the target: the shortest
+  `Movement::row_clearance_su`), round it from corner to corner, to an end of the side that faces the target: the shortest
   way whose legs are clear of blocked tiles and of the row's units. `Mover::go_round` puts its waypoints in front
   of the path, and `Mover::detour_end` (hashed and serialized only while set) keeps the staggered check from
-  skipping them. An attempt counts against the leg's `MAX_REPATHS` on the repath schedule, or comes after
-  `JAMMED_TICKS` behind a unit with no goal; it asks for no path. One after a lost race (the unit now in the way
+  skipping them. An attempt counts against the leg's `Movement::max_repaths` on the repath schedule, or comes after
+  `Movement::jammed_ticks` behind a unit with no goal; it asks for no path. One after a lost race (the unit now in the way
   moved after this unit's last attempt, `Body::moved`) is free. **With no way round, or no attempt left, the
   Failure rule applies** (slice M3-G3, design change 0223: "it does not wait behind the blockers indefinitely"):
-  the unit gives up still stuck `STUCK_TICKS` after its last attempt, and its behaviour gives the target up. M3-G2
+  the unit gives up still stuck `Movement::stuck_ticks` after its last attempt, and its behaviour gives the target up. M3-G2
   had it wait and stand there (`stuck::waits_in_queue`, `World::hold`, both gone). Measured
   (`tests/attack_behind_friends/`): four Peacekeepers in a column all fire on a building within 135 ticks of the
   order in all 16 layouts, where one of the four never fired in 5; eight within 255; in a corridor the ones behind
-  give up within `GIVE_UP_TICKS` of their last progress, with the 8 ticks' grace (`no_room.rs`). **Never give a
+  give up within `Movement::give_up_ticks()` of their last progress, with the 8 ticks' grace (`no_room.rs`). **Never give a
   queueing unit a path request for the row**: no grid shows it. A melee unit behind its owner's attackers is
-  within `OCCUPIED_ARRIVAL_GU` of its target, so the occupied-target rule comes first and its approach ends there:
+  within `Movement::occupied_arrival_gu` of its target, so the occupied-target rule comes first and its approach ends there:
   it gives the target up (design change 0223 point 1, as built).
 - **Movement models** (`movement/follow.rs`, `movement/drag.rs`, `movement/wheeled.rs`, `movement/tracked.rs`;
   `docs/movement.md > 6.7`, `docs/movement.md > 6.11`, `docs/movement.md > 6.12`): path following, lane seeking, the
@@ -2257,7 +2257,7 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   Glider (the Sparrow) flies instead of following a path, and collides with nothing. Its speed is `Mover::momentum`'s
   length, always between IdleSpeed and MaxSpeed, its turn in a tick at most `MaxCentripetalAcceleration / v`, and its
   Locomotion always Moving. Without a goal it circles its `Mover::orbit` at IdleSpeed on 1 grid unit
-  (`tuning::air::IDLE_CIRCLE_GU`); with a point it arrives within that circle and circles the point from then on;
+  (`tuning::air::Air::idle_circle_gu`); with a point it arrives within that circle and circles the point from then on;
   an Attack or an Attack Ground makes a strafing run (`Mover::strafe`, `Pass`: toward the target, over it,
   on until out of range, back at full speed), set by `orders::engage::close_in` and `orders::attack_ground`. (slice
   M5-N7, design change 0408) **Where a pass ends** is the one range check measured from the glider's edge to the
@@ -2285,7 +2285,7 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   0328; `docs/movement.md > 6.10`): after every unit has moved and yielded in 5d, each pair of air units with a
   SeparationRadius (`UnitDef::separation_radius`: the Sparrow's 48 su, (slice M5-H2) design change 0405, was 32)
   nearer than the larger radius is pushed apart, each by half of what the pair lacks, a unit's whole push in a tick
-  capped at `tuning::air::SEPARATION_PUSH_SU` (2 su, a placeholder). (M5-H2) Each unit takes its own base's share of
+  capped at `tuning::air::Air::separation_push_su` (2 su, a placeholder). (M5-H2) Each unit takes its own base's share of
   its pushes and of the cap (`UnitBaseDef::separation_strength`): a HoverCraft all of it, a Glider (slice M5-N7) a
   third (design change 0412; a quarter from design change 0405: "Gliders push apart slowly"). The pairs come from a
   `space::Layer` of the air units, in id order, and
@@ -2295,7 +2295,7 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
 - **Idle units that overlap move apart** (`movement/separate.rs`; design change 0126, which amends 0106's "nothing
   is pushed apart"): in its turn, a unit that yields (`yielding::can_yield`: no command at all) and is at rest
   takes a step off the lowest-id unit its box overlaps, along the axis it is out soonest, at
-  `SEPARATE_SPEED_SU` (2 su a tick, a placeholder), no farther than to where the boxes touch. Where two centres
+  `Movement::separate_speed_su` (2 su a tick, a placeholder), no farther than to where the boxes touch. Where two centres
   coincide the lower id goes west or north. Units with a command are never moved (Hold, a Gather, any order).
   The step goes through `World::shuffle`, so it never enters a unit it doesn't already overlap; `n` units stacked
   on one point are apart within `18 × (n − 1)` ticks for Drones.
@@ -2329,7 +2329,7 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   evacuated in the tick, or (M5-N6) that an evacuee came out on (`overlaps::landed_on`: a unit in the doorway of the
   building that went, I1's exception 3), moving off it (design changes 0126 and 0349), and (M5-H1) a Glider, which flies and has
   momentum without a goal, and an air unit with a SeparationRadius pushed off another, by at most
-  `SEPARATION_PUSH_SU` ((M5-H2) its base's share of it; which I3 allows it beyond its speed too). (M5-H1) G1
+  `Air::separation_push_su` ((M5-H2) its base's share of it; which I3 allows it beyond its speed too). (M5-H1) G1
   (`gliders`): every Glider that was in the game a tick earlier flies at a speed between its IdleSpeed and MaxSpeed,
   its velocity its momentum, and its `map_pos` is on the map; one stopped after its flight (its Attack's target died
   in phase 5e) shows no move until its next, and keeps its speed. K1 (`paths`): each player's known grids are
@@ -2388,12 +2388,12 @@ section of its own.
   drift (plan decision T7). `Sim::power(player)` is a `PowerSummary`: `generated` and `consumed`, the HUD's
   used / available (design change 0090). `Sim::army_cap(player)` is an `ArmyCap { resource, used, available }` for
   the player's faction (`economy/army.rs`, plan decision T20; `None` only for a player not in the game): the GDO's
-  Unit Control, out of `UNIT_CONTROL_CAP`; the Colonists' Beacon Capacity, out of
-  min(`BEACON_CAPACITY_CAP`, `BEACON_CAPACITY_PER_BUILDING` × their Colonists structures, a Beacon under deployment
+  Unit Control, out of `GdoRules::unit_control_cap`; the Colonists' Beacon Capacity, out of
+  min(`ColonistsRules::beacon_capacity_cap`, `ColonistsRules::beacon_capacity_per_building` × their Colonists structures, a Beacon under deployment
   left out until it completes: design change 0112, *Beacon Deployment*); and the Syndicate's **Tunnel Space** (slice
   M4-B, `economy/army/tunnel_space.rs`; `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`, design changes
-  0242, 0258 and 0265), out of min(`TUNNEL_SPACE_CAP` 200, ⌊the unused tunnel-region cells of the player's Tunnels /
-  `CELLS_PER_TUNNEL_SPACE` 4⌋): each Tunnel's region is its Tunnel Area at its current tier less its own footprint
+  0242, 0258 and 0265), out of min(`SyndicateRules::tunnel_space_cap` 200, ⌊the unused tunnel-region cells of the player's Tunnels /
+  `SyndicateRules::cells_per_tunnel_space` 4⌋): each Tunnel's region is its Tunnel Area at its current tier less its own footprint
   (`tunnel::area::region`: 48, 84 and 128 cells), every cell counted, on the map or off it, Drillable or not (0242);
   a cell is used when an underground structure of the player's or a neutral one stands on it, cell by cell (0258
   point 4), never another player's. The regions are summed Tunnel by Tunnel, as the formula reads. And the Cults'
@@ -2542,7 +2542,7 @@ section of its own.
   2 × 2 footprint, `deploy::site`, never turned; Shift queues it) goes to one Drone; the gate checks its site on what
   the player knows (see *Placement and the build area > Methods*). In phase 5a the Drone heads for the footprint's
   centre (`orders::build`, the walk a Build shares); its walk is over once its move ended, or when it found no way
-  forward for `JAMMED_TICKS`
+  forward for `Movement::jammed_ticks`
   while overlapping the footprint (0117). Then `Sim::step_deployments` (see *Tick pipeline*) checks the site on the
   truth: if the Drone overlaps the footprint (`deploy::on_site`) and it passes, the Drone becomes the Beacon on the
   footprint, wherever it stood, the same object (0109: its footprint claimed in 5b of that tick), transforming `from`
@@ -2594,7 +2594,7 @@ section of its own.
     site starts (re-ordered, killed, failed together; design change 0340), never after. The gate
     (`Sim::check_shared_build`) takes the whole group, no `Reject::SeveralConstructors` (it stays for Drones and
     Agents), and checks the site with the group left out (`Sim::group_build_check`).
-  - **The site** starts at the first holder whose walk ends within `BUILD_REACH_SU` of the footprint
+  - **The site** starts at the first holder whose walk ends within `Construction::build_reach_su` of the footprint
     (`Sim::arrive_together`, in the arrivals' step), on the truth check (`Sim::arrival_check_without`), checked twice
     (slice M5-J1, design change 0362): with nobody left out it starts; else with the ticket's holders left out, any
     other unit on it, of any player, or its ground fails the whole ticket, refunded once, and nothing retries (0339);
@@ -2608,7 +2608,7 @@ section of its own.
     kept; complete, `SimEvent::SiteBuilt`, its builders' Assists end and they go on to their queued orders or idle
     (0340). X refunds 75% (`Sim::cancel_site`).
   - **The spots** (T62, 0339, `crate::spot_work`): each worker claims its own spot as it gets the order, in its
-    order's state: the part of the builders' wall nearest it (`placement::Wall`, its box `BUILD_STANDOFF_SU` off the
+    order's state: the part of the builders' wall nearest it (`placement::Wall`, its box `Construction::build_standoff_su` off the
     footprint), or else the nearest free part along the wall either way, clockwise first, a room (its box and the
     standoff) from the others' (`Claim::keeps`); with the wall full, it waits on a row from the third out (row 1 kept
     free, the way round) and doesn't count. It walks round the footprint and the others' rooms: along the row outside
@@ -2630,7 +2630,7 @@ section of its own.
   - **The terms** (`repair::terms`): from what built the kind, its site (`SiteDef`: a Cults building's; the Tunnel's
     480 frames at every tier, 0328), its expansion's build (`ExpansionDef`: the Laser Turret's) or else the first
     `Recipe` that makes it in the registry's order (a vehicle's Space Crystals only), shared out by
-    `REPAIR_TIME_SHARE` and `REPAIR_COST_SHARE` (half and half, placeholders): MaxHP / frames a tick per repairer. A
+    `Repair::repair_time_share` and `Repair::repair_cost_share` (half and half, placeholders): MaxHP / frames a tick per repairer. A
     repairer that pays pays Space Crystals, so a price in another resource (the Tunnel's Supplies) is repaired for free
     or not at all (placeholder).
   - **The target** (`repair::can_repair`, `Sim::can_repair`): another object of the repairer's owner's, complete (no
@@ -2641,7 +2641,7 @@ section of its own.
   - **The order** (`OrderKind::Repair(target)`, `RepairWork`): at a building the repairer works from its own spot beside
     the footprint (`RepairWork::Spot`: the spots' step, as an Assist's, *Cults construction*), a Tunnel and a lowered
     Laser Turret alike, which nothing of a repair raises; at a vehicle it follows it (`RepairWork::Follow`,
-    `travel::approach` within `PROXIMITY_SU`, inside `BUILD_REACH_SU`).
+    `travel::approach` within `Orders::proximity_su`, inside `Construction::build_reach_su`).
   - **The step** (`Sim::step_repairs`, *Tick pipeline*): each unit whose current Repair's target it can still repair,
     within reach of its edge with its walk over (`spot_work::at_work`: a footprint, or a vehicle's Silhouette),
     restores its share, so that n repairers give n times the rate; the free ones first, then those that pay, in whole
@@ -2655,7 +2655,7 @@ section of its own.
     `structures_perf` (no repair in it) pays the repairs' and the regeneration's walks of every object: 3 µs more in
     the economy phase, 0.355 to 0.360 ms a whole tick (+1.3%, 8 interleaved rounds against slice M5-U1's build).
 - **Expansions' regeneration** (`Sim::regenerate_expansions` in `sim/expansions.rs`, `crate::regeneration`,
-  `tuning::tunnel::EXPANSION_REGEN_PER_SECOND`; slice M5-N8; `factions/syndicate/structures/README.md > Tunnel
+  `tuning::tunnel::Tunnel::expansion_regen_per_second`; slice M5-N8; `factions/syndicate/structures/README.md > Tunnel
   Expansions`, design changes 0329 and 0330): "Not repaired; they regenerate". Each complete underground expansion of
   its owner's with a parent Tunnel (`tunnel::area::parent`: one of its owner's in operation whose area contains it)
   regains 1% of its MaxHP a second (placeholder), always on, under fire too; a neutral one decays instead (*Object
@@ -2705,7 +2705,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 (energy doorway)`).
 
 - **State**: `Object::production` (`Production`: the BuildQueue, whose head is the unit in production, so the
-  limit `QUEUE_LIMIT` (20) includes it, design change 0081; its entries `QueueEntry`s, a unit or a pool building's
+  limit `Production::queue_limit` (20) includes it, design change 0081; its entries `QueueEntry`s, a unit or a pool building's
   Release, slice M5-F2, an Altar's augmentation order, slice M5-N1b, or a Temple's research, slice M5-N3, a unit's
   written as its kind alone so the
   files and hashes from before are as they were; its
@@ -2793,12 +2793,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   and Eject All`; design changes 0332, 0337, 0347 and 0348): a producer that also holds units (`holding::trains`: a
   `StructureDef` with both `holds` and `production`), the Armory first, makes its units of the units inside, one path
   for every such type, so that the Cathedral, the Chop Shop and the Airstrip are data. **An entry**, `QueueEntry::Unit`
-  or `QueueEntry::Release` (`frames`: a recipe's, a Release's `RELEASE_FRAMES`, 4, the design's "very fast (**4
+  or `QueueEntry::Release` (`frames`: a recipe's, a Release's `Production::release_frames`, 4, the design's "very fast (**4
   frames**, placeholder)"; `cost`: a recipe's Space Crystals, a Release none), **reserves its units when it is
   queued**, `Production::reserved` beside the queue, entry by entry (`QueueEntry::units_reserved`: the unit's Unit
   Control cost, at least 1; 1 for a Release): the free units of its kind (`Sim::free_units`, `RecruitKind`, those
   that entered first), else `Refusal::NoRecruit`. They stay inside, out of the pool (`Sim::pool`), and the capacity
-  counts them (0347 point 5), so the capacity alone bounds the queue: no `QUEUE_LIMIT` for a pool building. **The
+  counts them (0347 point 5), so the capacity alone bounds the queue: no `Production::queue_limit` for a pool building. **The
   front** advances a frame a tick, the Cults having no power, and finished, its first unit is ready to leave
   (`Sim::ready_to_leave`, `Held::leaving`), the entry waiting at 100% while the units ready before it go out first
   (*Object model > Buildings that hold units*). **Out** (`Sim::let_out`), a training's unit is the Recruit changed in
@@ -2946,7 +2946,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
     ("Aircraft [...] are not covered by this rule", `core/entities.md > Structure Type > Exit Doorway`): it appears
     wholly over the runway against the `from` end, facing along it, at its IdleSpeed, on its takeoff run, with its
     rally's order, or with none circling 2 grid units past the `toward` end (`Mover::orbit`,
-    `tuning::air::RUNWAY_CIRCLE_PAST_GU`). `exit_rule` gives such a building its holder's exit, so its ejected and
+    `tuning::air::Air::runway_circle_past_gu`). `exit_rule` gives such a building its holder's exit, so its ejected and
     released units, and the door arrows, use the side doorway as any pool building's.
   - **No doorway: into the Tunnel Network** (slice M4-C, `ExitRule::Network`, the Hideout's;
     `factions/syndicate/structures/README.md > Rally Point Behavior`, design changes 0252 and 0253;
@@ -4166,7 +4166,7 @@ what it is doing; another player's (or a neutral one) its owner and HP only. The
 `hud/info_panel/activity.rs::lines`, the one extension point for them: each structure capability adds its lines there
 (construction with slice M2-H2, production with M2-H1), and nothing else of the panel changes. A producer's
 (`activity::production`) are the unit in production and its progress from `Sim::production_status` (100% while it
-waits at the doorway, 0085), the queue against `QUEUE_LIMIT`, and the rally point (placeholder wordings). A
+waits at the doorway, 0085), the queue against `Production::queue_limit`, and the rally point (placeholder wordings). A
 constructor's (`activity::construction`) are the building under construction and its progress (frames done of
 its recipe's, whole percent rounded down), or the building ready to place. A Recruitment Hall's
 (`activity::recruitment`, slice M5-C, `Sim::hall_state`) are its Effectiveness with its claimed tiles, "Effectiveness:
@@ -4199,7 +4199,7 @@ the tick on the right (in a replay's playback also the replay's last tick and a 
 speed, paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
 DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `resource_bar` for their readings): for
 the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (`Sim::power`), red while consumption
-exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
+exceeds generation (0090), and Unit Control as used / `GdoRules::unit_control_cap`, read through `Sim::unit_control` alone, so
 that the units in production (design change 0143) count as the sim counts them; for the Colonists (slice M3-C,
 `factions/colonists/overview.md > DisplayHud`) Space Crystals, Alloys, Essence and Flux, and Beacon Capacity as used
 / available (`Sim::army_cap`; red over capacity, 0112), with no Power; for the Syndicate (slice M4-B,
@@ -5788,16 +5788,34 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
 
 ## Tunables
 
-The numbers a playtest tunes live apart from the logic that uses them, in tuning modules grouped by system, so that
-each module can later become one loaded struct (the data files come at playtest, plan decision T54). A number that
+The numbers a playtest tunes live apart from the logic that uses them, in tuning modules grouped by system, each
+one struct that a data file loads (the data files come at playtest, plan decision T54; slice M5-X2). A number that
 belongs to one object goes in its def instead (*Adding a unit or structure*).
 
-- **The sim's** (`crates/sim/src/tuning/`, slice M4-R1): one module per system, `combat.rs`, `construction.rs`,
-  `gathering.rs`, `movement.rs`, `orders.rs`, `paths.rs`, `production.rs`, `repair.rs`, `shields.rs`, `tunnel.rs`,
-  `vision.rs` and (slice M5-H1) `air.rs` (the idle circle, the separation's push, how a Glider joins its circle), each
-  mapping one to one onto the struct a data file will load at playtest prep. The code imports its
-  constants from there (`use crate::tuning::movement::{JAMMED_TICKS, MAX_REPATHS};`). A faction's own rule is in its
-  `defs/<faction>.rs`.
+- **The ruleset** (`crates/sim/src/ruleset.rs`, plan decision T66, slice M5-X1): every number the sim reads, in one
+  value, `Ruleset { defs, bases, factions, tuning }`: the object types' defs by kind, the unit bases' by base, the
+  factions' own rules (`defs::FactionRules`: the caps, the Cults' augmentation table, techs and abilities) and the
+  systems' tunables (`tuning::Tuning`). The design's numbers are the built-in ruleset (`Ruleset::BUILTIN`), made of
+  the def modules' defs and the tuning modules' `BUILTIN`s. The sim reads it through `rules()`: `kind.def()`,
+  `base.def()`, `tech.def()` and `ability.def()` do, and a tunable reads `rules().tuning.<system>.<field>`.
+  **A hot loop reads its tunables once**, before the loop (`let tuning = &rules().tuning.movement;`), and hands an
+  inner helper what it needs (`elevation::sight_range_by`): each read is an atomic load and a branch, and a number the
+  compiler can't see costs what a constant didn't (slice M5-X1 measured 2 to 5 % on the perf tests before hoisting).
+- **Generations** (`ruleset.rs`'s module docs): a ruleset in use is a generation of the process, the built-in one
+  generation 0. `DebugCommand::SetRules` (slice M5-X1b) installs another, 64 at most, and the sim makes its own the
+  current one as each tick starts: a tick reads one generation, a change applies between two ticks, and a replay that
+  carries the command reproduces the game. The state hash leaves the rules out. A process runs one sim at a time on
+  rules other than the built-in ones (`tests/rules.rs`). A ruleset that replaces another may change its numbers only:
+  `Ruleset::structural_diff` (`ruleset/structure.rs`) finds a change of kinds, footprints and Silhouettes, variants,
+  lists or flags, and `SetRules` is refused.
+- **The sim's tunables** (`crates/sim/src/tuning/`, slices M4-R1 and M5-X1): one module per system, `air.rs`,
+  `combat.rs`, `construction.rs`, `gathering.rs`, `holding.rs`, `movement.rs`, `orders.rs`, `paths.rs`,
+  `production.rs`, `repair.rs`, `shields.rs`, `spells.rs`, `tunnel.rs` and `vision.rs`, each one struct
+  (`tunables!`: the struct, its serde form and its `BUILTIN`) whose fields are named as its constants were
+  (`Movement::jammed_ticks`). A faction's own rules are a struct in its `defs/<faction>.rs` (`GdoRules`,
+  `SyndicateRules`, `CultsRules`, `ColonistsRules`). **A new tunable is a field** of its system's struct, with its
+  doc and its built-in value, never a `const` the sim reads. A `const` context (an array's length, a `const`
+  assertion, a test's constant) reads the struct's `BUILTIN` (`tuning::movement::BUILTIN.give_up_ticks()`).
 - **The client's feel** (`crates/game/src/tuning/`, slice M4-R2): `camera.rs` (the view's width, the pan speed, the
   edge-pan margin, the editor's zoom), `input.rs` (the drag threshold, double-click and double-tap times, the
   targeting click allowance, the pick slop, the wheel's pixels per line, the editor's marker grab radius) and
@@ -5812,13 +5830,13 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   bank that stops the crew growing; `colonists`: the Warp Ins, the Drones, Beacon Capacity's lead, the Beacon sites),
   each with its rush's (slice A2d). Each is "Placeholder (Q0147 point N)" (2: how it plays; 3: build orders) or
   "Placeholder (not in the design: why)": the behaviour is the Director's placeholder (*Computer players*).
-- Each constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where there is one,
-  why it has its value. `docs/playtest/placeholders.md` lists every such mark, the constants' and the rest of the
-  code's (*Client architecture*, generated docs).
+- Each tunable and constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where
+  there is one, why it has its value. `docs/playtest/placeholders.md` lists every such mark, the tunables' (`name =
+  value`), the constants' and the rest of the code's (*Client architecture*, generated docs).
 - Colours and drawing sizes stay with the drawing code. Technical constants stay where they are used: the sim's
   units of measure, hashing, file formats, and the caps and margins that only bound a computation or absorb rounding;
   the client's z offsets, frame budgets and capture timeouts.
-- A slice adds its constants at the end of its system's module.
+- A slice adds its tunables at the end of its system's struct, and its constants at the end of its system's module.
 
 ## Code conventions
 

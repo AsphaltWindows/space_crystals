@@ -41,7 +41,7 @@ const H1: ObjectId = ObjectId(2);
 const HIDEOUT_AT: TilePos = TilePos::new(8, 8);
 
 /// The ticks a neutral expansion decays from full HP: 100 seconds of 16 ticks, at 1% of its MaxHP a second
-/// (`sc_sim::tuning::tunnel::DECAY_PERCENT_PER_SECOND`, design change 0258's placeholder).
+/// (`sc_sim::tuning::tunnel::Tunnel::decay_percent_per_second`, design change 0258's placeholder).
 const DECAY_TICKS: u32 = 1600;
 
 /// The longest walk to a site or into a Tunnel in these tests, ticks.

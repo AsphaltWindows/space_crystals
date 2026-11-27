@@ -8,8 +8,10 @@ use crate::events::SimEvent;
 use crate::ids::PlayerId;
 use crate::map::Map;
 use crate::object::{Object, Placement};
-use crate::tuning::combat::{DIRECTIONAL_FRONT, DIRECTIONAL_REAR};
+const DIRECTIONAL_FRONT: f32 = crate::tuning::combat::BUILTIN.directional_front;
+const DIRECTIONAL_REAR: f32 = crate::tuning::combat::BUILTIN.directional_rear;
 use crate::units::TilePos;
+const MINIMUM_DAMAGE: f32 = crate::tuning::combat::BUILTIN.minimum_damage;
 
 /// The test grenade's blast (plan §3.3 O's acceptance: damage 100, radius 40 su) at `at`, of `domain`.
 fn grenade(at: Vec2, domain: TargetDomain) -> Blast {

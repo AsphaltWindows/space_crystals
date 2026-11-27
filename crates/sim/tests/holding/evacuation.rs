@@ -20,7 +20,7 @@ const TILES: [Vec2; 6] = [
     Vec2::new(928.0, 736.0),
 ];
 
-/// How far an idle unit steps off another in a tick (`tuning::movement::SEPARATE_SPEED_SU`).
+/// How far an idle unit steps off another in a tick (`tuning::movement::Movement::separate_speed_su`).
 const SEPARATE_SPEED: f32 = 2.0;
 
 /// Player 1's Recruits ordered into [`A1`] at tick 2, run until they all are in; they are in the order they went in,

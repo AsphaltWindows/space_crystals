@@ -84,7 +84,7 @@ const ORDER_TICKS: Tick = 2 * (64 + 48) * 64 / 4;
 /// MiningDuration or DropOffDuration (64 frames each), or its wait at the crystal hatch behind the others (design
 /// change 0255: "the first to arrive delivers next"), two Agents at most ahead of it.
 const STEP_TICKS: Tick = 30 * TICKS_PER_SECOND;
-/// A waiting Agent looks round again every 16 ticks (`tuning::gathering::RECHECK_TICKS`).
+/// A waiting Agent looks round again every 16 ticks (`tuning::gathering::Gathering::recheck_ticks`).
 const RECHECK_TICKS: Tick = 16;
 
 // The front (module docs). The plateau's west ramp comes down through the gap in its cliffs at (26, 22) and (26, 23),

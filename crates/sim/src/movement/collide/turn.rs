@@ -3,11 +3,11 @@
 //! corner sweeping into a wall) follows the same principle: the blocked part is discarded and the unit never ends up
 //! overlapping. The exact geometric method is a technical choice."
 //!
-//! - **A turn** ([`World::turn`]) is tried whole, in parts along which its corners move at most `TURN_TRY_SU` (4 su),
-//!   so that a corner can't jump more than the tip of a unit or a tile between two tries. The first part that isn't
-//!   free (the predicates of invariants I1 and I2, in the turned shape: `World::fits`) is halved `STEP_HALVINGS`
-//!   times, and the unit keeps the free part of it: it turns up to contact, within a 32nd of that part. A turn has no
-//!   contact a sweep could find, as a move has.
+//! - **A turn** ([`World::turn`]) is tried whole, in parts along which its corners move at most `Movement::turn_try_su`
+//!   (4 su), so that a corner can't jump more than the tip of a unit or a tile between two tries. The first part that
+//!   isn't free (the predicates of invariants I1 and I2, in the turned shape: `World::fits`) is halved
+//!   `Movement::step_halvings` times, and the unit keeps the free part of it: it turns up to contact, within a 32nd of
+//!   that part. A turn has no contact a sweep could find, as a move has.
 //! - **A move** meets a shape that turns where the sweep of the two shapes says (`space::contact`, exact), and if a
 //!   rounding leaves that point inside the other, the move up to it is halved the same way ([`World::free_part`]).
 //! - A unit whose Silhouette is square turns freely: its box is the same at every facing.
@@ -24,7 +24,7 @@ use glam::Vec2;
 use super::World;
 use crate::math;
 use crate::movement::space::{Body, Oriented, blocks, overlaps};
-use crate::tuning::movement::{STEP_HALVINGS, TURN_TRY_SU};
+use crate::ruleset::rules;
 
 /// What became of a turn ([`World::turn`]).
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -42,6 +42,7 @@ impl World<'_> {
     /// free (module docs). Its body ([`World::mine`]) lies at the facing it reaches from then on, for the rest of its
     /// tick. A unit whose Silhouette doesn't turn (`space::Body::oriented`) reaches `to`.
     pub(in crate::movement) fn turn(&mut self, pos: Vec2, from: f32, to: f32) -> Turned {
+        let tuning = &rules().tuning.movement;
         let whole = Turned {
             facing: to,
             cut: false,
@@ -65,7 +66,9 @@ impl World<'_> {
             }
         };
         // Its corners, the farthest of its points, move `total × |half|` along their arcs.
-        let parts = (total.abs() * oriented.half.length() / TURN_TRY_SU).ceil().max(1.0) as u32;
+        let parts = (total.abs() * oriented.half.length() / tuning.turn_try_su)
+            .ceil()
+            .max(1.0) as u32;
         let mut done = 0.0;
         for part in 1..=parts {
             let f = part as f32 / parts as f32;
@@ -75,7 +78,7 @@ impl World<'_> {
             }
             // The blocked part, halved: `lo` is always free (where the part began), `hi` never.
             let (mut lo, mut hi) = (done, f);
-            for _ in 0..STEP_HALVINGS {
+            for _ in 0..tuning.step_halvings {
                 let mid = (lo + hi) * 0.5;
                 if self.lies_free(pos, lies(at(mid))) {
                     lo = mid;
@@ -106,6 +109,7 @@ impl World<'_> {
     /// the place it backed off to is returned; `None` if even `most` doesn't free it. Where it ends decides (the
     /// predicates of invariants I1 and I2, `World::fits`): `most` is a few su at most, which jumps no tile or unit.
     pub(in crate::movement) fn back_off(&mut self, pos: Vec2, facing: f32, back: Vec2, most: f32) -> Option<Vec2> {
+        let tuning = &rules().tuning.movement;
         let oriented = self.mine.oriented?;
         let lies = Oriented::facing(oriented.half, facing);
         let free = |d: f32| self.lies_free(pos + back * d, lies);
@@ -114,7 +118,7 @@ impl World<'_> {
         }
         // The least of it that frees the unit, within a 32nd: `lo` never frees it (the turn there was cut), `hi` does.
         let (mut lo, mut hi) = (0.0, most);
-        for _ in 0..STEP_HALVINGS {
+        for _ in 0..tuning.step_halvings {
             let mid = (lo + hi) * 0.5;
             if free(mid) {
                 hi = mid;
@@ -127,15 +131,16 @@ impl World<'_> {
     }
 
     /// `pos` moved along `d` as far as `t` of it (`0..=1`), if that move is free (the tiles on the way, and where it
-    /// ends: [`World::is_free`]); else as far as is free of it, the move halved `STEP_HALVINGS` times and the free
-    /// part kept (plan decision T78). `pos` itself if none of it is. The move up to a sweep's contact with a shape that
-    /// turns (`World::up_to`): the contact is exact, but a rounding may leave its point inside.
+    /// ends: [`World::is_free`]); else as far as is free of it, the move halved `Movement::step_halvings` times and the
+    /// free part kept (plan decision T78). `pos` itself if none of it is. The move up to a sweep's contact with a shape
+    /// that turns (`World::up_to`): the contact is exact, but a rounding may leave its point inside.
     pub(super) fn free_part(&mut self, pos: Vec2, d: Vec2, t: f32) -> Vec2 {
+        let tuning = &rules().tuning.movement;
         if t > 0.0 && self.free_to(pos, pos + d * t) {
             return pos + d * t;
         }
         let (mut lo, mut hi) = (0.0, t);
-        for _ in 0..STEP_HALVINGS {
+        for _ in 0..tuning.step_halvings {
             let mid = (lo + hi) * 0.5;
             if self.free_to(pos, pos + d * mid) {
                 lo = mid;

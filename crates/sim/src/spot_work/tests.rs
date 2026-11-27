@@ -37,8 +37,8 @@ fn a_claim_keeps_its_owners_others_off_its_room() {
     assert!(!keeps(2, 1, &at, Vec2::new(124.0, 100.0)), "touching is clear");
 }
 
-/// The reach is `tuning::construction::BUILD_REACH_SU` from the footprint's edge, edge to edge: a Recruit against the
-/// footprint is within it, as is one 8 su off, but not one a box further out, and one on the footprint is.
+/// The reach is `tuning::construction::Construction::build_reach_su` from the footprint's edge, edge to edge: a Recruit
+/// against the footprint is within it, as is one 8 su off, but not one a box further out, and one on the footprint is.
 #[test]
 fn the_reach_is_eight_space_units_from_the_footprints_edge() {
     let at = storage_at(4, 4);

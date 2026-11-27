@@ -12,7 +12,7 @@ use crate::sides::SideLetter;
 /// (`> RecruitmentHall > RecruitmentArea`, `> RecruitmentHall > Production Behavior`, `> RecruitmentHall > Unit
 /// Control Tracking`) are slice M5-C's (`crate::recruitment`), its construction by Recruits slice M5-E's
 /// ([`RECRUITMENT_HALL_SITE`]), and the starting one slice M5-B's.
-pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
+pub(crate) const RECRUITMENT_HALL: ObjectDef = ObjectDef {
     kind: ObjectKind::RecruitmentHall,
     name: "Recruitment Hall",
     faction: Some(Faction::Cults), // Faction - TheCults

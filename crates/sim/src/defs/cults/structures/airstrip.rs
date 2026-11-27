@@ -13,7 +13,7 @@ use crate::sides::SideLetter;
 /// Airstrip**" along its runway (plan decision T71's `ExitRule::Runway`). Its numbers are the design's "Placeholder
 /// stats". The Advanced aircraft (`> Production`: "a large paratrooper plane and an airship/zeppelin [...] require the
 /// player to own a Scrap Hangar") are TBD, and so not here.
-pub(crate) static AIRSTRIP: ObjectDef = ObjectDef {
+pub(crate) const AIRSTRIP: ObjectDef = ObjectDef {
     kind: ObjectKind::Airstrip,
     name: "Airstrip",
     faction: Some(Faction::Cults), // Faction - TheCults

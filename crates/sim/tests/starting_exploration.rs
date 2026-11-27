@@ -11,7 +11,7 @@
 use std::path::Path;
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
 use sc_sim::vision::LastKnown;
 use sc_sim::{
     DebugCommand, ObjectId, ObjectKind, PlayerId, Replay, ResourceState, Scenario, Sim, SimConfig, SpawnAt,

@@ -5,7 +5,7 @@ use glam::Vec2;
 
 use crate::mover::Mover;
 use crate::nav::{self, NavGrid};
-use crate::tuning::paths::{CHASE_REPLAN_GU, CHASE_REPLAN_SHARE};
+use crate::ruleset::rules;
 use crate::units::{Tick, gu};
 
 /// At most this many waypoints are passed in one staggered check (a technical bound on its line-of-sight tests).
@@ -64,8 +64,9 @@ pub(super) fn staggered_check(grid: &NavGrid, pos: Vec2, half: Vec2, mover: &mut
 /// - **In sight** (a straight line the unit's box can walk, clear of its avoid tiles): the unit steers straight at
 ///   the object, with no path search: its path becomes the one leg from where it is to the object.
 /// - **Out of sight**: it keeps the path it has while the object stays near where the path leads (within
-///   [`CHASE_REPLAN_GU`] or [`CHASE_REPLAN_SHARE`] of the distance), and plans again once it has moved farther, at
-///   most every [`CHASE_REPLAN_TICKS`]. These repaths don't count against the cap: the rate limit bounds them.
+///   `Paths::chase_replan_gu` or `Paths::chase_replan_share` of the distance), and plans again once it has moved
+///   farther, at most every `Paths::chase_replan_ticks`. These repaths don't count against the cap: the rate limit
+///   bounds them.
 ///
 /// `grid` is `None` for air units, which always fly straight.
 pub(super) fn chase_check(
@@ -77,6 +78,7 @@ pub(super) fn chase_check(
     due: bool,
     tick: Tick,
 ) {
+    let tuning = &rules().tuning.paths;
     if mover.planned_target == target {
         return;
     }
@@ -91,7 +93,7 @@ pub(super) fn chase_check(
         return;
     }
     let moved = target.distance(mover.planned_target);
-    if due && moved > gu(CHASE_REPLAN_GU).max(CHASE_REPLAN_SHARE * pos.distance(target)) {
+    if due && moved > gu(tuning.chase_replan_gu).max(tuning.chase_replan_share * pos.distance(target)) {
         mover.repath(tick);
     }
 }

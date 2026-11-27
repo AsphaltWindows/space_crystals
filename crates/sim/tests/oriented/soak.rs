@@ -8,7 +8,8 @@
 use std::collections::BTreeMap;
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::movement::{GIVE_UP_TICKS, STUCK_GRACE_TICKS};
+const GIVE_UP_TICKS: sc_sim::Tick = sc_sim::tuning::movement::BUILTIN.give_up_ticks();
+const STUCK_GRACE_TICKS: sc_sim::Tick = sc_sim::tuning::movement::BUILTIN.stuck_grace_ticks;
 use sc_sim::{
     Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Rng, SU_PER_GU,
     SpawnAt, Target, Vec2,

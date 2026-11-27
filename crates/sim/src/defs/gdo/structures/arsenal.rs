@@ -8,7 +8,7 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/gdo/structures/arsenal.md`: its placeholder stats (design change 0356).
-pub(crate) static ARSENAL: ObjectDef = ObjectDef {
+pub(crate) const ARSENAL: ObjectDef = ObjectDef {
     kind: ObjectKind::Arsenal,
     name: "Arsenal",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization

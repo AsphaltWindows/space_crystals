@@ -6,7 +6,8 @@
 
 use sc_sim::orders::Behaviour;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::orders::{ATTACK_MOVE_LEASH_GU, REJUDGE_MOVE_SU};
+const ATTACK_MOVE_LEASH_GU: f32 = sc_sim::tuning::orders::BUILTIN.attack_move_leash_gu;
+const REJUDGE_MOVE_SU: f32 = sc_sim::tuning::orders::BUILTIN.rejudge_move_su;
 use sc_sim::{ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, SpawnAt, Target, Tick, TilePos, Vec2, gu};
 
 const P1: PlayerId = PlayerId(1);

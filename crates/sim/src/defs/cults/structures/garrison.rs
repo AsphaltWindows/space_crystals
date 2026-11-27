@@ -11,9 +11,9 @@ use crate::sides::SideLetter;
 /// inside it: Recruits and Disciples fire **as if they were Militants** [...], while Militants and Gunners fire their
 /// own weapons. Without units inside, the Garrison does not attack." Its numbers and its site came with slice M5-G2
 /// (plan decision T69), its garrisoning with slice M5-N2 (plan decision T72): who may enter, through its one door
-/// (`StructureDef::holds`), and how they fire from it (`StructureDef::occupants_fire`, `combat::occupants`). Its numbers
-/// are the design's "Placeholder stats".
-pub(crate) static GARRISON: ObjectDef = ObjectDef {
+/// (`StructureDef::holds`), and how they fire from it (`StructureDef::occupants_fire`, `combat::occupants`). Its
+/// numbers are the design's "Placeholder stats".
+pub(crate) const GARRISON: ObjectDef = ObjectDef {
     kind: ObjectKind::Garrison,
     name: "Garrison",
     faction: Some(Faction::Cults), // Faction - TheCults

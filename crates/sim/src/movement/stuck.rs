@@ -2,10 +2,10 @@
 //! 5.6`.
 //!
 //! The rules are `systems/controls/command_behaviors.md > MovingToLocation`: `systems/controls/command_behaviors.md >
-//! Failure` (design change 0024: stuck after `tuning::movement::STUCK_TICKS`, `MAX_REPATHS` attempts at another route
-//! after `REPATH_WAITS`, then give up) and `systems/controls/command_behaviors.md > Occupied target location` (design
-//! change 0026, `tuning::movement::OCCUPIED_ARRIVAL_GU`). Two moving units that block each other for good both end
-//! `Failed` (design change 0022: moving units never yield or swap).
+//! Failure` (design change 0024: stuck after `tuning::movement::Movement::stuck_ticks`, `Movement::max_repaths`
+//! attempts at another route after `REPATH_WAITS`, then give up) and `systems/controls/command_behaviors.md > Occupied
+//! target location` (design change 0026, `tuning::movement::Movement::occupied_arrival_gu`). Two moving units that
+//! block each other for good both end `Failed` (design change 0022: moving units never yield or swap).
 
 use glam::Vec2;
 
@@ -16,8 +16,8 @@ use super::space::Body;
 use super::yielding::yields_to;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::{MAX_AVOID_TILES, MoveGoal, MoveStatus, Mover};
+use crate::ruleset::rules;
 use crate::shape::Shape;
-use crate::tuning::movement::{JAMMED_TICKS, MAX_REPATHS, OCCUPIED_ARRIVAL_GU, STUCK_GRACE_TICKS};
 use crate::units::{Tick, TilePos, gu};
 
 /// The length of the path still ahead of a unit at `pos` heading for waypoint `next`.
@@ -42,7 +42,8 @@ pub(super) fn remaining(pos: Vec2, path: &[Vec2], next: usize) -> f32 {
 /// tick it is asked for, so that is rare, and it then counts as before this rule). After a counted repath the unit
 /// was stuck on this leg and its clock is old: it is shared as before.
 pub(super) fn leads(mover: &Mover) -> bool {
-    mover.repaths_left < MAX_REPATHS || mover.last_progress > mover.last_repath
+    let tuning = &rules().tuning.movement;
+    mover.repaths_left < tuning.max_repaths || mover.last_progress > mover.last_repath
 }
 
 /// The progress clock `blocker` shares with a unit waiting behind it: `Body::progress`, if it [`leads`].
@@ -62,11 +63,12 @@ fn shared_progress(blocker: &Body) -> Option<Tick> {
 /// with open ground on both sides (`docs/playtest/m3.md`: the last of four Peacekeepers on a building). The units ahead
 /// of it won't move on while the target stands, so there is nothing to wait for. It takes a detour round the row
 /// they stand in ([`round::detour`]; a path request would bring back the path it has, the row is in no grid):
-/// - **When**: on the schedule of the re-routes (stuck, and the wait of `Mover::recovery_due` over), or already
-///   after `JAMMED_TICKS` without a way forward behind a unit that has no goal of its own (it stands in range and
+/// - **When**: on the schedule of the re-routes (stuck, and the wait of `Mover::recovery_due` over), or already after
+///   `Movement::jammed_ticks` without a way forward behind a unit that has no goal of its own (it stands in range and
 ///   will not move on), as the occupied-target rule has it.
-/// - **How often**: an attempt counts against the leg's `MAX_REPATHS` and waits like a repath (`Mover::go_round`).
-///   The first goes by the nearer end of the row's front, the second by the other, the third by the nearer again.
+/// - **How often**: an attempt counts against the leg's `Movement::max_repaths` and waits like a repath
+///   (`Mover::go_round`). The first goes by the nearer end of the row's front, the second by the other, the third by
+///   the nearer again.
 /// - **A lost race is free**: if the unit now in its way moved after this unit's last attempt (`Body::moved`), it
 ///   took the place the unit went for. That says nothing about room, so the next attempt doesn't count, and goes
 ///   by the nearer end, round the newcomer. Each lost race is a unit that found its place, so they are at most as
@@ -112,7 +114,7 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
 /// of its place by its own group: those units won't make way for it (design change 0027), so its new route goes
 /// round all of them, not round the one in its way into the next, and comes at its place from the open side. Two
 /// blocks that crossed head-on arrive out of order, and a Guard can't pass between Guards that stand 16 su apart:
-/// the late ones stopped behind the group farther than `OCCUPIED_ARRIVAL_GU` from their places and gave up
+/// the late ones stopped behind the group farther than `Movement::occupied_arrival_gu` from their places and gave up
 /// ([`after_move`], rule 1). A place that the group closes in on every side stays out of reach, and the unit gives up
 /// as before.
 fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
@@ -127,9 +129,9 @@ fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
 }
 
 /// `systems/controls/command_behaviors.md > MovingToLocation > Occupied target location` (design changes 0026 and
-/// 0169): whether the unit at `pos` (its shape `shape` there), blocked by `blocker` this tick, counts as arrived. It
-/// is within `OCCUPIED_ARRIVAL_GU` (3 grid units) of its destination, and the unit in its way isn't moving and won't
-/// move for it.
+/// 0169): whether the unit at `pos` (its shape `shape` there), blocked by `blocker` this tick, counts as arrived. It is
+/// within `Movement::occupied_arrival_gu` (3 grid units) of its destination, and the unit in its way isn't moving and
+/// won't move for it.
 /// - **An object goal** (`systems/controls/command_behaviors.md > MovingToObject > Completion`, "Blocked near the
 ///   target"; design changes 0032, 0033 and 0169): the same rule and radius, measured as the gap between the unit's
 ///   shape and the object's (`chased`). What reaching it means is the behaviour's: a followed unit is waited for, a
@@ -138,10 +140,10 @@ fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
 ///   aside, and a unit whose blocker steps aside isn't stuck. So the rule is for blockers that stay: units that
 ///   arrived with its own group order (0027), units on Hold, busy units, enemies, units that can't move, and a
 ///   yielding unit that found no room.
-/// - **Timing** (the design leaves it open; 0026's Verification says "straight away, with no re-route attempts"):
-///   when the unit is stuck (`Mover::is_stuck`, 24 ticks), which is 8 ticks before its first attempt at another
-///   route; or already when it found no way forward for `JAMMED_TICKS` in a row behind a unit that has no goal of
-///   its own, which will never move on. So it never re-routes here.
+/// - **Timing** (the design leaves it open; 0026's Verification says "straight away, with no re-route attempts"): when
+///   the unit is stuck (`Mover::is_stuck`, 24 ticks), which is 8 ticks before its first attempt at another route; or
+///   already when it found no way forward for `Movement::jammed_ticks` in a row behind a unit that has no goal of its
+///   own, which will never move on. So it never re-routes here.
 /// - **Not on a leg that presses on** (`Mover::presses_on`; design change 0315,
 ///   `factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch": until an Agent is
 ///   within reach of the hatch "it is never 'arrived' [...] and is exempt from MovingToLocation's 'blocked near the
@@ -157,6 +159,7 @@ fn target_is_occupied(
     owner: Option<PlayerId>,
     tick: Tick,
 ) -> bool {
+    let tuning = &rules().tuning.movement;
     let Some(blocker) = blocker.filter(|_| !mover.presses_on) else {
         return false;
     };
@@ -165,10 +168,10 @@ fn target_is_occupied(
         (MoveGoal::Object { .. }, Some(chased)) => shape.gap(&chased.shape),
         (MoveGoal::Object { .. }, None) | (MoveGoal::None, _) => return false,
     };
-    if !blocker.stationary || yields_to(blocker, owner, mover.group) || distance > gu(OCCUPIED_ARRIVAL_GU) {
+    if !blocker.stationary || yields_to(blocker, owner, mover.group) || distance > gu(tuning.occupied_arrival_gu) {
         return false;
     }
-    mover.is_stuck(tick) || (blocker.progress.is_none() && mover.blocked_ticks >= JAMMED_TICKS)
+    mover.is_stuck(tick) || (blocker.progress.is_none() && mover.blocked_ticks >= tuning.jammed_ticks)
 }
 
 /// After a unit's move in tick `tick` (`docs/movement.md > 6.5`). Returns whether the move failed.
@@ -201,13 +204,13 @@ fn target_is_occupied(
 ///    that did: then the tiles of all of them are added ([`avoid_group`]), and the new route goes round the group.
 ///    If the search finds no way around the avoid tiles, phase 5c drops them and plans again: tiles are too coarse
 ///    next to units to conclude that there is no way.
-/// 5. No attempt left, and still stuck `STUCK_TICKS` after the last one: `Failed`. The behaviour stops and
-///    completes (`systems/controls/command_behaviors.md > Failure`). A unit that never gets on looks for another route
-///    32, 48 and 80 ticks after its last progress and fails at 104 (`tuning::movement::GIVE_UP_TICKS`, 6.5 s: 0024's
+/// 5. No attempt left, and still stuck `STUCK_TICKS` after the last one: `Failed`. The behaviour stops and completes
+///    (`systems/controls/command_behaviors.md > Failure`). A unit that never gets on looks for another route 32, 48 and
+///    80 ticks after its last progress and fails at 104 (`tuning::movement::Movement::give_up_ticks`, 6.5 s: 0024's
 ///    "about 7 s").
 ///
-/// A unit due for 4 or 5 that touches no unit in this tick (it stepped around one) waits up to `STUCK_GRACE_TICKS`
-/// to meet its blocker again, so that rules 1 and 4 can see it.
+/// A unit due for 4 or 5 that touches no unit in this tick (it stepped around one) waits up to
+/// `Movement::stuck_grace_ticks` to meet its blocker again, so that rules 1 and 4 can see it.
 #[expect(
     clippy::too_many_arguments,
     reason = "one unit's move and what the step knows of the object it heads for"
@@ -222,6 +225,7 @@ pub(super) fn after_move(
     engaged: &[Option<ObjectId>],
     tick: Tick,
 ) -> bool {
+    let tuning = &rules().tuning.movement;
     let blocker = moved.blocker.map(|index| &world.bodies[index]);
     let left = remaining(pos, &mover.path, usize::from(mover.next));
     // Bodies are in id order.
@@ -257,10 +261,10 @@ pub(super) fn after_move(
         // Rule 3: round the row while an attempt is left or a race was lost. Otherwise it carries on, and fails
         // by rule 5 as any unit does (design change 0223).
         let ahead = &world.bodies[index];
-        let jammed = ahead.progress.is_none() && mover.blocked_ticks >= JAMMED_TICKS;
+        let jammed = ahead.progress.is_none() && mover.blocked_ticks >= tuning.jammed_ticks;
         let lost_race = ahead.moved > mover.last_repath;
         if (jammed || (mover.is_stuck(tick) && tick >= mover.recovery_due())) && mover.may_go_round(tick, lost_race) {
-            let other_end = !lost_race && mover.repaths_left == MAX_REPATHS - 1;
+            let other_end = !lost_race && mover.repaths_left == tuning.max_repaths - 1;
             let target = chased.map_or(pos, |chased| chased.pos);
             let detour = round::detour(world, index, pos, target, other_end);
             mover.go_round(pos, &detour, tick, lost_race);
@@ -271,7 +275,7 @@ pub(super) fn after_move(
         return false;
     }
     let due = mover.recovery_due();
-    if tick < due || (blocker.is_none() && tick < due.saturating_add(STUCK_GRACE_TICKS)) {
+    if tick < due || (blocker.is_none() && tick < due.saturating_add(tuning.stuck_grace_ticks)) {
         return false;
     }
     if mover.repaths_left == 0 {
@@ -283,7 +287,7 @@ pub(super) fn after_move(
         // given a path request for the row, which no grid shows (M3-G2).
         return false;
     }
-    let first_repath = mover.repaths_left == MAX_REPATHS;
+    let first_repath = mover.repaths_left == tuning.max_repaths;
     if let Some(blocker) = blocker.filter(|b| b.stationary && (b.progress.is_none() || !first_repath)) {
         avoid_blocker(pos, mover, blocker);
         if let Some(group) = mover.group.filter(|&group| blocker.arrived_with == Some(group)) {
@@ -334,6 +338,7 @@ mod tests {
     /// stuck behind a standing unit within 3 grid units of its goal, a unit has arrived, unless its leg presses on.
     #[test]
     fn a_leg_that_presses_on_never_arrives_behind_a_standing_unit() {
+        let tuning = &rules().tuning.movement;
         let blocker = Body {
             id: ObjectId(2),
             owner: Some(PlayerId(1)),
@@ -356,7 +361,7 @@ mod tests {
         let mut mover = Mover::default();
         mover.go_to(MoveGoal::Point(goal), None, 0);
         mover.follow(vec![pos, goal], goal, 0);
-        mover.blocked_ticks = JAMMED_TICKS;
+        mover.blocked_ticks = tuning.jammed_ticks;
         let arrived = |mover: &Mover| {
             let (shape, owner) = (Shape::rect(pos, Vec2::splat(18.0)), Some(PlayerId(1)));
             target_is_occupied(pos, shape, mover, None, Some(&blocker), owner, 40)

@@ -11,11 +11,12 @@
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
 use sc_sim::{
     ArmyResource, Command, ConstructionCommand, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind,
-    ProductionCommand, Sim, SimEvent, SpawnAt, Tick, TilePos, UNIT_CONTROL_CAP,
+    ProductionCommand, Sim, SimEvent, SpawnAt, Tick, TilePos,
 };
 
 use super::queue::{bank, crystals, produced, queue, train, validate};
 use super::{BARRACKS, P1, PK, at, base, flat, production, tile};
+const UNIT_CONTROL_CAP: u32 = sc_sim::FactionRules::BUILTIN.gdo.unit_control_cap;
 
 const UC: ArmyResource = ArmyResource::UnitControl;
 const BC: ArmyResource = ArmyResource::BeaconCapacity;

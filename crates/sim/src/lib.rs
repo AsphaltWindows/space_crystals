@@ -46,6 +46,7 @@ pub mod repair;
 pub mod replay;
 pub mod riot_shield;
 pub mod rng;
+pub mod ruleset;
 pub mod scenario;
 pub mod scenarios;
 pub mod shape;
@@ -71,9 +72,9 @@ pub use combat::{AttackPhase, AttackState};
 pub use command::{Ability, Command, DebugCommand, HoldCommand, PlayerCommand, TickInputs, TunnelCommand};
 pub use construction::{ConstructionCommand, Constructor};
 pub use defs::{
-    AbilityArea, AreaAbility, Armor, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Category, ExitRule, Footprint,
-    MiningDef, ObjectDef, ObjectKind, ProductionDef, Recipe, RecruitmentDef, ResearchDef, ResearchLine, StructureDef,
-    SymmetryType, TUNNEL_SPACE_CAP, Tech, TechDef, TierDef, Transit, TunnelDef, UNIT_CONTROL_CAP, UpgradeDef,
+    AbilityArea, AreaAbility, Armor, Category, ExitRule, FactionRules, Footprint, MiningDef, ObjectDef, ObjectKind,
+    ProductionDef, Recipe, RecruitmentDef, ResearchDef, ResearchLine, StructureDef, SymmetryType, Tech, TechDef,
+    TierDef, Transit, TunnelDef, UpgradeDef,
 };
 pub use economy::{ArmyCap, ArmyResource, Extractor, Outcome, PowerSummary};
 pub use events::SimEvent;
@@ -95,6 +96,7 @@ pub use recruitment::{Capacity, Claims, HallState};
 pub use replay::{Checkpoint, Desync, Replay, ReplayError};
 pub use riot_shield::{RiotShield, ShieldMode};
 pub use rng::Rng;
+pub use ruleset::{Ruleset, rules};
 pub use scenario::{
     BuildingOrientation, GameSetup, LayoutObject, MapDef, MapSettings, MapType, PlayerSetup, Scenario, ScenarioProblem,
     SettingsProblem, Slot, Spawn, SpawnAt, SpawnProblem, SpawnSettings, StartingConditions, StartingLayouts,
@@ -105,6 +107,5 @@ pub use sim::{Phase, Reject, Sim, SimConfig};
 pub use symmetry::{EditableRegion, MapTransform, Orientation, Symmetry};
 pub use targets::TargetView;
 pub use transform::Transform;
-pub use tuning::production::QUEUE_LIMIT;
 pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};
 pub use vision::{VisibilityState, Vision};

@@ -12,7 +12,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
 use crate::orders::state::Behaviour;
 use crate::testing::{ScenarioBuilder, TestSim};
-use crate::tuning::orders::ATTACK_MOVE_LEASH_GU;
+const ATTACK_MOVE_LEASH_GU: f32 = crate::tuning::orders::BUILTIN.attack_move_leash_gu;
 use crate::units::{SU_PER_GU, Tick, gu};
 
 const P1: PlayerId = PlayerId(1);

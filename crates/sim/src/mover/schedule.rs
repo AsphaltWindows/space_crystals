@@ -5,14 +5,15 @@
 use glam::Vec2;
 
 use super::{MoveGoal, MoveStatus, Mover, PathState};
-use crate::tuning::movement::{HALF_STUCK_TICKS, MAX_REPATHS, REPATH_WAITS, STUCK_TICKS};
+use crate::ruleset::rules;
 use crate::units::Tick;
 
 impl Mover {
-    /// The wait before the leg's next counted repath (design change 0024: 0.5 s, 1 s, 2 s), [`REPATH_WAITS`].
+    /// The wait before the leg's next counted repath (design change 0024: 0.5 s, 1 s, 2 s), `Movement::repath_waits`.
     fn next_wait(&self) -> Tick {
-        let used = usize::from(MAX_REPATHS.saturating_sub(self.repaths_left));
-        REPATH_WAITS[used.min(REPATH_WAITS.len() - 1)]
+        let tuning = &rules().tuning.movement;
+        let used = usize::from(tuning.max_repaths.saturating_sub(self.repaths_left));
+        tuning.repath_waits[used.min(tuning.repath_waits.len() - 1)]
     }
 
     /// Whether a repath that counts against the cap may happen in `tick`: one is left, and the wait since the
@@ -73,19 +74,21 @@ impl Mover {
     }
 
     /// `systems/controls/command_behaviors.md > MovingToLocation > Failure` (design change 0024): whether the unit is
-    /// **stuck** in `tick`: [`STUCK_TICKS`] have passed without it getting any closer.
+    /// **stuck** in `tick`: `Movement::stuck_ticks` have passed without it getting any closer.
     pub fn is_stuck(&self, tick: Tick) -> bool {
-        tick.saturating_sub(self.last_progress) >= STUCK_TICKS
+        let tuning = &rules().tuning.movement;
+        tick.saturating_sub(self.last_progress) >= tuning.stuck_ticks
     }
 
     /// Design change 0024, for a unit that stays stuck: the tick it next looks for another route, the wait of
-    /// [`REPATH_WAITS`] after it became stuck or after its previous attempt, whichever is later; with no attempt
-    /// left, the tick it gives up, [`STUCK_TICKS`] after the last one. Without any progress that is 32, 48 and 80
-    /// ticks after the last progress, and 104 (`tuning::movement::GIVE_UP_TICKS`).
+    /// `Movement::repath_waits` after it became stuck or after its previous attempt, whichever is later; with no
+    /// attempt left, the tick it gives up, `Movement::stuck_ticks` after the last one. Without any progress that is 32,
+    /// 48 and 80 ticks after the last progress, and 104 (`tuning::movement::Movement::give_up_ticks`).
     pub fn recovery_due(&self) -> Tick {
-        let stuck_at = self.last_progress.saturating_add(STUCK_TICKS);
+        let tuning = &rules().tuning.movement;
+        let stuck_at = self.last_progress.saturating_add(tuning.stuck_ticks);
         if self.repaths_left == 0 {
-            return stuck_at.max(self.last_repath.saturating_add(STUCK_TICKS));
+            return stuck_at.max(self.last_repath.saturating_add(tuning.stuck_ticks));
         }
         stuck_at.max(self.last_repath).saturating_add(self.next_wait())
     }
@@ -96,11 +99,12 @@ impl Mover {
         self.last_progress.max(self.last_repath)
     }
 
-    /// Whether the unit is on its way but hasn't got on for `HALF_STUCK_TICKS`: on the way to being stuck, or
+    /// Whether the unit is on its way but hasn't got on for `Movement::half_stuck_ticks`: on the way to being stuck, or
     /// stuck and recovering (`docs/movement.md > 6.5`). For overlays.
     pub fn is_held_up(&self, tick: Tick) -> bool {
+        let tuning = &rules().tuning.movement;
         self.status == MoveStatus::Moving
             && self.path_state == PathState::Ready
-            && tick.saturating_sub(self.stuck_clock()) >= HALF_STUCK_TICKS
+            && tick.saturating_sub(self.stuck_clock()) >= tuning.half_stuck_ticks()
     }
 }

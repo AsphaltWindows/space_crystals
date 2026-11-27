@@ -53,10 +53,9 @@ impl TunnelLook {
 /// The view directions `sc_sim::sides` lists its letters in: north (+y in the view's world space), east, south, west.
 const FACING: [Vec2; 4] = [Vec2::Y, Vec2::X, Vec2::NEG_Y, Vec2::NEG_X];
 
-/// Side A's paths: how far apart their middles are (the sim's spots, `sc_sim::network::Paths`: where units go in and
-/// come out, slice M4-C), how far in they reach from the edge, and how wide they are at Tier 1 and from Tier 2 on,
-/// space units.
-const PATH_SPACING_SU: f32 = 2.0 * sc_sim::network::PATH_OFFSET_SU;
+/// Side A's paths: how far in they reach from the edge, and how wide they are at Tier 1 and from Tier 2 on, space
+/// units. Their middles are the sim's spots (`sc_sim::network::Paths`: where units go in and come out, slice M4-C),
+/// `tuning::tunnel::Tunnel::path_offset_su` either side of the side's middle.
 const PATH_LENGTH_SU: f32 = 58.0;
 const TRAIL_SU: f32 = 12.0;
 const PAVED_SU: f32 = 24.0;
@@ -114,7 +113,7 @@ fn along(look: TunnelLook, letter: SideLetter, n: Vec2) -> Vec2 {
 /// towards `halves`: the directions the crystal hatch (the exit's) and the Supplies hatch (the entry's) face.
 fn paths(mesh: &mut ColorMesh, n: Vec2, reach: f32, halves: [Vec2; 2], tier: u8) {
     for towards in halves {
-        let at = towards * PATH_SPACING_SU / 2.0;
+        let at = towards * sc_sim::rules().tuning.tunnel.path_offset_su;
         let (inner, outer) = (at + n * (reach - PATH_LENGTH_SU), at + n * reach);
         if tier >= 2 {
             mesh.segment(inner, outer, PAVED_SU + 4.0, LOOK_Z, PAVED_EDGE);

@@ -179,6 +179,7 @@ impl Shape {
     /// already inside meets it at 0. The separating-axis test along the move: on each edge direction the two overlap
     /// for an interval of the move, and they meet where the last of those intervals begins, if it does before the
     /// first ends (the slab test of `movement::space::sweep`, on four axes).
+    #[inline]
     pub fn sweep(&self, d: Vec2, other: &Shape) -> Option<(f32, Vec2)> {
         if d == Vec2::ZERO {
             return None;

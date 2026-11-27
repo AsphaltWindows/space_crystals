@@ -7,7 +7,9 @@
 use sc_sim::defs::{TargetDomain, UnitBase};
 use sc_sim::math;
 use sc_sim::mover::MoveStatus;
-use sc_sim::tuning::combat::{DIRECTIONAL_FRONT, DIRECTIONAL_REAR, DIRECTIONAL_SIDE};
+const DIRECTIONAL_FRONT: f32 = sc_sim::tuning::combat::BUILTIN.directional_front;
+const DIRECTIONAL_REAR: f32 = sc_sim::tuning::combat::BUILTIN.directional_rear;
+const DIRECTIONAL_SIDE: f32 = sc_sim::tuning::combat::BUILTIN.directional_side;
 
 use super::*;
 

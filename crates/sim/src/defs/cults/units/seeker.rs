@@ -15,7 +15,7 @@ use crate::player::Faction;
 /// (slice M5-U1). (M5-N6) The Chop Shop trains it of two Recruits, and it drives out of the exit doorway on side C at
 /// full HP, the Recruits' augmentations lost (design change 0330; `factions/cults/augmentation.md > Persistence`). Its
 /// numbers are the design's "Placeholder stats".
-pub(crate) static SEEKER: ObjectDef = ObjectDef {
+pub(crate) const SEEKER: ObjectDef = ObjectDef {
     kind: ObjectKind::Seeker,
     name: "Seeker",
     faction: Some(Faction::Cults), // Faction - TheCults

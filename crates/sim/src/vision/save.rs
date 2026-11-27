@@ -9,7 +9,7 @@ use super::{LastKnown, TileBits, Vision};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::Object;
-use crate::tuning::vision::{FOG_DELAY_TICKS, REVEAL_TICKS};
+use crate::ruleset::rules;
 use crate::units::{Tick, TilePos};
 
 /// Tile symbols of the Explored rows in a save: Explored (Visible tiles are Explored too), and not.
@@ -95,12 +95,12 @@ impl Serialize for Vision {
 }
 
 /// The vision of a save loaded at the end of `tick` ([`crate::Sim`]'s serde form). `saved` must hold the history of
-/// exactly `players`, in order: Explored rows of `map`'s size; records of objects the player doesn't own, each once,
-/// on the map and seen by `tick` at the latest; tiles that linger, each once, in order, on the map, their delays
-/// ending within the [`FOG_DELAY_TICKS`] after `tick`; and reveals, each once, in id order, ending within the
-/// [`REVEAL_TICKS`] after `tick`. The rest is derived from `objects` (all of the sim's), as at the end of the tick:
-/// tiles Visible now count as Explored even if the save forgot them, a tile a source sees no longer lingers, and the
-/// records of the objects in sight take their current state.
+/// exactly `players`, in order: Explored rows of `map`'s size; records of objects the player doesn't own, each once, on
+/// the map and seen by `tick` at the latest; tiles that linger, each once, in order, on the map, their delays ending
+/// within the `Vision::fog_delay_ticks` after `tick`; and reveals, each once, in id order, ending within the
+/// `Vision::reveal_ticks` after `tick`. The rest is derived from `objects` (all of the sim's), as at the end of the
+/// tick: tiles Visible now count as Explored even if the save forgot them, a tile a source sees no longer lingers, and
+/// the records of the objects in sight take their current state.
 pub(crate) fn load<'a>(
     map: &Map,
     players: &[PlayerId],
@@ -130,7 +130,7 @@ pub(crate) fn load<'a>(
 }
 
 /// A player's saved tiles that linger, as `(tile index, end)` pairs: each on the map, after the one before in row
-/// order, its delay ending after `tick` and no later than [`FOG_DELAY_TICKS`] after it.
+/// order, its delay ending after `tick` and no later than `Vision::fog_delay_ticks` after it.
 fn lingering(map: &Map, saved: &SavedVision, tick: Tick) -> Result<Vec<(u32, Tick)>, String> {
     let (width, height) = (map.width(), map.height());
     let player = saved.player.0;
@@ -144,9 +144,10 @@ fn lingering(map: &Map, saved: &SavedVision, tick: Tick) -> Result<Vec<(u32, Tic
         if tiles.last().is_some_and(|&(last, _)| last >= i) {
             return fail("out of order, or twice");
         }
-        if ends <= tick || ends > tick + FOG_DELAY_TICKS {
+        if ends <= tick || ends > tick + rules().tuning.vision.fog_delay_ticks {
             return fail(&format!(
-                "until tick {ends}, outside the {FOG_DELAY_TICKS} ticks after tick {tick}"
+                "until tick {ends}, outside the {} ticks after tick {tick}",
+                rules().tuning.vision.fog_delay_ticks
             ));
         }
         tiles.push((i, ends));
@@ -155,7 +156,7 @@ fn lingering(map: &Map, saved: &SavedVision, tick: Tick) -> Result<Vec<(u32, Tic
 }
 
 /// A player's saved reveals, as `(id, end)` pairs: by ascending id, each ending after `tick` and no later than
-/// [`REVEAL_TICKS`] after it.
+/// `Vision::reveal_ticks` after it.
 fn revealed(saved: &SavedVision, tick: Tick) -> Result<Vec<(ObjectId, Tick)>, String> {
     let player = saved.player.0;
     let mut reveals: Vec<(ObjectId, Tick)> = Vec::with_capacity(saved.revealed.len());
@@ -164,9 +165,10 @@ fn revealed(saved: &SavedVision, tick: Tick) -> Result<Vec<(ObjectId, Tick)>, St
         if reveals.last().is_some_and(|&(last, _)| last >= id) {
             return fail("is out of order, or twice");
         }
-        if ends <= tick || ends > tick + REVEAL_TICKS {
+        if ends <= tick || ends > tick + rules().tuning.vision.reveal_ticks {
             return fail(&format!(
-                "ends at tick {ends}, outside the {REVEAL_TICKS} ticks after tick {tick}"
+                "ends at tick {ends}, outside the {} ticks after tick {tick}",
+                rules().tuning.vision.reveal_ticks
             ));
         }
         reveals.push((id, ends));

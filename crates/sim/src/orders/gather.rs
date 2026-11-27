@@ -42,11 +42,11 @@
 //!   Mining. At a patch it can't mine, occupied or out of reach, it looks round (below) and goes to another, or
 //!   waits. A worker that carries a load goes to the patch all the same, and on arrival "skips mining (it doesn't
 //!   occupy the patch) and returns to deliver as if it had just mined the load there" (design change 0128).
-//! - **Waiting**: "right at the patch it tried to mine, within MiningReach", or as close as it got to a patch it
-//!   can't reach (design changes 0132 and 0141). It mines the patch as soon as it frees, and looks round again every
-//!   [`RECHECK_TICKS`], all waiting workers in the same ticks: it goes to a patch that has freed up meanwhile, and
-//!   one that couldn't get to its patch tries again ("carrying on as soon as the way clears"). It never gives up for
-//!   good.
+//! - **Waiting**: "right at the patch it tried to mine, within MiningReach", or as close as it got to a patch it can't
+//!   reach (design changes 0132 and 0141). It mines the patch as soon as it frees, and looks round again every
+//!   `Gathering::recheck_ticks`, all waiting workers in the same ticks: it goes to a patch that has freed up meanwhile,
+//!   and one that couldn't get to its patch tries again ("carrying on as soon as the way clears"). It never gives up
+//!   for good.
 //! - **Mining** and **DroppingOff**: the timed work, which the economy phase counts (`economy::gathering::step`).
 //!   Mining that stops before its 32 frames are done, whatever stops it, collects nothing, and the patch frees at
 //!   once (design change 0130): the frames are the order's state, and go with it.
@@ -92,8 +92,8 @@
 //!
 //! **Legs** (`legs`) are moves to a point, not to the object. One that ends short of its patch counts as arriving
 //! there, out of reach (design change 0141); one back to the drop-off that ends short is begun again after
-//! `tuning::gathering::LEG_RETRY_TICKS`; an Agent's leg back to a hatch doesn't end short behind standing units
-//! (design change 0315, `legs::return_leg`).
+//! `tuning::gathering::Gathering::leg_retry_ticks`; an Agent's leg back to a hatch doesn't end short behind standing
+//! units (design change 0315, `legs::return_leg`).
 //!
 //! **Collision** (design change 0106, `factions/colonists/units/drone.md > Gathering Drones pass through each
 //! other`): Drones on a Gather job don't collide with each other, whoever owns them ([`on_gather_job`]; the

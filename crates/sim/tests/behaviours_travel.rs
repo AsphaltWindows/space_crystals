@@ -4,8 +4,11 @@
 
 use sc_sim::orders::Behaviour;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::movement::{MAX_REPATHS, OCCUPIED_ARRIVAL_GU};
-use sc_sim::tuning::orders::{ATTACK_MOVE_LEASH_GU, PROXIMITY_SU, REJUDGE_MOVE_SU};
+const MAX_REPATHS: u8 = sc_sim::tuning::movement::BUILTIN.max_repaths;
+const OCCUPIED_ARRIVAL_GU: f32 = sc_sim::tuning::movement::BUILTIN.occupied_arrival_gu;
+const ATTACK_MOVE_LEASH_GU: f32 = sc_sim::tuning::orders::BUILTIN.attack_move_leash_gu;
+const PROXIMITY_SU: f32 = sc_sim::tuning::orders::BUILTIN.proximity_su;
+const REJUDGE_MOVE_SU: f32 = sc_sim::tuning::orders::BUILTIN.rejudge_move_su;
 use sc_sim::{
     DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, Sim, SimEvent, SpawnAt, Target, Tick,
     TickInputs, TilePos, Vec2, gu,

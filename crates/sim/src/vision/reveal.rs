@@ -1,6 +1,6 @@
 //! Attackers revealed — `core/vision.md > Attacks from outside vision` (design change 0177, answering question Q0017
 //! point 1): a unit or structure that attacks one of a player's objects while outside that player's vision becomes
-//! Visible to the player for [`REVEAL_TICKS`] after each shot, so one that keeps firing stays Visible. Only the
+//! Visible to the player for `Vision::reveal_ticks` after each shot, so one that keeps firing stays Visible. Only the
 //! attacker is revealed, not the area around it.
 //!
 //! - **Outside vision**: as the shot lands in phase 5e of tick `t`, none of the sources of the owner of the object
@@ -11,8 +11,8 @@
 //!   firing from a tile that is Visible only for the fog delay ([`super::linger`]) is revealed too. It is Visible
 //!   anyway, but it would otherwise drop from view once the delay ran out, until its next shot, though it keeps
 //!   firing.
-//! - **Ticks**: the attacker is Visible at the end of ticks `t` to `t + REVEAL_TICKS − 1`. Phase 5f of tick `t +
-//!   REVEAL_TICKS` ends the reveal, unless another shot renews it first.
+//! - **Ticks**: the attacker is Visible at the end of ticks `t` to `t + Vision::reveal_ticks − 1`. Phase 5f of tick `t
+//!   + Vision::reveal_ticks` ends the reveal, unless another shot renews it first.
 //! - **Visible means visible**: while revealed, the attacker counts as seen through the one query every question
 //!   "does the player see this object" asks ([`PlayerVision::object_box_state`]). So it shows and can be selected,
 //!   ordered as a target, and picked by auto-targeting like any Visible unit (`orders::world`, `combat`, the
@@ -31,14 +31,15 @@
 use super::Vision;
 use crate::ids::PlayerId;
 use crate::object::Object;
-use crate::tuning::vision::REVEAL_TICKS;
+use crate::ruleset::rules;
 use crate::units::Tick;
 
 impl Vision {
-    /// Phase 5e of `tick`: `attacker`'s shot landed on an object of `player`. If none of the player's sources sees
-    /// the attacker's tiles, it is revealed to them until phase 5f of `tick + REVEAL_TICKS`. An attacker the player
+    /// Phase 5e of `tick`: `attacker`'s shot landed on an object of `player`. If none of the player's sources sees the
+    /// attacker's tiles, it is revealed to them until phase 5f of `tick + Vision::reveal_ticks`. An attacker the player
     /// owns needs no reveal.
     pub(crate) fn reveal(&mut self, player: PlayerId, attacker: &Object, tick: Tick) {
+        let tuning = &rules().tuning.vision;
         if attacker.owner == Some(player) {
             return;
         }
@@ -48,7 +49,7 @@ impl Vision {
         // (M5-H1) Where the attacker counts as being: a Glider past the map's edge at its nearest edge tile.
         let (lo, hi) = vision.map_box(attacker);
         if !vision.sources_see_box(lo, hi) {
-            vision.reveals.insert(attacker.id, tick + REVEAL_TICKS);
+            vision.reveals.insert(attacker.id, tick + tuning.reveal_ticks);
         }
     }
 }

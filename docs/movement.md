@@ -297,9 +297,9 @@ Exact for boxes up to one tile. Smoothing is greedy string-pulling: from an anch
 with LOS. Waypoints are tile centres, plus the exact start and goal, which leaves `32 − half` su of corner clearance.
 
 **5.5 Requests and budget.** `PathState::Wanted { since }` on the unit; each tick 5c sorts requests by `(since, id)`
-and serves them until `PATH_BUDGET` = 32 000 node expansions is spent *(tuning const)*. A job starts while budget
+and serves them until `Paths::path_budget` = 32 000 node expansions is spent *(tunable)*. A job starts while budget
 remains and always finishes, so every request is served within bounded time. Units waiting for a path stand still.
-- **Group orders**: when at least `GROUP_FIELD_MIN` = 4 requests share an `OrderGroup`, nav class and component, run
+- **Group orders**: when at least `Paths::group_field_min` = 4 requests share an `OrderGroup`, nav class and component, run
   **one** Dijkstra from the group's anchor tile (same code, `h = 0`), and give each member the parent chain from its
   own tile, smoothed, with its own destination (6.4) as the last waypoint. The field is scratch, dropped in the same
   tick. **(M)** The anchor is the click's tile, and only requests whose goal the anchor tile's centre sees (for the
@@ -326,7 +326,7 @@ remains and always finishes, so every request is served within bounded time. Uni
   tick of the order (the last case `nav_perf` prints: 4 of 200 served in the first tick on its bad-case map).
 
 **5.6 Repath policy.** Per order leg, `repaths_left = MAX_REPATHS` (3, design change 0024). **(Y)** Every counted
-repath waits `REPATH_WAITS` (8, 16, 32 ticks) since the unit became stuck or since the repath before
+repath waits `Movement::repath_waits` (8, 16, 32 ticks) since the unit became stuck or since the repath before
 (`Mover::last_repath`), whichever is later.
 
 | Trigger | Check | Counts against the cap |
@@ -350,7 +350,7 @@ again (not counted). An object that is gone ends the move `TargetLost`.
 unit is **stuck** when 24 ticks have passed without progress (`Mover::is_stuck`; nothing restarts that clock but
 progress). A stuck unit waits 8 ticks and tries another route, waits 16 and tries again, waits 32 and tries a third
 time; if it is still stuck 24 ticks after the third attempt, it gives up (`Mover::recovery_due`). So a unit that
-never gets on repaths 32, 48 and 80 ticks after its last progress and fails at 104 ticks (`GIVE_UP_TICKS`, 6.5 s:
+never gets on repaths 32, 48 and 80 ticks after its last progress and fails at 104 ticks (`Movement::give_up_ticks()`, 6.5 s:
 the design's "about 7 s"). A unit that gets on after a repath is stuck again 24 ticks after its last progress, and
 its next wait runs from then. Slice D had repaths at 24, 48 and 72 ticks, each restarting the stuck clock, with the
 same 104. A unit blocked for less than 24 ticks never repaths. A unit that lost sight of its waypoint but is still
@@ -440,17 +440,17 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
   jammed: 14 of 36 Peacekeepers in blocks 40 su apart gave up, 18 with two owners. Both groups are moving, so
   nobody yields (design change 0022), and the rules below only act on contact, one blocker at a time. Now a unit
   looks ahead for the units it has to pass and steps towards a lane between them, as pedestrians do:
-  - **Whom it has to pass**: units within 4 of its own lengths ahead (`LANE_LOOK`; 96 su for a Peacekeeper) and
+  - **Whom it has to pass**: units within 4 of its own lengths ahead (`Movement::lane_look`; 96 su for a Peacekeeper) and
     nearer than the end of its way, that are **oncoming** (heading against its own by more than 120°, by where
     they are going, `Body::heading`, not by their latest step; moving or jammed), or **idle units that yield to
     it** (6.6). The object it heads for doesn't count, nor do units beyond its goal: units converging on one
     point aren't in each other's way.
   - **Lanes**: each such unit bars a range of sideways shifts of the mover, those at which the two boxes would
-    meet, plus `LANE_MARGIN_SU` = 2 su of clearance. With the lanes that hang together around the unit:
-    a **clear lane** within 3 of its widths (`LANE_REACH`) is taken, the nearer side, and on a tie (4 su) its
+    meet, plus `Movement::lane_margin_su` = 2 su of clearance. With the lanes that hang together around the unit:
+    a **clear lane** within 3 of its widths (`Movement::lane_reach`) is taken, the nearer side, and on a tie (4 su) its
     `avoid_side`, so head-on units still pass on the Right. With **none within reach** (a dense group ahead) it
     takes the middle of the widest gap between two neighbouring lanes, a nearer gap before a slightly wider one
-    (`LANE_NEAR`).
+    (`Movement::lane_near`).
   - **The step**: forward and sideways at once, at most 45° off its way; if that isn't free, sideways alone,
     which counts as blocked like a step along a face. If neither is free, the rules below apply. The side taken
     becomes its `avoid_side`.
@@ -482,8 +482,8 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
     the group closes in on every side: no route reaches them, and nor does 0026's placeholder radius of 2 GU.
 - **(V1) A turn first** (`World::turn`, `movement/collide/turn.rs`; design change 0035): a unit whose Silhouette
   turns with its facing (3) turns before it moves, and only as far as its shape stays free (I1 and I2). The turn is
-  tried in parts across which no corner moves more than `TURN_TRY_SU` (4 su), so that a corner can't pass through
-  the tip of a unit or a tile between two tries; the first part that isn't free is halved `STEP_HALVINGS` (5) times,
+  tried in parts across which no corner moves more than `Movement::turn_try_su` (4 su), so that a corner can't pass through
+  the tip of a unit or a tile between two tries; the first part that isn't free is halved `Movement::step_halvings` (5) times,
   and the free part is kept. A turn cut short is a blocked move: `Mover::momentum` is zeroed, the unit that cut it is
   asked to yield (6.6), the stuck clock runs (6.5), and the unit doesn't stand and wait: it takes its step in the
   shape it has (`follow::creep_on`), as "blocked units don't freeze; they creep and turn out of the contact"
@@ -643,15 +643,15 @@ beats `best_remaining` by half a step. Following a slower unit is progress. **(E
 moving (a unit that moved this tick or the last), progress is moving forward at all: the object may be as fast as
 the unit, and the path is re-aimed as it moves, so its length says nothing; towards an object at rest it is the
 remaining path length, measured afresh from when it came to rest. A unit is **stuck** after
-`STUCK_TICKS` = 24 without it. Then, in order:
+`Movement::stuck_ticks` = 24 without it. Then, in order:
 1. **(Y) Occupied target** (design change 0026, `systems/controls/command_behaviors.md > MovingToLocation > Occupied
-   target location`): the goal is a point within `OCCUPIED_ARRIVAL_GU` = 2 GU (**(V)** 3 GU, design change 0169), and
+   target location`): the goal is a point within `Movement::occupied_arrival_gu` = 2 GU (**(V)** 3 GU, design change 0169), and
    the unit in the way is stationary and won't move for this unit → `Arrived`, with no repath. **Yielding comes
    first**: a blocker that yields to this unit (6.6) has been asked to step aside, so the rule is for blockers that
    stay: units that arrived with its own group order, units on Hold, busy units, enemies, units that can't move,
    and a yielding unit that found no room.
    **Timing**: this rule alone doesn't wait for the stuck clock when the blocker has no goal of its own (it will
-   never move on): the unit has arrived once it found no way forward for `JAMMED_TICKS` = 12 in a row. Behind a
+   never move on): the unit has arrived once it found no way forward for `Movement::jammed_ticks` = 12 in a row. Behind a
    stationary unit that has a goal (jammed for now) it applies when the unit is stuck, 8 ticks before the first
    repath. Slice D's stand-in "arrived at any distance behind a unit of its own order group, after a repath" is
    gone: a unit shut out farther than that from its destination re-routes and fails, a unit walled out of its
@@ -673,10 +673,10 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
      schedule of rule 3, and fails by rule 4, 104 ticks after its last progress. The behaviour then begins the leg
      again **in the next tick**, for the point nearest to where the Agent stands by then within reach of the hatch,
      for ever. (Until 0315 the leg arrived behind the standing Agents and began again after
-     `tuning::gathering::LEG_RETRY_TICKS` = 32 of standing. That wait is left for a leg that reached the end of its
+     `tuning::gathering::Gathering::leg_retry_ticks` = 32 of standing. That wait is left for a leg that reached the end of its
      path out of reach or found no path, a hatch walled off, where a leg in every tick would be a path request in
      every tick; and for the Drones' and the Recruits' legs back.)
-   - **To the others it is a unit on its way**, not one at rest: jammed for `JAMMED_TICKS` it counts as stationary
+   - **To the others it is a unit on its way**, not one at rest: jammed for `Movement::jammed_ticks` it counts as stationary
      (6.3), but it has a goal, so a unit behind it re-routes plainly first and avoids its tile only from the second
      attempt (rule 3), and it never yields (6.6).
    - **It doesn't end the jam at the hatch** (`docs/playtest/m4.md > Known issues`; the trace is in
@@ -698,14 +698,14 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
    from the unit, often in its own tile.
    - **The detour** (`movement/round.rs`): the *row* is the unit in the way and every unit standing for good
      (stationary, no goal of its own) that is nearer to one of the row than the moving unit is wide; its *box* is
-     their bounding box grown by the unit's half extents and 2 su (`ROW_CLEARANCE_SU`). The detour goes straight
+     their bounding box grown by the unit's half extents and 2 su (`Movement::row_clearance_su`). The detour goes straight
      out of the box by a side and round it, from corner to corner, to an end of the *front*: the side that faces
      the target. Of the ways whose legs are clear of blocked tiles and of the row's own units the shortest is
      taken. Its waypoints go in front of what is left of the path (`Mover::go_round`), and
      `Mover::detour_end` keeps the staggered check (5.6) from skipping them: the tiles show nothing of what they
      lead round.
-   - **Attempts**: it counts against the leg's `MAX_REPATHS` and waits like a repath, but asks for no path. It is
-     due when the unit is stuck and its wait is over (rule 3's schedule), or already after `JAMMED_TICKS` without
+   - **Attempts**: it counts against the leg's `Movement::max_repaths` and waits like a repath, but asks for no path. It is
+     due when the unit is stuck and its wait is over (rule 3's schedule), or already after `Movement::jammed_ticks` without
      a way forward behind a unit that has no goal (it stands in range, and won't move on). The second counted
      attempt takes the front's other end. An attempt after **a lost race** is free: the unit now in the way
      moved after this unit's last attempt (`Body::moved`), so it took the place the unit went for. Each lost
@@ -784,15 +784,15 @@ unit's own turn of phase 5d.
   unchanged.
 - **The sidestep** (`Sidestep`, `sidestep`): the unit steps at 45° to the mover's way, half across it and half
   along it, so it leaves the lane and the mover at once. Across the way it goes to the side of the mover's line it
-  already stands on; within `YIELD_CENTRED_SU` = 4 su of that line, to the side the mover isn't going round on, so
+  already stands on; within `Movement::yield_centred_su` = 4 su of that line, to the side the mover isn't going round on, so
   the two never chase each other. It goes as far as takes its box out of the mover's lane, at most
-  `YIELD_SIDESTEP_WIDTHS` = 1 of its own width *(placeholder, TBD in the design)* and at least 1 su, at its current
+  `Movement::yield_sidestep_widths` = 1 of its own width *(placeholder, TBD in the design)* and at least 1 su, at its current
   speed, without turning (every M1 unit turns in place; other movement models will need their own). It moves the
   whole step if that is free, else each axis as far as tiles and units allow. It ends when the distance is done or
-  after the time the distance takes plus `YIELD_WAIT_TICKS` = 4, and the unit **stays where it got to**: there is
+  after the time the distance takes plus `Movement::yield_wait_ticks()` = 4, and the unit **stays where it got to**: there is
   no way back. A mover still blocked then asks again.
 - **Dense idle groups**: a sidestep that another idle unit of the owner blocks passes the request on to it, the
-  same way and for the distance still to go, at most `YIELD_CHAIN_DEPTH` = 4 units deep (one tick per link). A unit
+  same way and for the distance still to go, at most `Movement::yield_chain_depth` = 4 units deep (one tick per link). A unit
   that finds no room stands, counts as stationary, and is an ordinary blocker to the mover (6.5). Chaining was
   chosen over "blocked means ordinary blocker" because a unit can't walk through a tight group of its own without
   it; the depth bounds the cost.
@@ -800,7 +800,7 @@ unit's own turn of phase 5d.
   widths at a time: its units ended 204 su from their places on average and up to 373 su. Three changes:
   - The movers **aim between the idle units** (lane seeking, 6.3): a group of idle units that would yield is a
     row of lanes like an oncoming group, and each mover takes the middle of a gap, or walks around the group if a
-    clear lane is within 4/3 of its width (`LANE_AROUND_IDLE`).
+    clear lane is within 4/3 of its width (`Movement::lane_around_idle`).
   - A unit that is only **clipped** (the mover's line passes beside its box), or that stands in the way of a mover
     walking in such a lane, steps **straight across** the mover's way, with no step along it, as far as its box
     reaches into the mover's lane. The step along the way is what did the shoving. A unit alone and squarely in
@@ -889,7 +889,7 @@ the Drone. It replaces only the "desired direction → velocity and facing" step
 that already overlap > Idle units push apart`); the code is `movement/separate.rs`. A unit that yields (6.6: no
 command at all) and is at rest, whose box overlaps another unit's of its layer, moves off it in its own turn:
 away from the overlapping unit with the lowest id, along the axis on which it is out soonest, 2 su a tick
-(`SEPARATE_SPEED_SU`, *placeholder*), no farther than to where the two boxes touch. Where the two centres
+(`Movement::separate_speed_su`, *placeholder*), no farther than to where the two boxes touch. Where the two centres
 coincide on an axis the lower id goes the negative way and the higher the positive. If it can't move that way
 (a tile, a unit it doesn't overlap), it tries the other axis, then the ways back through the unit. Two idle
 units both move; a unit with a command (Hold Position, mining, any order) never does. The step is committed
@@ -911,8 +911,8 @@ of 6.3's), and its unit tests are `movement/glider/tests.rs`.
   tick² (design change 0355), a full loop in about 8 s. Nothing is left of the turn budget (6.3) for phase 5e to
   aim its base by: only its flight turns it, and its turret aims.
 - **Circling**: without a goal it circles its orbit (`Mover::orbit`) at IdleSpeed on a circle of 1 grid unit
-  (`IDLE_CIRCLE_GU`, design change 0354), clockwise (*placeholder*), its heading the circle's tangent pulled toward
-  the circle by its distance off it (`CIRCLE_PULL`, *placeholder*). An orbit is set when a goal ends, or at the first
+  (`Air::idle_circle_gu`, design change 0354), clockwise (*placeholder*), its heading the circle's tangent pulled toward
+  the circle by its distance off it (`Air::circle_pull`, *placeholder*). An orbit is set when a goal ends, or at the first
   tick without one: the point of the map nearest to where the Glider is. A Stop and a Hold Position circle where the
   Glider was when it got them (0354 point 7); a Move to a point arrives within the circle's radius and circles the
   point from then on. **(M5-H2)** The Move completes there, in the next tick's phase 5a (design change 0404,
@@ -939,7 +939,7 @@ prevents stacking but does not hard-block"; plan decision T81; design change 032
 32 su). The code is `movement/air.rs`, and its unit tests are `movement/air/tests.rs`. After every unit has moved
 and yielded in 5d, each pair of air units with a SeparationRadius (`UnitDef::separation_radius`) whose centres are
 nearer than the larger of their two radii is pushed apart along the line between them, each unit by half of what
-the pair lacks, at most `SEPARATION_PUSH_SU` (2 su, *placeholder*: T81's "at most 2 su a tick each", read as the cap
+the pair lacks, at most `Air::separation_push_su` (2 su, *placeholder*: T81's "at most 2 su a tick each", read as the cap
 on a unit's whole push in a tick). The pairs come from the movement's spatial grid (`space::Layer`, each air unit in
 the cell of its centre), taken in id order; the pushes are summed from where the moves left the units and applied
 together, so no push depends on another's, and nothing blocks them. Two units on one point part along the x axis.
@@ -1050,10 +1050,10 @@ yielding requests and the stuck clock are the shared ones.
 - **The corner choice** (T85's rule with 0417: "choose the speed to take it at, from full speed down to a stop and
   spin. Take the fastest whose arc fits the free space on the nav grid, counting the time to brake to it";
   `movement/tracked/corner.rs`): analytic, from the law, without tables. For a turn of θ from the speed it has, each
-  of `CORNER_SPEEDS` + 1 speeds from a stop to its top speed is timed: changing to it, the arc at the law's rate,
+  of `Movement::corner_speeds` + 1 speeds from a stop to its top speed is timed: changing to it, the arc at the law's rate,
   getting back to the top speed, less the way made meanwhile towards where the turn leads. It takes the soonest if
   its arc fits (the tightest at that speed, from where it starts until it heads the new way, its Silhouette tested
-  every `ARC_TEST_RAD`, 22.5°, against the blocked tiles of its nav grid; units are the collision's), else the next
+  every `Movement::arc_test_rad`, 22.5°, against the blocked tiles of its nav grid; units are the collision's), else the next
   slower one that fits, and a stop and spin if none does. It depends on the angle, the speed and the room only:
   predictable (0223). From full speed the Hand of Heaven takes 15° at 4.5 su a tick, 45° at 3.9, a right angle at 2.8
   (on a 19 su radius, nearly pivoting about its inner tread) and a turn about at 0.9: a gentle curve within a tenth of
@@ -1061,10 +1061,10 @@ yielding requests and the stuck clock are the shared ones.
   speed is ReverseMaxSpeed, half MaxSpeed, where the law still turns it at half SpinRate: from rest it backs off at
   that speed as it turns, up to about 60°, slower up to about 105°, and spins first beyond.
   - **The turn now**: each tick, for the turn onto the step it takes. A heading that misses the steering waypoint by
-    less than `TRACKED_MISS_SU` (1 su) is held: at full speed the law can't turn it.
+    less than `Movement::tracked_miss_su` (1 su) is held: at full speed the law can't turn it.
   - **The corner ahead** (`Tracked::ahead`): the turn at its steering waypoint onto the path's next leg. Within
     braking distance it brakes to be at that corner's speed once it is within a step of the waypoint, where the
-    follower passes it; within `TRACKED_MISS_SU` of that mark it counts as there (else, braking to a spin, it closed
+    follower passes it; within `Movement::tracked_miss_su` of that mark it counts as there (else, braking to a spin, it closed
     in by ever shorter moves, the last lost to rounding, and never got there).
   - **A right-angled bend of a corridor two tiles wide** is taken at about 3 su a tick on its arc, the nearest wall
     13.6 su off, not by a stop and spin (`tests/tracked/corners.rs`): the soonest speed's arc fits there. A stop and
@@ -1150,7 +1150,7 @@ among Peacekeepers, Recruits and Guards.
   follower goes round them. Paths are planned on the nav grids, which hold no units: they ran through infantry
   before, and still do.
 - **The kill** (`crush::victims`, at the crusher's commit): the crushable enemies its Silhouette overlaps where it
-  ends, or swept on its way: its turn about where it started, at the parts `World::turn` tests (`TURN_TRY_SU` apart at
+  ends, or swept on its way: its turn about where it started, at the parts `World::turn` tests (`Movement::turn_try_su` apart at
   its corners), and its move, as it lies at the end (`Shape::sweep`): as the collision step tries them (a cut turn's
   back-off, at most a tick's move, aside). Found through the cells' kinds (`KIND_CRUSHABLE`), they leave the grid at
   once: the units after it don't meet them, nobody crushes them twice, and those not yet moved make no move. At the
@@ -1202,7 +1202,7 @@ among Peacekeepers, Recruits and Guards.
   and **(M3-D2)** out of a portal's energy doorway only within its open arc; **(M5-Z1)** never over ground under the
   footprint that it can't stand on, so that it stands on open ground when the building goes);
   I3 `|pos − prev_pos| ≤ max_speed`; I4 all floats finite; I5 a unit with no goal doesn't move;
-  I6 repaths per order ≤ `MAX_REPATHS`, request age bounded; I7 an `Arrived` unit never moves again without an order.
+  I6 repaths per order ≤ `Movement::max_repaths`, request age bounded; I7 an `Arrived` unit never moves again without an order.
   **(Y)** I5 and I7 allow the one exception of 6.6: a unit without a goal may move while it has a `Mover::sidestep`,
   and only a unit without a goal and without an order may have one.
   **(M3-G)** Amended for DragMovement and for 0126:
@@ -1219,10 +1219,10 @@ among Peacekeepers, Recruits and Guards.
   - **I1** is unchanged: DragMovement adds no way for two boxes to come to overlap (every position is committed
     through `World::is_free`), and a separating pair is covered by "already overlapped a tick earlier".
   **(H1)** Amended for Gliders and the soft separation (`testing/invariants/gliders.rs`), and one more:
-  - **I3**: an air unit with a SeparationRadius may move `SEPARATION_PUSH_SU` more than its speed in a tick
+  - **I3**: an air unit with a SeparationRadius may move `Air::separation_push_su` more than its speed in a tick
     (**(M5-H2)** its base's share of it: a Glider half a space unit).
   - **I5 and I7**: a Glider moves, and has momentum, without a goal and after it arrived; an air unit with a
-    SeparationRadius may move without a goal by at most `SEPARATION_PUSH_SU` (**(M5-H2)** its base's share), while
+    SeparationRadius may move without a goal by at most `Air::separation_push_su` (**(M5-H2)** its base's share), while
     another such unit is near enough to have pushed it.
   - **G1**: every Glider that was in the game a tick earlier flies (Locomotion Moving) at a speed between its
     IdleSpeed and its MaxSpeed, its velocity its momentum (its own flight; the push comes on top), and its
@@ -1298,7 +1298,7 @@ among Peacekeepers, Recruits and Guards.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.
 - **Soak**: seeded random orders, 200 units, random maps, 2 000 ticks: invariants hold, no panic. **(Y)** Every
-  move ends within `GIVE_UP_TICKS` and the grace of its last progress, and of the moves that end at most 60 % fail
+  move ends within `Movement::give_up_ticks()` and the grace of its last progress, and of the moves that end at most 60 % fail
   in a seed and 35 % overall (16 % with yielding, 32 % before; **(G)** 7 % with lane seeking: 38, 9 and 34 failed
   moves in the three seeds, where 105, 54 and 64 failed; 8 % with the re-route round the group, 40, 9 and 43,
   within the spread of the seeds: over 64 seeds 2 918 moves failed where 2 850 did, and 63 more arrived).

@@ -9,7 +9,8 @@
 use sc_sim::orders::state::{Judged, Leg};
 use sc_sim::orders::{Behaviour, JUDGE_PATHS_PER_TICK};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::tuning::orders::{REJUDGE_MOVE_SU, REJUDGE_SELF_SU};
+const REJUDGE_MOVE_SU: f32 = sc_sim::tuning::orders::BUILTIN.rejudge_move_su;
+const REJUDGE_SELF_SU: f32 = sc_sim::tuning::orders::BUILTIN.rejudge_self_su;
 use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, SpawnAt, Tick, TilePos, Vec2};
 
 const P1: PlayerId = PlayerId(1);
