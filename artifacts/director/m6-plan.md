@@ -2064,6 +2064,7 @@ GL, SA, ST2) are movement problems that may need it, so §C keeps them one a wav
     about one (§C).
 
 ### T85. Tracked movement: the linear law is analytic (V3)
+- **Superseded in part by 0417** (2026-11-26, answering Q0153 parts 1 and 3). The law is now the tread law: SpinRate = 2 × MaxSpeed ÷ TrackWidth, falling linearly to 0 at MaxSpeed. Every bend at full speed now needs slowing, so the corner choice picks a speed rather than comparing an arc with a spin. V3's brief (`scratchpad/briefs/m5v3-tracked-movement.md`) carries it. The rest below stands.
 - **Recommend:**
   - **The model.** SpeedTurnRadius gives a radius of r = |v| × ratio, so the angular rate is v / r = 1/ratio a frame
     at any speed. A tracked unit therefore turns at a constant rate, and a turn of θ takes θ × ratio frames, whatever

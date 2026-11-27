@@ -106,10 +106,20 @@ Unit cannot turn in place. Turns at a fixed minimum radius regardless of speed. 
 ## SpeedTurnRadiusMovement
 Unit can rotate in place by spinning treads in opposite directions. Turn radius increases with speed due to the mechanical constraints of tread width and differential tread speeds. Small directional adjustments at speed cost little momentum, but sharp turns require significant slowing or a complete stop.
 
-### SpeedToTurnRadiusRatio - number
+### TrackWidth - number (space units: the distance between the two treads)
 ### Acceleration - number
 ### Deceleration - number
 ### MaxSpeed - number
+### ReverseMaxSpeed - number
+
+**The turning law** (user, 2026-11-26; Q0153; replaces SpeedToTurnRadiusRatio, whose radius-proportional-to-speed law gave the same turning rate at every speed). It follows the two treads: forward speed is their average, turning comes from their difference, and each tread's top speed is MaxSpeed. At full speed both treads are already at maximum, so the vehicle **can't turn at all**.
+- **Spin rate** (stopped, treads in opposite directions): **SpinRate = 2 × MaxSpeed ÷ TrackWidth** radians per frame.
+- **Sharpest turn at speed v**: **maxTurnRate = SpinRate × (1 − |v| ÷ MaxSpeed)**. It falls in a straight line from SpinRate when stopped to **0 at MaxSpeed**.
+- **Tightest radius at speed v**: **(TrackWidth ÷ 2) × |v| ÷ (MaxSpeed − |v|)**. At half speed it is TrackWidth ÷ 2 (pivoting round the stopped inner tread).
+- **Reversing** uses the same law with the speed's size |v|; reverse is capped at **ReverseMaxSpeed** (placeholder: half MaxSpeed). Vehicles reverse only on the Reverse order (UnitCollision, "Vehicles").
+- Turning costs no speed by itself (no skid drag); to turn more sharply, the vehicle slows with its Deceleration.
+- **Example** (Hand of Heaven, MaxSpeed 5, TrackWidth 30): spins at about 19° a frame (90° in about 0.3 s); at half speed about 9.5° a frame on a 15 su radius; at 4 su/frame about 3.8° a frame on a 60 su radius; at 4.5 about 1.9° on 135 su; at 5 it can't turn.
+- **Placeholder TrackWidth** (designer, 2026-11-26): about **¾ of the Silhouette's width** (the treads sit just inside the hull).
 
 **Pathfinding note** (user, 2026-11-23): tracked units can reach the same place along many different paths by trading speed for turning rate (slow down for a sharp turn vs keep speed on a wide arc). To choose the optimal path, the implementation may use **pre-computed values** (e.g. tables of maneuvers: time and space needed to turn by a given angle from a given speed).
 

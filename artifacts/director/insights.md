@@ -37,6 +37,10 @@
 - Fedora 43, X11 session (`DISPLAY=:0.0`), Intel Arc 130V/140V iGPU (laptop), Vulkan ICDs: intel (ANV) + lavapipe (software). 8 cores, 30 GB RAM.
 - Missing dev headers: alsa-lib-devel, systemd-devel (libudev), libX11-devel, wayland-devel. → Bevy built with `default-features = false`, no `audio`, no `bevy_gilrs`, no `wayland`. x11 works via dlopen. Audio later needs `sudo dnf install alsa-lib-devel` (ask user).
 - Installed: node 22/npm, python3.14 + Pillow, ffmpeg, ImageMagick, vulkaninfo, glxinfo. Not installed: Blender, uv, Xvfb, Godot, dotnet.
+- **The scratchpad is on a `/tmp` tmpfs with a 12.6 GB quota** (found 2026-11-26, when M5-N7 hit "Disk quota exceeded" at about 13 GB).
+  - Delete merged slices' scratchpad folders after each merge. Keep the briefs, the plan edits and `tools/`.
+  - Perf binaries go in the repo's `target/perf/`, never the scratchpad. `m5-common.md` tells agents so.
+  - Remove with guarded paths (`"${S:?}"/...`). The safety check refuses an `rm` whose variable could expand to empty.
 - Bevy 0.20.1 feature bundles: `default_app`, `default_platform`, `2d_bevy_render`, `ui_bevy_render`, `dev`. `mouse`/`keyboard` input features come transitively via `bevy_winit` → `bevy_window`.
 - Bevy release history: 0.17 Sep 2025, 0.18 Jan 2026, 0.19 Jun 2026, 0.20 Oct 2026 (0.20.1 Oct 28). Agents' training knowledge ends ~0.18/0.19 → always verify Bevy APIs against `~/.cargo/registry/src/*/bevy_*-0.20.1/` source.
 

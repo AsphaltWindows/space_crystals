@@ -90,7 +90,7 @@ Ranges (placeholders below):
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 64x44 space units; MaxHP 220; PointArmor 3, FullArmor 3; SightRange 7 grid units; TunnelSpaceCost 3.
-- SpeedTurnRadiusMovement: MaxSpeed 4.5 su/frame; Acceleration 0.4; Deceleration 1; SpeedToTurnRadiusRatio 8.
+- SpeedTurnRadiusMovement: MaxSpeed 4.5 su/frame; Acceleration 0.4; Deceleration 1; TrackWidth 33 su; ReverseMaxSpeed 2.25 (Q0153; spins about 15.6° a frame).
 - Turret: mobile TurnAngle **30°** total; deployed 360°; TurnRate 6°/frame.
 - **Battery**: capacity **100**; charge rate **5 per second** (it charges in every mode, including while switching, as assumed); surge interval **16 frames** (1 s); a normal surge uses **10** (twice one interval's charge).
 - **Damage per surge = 4 × charge^(2/3)**: a normal surge deals about 18.6; an empty-battery surge (5) about 11.7; Amplify from full (100) about 86.
