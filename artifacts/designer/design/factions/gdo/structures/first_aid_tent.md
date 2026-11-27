@@ -13,6 +13,6 @@ Heals **nearby infantry** (no need to enter). **Permanent** — it stays until d
 Can be placed on **any Buildable terrain**, like the Bunker (Worker-Built Structures rules).
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
-- Size 2x2; SymmetryType AAAA; MaxHP 200; PointArmor 1, FullArmor 4; SightRange 4 grid units; Groupable true; Power 0.
+- Size 2x2; SymmetryType AAAA; MaxHP 200; PointArmor 1, FullArmor 4; SightRange 4 grid units; Groupable true; Power 0. Built by a Field Engineer inside the site (factions/gdo/units/field_engineer.md > Building; Q0163); **ConstructionHP Rule - applies**; while being built its panel has only **X: Cancel construction** (75% refund).
 - Cost: Field Engineer, 75 Space Crystals, 240 frames (15 seconds).
 - Heals **own and allied infantry** (user, 2026-11-27) whose centre is within **3 grid units**: **+2 HP per second**, continuously; several tents don't stack (the highest applies).

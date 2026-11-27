@@ -2391,3 +2391,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0160 (user): mines are deployed units, selectable; hover passes over; no blast when destroyed; buying queues (0426).
 - Q0161 (user: a): Outpost keeps the Prospector's damage (0427).
 - Q0162 (user): Airfield landing/take-off rules, aircraft destroyed with Airfield, Sparrow appears on runway (0428).
+- Q0163 (user): Field Engineer builds inside alone like an Agent, comes out on completion, 75% cancel refund, Ungroupable (0429).

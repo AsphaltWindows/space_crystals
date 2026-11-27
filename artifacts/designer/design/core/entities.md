@@ -47,7 +47,7 @@ Selectable visible entity, instances of which exist in the game at some coordina
 - **Another player's structure**: name, owner and HP only (no production or queue information).
 ### Destructible - boolean
 ### SightRange - number (vision is provided to the owning player when the instance has an Owner)
-### Groupable - boolean (if false, each instance is always in its own SelectionGroup even when selected with other instances of the same type). Caster-type units and workers that are used up by a build (Agent, Drone) are Ungroupable; Recruits, which share a build, are Groupable; see systems/controls/selection.md > SelectionGroup > No smart-casting
+### Groupable - boolean (if false, each instance is always in its own SelectionGroup even when selected with other instances of the same type). Caster-type units and workers that are used up by a build or build alone (Agent, Drone, Field Engineer: Q0163) are Ungroupable; Recruits, which share a build, are Groupable; see systems/controls/selection.md > SelectionGroup > No smart-casting
 
 ## Structure Type
 An Object Type of a building, an instance of which may appear on the game's map. During placement, the player can rotate the building in 90-degree increments and flip it across the horizontal or vertical axis. This gives up to 8 possible orientations for fully asymmetric buildings (ABCD), fewer for more symmetric types.
