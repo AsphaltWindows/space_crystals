@@ -28,6 +28,15 @@
 
 ## Open Director Questions
 
+- Q0176 (non-blocking): combat.md table says tracked at rest turns "unconstrained" vs tread law SpinRate.
+- Q0177 (non-blocking): default rally point (3 GU) holds three Seekers; a fourth stalls the doorway.
+- Q0178 (non-blocking): does a Stopping crusher crush; does a crush ping the minimap?
+- Q0179 (non-blocking): Hand of Heaven MinRange back-off leaves its sight; wall blocks hull aim forever.
+- Q0180 (non-blocking): Inspire faster attack: rounding to frames, which phase, 2-frame floor.
+- Q0181 (non-blocking): SeparationRadius for five air units without one.
+- Q0182 (non-blocking): four GDO numbers the docs don't give.
+- Q0184 (see file): Assault Bike at close range.
+- Q0183 (non-blocking): idle vehicles stall a Tunnel's exit (5 Bikes ejected, 2 come out).
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
 - **Real in-game menu / game creation screen**: the F10 playtest menu (0414) and command-line flags (computer players, starting exploration 0416) are temporary.

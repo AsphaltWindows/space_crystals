@@ -2,7 +2,7 @@
 
 (Renamed from "Acolyte", user, 2026-11-26: a name designating a higher rank.)
 
-The Cults' spell caster, trained from a single Recruit at the Cathedral. Ties into the Cults lore of figures who rise by consuming Space Crystals. Infantry — can be augmented at the Altar.
+The Cults' spell caster (spells: Shroud, Mirage), trained from a single Recruit at the Cathedral. Ties into the Cults lore of figures who rise by consuming Space Crystals. Infantry — can be augmented at the Altar.
 
 ## Entity Type - Unit
 ## Faction - TheCults
@@ -20,8 +20,9 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 - **The cloud is centered on the Disciple** (user, 2026-11-26). The Disciple **can't move while channeling**.
 - **It affects every ground object under it** (user, 2026-11-26): **ground units and buildings**, whoever owns them, **not air units**. **All anti-ground damage** landing on objects under the cloud, single-target and area alike, is **absorbed and redistributed** over the connected cloud (likely through a damage buffer; mechanism being designed).
 - **Modifiers** (user, 2026-11-26): each receiver's share from a release is treated like any damage it receives: its own pre-armor reductions, armor and minimum damage apply as always (systems/combat.md > DamageModifierOrder), but **not directional armor**: a release has no direction (user, 2026-11-26; Q0113).
-- **When the cloud changes** (user, 2026-11-26): if the channel ends or the connected cloud splits, the buffer is **released immediately** over the cloud as it was. **When clouds join** (e.g. a new cloud forms between two others; user, 2026-11-26; Q0113), each joining cloud **releases its buffer immediately** over its own area as it was, and the joined cloud then **starts buffering together** with a fresh buffer.
-- **What ends the channel** (user, 2026-11-26, corrected): only the Disciple's **death**, a **cancel** command (Stop or any other order **given without Shift**; a Shift-queued order waits and runs when the channel ends, as for every queued order, systems/controls/commands.md > Unit Command; Q0171), or running **out of energy**. Taking damage does **not** end it.
+- **The cloud lingers** (user, 2026-11-27): when the channel ends, by the Disciple's death or for any other reason, the cloud **stays for 1.5 s (24 frames, placeholder)** and keeps absorbing as usual. It stays **where it was** (designer's reading: the Disciple may walk away meanwhile). When it vanishes, its buffer is released as below.
+- **When the cloud changes** (user, 2026-11-26; lingering added 2026-11-27): if a cloud **vanishes** (at the end of its linger) or the connected cloud splits, the buffer is **released immediately** over the cloud as it was. **When clouds join** (e.g. a new cloud forms between two others; user, 2026-11-26; Q0113), each joining cloud **releases its buffer immediately** over its own area as it was, and the joined cloud then **starts buffering together** with a fresh buffer.
+- **What ends the channel** (user, 2026-11-26, corrected): only the Disciple's **death**, a **cancel** command (Stop, **casting Mirage** (user, 2026-11-27), or any other order **given without Shift**; a Shift-queued order waits and runs when the channel ends, as for every queued order, systems/controls/commands.md > Unit Command; Q0171), or running **out of energy**. Taking damage does **not** end it.
 - Contiguous clouds merge for this purpose: **all contiguously connected clouds share one damage buffer** (user, 2026-11-26), and it is spread over their whole combined area. Clouds are connected when their circles **touch or overlap** (user, 2026-11-26; Q0113); a connected cloud is simply one cloud.
 - **Under the cloud** (user, 2026-11-26; Q0113): an object is under a cloud when its **centre** is inside the cloud's area (this decides whose damage is absorbed and which attackers fire from under it). Shares of a release still go by overlap area.
 - **Underground objects are affected** (user, 2026-11-26; Q0113): Syndicate units underground, expansions and lowered turrets under a cloud are protected like ground objects, and take their share of releases, as ground area damage hits them (Q0071).
@@ -29,6 +30,23 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 - **Who sees it** (user, 2026-11-26; Q0113): the cloud is shown to **every player**, over the tiles that are Visible to them, so its edge can be seen even when the Disciple can't (core/vision.md, as for shots).
 - **Attackers under the cloud do full damage** (user, 2026-11-26): an attack fired by a unit standing **under the cloud** is not absorbed; it hits normally. Designer's reading: under the same connected cloud as its target, so units fighting inside the cloud (e.g. melee) deal full damage to each other, while fire from outside is spread.
 - **The buffer** (user, 2026-11-26): anti-ground damage aimed at objects under the cloud goes into the shared buffer instead of hitting its target. The buffer is released **0.5 s (8 frames), placeholder, after the first hit it absorbs** (each connected cloud keeps its own timer; user, 2026-11-26; Q0113), as **one area hit over the whole connected cloud**, and empties; the next absorbed hit starts the timer again. Each ground object under it takes its share by **overlap area** (systems/combat.md > AoEDamage), with armor applied once per release; the share falling on empty cloud area is **lost**. So sparse clouds absorb much of the damage, and crowded ones little.
+
+### Mirage
+(Named by the user, 2026-11-27.)
+(user, 2026-11-27) An **instant** spell: the Disciple creates **4 illusions** of itself.
+- **Where**: one on each side of the Disciple, **north, east, south and west**; the Disciple stays where it is. A blocked spot puts that illusion at the **nearest free spot**.
+- **Health**: each illusion starts with the Disciple's **current HP**, and has its MaxHP and speed (augmentations included; designer's default, confirmed by the user). Illusions can't be augmented at the Altar themselves.
+- **Double damage**: illusions take **double damage from all sources** (Shroud releases included).
+- **Seen by enemies**: exactly like a Disciple, on the map and when selected; enemies can't tell them apart.
+- **Seen by the owner**: they **look different on the screen**, and their name reads **"Disciple (illusion)"**.
+- **Control**: the owner commands them as **normal units**. They use **no Unit Control**.
+- **Sight**: they have the Disciple's **SightRange**, so they can scout.
+- **No spells**: illusions can't cast.
+- **Shroud mirroring**: when the parent Disciple **starts channelling Shroud**, its illusions **play the same channelling animation**, but make **no cloud** (so a watching enemy can tell which one is real while it channels). Each illusion's animation can be **cancelled individually** (as the channel: Stop or another order); all of them stop when the parent's channel ends. An illusion that is moving or busy when the parent starts channelling stops and plays the animation too (designer's reading).
+- **Garrison**: illusions may enter a Garrison and **fire for real** with the Militant's attack, as a Disciple does (factions/cults/structures/garrison.md).
+- **Other effects**: the Shrine's health regeneration works on them (they are own Cults infantry).
+- **How illusions end**: an illusion lasts until it **dies**, its **parent dies**, or the parent **casts Mirage again** (the old set vanishes and a new set of 4 appears; a Disciple never has more than one set). An illusion inside a Garrison when it ends simply vanishes.
+- **Casting it cancels Shroud**: casting Mirage ends the Disciple's channel (the cloud then lingers as usual).
 
 Numbers: see Placeholder stats below.
 
@@ -46,4 +64,5 @@ Numbers: see Placeholder stats below.
 ## Energy - MaxEnergy 200; starts at 50; regenerates 0.5 per second
 ## Shroud numbers - cloud radius **3 grid units** around the Disciple; drains **5 energy per second**; its **own regeneration continues while channelling** (user, 2026-11-26; Q0113), so the net drain is 4.5/s, about 44 s from full; needs at least **10 energy** to start; hotkey **R** (R starts the channel; Stop or another order cancels it; Q0112: R, as the other units that add an ability to the combat panel; Q stays Move)
 ## Cost - Cathedral: 1 Recruit, 75 Space Crystals, 320 frames
-## ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **R: Shroud**
+## Mirage numbers - **50 energy**; illusions appear **1 grid unit** from the Disciple's centre (centre to centre); hotkey **F** (designer placeholders, 2026-11-27; W is the panel's Reverse slot)
+## ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **R: Shroud** and **F: Mirage**

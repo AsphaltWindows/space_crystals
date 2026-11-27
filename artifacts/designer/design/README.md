@@ -110,7 +110,7 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/cults/units/recruit.md` | Worker: gathering, building, Armory entry |
 | `factions/cults/units/militant.md` | Basic combat infantry |
 | `factions/cults/units/gunner.md` | Heavier-hitting infantry |
-| `factions/cults/units/disciple.md` | Spell caster (Cathedral) |
+| `factions/cults/units/disciple.md` | Spell caster: Shroud, Mirage (Cathedral) |
 | `factions/cults/units/seeker.md` | Light wheeled vehicle, 360° machine-gun turret, ground+air (Chop Shop, 2 Recruits) |
 | `factions/cults/units/hand_of_heaven.md` | Long-range shoot-and-scoot missile vehicle, tracked, area damage (Chop Shop, 3 Recruits) |
 | `factions/cults/units/prayer_mobile.md` | Wheeled caster vehicle with a megaphone, Inspire and Suppress (Chop Shop, 2 Recruits, Temple) |
