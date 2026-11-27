@@ -101,6 +101,15 @@ impl Sim {
             // (M5-N4b) `factions/cults/units/disciple.md > Spells > Shroud` (`orders::shroud`): the units whose type
             // casts it, with the energy it needs to start, take it; the others ignore it.
             OrderKind::Shroud => ordered = self.check_spell(ordered, |spell| matches!(spell, SpellDef::Shroud(_)))?,
+            // (M5-V2) `systems/controls/commands.md > Reverse`: "Only available to bases with CanReverse = true": the
+            // units that can back up take it (`UnitDef::can_reverse`), the others ignore it. The point is on the map.
+            OrderKind::Reverse(_) => {
+                let can = |o: &Object| o.def().unit.as_ref().is_some_and(|unit| unit.can_reverse());
+                ordered.retain(|id| self.objects.get(id).is_some_and(can));
+                if ordered.is_empty() {
+                    return Err(Reject::CannotReverse);
+                }
+            }
         }
         Ok(Checked::Order {
             units: ordered,
@@ -129,6 +138,7 @@ impl Sim {
             OrderKind::AttackMove(p) => OrderKind::AttackMove(onto(p)?),
             OrderKind::Patrol(p) => OrderKind::Patrol(onto(p)?),
             OrderKind::AttackGround(p) => OrderKind::AttackGround(onto(p)?),
+            OrderKind::Reverse(p) => OrderKind::Reverse(onto(p)?),
             other => other,
         })
     }

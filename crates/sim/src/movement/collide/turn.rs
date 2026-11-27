@@ -96,6 +96,36 @@ impl World<'_> {
         whole
     }
 
+    /// (M5-V2) The turn of a unit that can't turn in place, cut ([`World::turn`]), made all the same with its blocked
+    /// part dropped (design change 0035, `systems/units.md > UnitCollision > Collision Response (Un-sticking)`: "Overlap
+    /// caused by the rotation itself (a corner sweeping into a wall) follows the same principle: the blocked part is
+    /// discarded"): the unit at `pos` lies at `facing`, backed off along the unit vector `back`, the way it came, by the
+    /// least distance that frees its turned Silhouette, at most `most` (the depth the turn's corners sweep). A vehicle
+    /// pressed nose-first against a wall so turns, pivoting about the corner that touches it, where a turn about its
+    /// centre is cut to nothing by either front corner. Its body lies at `facing` from then on ([`World::mine`]), and
+    /// the place it backed off to is returned; `None` if even `most` doesn't free it. Where it ends decides (the
+    /// predicates of invariants I1 and I2, `World::fits`): `most` is a few su at most, which jumps no tile or unit.
+    pub(in crate::movement) fn back_off(&mut self, pos: Vec2, facing: f32, back: Vec2, most: f32) -> Option<Vec2> {
+        let oriented = self.mine.oriented?;
+        let lies = Oriented::facing(oriented.half, facing);
+        let free = |d: f32| self.lies_free(pos + back * d, lies);
+        if !(most > 0.0 && free(most)) {
+            return None;
+        }
+        // The least of it that frees the unit, within a 32nd: `lo` never frees it (the turn there was cut), `hi` does.
+        let (mut lo, mut hi) = (0.0, most);
+        for _ in 0..STEP_HALVINGS {
+            let mid = (lo + hi) * 0.5;
+            if free(mid) {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        self.mine = self.mine.turned(lies);
+        Some(pos + back * hi)
+    }
+
     /// `pos` moved along `d` as far as `t` of it (`0..=1`), if that move is free (the tiles on the way, and where it
     /// ends: [`World::is_free`]); else as far as is free of it, the move halved `STEP_HALVINGS` times and the free
     /// part kept (plan decision T78). `pos` itself if none of it is. The move up to a sweep's contact with a shape that

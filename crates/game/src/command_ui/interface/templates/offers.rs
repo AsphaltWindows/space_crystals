@@ -140,7 +140,9 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     }
     let unit = kind.def().unit.as_ref();
     match command {
-        PanelCommand::Reverse => unit.is_some_and(|unit| unit.base_def().can_reverse),
+        // (M5-V2) A base with CanReverse whose movement model backs up in the sim (`UnitDef::can_reverse`: a
+        // TrackedVehicle's waits for slice M5-V3).
+        PanelCommand::Reverse => unit.is_some_and(|unit| unit.can_reverse()),
         PanelCommand::AttackGround => unit
             .and_then(|unit| unit.attack)
             .is_some_and(|attack| can_target_ground(attack.attack_type)),

@@ -82,7 +82,11 @@ impl Sim {
         let group = OrderGroup(self.next_group);
         self.next_group = self.next_group.wrapping_add(1);
         let slots = match kind {
-            OrderKind::Move(Target::Point(click)) | OrderKind::AttackMove(click) | OrderKind::Patrol(click) => {
+            // (M5-V2) A Reverse is a location-targeted movement order too (`OrderKind::Reverse`).
+            OrderKind::Move(Target::Point(click))
+            | OrderKind::AttackMove(click)
+            | OrderKind::Patrol(click)
+            | OrderKind::Reverse(click) => {
                 // One player's units (the gate), sent by what that player knows of the ground.
                 let owner = units.first().and_then(|id| self.objects.get(id)).and_then(|o| o.owner);
                 if let Some(player) = owner {

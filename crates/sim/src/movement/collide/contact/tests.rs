@@ -145,9 +145,9 @@ fn a_blocked_unit_steps_straight_sideways_by_its_own_width_and_walks_on() {
     assert_eq!(mover.avoid_side, Side::Right);
 }
 
-/// A base that keeps the step as it was built before design change 0323 (`ContactStep::Diagonal`: the
-/// WheeledVehicle, until slice M5-V2 builds its turn and graze) goes along the face a tick at a time for as long as
-/// it is blocked, and takes no step over several ticks.
+/// A base that keeps the step as it was built before design change 0323 (`ContactStep::Diagonal`: the WheeledVehicle's
+/// until slice M5-V2 built its turn and graze, now only the air bases', which ground collision never reaches) goes
+/// along the face a tick at a time for as long as it is blocked, and takes no step over several ticks.
 #[test]
 fn a_diagonal_base_steps_as_before() {
     let (start, goal) = (Vec2::new(100.0, 300.0), Vec2::new(500.0, 300.0));

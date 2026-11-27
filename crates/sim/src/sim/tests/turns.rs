@@ -52,3 +52,26 @@ fn moving_and_aiming_share_the_turn_rate_of_a_tick() {
     assert_eq!(sim.nav.turns().angle(walker), 0.0, "held by its attack");
     assert_eq!(sim.objects[&walker].facing, bearing(&sim));
 }
+
+/// (M5-V2) A unit that turns by its speed (FixedTurnRadiusMovement: `movement::turn_rate` is 0) spends no TurnRate as
+/// it turns in 5d, so the aim in 5e isn't left a budget overdrawn by the turn, which would turn it in place by as much.
+#[test]
+fn a_wheeled_unit_s_turn_is_no_part_of_the_budget() {
+    let mut scenario = scenarios::empty(16, 12);
+    scenario.setup.config = SimConfig::DEBUG;
+    let mut sim = Sim::new(&scenario);
+    let start = Vec2::new(300.0, 300.0);
+    let seeker = insert_unit(&mut sim, start);
+    let o = obj(&mut sim, seeker.0);
+    (o.kind, o.riot_shield, o.orders, o.facing, o.prev_facing) = (ObjectKind::Seeker, None, None, 0.0, 0.0);
+    sim.cover_kind(ObjectKind::Seeker);
+    let end = start + Vec2::new(300.0, 300.0);
+    mover(&mut sim, seeker.0).go_to(MoveGoal::Point(end), None, 0);
+    mover(&mut sim, seeker.0).follow(vec![start, end], end, 0);
+    for _ in 0..4 {
+        let was = sim.objects[&seeker].facing;
+        sim.step(&TickInputs::default());
+        assert_ne!(sim.objects[&seeker].facing, was, "it turns as it drives");
+        assert_eq!(sim.nav.turns().angle(seeker), 0.0);
+    }
+}

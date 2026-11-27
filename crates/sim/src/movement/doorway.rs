@@ -6,7 +6,7 @@
 use glam::Vec2;
 
 use super::collide::{Moved, World};
-use super::drag::Drag;
+use super::model::Model;
 use super::{Chased, stand, stuck, turn_rate, yielding};
 use crate::defs::MovementAttrs;
 use crate::ids::ObjectId;
@@ -26,6 +26,11 @@ const CLEAR_SU: f32 = 1.0 / 64.0;
 /// out only: up to a unit in its way and no step around it, so a unit that can't get out stands in the doorway
 /// instead of pacing along the wall ("If the way is blocked, it stops in the doorway"). It asks the idle units of
 /// its owner in front of the doorway to step aside (`yielding::ask`, point 4) and tries again every tick.
+///
+/// (M5-V2) A unit with momentum walks out by its model (`super::model`): a wheeled one, which can't turn at rest,
+/// drives straight out from where it was released, facing out, speeding up and braking to rest just clear of the
+/// building ("The Jackal appears half inside side C, facing out, and drives straight out", plan slice N6). Its speed
+/// carries from tick to tick, and a move that met something leaves it none (design change 0035).
 #[expect(
     clippy::too_many_arguments,
     reason = "the unit's state, split into the borrows the step holds"
@@ -46,12 +51,26 @@ pub(super) fn leave(
     let dist = to.length();
     let step = movement.max_speed() * mover.speed_factor;
     if dist <= 0.0 || step <= 0.0 {
+        mover.momentum = Vec2::ZERO;
         stand(mover);
         return;
     }
     let from = *facing;
-    let turn = math::turn_toward(facing, math::wrap_angle(math::vector_angle(to)), turn_rate(movement));
-    *turned = turn.angle;
+    // How far it goes out this tick: a step, or a unit with momentum its speed out, braking to rest where it is out.
+    let model = Model::of(movement, mover, false);
+    let (step, done) = match &model {
+        None => {
+            let turn = math::turn_toward(facing, math::wrap_angle(math::vector_angle(to)), turn_rate(movement));
+            *turned = turn.angle;
+            (step, turn.done)
+        }
+        Some(model) => {
+            let rate = turn_rate(movement);
+            let (speed, turn) = model.along(to / dist, model.approach(dist), facing, rate, mover.momentum);
+            *turned = turn;
+            (speed, true)
+        }
+    };
     // (M5-V1) A Silhouette that turns with the facing turns only as far as it stays free (`World::turn`). A turn cut
     // short is a blocked move (design change 0035): its velocity is zeroed, and the unit takes its step out all the
     // same, in the shape it turned to (`follow::creep_on`).
@@ -60,7 +79,7 @@ pub(super) fn leave(
         *facing = turn_made.facing;
         *turned = math::wrap_angle(turn_made.facing - from).abs();
         mover.momentum = Vec2::ZERO;
-    } else if !turn.done {
+    } else if !done {
         stand(mover);
         mover.orientation = Orientation::Turning(out);
         return;
@@ -105,6 +124,12 @@ pub(super) fn leave(
     } else {
         mover.blocked_ticks.saturating_add(1)
     };
+    // (M5-V2) What a unit with momentum carries into the next tick: all of a whole move short of where it is out,
+    // nothing after it landed there or met something, or its turn was cut (design change 0035).
+    if model.is_some() {
+        let whole = moved.forward && dist > step && !turn_made.cut;
+        mover.momentum = if whole { mover.velocity } else { Vec2::ZERO };
+    }
 }
 
 /// (M3-D2) The walk out of a portal's energy doorway (design change 0145, points 1 and 4): the unit moves **straight
@@ -115,10 +140,10 @@ pub(super) fn leave(
 ///
 /// - **How it moves** is its movement model's: a unit that stops within the tick turns to its heading first and then
 ///   steps its speed; a DragMovement unit (the Drone) turns as it goes and thrusts along the heading, its speed
-///   carried from tick to tick ([`Drag::along`]).
+///   carried from tick to tick (`Drag::along`), and (M5-V2) so does a wheeled one by its speed (`Wheeled::along`).
 /// - **Without a goal**, or while its path is still to come, it walks to where it is just clear of the footprint
 ///   ([`EnergyDoorway::outside`]) and stands there: the last step lands exactly on that point, a DragMovement unit
-///   braking to rest on it ([`Drag::approach`]). Once its path is there it doesn't stop at the edge: it keeps its
+///   braking to rest on it ([`Model::approach`]). Once its path is there it doesn't stop at the edge: it keeps its
 ///   speed out of the footprint, its path starting where the walk comes clear (`paths::serve::doorway_start`), and
 ///   the step after next takes it on like any unit (`super::follow`).
 /// - **In its way**: it goes up to a unit and no farther, and as far as it can towards a blocked tile; it asks the
@@ -175,7 +200,7 @@ pub(super) fn emerge(
     } else {
         dist
     };
-    let model = Drag::of(movement, mover.speed_factor, rugged);
+    let model = Model::of(movement, mover, rugged);
     // How far it goes along its heading this tick.
     let speed = match &model {
         None => {

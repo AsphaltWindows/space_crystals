@@ -279,9 +279,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   and the Recruits build none of the six left until their slices (the Construct menus hold their slots, *Client
   architecture > The Recruit's panel*); slice M5-N2 made the Garrison live (*Object model > Buildings that hold units
   > The Garrison*). The units' `MovementAttrs` (the Seeker's and the Prayer-mobile's
-  `FixedTurnRadius`, the Hand of Heaven's `SpeedTurnRadius`, the Sparrow's `Glider`) are data that nothing reads yet:
-  a model the movement doesn't build steps without a turn limit (*Movement and collision > Movement models*), and
-  nothing produces those units before their buildings' slices. Their `TurretAttrs` are their turrets' since slice
+  `FixedTurnRadius`, the Hand of Heaven's `SpeedTurnRadius`, the Sparrow's `Glider`) are their models' since slices
+  M5-H1 (the Glider) and M5-V2 (the FixedTurnRadius); the Hand of Heaven's is data that nothing reads yet, a model the
+  movement doesn't build stepping without a turn limit until slice M5-V3 (*Movement and collision > Movement models*),
+  and nothing produces those units before their buildings' slices. Their `TurretAttrs` are their turrets' since slice
   M5-U1 (*Combat > Units' turrets*). The wheeled and tracked
   vehicles don't cross Rugged terrain, so every game's set of grids holds a `(Ground, 1)` grid beside
   `(GroundRugged, 1)` (*Navigation*); the Sparrow is the first air unit kind (`nav_class` `None`: it crosses every
@@ -2092,11 +2093,12 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   queueing unit a path request for the row**: no grid shows it. A melee unit behind its owner's attackers is
   within `OCCUPIED_ARRIVAL_GU` of its target, so the occupied-target rule comes first and its approach ends there:
   it gives the target up (design change 0223 point 1, as built).
-- **Movement models** (`movement/follow.rs`, `movement/drag.rs`; `docs/movement.md > 6.7`): path following, lane
-  seeking, the rules after the sweep, yielding and the stuck clock are shared (`follow`), and a model replaces only
-  the "direction → facing and velocity" part. Two are built so: the units that stop within the tick (every GDO unit
-  and the Legionnaires: the step the rules give is their move) and **DragMovement** (the Drone, slice M3-G, plan
-  decision T25). **GliderMovement** (below) replaces the whole tick.
+- **Movement models** (`movement/follow.rs`, `movement/drag.rs`, `movement/wheeled.rs`; `docs/movement.md > 6.7`,
+  `docs/movement.md > 6.11`): path following, lane seeking, the rules after the sweep, yielding and the stuck clock
+  are shared (`follow`), and a model (`movement/model.rs`, `Model::of`) replaces only the "direction → facing and
+  velocity" part. Three are built so: the units that stop within the tick (every GDO unit and the Legionnaires: the
+  step the rules give is their move), **DragMovement** (the Drone, slice M3-G, plan decision T25) and (slice M5-V2)
+  **FixedTurnRadiusMovement** (below). **GliderMovement** (below) replaces the whole tick.
   - **The integration scheme is fixed**: turn (at most TurnRate, towards the step the unit wants; it never stands
     to turn), drag (`v ← v × (1 − DragRatio)`, the ratio doubled while the tile under the unit's centre is Rugged:
     design change 0039), thrust (`v ← v + a`: OmniDirectionalAcceleration any way plus up to ForwardAcceleration
@@ -2131,7 +2133,22 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
     swings wide, or meets the wall beyond and starts again from rest. **(M3-D2)** The walk out of a portal's energy
     doorway is the model's own (`Drag::along`: thrust along the heading, the speed carried from tick to tick, and
     without a path braking to land where the unit comes clear).
-  - The other two models aren't built: their units would move like the first kind.
+  - **FixedTurnRadiusMovement** (`movement/wheeled.rs`, `Wheeled::drive`; slice M5-V2, plan decision T79; the
+    Seeker and the Prayer-mobile): a signed speed in `Mover::momentum` (backwards on a Reverse leg,
+    `Mover::reverses`, hashed only while set), up by the acceleration of the way it drives and down by
+    Deceleration; it turns towards the probe's step by at most `|speed| / MinimumTurnRadius` (never in place, and
+    not while it stands or brakes to set off the other way: `movement::turn_rate` is 0 for it, so phase 5e's aim
+    never turns it), and moves along the heading halfway through the turn. Blocked means from rest, as above, and a
+    turn cut where it is pressed is made all the same, the unit backed off by what its corners sweep
+    (`World::back_off`, `movement/collide/turn.rs`): it creeps and turns out of contact. Where the probe's step is
+    a slide or nothing it heads along the step it asked for. A goal inside its turning circle is reached by a
+    forward loop (`Wheeled::steer`; a waypoint on the way inside it is passed). At a blocker it grazes
+    (`ContactStep::Graze`: no step aside, a whole step along the face, its side committed); an idle vehicle
+    doesn't yield (design change 0353). Ask `MovementAttrs::reverse_speed` for how a model backs up, and
+    `UnitDef::can_reverse` whether a unit takes the Reverse order (`OrderKind::Reverse`; the gate keeps only those
+    units, `Reject::CannotReverse` if none). Invariant W1: it turns by its speed.
+  - SpeedTurnRadiusMovement (the TrackedVehicle) isn't built (slice M5-V3): its units turn without limit and stop
+    within the tick, and can't take the Reverse order.
 - **GliderMovement** (`movement/glider.rs`, `Glider::fly`; slice M5-H1, plan decision T81; `docs/movement.md > 6.9`): a
   Glider (the Sparrow) flies instead of following a path, and collides with nothing. Its speed is `Mover::momentum`'s
   length, always between IdleSpeed and MaxSpeed, its turn in a tick at most `MaxCentripetalAcceleration / v`, and its
@@ -2227,7 +2244,9 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   cloud member is a live unit channelling Shroud in the channel it names, each unit that channels is in exactly one
   cloud, a cloud's circles are connected and two clouds never touch, and a buffer is never below 0, its timer running
   while it holds anything and never past due; (M5-N5) F1 (`buffs`): no object, on the map or held, holds two buffs of
-  an ability, each ends within its ability's duration from now, and only a kind the ability affects holds it. A
+  an ability, each ends within its ability's duration from now, and only a kind the ability affects holds it;
+  (M5-V2) W1 (`momentum`): a FixedTurnRadiusMovement unit turns in a tick by at most the speed it can have in it (its
+  momentum and one tick's acceleration) over its MinimumTurnRadius, never in place. A
   `TestSim` checks them after
   every tick
   and panics with a picture of

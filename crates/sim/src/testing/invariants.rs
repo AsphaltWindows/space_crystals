@@ -17,6 +17,7 @@
 //! `clouds`), (M5-N5) the buff invariant F1 (no unit holds two buffs of an ability, each ends within its ability's
 //! duration and only a kind the ability affects holds it, held units too: `buffs`), (M5-H1) the Glider invariant G1 (a
 //! Glider in flight never stops, keeps within its IdleSpeed and MaxSpeed, and counts as being on the map: `gliders`),
+//! (M5-V2) the wheeled invariant W1 (a FixedTurnRadiusMovement unit turns by its speed, never in place: `momentum`),
 //! and an ASCII picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
@@ -30,6 +31,7 @@ mod clouds;
 mod energy;
 mod gliders;
 mod hit_points;
+mod momentum;
 mod operations;
 mod overlaps;
 mod picture;
@@ -43,7 +45,6 @@ use glam::Vec2;
 
 use crate::augmentation::Research;
 use crate::command::{Command, DebugCommand, TickInputs};
-use crate::defs::MovementModel;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, PathState};
@@ -69,7 +70,7 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1", "W1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -281,13 +282,14 @@ impl Invariants {
                 }
             }
             // I3: a unit moves at most its speed per tick, (M5-N1a) its Augmentations' included. (M3-G) For a unit
-            // with momentum that is its model's maximum, where thrust and drag balance on open ground: a mode that
-            // slows the unit only weakens its thrust, and the speed it has decays. (M5-N3) In a tick that changed the
+            // with momentum that is its model's maximum, where thrust and drag balance on open ground, or (M5-V2) its
+            // ForwardMaxSpeed: a mode that slows the unit only weakens its thrust or lowers its top speed, and the
+            // speed it has decays. (M5-N3) In a tick that changed the
             // research levels after the movement step, the larger of its MaxSpeeds before and after: it moved at the
             // one before, and moves at the one after from the next tick (`Sim::complete_research`). (M5-H1) An air unit
             // that keeps apart from others may be pushed by at most `SEPARATION_PUSH_SU` on top (`gliders`), (M5-H2)
             // its base's share of it (a Glider's a third, design change 0412; a quarter from design change 0405).
-            let drag = unit.movement.model() == MovementModel::Drag;
+            let drag = momentum::carries(&unit.movement);
             let glides = gliders::glides(o);
             let max_speed = o.max_speed(sim.research());
             let max_speed = match before {
@@ -298,6 +300,13 @@ impl Invariants {
             let moved = o.pos.distance(o.prev_pos);
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));
+            }
+            // (M5-V2) W1: a wheeled unit turns by its speed, never in place (`momentum::turns_by_its_speed`).
+            let wheeled = o.movement(sim.research()).zip(before);
+            if let Some(message) =
+                wheeled.and_then(|(movement, b)| momentum::turns_by_its_speed(&movement, o.facing, b))
+            {
+                return fail("W1", message);
             }
             if let Some(before) = before
                 && before.pos != o.prev_pos
@@ -322,9 +331,9 @@ impl Invariants {
             // also when the move ended in the same tick.
             let new_leg = mover.repaths_left == MAX_REPATHS && mover.last_repath == tick;
             let began = order_started || new_leg;
-            // (M3-G) A DragMovement unit that still had momentum brakes to a stop, moving meanwhile
-            // (`movement::drag`, `docs/movement.md > 6.7`). (M5-H1) A Glider's is its speed, and it never stops (G1).
-            // No other model has momentum, ever.
+            // (M3-G) A unit with momentum that still had some brakes to a stop, moving meanwhile (`momentum`): a
+            // DragMovement unit and (M5-V2) a FixedTurnRadiusMovement one. (M5-H1) A Glider's is its speed, and it
+            // never stops (G1). No other model has momentum, ever.
             let had_momentum = before.is_some_and(|b| b.momentum != Vec2::ZERO);
             if mover.momentum != Vec2::ZERO && !drag && !glides {
                 return fail(
@@ -361,14 +370,9 @@ impl Invariants {
                 );
             }
             // A finished move leaves the unit standing (`docs/movement.md > 6.5`), and so does a finished sidestep.
-            // (M3-G) But a DragMovement unit braking off its momentum: it is Stopping, its velocity is that
-            // momentum, and it is slower than a tick before, every tick, so it does come to rest.
+            // (M3-G) But a unit braking off its momentum (`momentum::braking`).
             let at_rest = mover.velocity == Vec2::ZERO && mover.locomotion == Locomotion::Stationary;
-            let braking = drag
-                && mover.locomotion == Locomotion::Stopping
-                // Or it met an obstacle in this tick, which left it no velocity (design change 0035).
-                && (mover.velocity == mover.momentum || mover.momentum == Vec2::ZERO)
-                && before.is_some_and(|b| mover.velocity.length_squared() < b.momentum.length_squared());
+            let braking = drag && momentum::braking(mover, before);
             if mover.goal == MoveGoal::None
                 && ((mover.sidestep.is_none()
                     && mover.exit.is_none()
@@ -475,7 +479,8 @@ fn floats_finite(o: &Object) -> bool {
                     OrderKind::Move(Target::Point(p))
                     | OrderKind::AttackMove(p)
                     | OrderKind::Patrol(p)
-                    | OrderKind::AttackGround(p) => p.is_finite(),
+                    | OrderKind::AttackGround(p)
+                    | OrderKind::Reverse(p) => p.is_finite(),
                     OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
                         true
                     }

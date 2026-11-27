@@ -54,6 +54,10 @@ pub enum ContactStep {
     /// The step as built before design change 0323: the move turned 45° to the side, else one tick's step along the
     /// blocker's face.
     Diagonal,
+    /// (M5-V2) "**WheeledVehicles** instead **turn and graze** around the obstacle" (design change 0323): no step
+    /// aside, a unit that can't turn in place steers along the blocker's face and grazes past it, its side committed
+    /// as a contact step's is (`movement::collide::contact`).
+    Graze,
 }
 
 /// `systems/units.md > UnitBase`: the nine unit bases.
@@ -94,6 +98,13 @@ pub struct UnitBaseDef {
     pub movement_model: MovementModel,
     /// `systems/units.md > UnitCollision > Ground Collision`, "The contact step" (design change 0323).
     pub contact_step: ContactStep,
+    /// (M5-V2) `systems/units.md > UnitCollision > Ground Collision > Friendly yielding`, "Who yields": whether an idle
+    /// unit of this base steps aside for a blocked unit of its owner, and moves off a unit it overlaps (design change
+    /// 0126, "the same units that yield"). Design change 0353, answering Q0119 point 1: "an idle vehicle doesn't
+    /// yield (it can't take a sidestep; it stands like a unit on Hold Position)". False for the WheeledVehicle, the
+    /// base Q0119 asked about, which can't step sideways nor turn in place; a HoverVehicle steps any way (0323 gives
+    /// it the sideways contact step) and yields as before.
+    pub yields: bool,
     /// (M5-H2) `systems/units.md > Air Collision`: how strongly the soft separation of air units pushes a unit of this
     /// base off another (`movement::air`), as the share it takes of the full push (half of what the pair lacks, at
     /// most `tuning::air::SEPARATION_PUSH_SU` a tick): a HoverCraft all of it, as in slice M5-H1, a Glider a third
@@ -166,6 +177,7 @@ static LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
     contact_step: ContactStep::Sideways, // 0323: "infantry (LightInfantry, HeavyInfantry)"
+    yields: true,
     separation_strength: None,
     transit: Transit::Infantry, // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
 };
@@ -182,6 +194,7 @@ static HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
     contact_step: ContactStep::Sideways, // 0323: "infantry (LightInfantry, HeavyInfantry)"
+    yields: true,
     separation_strength: None,
     transit: Transit::Infantry, // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
 };
@@ -197,9 +210,8 @@ static WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: false,
     can_reverse: true,
     movement_model: MovementModel::FixedTurnRadius,
-    // TODO(M5-V2): 0323, turn and graze ("WheeledVehicles instead turn and graze around the obstacle"). No wheeled
-    // unit exists yet; until then the base keeps the step as it was built.
-    contact_step: ContactStep::Diagonal,
+    contact_step: ContactStep::Graze, // 0323: "WheeledVehicles turn and graze around the obstacle instead"
+    yields: false,                    // 0353: "an idle vehicle doesn't yield"
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
@@ -216,6 +228,7 @@ static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
     contact_step: ContactStep::Sideways, // 0323: "and TrackedVehicles"
+    yields: true,
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
@@ -234,6 +247,7 @@ static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
     // Design change 0338: "DrillUnits take 0323's 90° body-width step" (as the TrackedVehicle: the Subterranean
     // Transport is tracked when above ground).
     contact_step: ContactStep::Sideways,
+    yields: true,
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
@@ -253,6 +267,7 @@ static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_reverse: false,
     movement_model: MovementModel::Drag,
     contact_step: ContactStep::Sideways, // 0323: "hover vehicles (HoverVehicle, HoverCraft)"
+    yields: true,
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
@@ -271,6 +286,7 @@ static MECH: UnitBaseDef = UnitBaseDef {
     // Design change 0325: "Mechs turn to face the side, then step sideways the same way". No Mech unit exists; the
     // turn first isn't built.
     contact_step: ContactStep::Sideways,
+    yields: true,
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
@@ -288,6 +304,7 @@ static HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
     movement_model: MovementModel::Drag,
     // 0323 names it with the hover vehicles, but it is an air base: ground collision never reaches it.
     contact_step: ContactStep::Sideways,
+    yields: true,
     // The full push, slice M5-H1's (plan decision T81), the strength the Glider's is a share of (design change 0405).
     separation_strength: Some(1.0),
     transit: Transit::Air, // "Tier 3+: Air units (Hover Craft, Glider)"
@@ -305,6 +322,7 @@ static GLIDER: UnitBaseDef = UnitBaseDef {
     can_reverse: false,
     movement_model: MovementModel::Glider,
     contact_step: ContactStep::Diagonal, // An air base: ground collision never reaches it.
+    yields: true,
     // "**Gliders push apart slowly** (user, 2026-11-27; Q0148): gliders do separate, but with a **much weaker**
     // repulsion than other air units (**a third** of the HoverCraft strength, user, 2026-11-26, Q0152, to try; was a
     // quarter), so they drift apart gradually, mostly while circling, and their attack runs and loops are barely bent"

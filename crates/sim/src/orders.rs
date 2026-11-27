@@ -150,6 +150,13 @@ pub enum OrderKind {
     /// replaces it or its energy can't pay a tick's drain ([`shroud`]); its cloud is `crate::shroud`'s. Only a unit
     /// whose type casts Shroud takes it (`UnitDef::spells`), with the energy it needs to start (the gate).
     Shroud,
+    /// (M5-V2) `systems/controls/commands.md > Reverse`: "Order the unit to reverse to a target location", a point.
+    /// "Only available to bases with CanReverse = true": only units that can back up take it (`UnitDef::can_reverse`,
+    /// the gate). Its behaviour is `systems/controls/command_behaviors.md > ReversingToLocation`, "Identical to
+    /// MovingToLocation except the plan uses Reversing locomotion instead of Moving" ([`run`]: a Move to the point whose
+    /// leg drives backwards, `Mover::reverses`). A location-targeted movement order, so a group's takes the magic box
+    /// as a Move's does ([`Order::slot`]; the design's list, "Move, Attack Move, Patrol", predates it).
+    Reverse(Vec2),
 }
 
 impl OrderKind {
@@ -165,7 +172,7 @@ impl OrderKind {
             | OrderKind::Repair(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } | OrderKind::Build { .. } => None,
-            OrderKind::AttackGround(_) | OrderKind::Shroud => None,
+            OrderKind::AttackGround(_) | OrderKind::Shroud | OrderKind::Reverse(_) => None,
         }
     }
 }
@@ -175,7 +182,7 @@ impl OrderKind {
 pub struct Order {
     pub kind: OrderKind,
     pub group: OrderGroup,
-    /// For a location order (Move to a point, AttackMove, Patrol) given to a group: this unit's own destination,
+    /// For a location order (Move to a point, AttackMove, Patrol, (M5-V2) Reverse) given to a group: this unit's own destination,
     /// its place in the group's shape (`systems/controls/commands.md > Group Destinations (Magic Box)`,
     /// [`destinations`]). `None` means the clicked point itself: a single unit, or a click inside the group's box.
     pub slot: Option<Vec2>,
@@ -185,9 +192,10 @@ impl Order {
     /// The point a location order sends this unit to: its own destination, else the clicked point.
     pub fn destination(&self) -> Option<Vec2> {
         match self.kind {
-            OrderKind::Move(Target::Point(click)) | OrderKind::AttackMove(click) | OrderKind::Patrol(click) => {
-                Some(self.slot.unwrap_or(click))
-            }
+            OrderKind::Move(Target::Point(click))
+            | OrderKind::AttackMove(click)
+            | OrderKind::Patrol(click)
+            | OrderKind::Reverse(click) => Some(self.slot.unwrap_or(click)),
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => None,
             // Its spot is the spots' step's (`crate::spot_work`), not the order's; a vehicle's repairer follows it.

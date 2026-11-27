@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 
 use sc_sim::{Ability, OrderKind};
 
-use super::{CursorTarget, MapTarget, Resolved, UnitCapabilities, object_right_click, repaired_by, target_resolution};
+use super::{MapTarget, Resolved, UnitCapabilities, object_right_click, repaired_by, target_resolution};
 use crate::command_ui::interface::{InterfaceState, PanelCommand};
 
 /// `systems/controls/hud.md > PointerDisplayType > Types` that the game can show so far.
@@ -66,6 +66,8 @@ impl PointerDisplay {
         match kind {
             // No click gives a Deploy (slice M3-J1 places it), nor a Build.
             OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => PointerDisplay::Move,
+            // (M5-V2) `systems/controls/hud.md`: "AwaitingTarget[Reverse] over ground: **Move**".
+            OrderKind::Reverse(_) => PointerDisplay::Move,
             OrderKind::Enter(_) => PointerDisplay::Enter,
             OrderKind::Assist(_) => PointerDisplay::Assist,
             OrderKind::Repair(_) => PointerDisplay::Repair,
@@ -138,12 +140,12 @@ pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> Po
 }
 
 /// `systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look
-/// over a target it can use, else Inactive. Reverse, which has no order yet, by the design's row for the ground. (M5-N8)
+/// over a target it can use, else Inactive ((M5-V2) Reverse's over the ground: "AwaitingTarget[Reverse] over ground:
+/// **Move**"; "over non-ground: **Inactive**"). (M5-N8)
 /// A Repair's over a damaged own object that one of the selected `units` repairs ([`repaired_by`]): over one that none
 /// of them repairs, an Agent's over a Storage, the gate would refuse the click.
 fn awaiting_display(pending: PanelCommand, units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
     match (pending, target.target) {
-        (PanelCommand::Reverse, CursorTarget::Ground(_)) => PointerDisplay::Move,
         (PanelCommand::Repair, _) if !repaired_by(units, target) => PointerDisplay::Inactive,
         _ => target_resolution(pending, target).map_or(PointerDisplay::Inactive, PointerDisplay::of),
     }

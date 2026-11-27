@@ -245,7 +245,7 @@ impl Drag {
 ///
 /// It only falls as `dist` does, and never faster than braking follows: a unit at the approach speed of one tick
 /// is within the next tick's by braking alone.
-fn approach_speed(dist: f32, keep: f32, brake: f32, top: f32) -> f32 {
+pub(super) fn approach_speed(dist: f32, keep: f32, brake: f32, top: f32) -> f32 {
     // No drag left to speak of, or nothing to brake with: the unit stops within the tick, or by drag alone (it
     // then covers `v × keep / (1 − keep)` more).
     if keep <= 0.0 {

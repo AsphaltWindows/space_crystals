@@ -223,6 +223,9 @@ pub enum Reject {
     /// (`factions/cults/structures/shrine.md > Abilities`: "cast on an area anywhere the player currently has vision";
     /// plan decision T76).
     OutOfSight,
+    /// (M5-V2) None of the units a Reverse names can back up (`systems/controls/commands.md > Reverse`: "Only available
+    /// to bases with CanReverse = true"; `UnitDef::can_reverse`).
+    CannotReverse,
 }
 
 impl fmt::Display for Reject {
@@ -299,6 +302,7 @@ impl fmt::Display for Reject {
             Reject::RequiresTech(tech) => write!(f, "it requires {}", tech.def().name),
             Reject::NotEnoughEnergy => write!(f, "none of the units has the energy the spell needs"),
             Reject::OutOfSight => write!(f, "the point is out of sight"),
+            Reject::CannotReverse => write!(f, "none of the units can reverse"),
         }
     }
 }

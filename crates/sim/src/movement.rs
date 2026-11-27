@@ -9,12 +9,15 @@
 //!
 //! - [`space`]: the spatial grids (one per collision layer), the box sweep, and [`space::blocks`], the single
 //!   filter for collision exceptions: gathering Drones, and units that already overlap (design change 0106).
+//! - [`scratch`]: the phase's scratch, rebuilt every tick: every unit as the others see it, the objects the units
+//!   head for, and the turn budget phase 5e reads ([`Turns`]).
 //! - [`collide`]: one unit's move by the rules of `docs/movement.md > 6.3`: lane seeking among the units it has to
 //!   pass (oncoming ones, and idle groups that make way), then the rules after the sweep.
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
 //! - [`yielding`]: an idle unit's sidestep for a blocked unit of its owner (`docs/movement.md > 6.6`).
-//! - [`drag`]: DragMovement, the model of the units with momentum (slice M3-G); [`follow`]: one unit's tick along
-//!   its path, shared by every model.
+//! - [`model`]: the models of the units with momentum, [`drag`] (DragMovement, slice M3-G) and (M5-V2) [`wheeled`]
+//!   (FixedTurnRadiusMovement: the turn by speed on a fixed radius, braking, backing up on the Reverse order, the
+//!   forward loop); [`follow`]: one unit's tick along its path, shared by every model.
 //! - [`separate`]: an idle unit that overlaps another moves off it (design change 0126).
 //! - (M5-H1) [`glider`]: GliderMovement, the model of the units that never stop, in place of a unit's tick along its
 //!   path; [`air`]: the soft separation of air units from each other, after every unit has moved.
@@ -30,7 +33,7 @@
 //! chase's progress, the occupied-target rule and queueing behind attackers are in [`stuck`].
 //!
 //! Hooks for later slices: crushing is an exception in [`space::blocks`]; other movement models replace the
-//! "desired direction → facing and velocity" part of a unit's tick, as [`drag`] does in [`follow`].
+//! "desired direction → facing and velocity" part of a unit's tick, as [`drag`] and [`wheeled`] do in [`follow`].
 
 mod air;
 mod collide;
@@ -38,10 +41,13 @@ mod doorway;
 mod drag;
 mod follow;
 mod glider;
+mod model;
 mod round;
+mod scratch;
 mod separate;
 mod space;
 mod stuck;
+mod wheeled;
 mod yielding;
 
 use std::collections::BTreeMap;
@@ -50,190 +56,43 @@ use glam::Vec2;
 
 use crate::augmentation::Research;
 use crate::combat;
-use crate::defs::{Domain, MovementAttrs, UnitDef};
+use crate::defs::MovementAttrs;
 use crate::events::SimEvent;
-use crate::ids::{ObjectId, PlayerId};
+use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::math;
-use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
+use crate::mover::{Locomotion, MoveGoal, Mover, Orientation};
 use crate::nav::Nav;
 use crate::object::Object;
-use crate::orders::gather;
 use crate::paths;
 use crate::popup;
 use crate::production::ExitDoor;
 use crate::shape::Shape;
-use crate::units::{SU_PER_GU, Tick};
+use crate::units::{SU_PER_GU, Tick, TilePos};
 
-use crate::units::TilePos;
 use collide::World;
-use drag::Drag;
 #[cfg(test)]
 use follow::step_unit;
 use follow::step_unit_on;
 use glider::Glider;
-use space::{Body, Layer};
-
-/// The work of one movement phase: output for tests and the perf overlay, never part of the state or its hash
-/// (`docs/movement.md > 4`).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub struct MoveCounters {
-    /// Units with a goal and a path that the step moved, or tried to.
-    pub steered: u32,
-    /// Box sweeps against the units of a layer.
-    pub unit_sweeps: u32,
-    /// Box-against-box tests inside those sweeps.
-    pub pair_tests: u32,
-    /// Box sweeps against the tiles.
-    pub tile_sweeps: u32,
-    /// (G) Oncoming units looked at by lane seeking (`collide::World::lane`).
-    pub lane_tests: u32,
-}
-
-/// The collision layers with hard collision (`docs/movement.md > 6.1`): ground and underground. Air units have
-/// none: they collide with nothing, and (M5-H1) keep apart softly after the moves ([`air`]).
-const LAYERS: usize = 2;
-
-fn layer_of(domain: Domain) -> Option<usize> {
-    match domain {
-        Domain::Ground => Some(0),
-        Domain::Underground => Some(1),
-        Domain::Air => None,
-    }
-}
-
-/// The object a unit heads for (`MoveGoal::Object`), as phase 5d finds it this tick.
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct Chased {
-    pub id: ObjectId,
-    /// Its centre: what paths to it are planned to (`Mover::planned_target`).
-    pub pos: Vec2,
-    /// Reach and the occupied-target rule are measured to its edge (`shape`, design changes 0031–0033).
-    pub shape: Shape,
-}
+use model::Model;
+pub use scratch::MoveCounters;
+pub(crate) use scratch::{Chased, Scratch, Turns};
+use scratch::{body_of, layer_of, oriented_of, unit_of};
+#[cfg(test)]
+use space::Body;
 
 /// The most a unit turns in one tick, radians: its TurnRate (`systems/combat.md >
-/// LocomotionOrientationConstraints[TurnRateMovement]`), without limit for the movement models whose turn rate
-/// depends on speed (TODO(movement models): not built). (M5-H1) None for a Glider: its flight alone turns it, by its
-/// speed (`glider`), so nothing is left of a tick's turn for an aim of its base in phase 5e.
+/// LocomotionOrientationConstraints[TurnRateMovement]`). (M5-H1) None for a Glider: its flight alone turns it, by its
+/// speed (`glider`), so nothing is left of a tick's turn for an aim of its base in phase 5e. (M5-V2) None for a
+/// FixedTurnRadiusMovement unit either (`systems/combat.md > LocomotionOrientationConstraints[FixedTurnRadiusMovement]`:
+/// "Stationary + Turning: invalid", and Moving its turn is `currentSpeed / MinimumTurnRadius`, made by its drive in
+/// phase 5d, `wheeled`). TODO(M5-V3): SpeedTurnRadiusMovement still turns without limit.
 pub(crate) fn turn_rate(movement: &MovementAttrs) -> f32 {
     match movement {
-        MovementAttrs::Glider { .. } => 0.0,
+        MovementAttrs::Glider { .. } | MovementAttrs::FixedTurnRadius { .. } => 0.0,
         _ => movement.turn_rate().unwrap_or(f32::INFINITY),
     }
-}
-
-/// (G) The one turn budget of a tick (`docs/movement.md > 6.3`): a unit turns at most its [`turn_rate`] per tick in
-/// all. Phase 5d notes here the angle it turned each unit, and phase 5e's Aiming turns a unit only by what is left
-/// of the budget (`combat::step`). By ascending id; a unit that didn't turn isn't listed.
-///
-/// Transient, not state: 5d writes it afresh and 5e reads it within the same tick, so it never outlives the tick. A
-/// save between two ticks has none of it to keep, and the state hash nothing to cover: it follows from the state the
-/// tick began with and the tick's inputs, which the hash and the replay already fix.
-#[derive(Debug, Default)]
-pub(crate) struct Turns(Vec<(ObjectId, f32)>);
-
-impl Turns {
-    /// The angle phase 5d turned unit `id` in this tick, radians.
-    pub(crate) fn angle(&self, id: ObjectId) -> f32 {
-        self.0
-            .binary_search_by_key(&id, |&(id, _)| id)
-            .map_or(0.0, |i| self.0[i].1)
-    }
-}
-
-/// The scratch of phase 5d (`docs/movement.md > 3`): rebuilt from the objects every tick. Kept between ticks only
-/// to reuse its allocations, except [`Turns`], which phase 5e of the same tick reads.
-#[derive(Debug, Default)]
-pub(crate) struct Scratch {
-    /// Every unit, in id order.
-    bodies: Vec<Body>,
-    /// For each of `bodies`: the object it heads for, if its goal is one that exists.
-    chased: Vec<Option<Chased>>,
-    /// For each of `bodies`: the exit doorway it is still in (`Mover::exit`, design changes 0080 and 0145).
-    doors: Vec<Option<ExitDoor>>,
-    /// For each of `bodies`: the target its attack engages (`AttackState::target`), for queueing behind attackers
-    /// (`stuck`).
-    engaged: Vec<Option<ObjectId>>,
-    layers: [Layer; LAYERS],
-    /// Units in the way of the unit being moved.
-    touched: Vec<usize>,
-    /// The lanes of the oncoming units ahead of the unit being moved (`collide::World::lane`).
-    lanes: Vec<collide::Lane>,
-    /// The sidesteps asked of idle units this tick (`yielding`), applied when every unit has moved.
-    requests: Vec<yielding::Request>,
-    /// (M4-S2) The footprints of the lowered pop-up turrets that want to rise and have a unit over them
-    /// (`popup::is_blocked`), each with its owner: their owners' idle units there are asked to step off
-    /// (`yielding::make_way`).
-    rising: Vec<(Option<PlayerId>, Vec2, Vec2)>,
-    /// The angle each unit turned in this tick's phase 5d, for 5e.
-    turns: Turns,
-    counters: MoveCounters,
-    /// (M5-H1) The air units' separation ([`air`]).
-    air: air::Scratch,
-}
-
-impl Scratch {
-    pub(crate) fn counters(&self) -> MoveCounters {
-        self.counters
-    }
-
-    pub(crate) fn turns(&self) -> &Turns {
-        &self.turns
-    }
-}
-
-/// `Body::heading`: the way to the unit's steering waypoint, if it has a path to follow.
-fn heading_of(pos: Vec2, mover: &Mover) -> Vec2 {
-    if mover.goal == MoveGoal::None || mover.path_state != PathState::Ready {
-        return Vec2::ZERO;
-    }
-    let target = mover.path.get(usize::from(mover.next));
-    target.map_or(Vec2::ZERO, |&target| target - pos)
-}
-
-/// (M5-V1) How unit `o`'s Silhouette, of half extents `half`, lies if it turns with the facing
-/// (`defs::ObjectDef::silhouette_turns`): along its facing. `None` for a square one.
-fn oriented_of(o: &Object, half: Vec2) -> Option<space::Oriented> {
-    (o.def().silhouette_turns()).then(|| space::Oriented::facing(half, o.facing))
-}
-
-/// A unit as the others see it this tick; `movement`, its movement numbers (`Object::movement`); `half`, half its
-/// Silhouette. (M5-V1) One that turns with the facing lies along it ([`oriented_of`]), its box the bounding box of
-/// that.
-fn body_of(o: &Object, mover: &Mover, movement: &MovementAttrs, half: Vec2) -> Body {
-    // Also while it waits for a path: a unit that just planned again is still on its way.
-    let on_its_way = mover.goal != MoveGoal::None;
-    let oriented = oriented_of(o, half);
-    Body {
-        id: o.id,
-        owner: o.owner,
-        pos: o.pos,
-        half: oriented.map_or(half, |oriented| oriented.bound_half()),
-        oriented,
-        velocity: mover.velocity,
-        heading: heading_of(o.pos, mover),
-        stationary: mover.is_stationary(),
-        progress: on_its_way.then_some(mover.last_progress),
-        arrived_with: mover.group.filter(|_| mover.status == MoveStatus::Arrived),
-        yields: yielding::can_yield(o, mover, movement),
-        gathers: gather::on_gather_job(o),
-        leads: stuck::leads(mover),
-        moved: mover.last_progress,
-    }
-}
-
-/// A unit that takes part in movement: its definition, (M5-N1a) its movement numbers as its Augmentations make them
-/// at its owner's levels in `research` (`Object::movement_ref`: its kind's own, or made in `slot`), and its half
-/// extents.
-fn unit_of<'a>(
-    o: &Object,
-    research: Research,
-    slot: &'a mut Option<MovementAttrs>,
-) -> Option<(&'static UnitDef, &'a MovementAttrs, Vec2)> {
-    let def = o.kind.def();
-    o.mover.as_ref()?;
-    Some((def.unit.as_ref()?, o.movement_ref(research, slot)?, def.half_extents()?))
 }
 
 /// Phase 5d (`docs/movement.md > 4`): builds the spatial grids from **all** units, this tick's spawns included
@@ -365,7 +224,7 @@ pub(crate) fn step(
             // A unit in an attack sequence is busy: it doesn't yield (design change 0023).
             mover.sidestep = None;
             wait(mover, tick);
-            if let Some(model) = Drag::of(movement, mover.speed_factor, rugged) {
+            if let Some(model) = Model::of(movement, mover, rugged) {
                 model.coast(&mut o.pos, o.facing, mover, &mut world, &mut scratch.touched);
             }
             false
@@ -411,7 +270,8 @@ pub(crate) fn step(
                 &mut scratch.requests,
             );
             false
-        } else if let Some(ExitDoor::Side(door)) = door.filter(|_| mover.goal == MoveGoal::None && !coasting) {
+        } else if let Some(ExitDoor::Side(door)) = door.filter(|_| mover.goal == MoveGoal::None) {
+            // (M5-V2) A unit with momentum walks out by its model, braking to rest where it is out.
             doorway::leave(
                 &mut o.pos,
                 &mut o.facing,
@@ -457,7 +317,10 @@ pub(crate) fn step(
         if failed {
             events.push(SimEvent::MoveFailed { unit: o.id });
         }
-        if turned > 0.0 {
+        // (M5-V2) A model that turns by its speed has no TurnRate to spend (`turn_rate` 0: FixedTurnRadiusMovement,
+        // GliderMovement): its turn is no part of the budget, and phase 5e's aim, which has none either, isn't left
+        // a budget overdrawn by it.
+        if turned > 0.0 && turn_rate(movement) > 0.0 {
             scratch.turns.0.push((o.id, turned));
         }
         // Out of the doorway: from now on the building blocks the unit like everything else, for good (design
