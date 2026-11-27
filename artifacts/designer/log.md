@@ -2382,3 +2382,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0153 parts 1, 3: tread-based turning law, TrackWidth replaces SpeedToTurnRadiusRatio, ReverseMaxSpeed half (0417).
 - Q0153 part 2 (user: b): crushers crush while spinning in place (0418).
 - Q0153 part 4 (user: b): surfaced Transport crushes (0419). Q0153 closed.
+- Q0154 answered from docs + placeholder permission: DragMovement numbers for Hornet, Phantom, Prism, drone (0420).

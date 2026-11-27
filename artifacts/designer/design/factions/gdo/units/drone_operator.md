@@ -32,5 +32,5 @@ GDO specialist infantry, trained at the Barracks once the player owns a Career C
 - Operator: LightInfantry 24x24; MaxHP 45; PointArmor 1, FullArmor 1; SightRange 6 grid units; MaxSpeed 4 su/frame; Groupable true; UnitControlCost 1. Cost: Barracks, 100 Space Crystals, 160 frames.
 - **Build Drone** (hotkey **F**): 50 Space Crystals, 160 frames (10 s).
 - **Launch Drone** (hotkey **R**).
-- Drone: Air unit 24x24; MaxHP 30; MaxSpeed 10 su/frame; SightRange 5; **leash range 8 grid units**; **battery 20 s** (320 frames).
+- Drone: Air unit 24x24; MaxHP 30; top speed 10 su/frame (if it is a HoverCraft, Q0155: DragMovement ForwardAcceleration 0.9, OmniDirectionalAcceleration 0.1, DragRatio 0.1, TurnRate 10°/frame, as the Supply Chopper; designer placeholder, Q0154); SightRange 5; **leash range 8 grid units**; **battery 20 s** (320 frames).
 - Explosion: **AoE** (user, 2026-11-27), Damage **150** total, AoERadius **48 su**, melee range.
