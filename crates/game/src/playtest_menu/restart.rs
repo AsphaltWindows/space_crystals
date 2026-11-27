@@ -14,9 +14,10 @@
 //! - **By the new sim's generation** (`SimRes::generation`), as for a play-test: the selections, control groups and
 //!   interface states (`crate::selection::ControlStates`), the players' cameras of the debug switch, the visuals of
 //!   objects and of remembered records, the viewer events, the combat effects, the Shroud's clouds, the command
-//!   indicators and the targeting feedback, the notices, the selected doors' arrows, and the fog's and the minimap's
-//!   layers (the terrain's meshes and the minimap's terrain stay: the map is the same). The outcome banner and the
-//!   results screen follow `Sim::outcome`, which the new sim hasn't.
+//!   indicators and the targeting feedback, the notices, the selected doors' arrows, the fog's and the minimap's
+//!   layers (the terrain's meshes and the minimap's terrain stay: the map is the same), and (slice M5-MM2) the
+//!   minimap's alerts, their pings and the latest that Space jumps to (`crate::hud::minimap::MinimapAlerts`). The
+//!   outcome banner and the results screen follow `Sim::outcome`, which the new sim hasn't.
 //! - **Derived every frame**: the HUD's panels, the placement ghost and its areas, the pointer.
 //! - **Kept**, the client's own settings rather than the game's: the fog toggle (F3), the path overlay (P), the grid
 //!   (G), the pace (`--fast`), the window, the bindings, and QA's queue, whose ticks are the running game's.

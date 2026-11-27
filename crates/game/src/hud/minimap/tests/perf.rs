@@ -26,8 +26,6 @@ use sc_sim::{GameSetup, MapDef, ObjectKind, OrderKind, Scenario, Target, TilePos
 
 use super::super::raster::{Terrain, marks, paint};
 use super::*;
-use crate::camera::viewport_rect;
-use crate::coords::ground_under;
 use crate::fog::Sight;
 use crate::hud::HUD_INSETS;
 
@@ -136,9 +134,8 @@ fn minimap_perf() {
                     texels: frame.texels,
                 };
                 let due = redraw_due(Some(&(key, 0.0)), black_box(&key), 1.0, false);
-                let (_, viewport) = viewport_rect(size, HUD_INSETS);
-                let visible = crate::camera::visible_extent_su(viewport, size.physical.x, 1.0);
-                let outline = frame.camera_rect(ground_under(sim.map(), extent / 2.0), visible);
+                let ground = viewed_ground(sim.map(), size, HUD_INSETS, 1.0, extent / 2.0);
+                let outline = frame.camera_rect(ground);
                 black_box((due, outline));
             });
             let (count, redraw) = timed(|| {

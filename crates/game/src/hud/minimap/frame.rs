@@ -88,14 +88,10 @@ impl MinimapFrame {
     }
 
     /// `systems/controls/hud.md > Minimap > What it shows`: "The camera's view as a rectangle outline", in logical
-    /// pixels: a rectangle of the world view's extent, `visible` space units ([`crate::camera::visible_extent_su`]),
-    /// around `center`, the ground point drawn at the view's centre (`crate::coords::ground_under`). A reading: the
-    /// view looks at the ground lifted by its height, so the ground it shows isn't exactly a rectangle; this is the
-    /// rectangle the view would show of flat ground there. Cut to the map area, so that each of its sides shows, on
-    /// the map's edge where the view goes past it, and its corners snapped to whole physical pixels; `None` for a
-    /// view wholly off the map.
-    pub fn camera_rect(&self, center: Vec2, visible: Vec2) -> Option<Rect> {
-        let ground = Rect::from_center_size(center, visible);
+    /// pixels: `ground`, the ground the world view shows (`super::viewed_ground`), on the panel. Cut to the map area,
+    /// so that each of its sides shows, on the map's edge where the view goes past it, and its corners snapped to
+    /// whole physical pixels; `None` for a view wholly off the map.
+    pub fn camera_rect(&self, ground: Rect) -> Option<Rect> {
         let shown = Rect::from_corners(self.screen_at(ground.min), self.screen_at(ground.max)).intersect(self.area);
         if shown.is_empty() {
             return None;

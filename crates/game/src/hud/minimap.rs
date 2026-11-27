@@ -14,16 +14,19 @@
 //!   ([`redraw_due`]). The image is written in place under its handle while the frame keeps its size, and replaced by
 //!   a new one, which the node is pointed at, when the size changes.
 //! - **The camera's view** "as a rectangle outline", every frame, after the camera is clamped: a UI node's border
-//!   ([`CameraOutline`], [`MinimapFrame::camera_rect`]), as crisp as a line drawn into the image and never waiting
-//!   for a redraw.
+//!   ([`CameraOutline`], [`MinimapFrame::camera_rect`]) round the ground the view shows ([`viewed_ground`]), as crisp
+//!   as a line drawn into the image and never waiting for a redraw.
 //! - **Using it** ([`input`]): a left-click or a drag centres the camera on that ground point; a right-click is the
 //!   selection's right-click on that ground point, and while a target command waits a left-click targets it, both
 //!   through the command flow's own functions for a click on the map (`crate::command_ui`, ground only: the designer's
 //!   placeholder). Placement isn't possible from it.
+//! - **Alerts** ([`alerts`], slice M5-MM2, design change 0443, `systems/controls/hud.md > Minimap > Alerts`): a hit on
+//!   one of the player's objects off screen, outside [`viewed_ground`], pings there, a red ring over the image that
+//!   shrinks and fades, at most one an area every 10 s; Space centres the camera on the latest.
 //!
-//! Left out (design change 0415): attack alerts on the minimap, "not decided yet". Colours and sizes are placeholders
-//! (Q0001).
+//! Colours and sizes are placeholders (Q0001).
 
+mod alerts;
 mod frame;
 mod input;
 pub mod raster;
@@ -33,7 +36,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::image::ImageSampler;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use sc_sim::{PlayerId, Tick};
+use sc_sim::{Map, PlayerId, Tick};
 
 use super::layout::{SECTION_BORDER_PX, section_rect};
 use super::{HudSection, SectionLabel, show_node};
@@ -47,6 +50,7 @@ use crate::sim_driver::{SimControl, SimRes};
 use crate::{ClientMode, ClientSystems};
 use raster::{Terrain, marks, paint};
 
+pub use alerts::{MinimapAlerts, Ping, PingLayer, PingRing, ring_at};
 pub use frame::MinimapFrame;
 pub use input::{MinimapClick, MinimapPointer, MinimapPress};
 
@@ -116,8 +120,10 @@ impl Plugin for MinimapPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MinimapView>()
             .init_resource::<MinimapPointer>()
+            .init_resource::<MinimapAlerts>()
             // Before the command flow, which takes the minimap's targeting clicks and right-clicks; the camera
-            // follows after it, once it is known whether the command flow took the press, and after the frame's pans.
+            // follows after it, once it is known whether the command flow took the press, and after the frame's pans,
+            // as it does to Space's jump to the latest alert.
             .add_systems(
                 Update,
                 (
@@ -125,15 +131,19 @@ impl Plugin for MinimapPlugin {
                     input::follow_minimap_press
                         .after(CommandUiSystems::Input)
                         .after(crate::camera::grab_pan),
+                    alerts::jump_to_alert.after(crate::camera::grab_pan),
                 )
                     .in_set(ClientSystems::Actions),
             )
+            // The alerts are taken where the camera looks once the frame's pans are clamped, as the outline is placed.
             .add_systems(
                 Update,
                 (
                     spawn_minimap,
                     draw_minimap,
                     place_camera_outline.after(crate::camera::apply_camera),
+                    alerts::take_alerts.after(crate::camera::apply_camera),
+                    alerts::place_pings,
                 )
                     .chain()
                     .in_set(ClientSystems::Present),
@@ -141,8 +151,8 @@ impl Plugin for MinimapPlugin {
     }
 }
 
-/// The minimap's nodes, once the HUD has its Minimap section: the image node and the camera's outline in it. The
-/// section's name gives way to them.
+/// The minimap's nodes, once the HUD has its Minimap section: the image node, and in it the camera's outline and the
+/// alerts' layer over that ([`alerts`]). The section's name gives way to them.
 fn spawn_minimap(
     mut commands: Commands,
     spawned: Query<(), With<MinimapImage>>,
@@ -167,17 +177,20 @@ fn spawn_minimap(
             ..default()
         },
         ChildOf(section),
-        children![(
-            Name::new("Minimap camera"),
-            CameraOutline,
-            Node {
-                position_type: PositionType::Absolute,
-                border: UiRect::all(px(OUTLINE_PX)),
-                display: Display::None,
-                ..default()
-            },
-            BorderColor::all(OUTLINE_COLOR),
-        )],
+        children![
+            (
+                Name::new("Minimap camera"),
+                CameraOutline,
+                Node {
+                    position_type: PositionType::Absolute,
+                    border: UiRect::all(px(OUTLINE_PX)),
+                    display: Display::None,
+                    ..default()
+                },
+                BorderColor::all(OUTLINE_COLOR),
+            ),
+            alerts::ping_layer(),
+        ],
     ));
     for (label, mut node) in &mut labels {
         if label.0 == HudSection::Minimap {
@@ -296,7 +309,19 @@ fn draw_minimap(
     view.redraws += 1;
 }
 
-/// What the camera's outline is placed from.
+/// The ground the world view shows, space units: a rectangle of the view's extent at `zoom`
+/// ([`visible_extent_su`]), the view centred on the view point `center`, around the ground point drawn there
+/// ([`ground_under`]). A reading: the view looks at the ground lifted by its height, so the ground it shows isn't
+/// exactly a rectangle; this is the rectangle the view would show of flat ground there. The camera's outline shows it
+/// on the minimap ([`MinimapFrame::camera_rect`]), and the alerts call off screen what lies outside it ([`alerts`]), so
+/// that the two agree.
+pub fn viewed_ground(map: &Map, size: SurfaceSize, insets: ViewportInsets, zoom: f32, center: Vec2) -> Rect {
+    let (_, viewport) = viewport_rect(size, insets);
+    let visible = visible_extent_su(viewport, size.physical.x, zoom);
+    Rect::from_center_size(ground_under(map, center), visible)
+}
+
+/// Where the camera looks: what the camera's outline is placed from, and what the alerts call off screen.
 #[derive(SystemParam)]
 struct CameraSource<'w> {
     mode: Res<'w, ClientMode>,
@@ -307,9 +332,17 @@ struct CameraSource<'w> {
     sim: Res<'w, SimRes>,
 }
 
+impl CameraSource<'_> {
+    /// The ground the world view shows now ([`viewed_ground`]).
+    fn viewed_ground(&self) -> Rect {
+        let center = self.camera.center;
+        viewed_ground(self.sim.map(), *self.size, *self.insets, self.zoom.0, center)
+    }
+}
+
 /// `systems/controls/hud.md > Minimap > What it shows`: "The camera's view as a rectangle outline", every frame,
-/// where the camera looks once the frame's pans are clamped: the world view's extent around the ground point drawn at
-/// its centre ([`MinimapFrame::camera_rect`]).
+/// where the camera looks once the frame's pans are clamped: the ground the view shows ([`viewed_ground`]) on the
+/// minimap ([`MinimapFrame::camera_rect`]).
 fn place_camera_outline(
     source: CameraSource,
     mut view: ResMut<MinimapView>,
@@ -318,11 +351,8 @@ fn place_camera_outline(
     if !source.mode.is_game() {
         return;
     }
-    let map = source.sim.map();
-    let frame = MinimapFrame::on(*source.size, map_extent_su(map));
-    let (_, viewport) = viewport_rect(*source.size, *source.insets);
-    let visible = visible_extent_su(viewport, source.size.physical.x, source.zoom.0);
-    let rect = frame.camera_rect(ground_under(map, source.camera.center), visible);
+    let frame = MinimapFrame::on(*source.size, map_extent_su(source.sim.map()));
+    let rect = frame.camera_rect(source.viewed_ground());
     if view.camera_rect != rect {
         view.camera_rect = rect;
     }

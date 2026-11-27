@@ -291,8 +291,9 @@ fn a_recorded_game_plays_back_as_it_was_played() {
     assert_eq!(top_bar(&mut app), "Replay x1, end");
 }
 
-/// The playback keys (placeholders): Space pauses and resumes, the period plays one tick, minus and equals step
-/// through the speeds (x0.5 to as fast as possible, which stops at the end too). The top bar shows them.
+/// The playback keys (placeholders): K pauses and resumes (Space until slice M5-MM2, whose alerts took it), the period
+/// plays one tick, minus and equals step through the speeds (x0.5 to as fast as possible, which stops at the end too).
+/// The top bar shows them.
 #[test]
 fn playback_pauses_steps_and_changes_speed() {
     let mut app = playback(sim_recording(skirmish(), 300));
@@ -300,7 +301,7 @@ fn playback_pauses_steps_and_changes_speed() {
         app.update();
     }
     assert_eq!(top_bar(&mut app), "Replay x1");
-    tap(&mut app, KeyCode::Space);
+    tap(&mut app, KeyCode::KeyK);
     let paused = tick(&app);
     assert!(app.world().resource::<SimControl>().paused);
     app.update();
@@ -311,7 +312,7 @@ fn playback_pauses_steps_and_changes_speed() {
     assert_eq!(tick(&app), paused + 1, "one tick");
     app.update();
     assert_eq!(tick(&app), paused + 1, "and paused again");
-    tap(&mut app, KeyCode::Space);
+    tap(&mut app, KeyCode::KeyK);
     let resumed = tick(&app);
     app.update();
     assert_eq!(tick(&app), resumed + 1);
@@ -350,7 +351,7 @@ fn playback_pauses_steps_and_changes_speed() {
     app.update();
     assert_eq!(tick(&app), 300);
     assert_eq!(top_bar(&mut app), "Replay max, end");
-    tap(&mut app, KeyCode::Space);
+    tap(&mut app, KeyCode::KeyK);
     tap(&mut app, KeyCode::Period);
     assert_eq!(tick(&app), 300, "nothing after the end");
 }

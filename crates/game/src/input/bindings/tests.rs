@@ -29,7 +29,10 @@ fn the_defaults_follow_the_design() {
     assert_eq!(only(InputAction::CenterOnObject), [Binding::Modifiers(Modifiers::ALT)]);
     assert_eq!(only(InputAction::DebugSwitchPlayer), press(KeyCode::F2));
     assert_eq!(only(InputAction::DebugToggleFog), press(KeyCode::F3));
-    assert_eq!(only(InputAction::ReplayPause), press(KeyCode::Space));
+    // (M5-MM2) `systems/controls/hud.md > Minimap > Alerts`: "Jump to the latest alert: Space"; the replay's pause
+    // moved to K.
+    assert_eq!(only(InputAction::JumpToAlert), press(KeyCode::Space));
+    assert_eq!(only(InputAction::ReplayPause), press(KeyCode::KeyK));
     assert_eq!(only(InputAction::ReplayStep), press(KeyCode::Period));
     assert_eq!(only(InputAction::ReplaySlower), press(KeyCode::Minus));
     assert_eq!(only(InputAction::ReplayFaster), press(KeyCode::Equal));
@@ -70,7 +73,7 @@ fn the_defaults_follow_the_design() {
     );
     assert_eq!(only(InputAction::CommandSlot(CommandSlot::RALLY_POINT)), press(KeyC));
     let game = b.entries().iter().filter(|(a, _)| !matches!(a, InputAction::Editor(_)));
-    assert_eq!(game.count(), 25 + 4 * 10 + 12);
+    assert_eq!(game.count(), 26 + 4 * 10 + 12);
 }
 
 /// Except that a placement action's binding overrides another while a structure is being placed: the placement
@@ -442,4 +445,36 @@ fn f11_and_alt_enter_toggle_full_screen_everywhere_and_f10_is_the_games() {
         Some(InputAction::PlaytestMenu)
     );
     assert_eq!(press(Editor, KeyCode::F10, Modifiers::NONE), None);
+}
+
+/// (M5-MM2) Design change 0443: Space jumps to the latest alert in the game (a game, a play-test and a replay's
+/// playback, whose input context is the game's) and is nothing in the editor; the replay's pause, a placeholder that
+/// had Space, is K in the game, where nothing else has it, while K stays the editor's slope tint.
+#[test]
+fn space_jumps_to_the_latest_alert_in_the_game_and_k_pauses_a_replay() {
+    use InputContext::{Editor, Game};
+    let b = Bindings::default();
+    let press = |context, k, modifiers| b.resolve(context, key(k), modifiers, false);
+    assert_eq!(
+        press(Game, KeyCode::Space, Modifiers::NONE),
+        Some(InputAction::JumpToAlert)
+    );
+    assert_eq!(
+        press(Game, KeyCode::Space, Modifiers::SHIFT),
+        Some(InputAction::JumpToAlert),
+        "Shift, the Queue modifier, doesn't block it"
+    );
+    assert_eq!(press(Editor, KeyCode::Space, Modifiers::NONE), None);
+    assert_eq!(
+        press(Game, KeyCode::KeyK, Modifiers::NONE),
+        Some(InputAction::ReplayPause)
+    );
+    assert_eq!(
+        press(Editor, KeyCode::KeyK, Modifiers::NONE),
+        Some(InputAction::Editor(EditorInput::ToggleSlopes))
+    );
+    assert!(
+        !InputAction::JumpToAlert.passes_modal(),
+        "not while the playtest menu holds the input"
+    );
 }

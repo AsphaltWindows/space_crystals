@@ -34,6 +34,8 @@ Game:
                               start (no player's objects; the fog of war stays on)
   In a game, F10 opens the playtest menu and pauses the game: Resume (or F10 again), Restart (the
   same game over from 0:00, as launched), Quit. At the game's end it opens with the result.
+  A unit or building of yours hit off screen pings red on the minimap; Space centres the camera on
+  the latest ping.
 
 Map editor:
   --editor [file.json]        Edit a map file (created on the first save if it doesn't exist yet).
@@ -46,9 +48,10 @@ Map editor:
 
 Replays (a game is recorded to {replays}/<UTC time>_<map>.json; not the editor and its play-tests):
   --replay <file.json>        Play a recorded game back, with its own map and game options; it pauses at
-                              the end. Keys (placeholders): Space pauses and resumes, . plays one tick,
+                              the end. Keys (placeholders): K pauses and resumes, . plays one tick,
                               - and = change the speed (x0.5, x1, x2, x4, max), F2 switches the player, F3
-                              the fog. --fast starts at max speed. The QA flags below work with it.
+                              the fog; Space jumps to the shown player's latest alert, as in a game.
+                              --fast starts at max speed. The QA flags below work with it.
   --record <file.json>        Record the game to this file instead (QA runs record only with this flag)
   --no-record                 Don't record the game
   Each game keeps its own replay: a game restarted from the playtest menu (F10) records to a new

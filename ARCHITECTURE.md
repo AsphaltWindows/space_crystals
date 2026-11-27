@@ -4100,7 +4100,8 @@ then the records on Explored tiles, dimmed by `raster::KEPT` (what the fog's `EX
 light), then the live objects `Sight::sees`, map resources under structures under units: footprints for structures
 and patches, `raster::dot_texels` squares for units at `Object::map_pos`, in `object_render::player_color` (map
 resources neutral). The camera's outline is a bordered node placed every frame after `apply_camera`
-(`MinimapFrame::camera_rect`: the world view's extent around the ground under its centre, cut to the map). Its input
+(`MinimapFrame::camera_rect` of `viewed_ground`: the world view's extent around the ground under its centre, cut to
+the map). Its input
 (`hud/minimap/input.rs`, `MinimapPointer`) is read in `Actions` before the command UI's: the panel is over the UI, so
 no `MapPress`, `MapClick` or `SelectionBox` starts there, and nothing reaches the selection. A left press on the map
 area (`MinimapPress`) centres the camera on the ground under the cursor each time that changes
@@ -4113,6 +4114,26 @@ fog on; load average 7.6): a redraw 0.029 ms at 1280 × 720, 0.039 ms at 1920 ×
 3840 × 2160 (worst 0.33), so 0.008 to 0.023 ms a frame on average at 60 frames a second. Tests: `hud/minimap/tests.rs`
 and `tests/layers.rs` (the frame and the mappings, the outline at two zooms, the redraws, the fog layers),
 `tests/commands/minimap.rs` (the clicks through the virtual mouse, and the panel).
+
+**Minimap alerts** (`hud/minimap/alerts.rs`; slice M5-MM2, `systems/controls/hud.md > Minimap > Alerts`, design
+change 0443): `take_alerts` runs in `Present` after `apply_camera`, as the outline does, over the frame's
+`ViewerEvents` as the local player perceives them: a `SimEvent::Hit` with damage or shield damage on an object of
+theirs (wherever it came from: placeholders) whose position (the object's now, or its `Died`'s in the same frame)
+lies outside `viewed_ground`, the outline's rectangle, is an alert there. `MinimapAlerts` keeps the pings of the last
+`PING_THROTTLE_TICKS` (160) and each player's latest, by the sim's generation; `MinimapAlerts::alert` throttles one
+within `PING_AREA_GU` (8) of a ping of the player's still in its 10 s, faded or not (`tuning/feedback.rs`). Each
+ping is the local player's of the moment and shows to them alone, so after F2, in a game or a playback, the other
+player's hits ping, and F2 back shows the first player's again.
+`place_pings` shows each ping of the local player as a round bordered node (`PingRing`, a pool kept hidden when
+unused) in `PingLayer`, a child of the image node clipped to it, sized and faded by `ring_at` of its age as drawn
+(`combat_effects::age`, so a held tick shows it exactly) until `PING_TICKS` (32). `InputAction::JumpToAlert` (Space,
+the design's key; the Game context) centres the camera on the latest ping's `drawn_position` in `Actions`
+(`jump_to_alert`, after the frame's pans), nothing before the first or once the player has left the game. Measured
+(`hud/minimap/alerts/tests.rs`, `alerts_perf`, ignored, release; load average 16): 200 hits on the player's objects
+every tick, all over a 128 × 128 map, through the throttle and the rings, 0.017 ms a frame (worst 0.022), with up to
+187 pings kept; a game has a few hits a tick and a few rings. Tests: `hud/minimap/alerts/tests.rs`
+(the throttle, the latest, the ring, a new sim), `tests/minimap_alerts.rs` (off and on screen, a long fight and two
+far apart, the ring's 2 s, Space, a restart).
 
 **Playtest menu** (`playtest_menu.rs`, `playtest_menu/`; slice M5-S7, design change 0414, `core/game_rules.md >
 Playtest menu (temporary)`): games only, not the editor, its play-tests or a playback (`build_app`). `PlaytestMenu` is
@@ -4130,7 +4151,8 @@ new `Sim` of the scenario, the local player, the pending and recorded inputs, th
 and grab, the minimap's press, new computer players (`AiPlayers::start`) and a new recording (the old one written
 complete, `Recorder::close`); the rest of a game's client state starts over by the new sim's generation (selections
 and control groups, the players' cameras, the visuals and records, viewer events, combat effects, the Shroud's clouds,
-indicators, notices, the fog's and the minimap's layers), and the outcome screens follow the new sim's `outcome`.
+indicators, notices, the fog's and the minimap's layers, the minimap's alerts), and the outcome screens follow the
+new sim's `outcome`.
 The client's own settings stay: F3, P, G, the pace, the window, the bindings. Tests: `tests/playtest_menu/` (the
 pause, Quit, the restart against a fresh launch, AI against AI, and the client state), `tests/game_end/menu.rs`,
 `tests/selection/menu.rs` (the input held).
@@ -4173,10 +4195,11 @@ elsewhere.
   with `bind` and `unbind`. It isn't serializable yet: loading it from a file needs Bevy's `serialize` feature for
   `KeyCode` and `MouseButton`. The selection adds `CenterOnObject` (Alt) to the modifier actions, for clicks on
   portraits, and F2 for the debug player switch, the fog of war F3 for its debug toggle (placeholders: the design
-  has no debug keys), and the replay playback keys of the game's context: Space pauses and resumes, `.` plays one
+  has no debug keys), and the replay playback keys of the game's context: K pauses and resumes, `.` plays one
   tick, `-` and `=` change the speed (`ReplayPause`, `ReplayStep`, `ReplaySlower`, `ReplayFaster`; placeholders).
   Slice M5-S7 adds F11 and Alt + Enter, in both contexts, for `ToggleFullscreen` (*Window*), and F10 in the game's
-  for `PlaytestMenu` (design changes 0413 and 0414; placeholder keys).
+  for `PlaytestMenu` (design changes 0413 and 0414; placeholder keys). Slice M5-MM2 adds Space in the game's for
+  `JumpToAlert` (design change 0443, the design's key), which `ReplayPause` had until then: the pause moved to K.
 - **Modal** (`input::Modal`, slice M5-S7): while a menu holds the input (the playtest menu), the frame's presses go to
   `ActionState::modal_pressed` for the menu, and the rest of the client sees only the actions that pass a menu
   (`InputAction::passes_modal`: the window's toggle, F10, and the debug player switch and fog toggle, so hot-seat
@@ -4965,7 +4988,7 @@ unchecked.
   It pauses at the end, or where its game ended (a recording made outside the client may go on after it). The game
   is checked against the checkpoints at tick 0 and after every step; the first desync
   is logged as an error, fails a QA run (exit code 1) and shows in red in the top bar, and the playback goes on.
-  Controls (Game context, placeholder keys): Space pauses and resumes, `.` plays one tick and pauses, `-` and `=`
+  Controls (Game context, placeholder keys): K pauses and resumes, `.` plays one tick and pauses, `-` and `=`
   step through the speeds ×0.5, ×1, ×2, ×4 and max (`playback::SPEEDS`; `--fast` starts at max), F2 switches the
   player and F3 the fog, also when the recorded game had no debug commands (the selection's and the fog's own
   systems allow them while a `Playback` runs). The top bar shows "Replay x2", ", paused"
@@ -5558,7 +5581,8 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   edge-pan margin, the editor's zoom), `input.rs` (the drag threshold, double-click and double-tap times, the
   targeting click allowance, the pick slop, the wheel's pixels per line, the editor's marker grab radius) and
   `feedback.rs` (how long an order's flash, a refused command's message, a tracer, a death marker and a HUD notice
-  show). Each kept its name, and the module it came from re-exports it (`pub use crate::tuning::...`) or imports it,
+  show; slice M5-MM2: the minimap's pings, how long one shows and the throttle's time and area). Each kept its name,
+  and the module it came from re-exports it (`pub use crate::tuning::...`) or imports it,
   so the code that uses it still names it there.
 - **The computer players'** (`crates/ai/src/tuning.rs`, slice A1): `army` (the staging point, the waves, the
   defense), `build` (where a building goes) and one module per faction with a computer player (`gdo`: the opening,

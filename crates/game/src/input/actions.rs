@@ -98,7 +98,8 @@ pub enum InputAction {
     /// option for QA. Placeholder binding.
     DebugToggleFog,
     /// Replay playback (`--replay`, `crate::replay::playback`): pauses and resumes. Placeholder binding, like the
-    /// other replay keys: the design has no replays yet.
+    /// other replay keys: the design has no replays yet. K since slice M5-MM2, whose alerts took Space
+    /// ([`InputAction::JumpToAlert`]).
     ReplayPause,
     /// Replay playback: plays one tick and pauses.
     ReplayStep,
@@ -112,6 +113,11 @@ pub enum InputAction {
     /// (Slice M5-S7, design change 0414) `core/game_rules.md > Playtest menu (temporary)`: opens the playtest menu
     /// during a game, which pauses it, and closes it again (`crate::playtest_menu`). The design's key: F10.
     PlaytestMenu,
+    /// (Slice M5-MM2, design change 0443) `systems/controls/hud.md > Minimap > Alerts`: "Jump to the latest alert:
+    /// **Space** (user, 2026-11-26; default key): centres the camera on the **latest** alert's spot"
+    /// (`crate::hud::minimap::alerts`); "Later notifications of other kinds (none yet) will use the same key". The
+    /// game's, in a game, a play-test and a replay's playback alike, where the pings are the shown player's.
+    JumpToAlert,
     /// The map editor's input (`ARCHITECTURE.md > Map editor`).
     Editor(EditorInput),
 }
