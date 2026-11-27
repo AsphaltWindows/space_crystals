@@ -2419,17 +2419,38 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Not range-checked:** a zero or negative number where the code divides passes the gate. X2 adds the check (its brief).
   - **Found:** the ignored `skirmish_soak::ten_minutes_of_the_colonists_against_the_gdo` fails at `30a50ae5` too: the Colonists are wiped out by tick 9600. Mb bisects and fixes it (its brief).
   - 2756 tests passed, 62 ignored, in 9 programs. The 23 goldens are byte-identical, the seed sweep passes, and the computer players' 192 games are identical.
+- **M6-SK The Syndicate kinds** (Opus; merged in `f09e6eb7`, squashed by the Director from six commits, one marked WIP, and a merge of master; 0367, with 0420's numbers and Q0181). **The first M6 slice merged.**
+  - **15 kinds** at the registry's end, in 13 def modules (each pair shares one), written with `..<Struct>::NONE`, each def tested against its doc. The Syndicate has no Supply costs.
+  - **Nothing is live yet (T69):** expansion and production stay None, with the `*_EXPANSION` and `*_RECIPE` consts kept for their slices. A test for each path: Expand (CannotConstruct), Train (CannotProduce or NoProducers), Eject (NoTransit or NotInNetwork), and the debug spawn (refused with debug off).
+  - **The deployed Laser Battery** is immobile by its def (MaxSpeed 0, the `IMMOBILE` list, T87): a Move ends Failed where it stands.
+  - **Menus:** the EjectMenu has ten tiles (Q W E R A S D F X C; Z is Back), the 7 new ones greyed at 0. The ExpandMenu is unchanged, with six greyed `Planned` entries. The controls doc is regenerated.
+  - **Placeholders:**
+    - the Specter's turret TurnRate, 8°/f;
+    - its fixed 24-frame bomb fall, written as a speed (1 GU per 24 f), with a Reload of 150 so that one cycle takes 160 f, its re-arm time;
+    - the Phantom's SeparationRadius 52 and the Prism's 48 (Q0181).
+  - **Numbers with no field yet** stay cited in the docs for their slices: SL's battery, surge, Amplify and deploy; SR's relay ranges; SB's tanks and the Vault's 2 at a time; SB's and SC's Sludge and Cover; ST1's and ST2's capacity and burrowing; SD's air doors; SA's lift and re-arm; SP's thrusts; SN's buff.
+  - **For each slice that makes a Syndicate kind live:**
+    - set its `expansion` or `production` from the kept const, and turn its `Planned` entry into its `Kind`;
+    - drop its kinds from `SK_KINDS` (`defs/syndicate/tests.rs`) and from `tests/syndicate_kinds.rs`;
+    - add a spawn to `losing_tunnels/neutral.rs`, which counts only the kinds a Tunnel builds.
+  - **Notes for later slices:**
+    - **SD:** at a Tier 3 Tunnel, an air unit's tile says "This Tunnel's tier is too low", since `Reject::NoTransit` can't tell missing air doors from a low tier.
+    - **ST1 and ST2:** a burrowed Transport can Enter a Tunnel today, since the DrillUnit is a Transit Vehicle.
+    - **SA:** T100 gives the bomb `UnitDef::bomb_fall`; SK wrote its fall as a projectile speed for now.
+    - **SL and GA:** the deployed Battery's panel is NONE until SL, though it gets A: Attack (0399). GA or SL may replace `IMMOBILE` with a rule read from `vehicle_deploy`.
+  - 2778 tests passed, 62 ignored, in 9 programs. The 23 goldens are unchanged, the seed sweep passes, and the computer players' 192 games are identical.
 
 ## In progress
 - **Running:**
   - **M5-X2 Data files and live tuning** (Opus; brief `scratchpad/briefs/m5x2-data-files.md`), launched at X1b's merge, on 2026-11-27, beside GK and SK.
-  - **M6-GK The GDO kinds** (Opus; brief `scratchpad/briefs/m6gk-gdo-kinds.md`), launched at X1a's merge, on 2026-11-27.
+    - **F8 restarts on tuned numbers only** (the Director's call, 2026-11-27, on X2's question). A game starts on the build's structure, so a structural patch is refused, live and after F8, and needs a change to the Rust default and a rebuild. A per-game `Scenario::rules` that would allow structural tuning is a possible follow-up, if playtesting asks for it.
+  - **M6-GK The GDO kinds** (Opus; brief `scratchpad/briefs/m6gk-gdo-kinds.md`), launched at X1a's merge, on 2026-11-27. SK merged first, so GK's block goes in before SK's (T84: GDO first).
     - **Its first commit is merged early** (`774dae2b`, GK's `c76c8765` with a merge of master's bookkeeping), so that SK and every later slice write `..<Struct>::NONE` from the start:
       - `defs/units.rs` split into `units/attack.rs` and `units/worker.rs`, all re-exported;
       - `ObjectDef::NONE`, `UnitDef::NONE` and `StructureDef::NONE` in `defs/defaults.rs` (T84), and every def literal ends with `..<Struct>::NONE`;
       - `Ruleset::BUILTIN`'s JSON byte-identical (GK's check). 2750 tests passed, 62 ignored; the goldens unchanged, the seed sweep passes, and the 192 computer-player games are identical.
     - **Conventions shared with SK** (the Director's): a deployed kind is immobile by its def (MaxSpeed and ReverseMaxSpeed 0, exempted by name in `unit_is_consistent`'s `IMMOBILE` list, T87). An air unit whose doc gives no SeparationRadius takes its Silhouette's side + 8 su (Q0181).
-  - **M6-SK The Syndicate kinds** (Opus; brief `scratchpad/briefs/m6sk-syndicate-kinds.md`), beside GK. Its block goes after GK's in the registry.
+  - **M6-SV The Vehicle Assembly and the Assault Bike** (Opus; brief `scratchpad/briefs/m6sv-vehicle-assembly.md`), launched at SK's merge into the free slot, ahead of its wave (W3), on 2026-11-27.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
 - **Next:** **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
   - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
