@@ -39,7 +39,7 @@ Placeholder (bookmarked by the user, 2026-11-23, to be designed with the HUD): s
 
 ### Alerts
 (user, 2026-11-26: minimal alerts)
-- **When**: one of the player's units or buildings **takes damage while it is off screen** (outside the camera's view). Fights already on screen give no alert.
+- **When**: one of the player's units or buildings **takes damage while it is off screen** (outside the camera's view). Fights already on screen give no alert. **A crush gives no alert** (user, 2026-11-27; Q0178): a unit crushed off screen pings nothing (a crush is not damage).
 - **What**: a **red ping on the minimap** at that spot: a ring that shrinks and fades over about **2 s** (placeholder). No text and no sound.
 - **How often**: at most **one ping per area every 10 s** (placeholder; an area: within about 8 grid units of an earlier ping still in its 10 s), so a long fight doesn't keep flashing.
 - **Jump to the latest alert: Space** (user, 2026-11-26; default key): centres the camera on the **latest** alert's spot (snap, as Centering, core/camera.md). Later notifications of other kinds (none yet) will use the same key.
