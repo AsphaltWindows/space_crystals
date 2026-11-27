@@ -14,4 +14,4 @@ Prerequisite for the **Shadebringer** and (with a Chemical Plant) the **Specter*
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Size 2x2; MaxHP 400; PointArmor 6, FullArmor 24 (underground expansion, n = 6); Cost 150 Space Crystals; Build Time 400 frames (25 seconds).
-- **Throughput**: each Vault re-arms or recharges **2 units at a time**; others wait their turn (network-wide, first come first served). Specter re-arming: 160 frames (10 s). Shadebringer tanks refill at 5 per second each.
+- **Throughput**: each Vault re-arms or recharges **2 units at a time**; others wait their turn (network-wide, first come first served). Specter re-arming: 160 frames (10 s). Shadebringer tanks refill at 5 per second each. **Services run side by side** (user, 2026-11-26; Q0158): a unit's turns at a Vault and at a Null Chamber (and any repair) progress **at the same time**, in separate queues; e.g. a Specter is re-armed and buffed in 10 s, an empty Shadebringer in 20 s.
