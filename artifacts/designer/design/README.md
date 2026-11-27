@@ -25,7 +25,7 @@ Index of the design docs. Paths are relative to this folder.
 | `systems/combat.md` | Attack phases, targeting, attack types, damage calculation (armor, directional, AoE, minimum), shields |
 | `systems/controls/selection.md` | ControlState, selection and SelectionGroups (incl. no smart-casting), box and click selection, control groups, group cycling |
 | `systems/controls/interface.md` | Key rebinding, interface states and transitions, command panel (grid, standard slots, rally points), DefaultState, right-click resolution, AwaitingTarget, cursor target, BasicCombatUnitInterfaceState |
-| `systems/controls/hud.md` | HUD bar, SelectionPanel, pointer display types (cursor), command indicators |
+| `systems/controls/hud.md` | HUD bar, Minimap, SelectionPanel, pointer display types (cursor), command indicators |
 | `systems/controls/commands.md` | Unit commands (+ group destinations / magic box): Move, Attack, Attack Ground, Attack Move, Patrol, Hold, Stop, Reverse, Enter |
 | `systems/controls/behaviors.md` | Core principle (predictable, not optimal), behavior states, turret scanning, auto-targeting, path knowledge |
 | `systems/controls/command_behaviors.md` | One behavior per command: moving, attacking, reversing, attack-move, patrol, hold, stop |

@@ -5061,7 +5061,7 @@ playtest tool, started from the command line (`--ai`, see *QA mode*), whose beha
   - `build`: where a building goes, the nearest spot the placement check takes, with a free ring around it;
   - `army`, shared by every faction: the staging point, the waves and the defense;
   - `factions`: one module per faction behind `FactionAi`. It decides what to build and train, which units fight and
-    which buildings rally.
+    which buildings rally, and may size its army's waves (`FactionAi::waves`; the army layer's own by default).
 - **Numbers**: all placeholders, in `sc_ai::tuning` (*Tunables*).
 - **A faction's computer player** (slices A2a to A2c): its module, `factions/<faction>.rs`, sets its `HOOK` (`None`
   until then). The command line then accepts `--ai` for its players, and `ai_games` plays it (*Adding a faction*,
@@ -5111,13 +5111,15 @@ It never panics, whatever the game's state: an assumption that fails skips the a
   the invariants, that the gate takes every command, and design change 0402's Verification ("an AI doesn't attack a
   building it has never seen or scouted, apart from the known start locations"): each Attack and Attack Move must aim
   at a building the player knew of, a start, a patch or a point of its own. The tests:
-  - the default run: standard against passive on `dev_skirmish` for 6 minutes, every invariant checked;
+  - the default run: standard against passive of each faction with a computer player, on `dev_skirmish` for 6
+    minutes, every invariant checked;
   - 0402's check on a game to a defeat, and on a planted target;
-  - determinism: the same game twice gives the same hash;
+  - determinism: the same game twice gives the same hash, for each faction with a computer player;
   - the ignored `ai_games`, `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored --nocapture`. It
     plays every pairing of factions that have a computer player on every Skirmish Default map. Standard must beat
-    passive within 15 minutes from either slot, and standard against standard must end in a defeat. It prints who
-    won, when, the units trained, the waves sent and what `Ai::think` cost.
+    its own faction's passive within 15 minutes from either slot, and standard against standard must end in a defeat.
+    Standard beating another faction's passive within 20 minutes is wanted, not required: it lists whether it did. It
+    prints who won, when, the units trained, the waves sent and what `Ai::think` cost.
 - **The client**:
   - `cli/ai/tests.rs`: the flags;
   - `tests/commands/computer.rs`: the input drop;
@@ -5355,7 +5357,7 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   so the code that uses it still names it there.
 - **The computer players'** (`crates/ai/src/tuning.rs`, slice A1): `army` (the staging point, the waves, the
   defense), `build` (where a building goes) and one module per faction with a computer player (`gdo`: the opening,
-  the Barracks, the queues). Each is "Placeholder (Q0147 point N)" (2: how it plays; 3: build orders) or
+  the Barracks, the queues; `syndicate`: the Agents, the Tunnels, the expansions, the waves). Each is "Placeholder (Q0147 point N)" (2: how it plays; 3: build orders) or
   "Placeholder (not in the design: why)": the behaviour is the Director's placeholder (*Computer players*).
 - Each constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where there is one,
   why it has its value.

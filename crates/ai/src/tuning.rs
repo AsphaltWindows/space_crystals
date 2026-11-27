@@ -79,3 +79,113 @@ pub mod gdo {
     /// queued.
     pub const TRAIN_QUEUE: usize = 2;
 }
+
+/// The Colonists' computer player (`crate::factions::colonists`, slice A2c).
+pub mod colonists {
+    use sc_sim::{ObjectKind, Tick};
+
+    /// Placeholder (not in the design: the field it saturates is the patches this near its Egress Node, where its
+    /// Drones deliver), grid units: a Skirmish Default start's 8 patches lie within 6 of it.
+    pub const FIELD_RADIUS_GU: f32 = 8.0;
+    /// Placeholder (Q0147 point 2: "workers up to what its field seats"; `factions/colonists/units/drone.md > Patch
+    /// Occupancy`: 8 patches 2 grid units from the Egress Node "saturate at about **24 working Drones** (3 per
+    /// patch, 32 Space Crystals per second)"): the gathering Drones it keeps for each patch of its field with crystals
+    /// left.
+    pub const DRONES_PER_PATCH: usize = 3;
+    /// Placeholder (Q0147 point 2: "training its basic units without pause"; `factions/gdo/economy.md > Economy
+    /// Targets (GDO vs Colonists)`: "one Robo Portal producing Drones nonstop"): the Drones each Robo Portal keeps
+    /// queued while its field wants more or a Beacon is wanted.
+    pub const DRONE_QUEUE: usize = 1;
+    /// Placeholder (Q0147 point 2: "one or two production buildings"; point 3: the scripted lines' "a Bio Portal
+    /// warps in on the first Beacon", the golden game `colonists_opening`'s): the buildings it warps in, each once it
+    /// has this many gathering Drones, in their order of priority for the bank. An Egress Node and a Robo Portal (the
+    /// Starting Conditions' own, warped in again if lost), a Bio Portal on its first Beacon, and two more as its
+    /// income grows: a second at 12 Drones, and a third at 18, 2 a patch (`factions/gdo/economy.md > Economy Targets
+    /// (GDO vs Colonists)`: "Colonists at 2 Drones per patch ≈ 23 Space Crystals per second for 18 Drones", 32 fully
+    /// saturated). Three Bio Portals and the Robo Portal spend 35 a second.
+    pub const WARP_INS: [(ObjectKind, usize); 5] = [
+        (ObjectKind::EgressNode, 0),
+        (ObjectKind::RoboPortal, 0),
+        (ObjectKind::BioPortal, 0),
+        (ObjectKind::BioPortal, 12),
+        (ObjectKind::BioPortal, 18),
+    ];
+    /// Placeholder (Q0147 point 2: "training its basic units without pause"): the Sabre Legionnaires each Bio Portal
+    /// keeps queued, while Beacon Capacity has room for them.
+    pub const TRAIN_QUEUE: usize = 2;
+    /// Placeholder (Q0147 point 2: "its basic units", the Sabre Legionnaire and the Rifle Legionnaire it converts
+    /// into, `factions/colonists/units/weapon_conversion.md`): one Legionnaire in this many is a Rifle. Sabres alone
+    /// trade evenly with a passive player's at its staging point, so that on `dev_skirmish` neither side wins in 20
+    /// minutes; with half of them Rifles, firing over the Sabres in front, the waves beat it within 15 minutes
+    /// (`crates/ai/tests/games.rs`, `ai_games`).
+    pub const RIFLE_EVERY: usize = 2;
+    /// Placeholder (not in the design: Beacon Capacity kept ahead of the army, `factions/colonists/units/drone.md >
+    /// BeaconCapacityCost`: "roughly every 6th Drone must deploy as a Beacon to keep Drone production going"): a
+    /// Drone deploys once the room under Beacon Capacity, the Beacons on their way counted, falls short of what the
+    /// queued units take plus this many of each portal's next units: one, a portal's next 10 seconds.
+    pub const BEACON_LEAD: u32 = 1;
+    /// Placeholder (not in the design: where Beacons go): how far from the Robo Portal the Beacon sites reach, each
+    /// way, tiles. A site takes a Beacon's 2 x 2 (a Bio Portal's 3 x 3 while one to come lacks a Beacon) and a free
+    /// tile round it, so that 16 tiles each way hold the 40 buildings of Beacon Capacity's 200
+    /// (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`) and more.
+    pub const SITE_REACH: i32 = 16;
+    /// Placeholder (not in the design: the most deploy checks one search for a Beacon site makes, so that a full base
+    /// costs little).
+    pub const SITE_CHECKS: usize = 24;
+    /// Placeholder (not in the design: a Drone sent to deploy that hasn't begun its deployment this long after its
+    /// order is stopped, its Deploy failed), ticks (20 seconds: a walk across the Beacon sites' reach takes 10).
+    pub const DEPLOY_PATIENCE_TICKS: Tick = 320;
+    /// Placeholder (not in the design: a Drone whose Deploy failed, and that Deploy's site, are left out of the next
+    /// Deploys this long), ticks (1 minute).
+    pub const FAILED_DEPLOY_TICKS: Tick = 960;
+}
+
+/// The Syndicate's computer player (`crate::factions::syndicate`).
+pub mod syndicate {
+    use sc_sim::{ObjectKind, Tick};
+
+    /// Placeholder (Q0147 point 2: "workers up to what its field seats"; design change 0294: "3 Agents saturate out to
+    /// about 3 GU", the distance from a starting Tunnel's crystal hatch to its nearest patches on every Skirmish
+    /// Default map): the Agents that gather Space Crystals for each Tunnel on a field ([`FIELD_REACH_GU`]).
+    pub const AGENTS_PER_HATCH: usize = 3;
+    /// Placeholder (not in the design: a Tunnel is on a field while a patch it knows, with crystals left, lies this
+    /// near its crystal hatch, centre to centre), grid units. A Skirmish Default map's starting field lies within 6.
+    pub const FIELD_REACH_GU: f32 = 8.0;
+    /// Placeholder (not in the design: the Agents that gather Supplies at a Supply Delivery Station and build the
+    /// Tunnels, `factions/syndicate/overview.md > SyndicateResources > Supplies`: "Spent on Tunnel construction").
+    pub const RUNNERS: usize = 1;
+    /// Placeholder (not in the design: the Tunnels it owns at most; `factions/syndicate/overview.md > TheSyndicate`:
+    /// "building more Tunnels/upgrades grows" Tunnel Space, its army cap).
+    pub const TUNNELS: usize = 6;
+    /// Placeholder (Q0147 point 3: the Syndicate's line, `testing::syndicate::skirmish`: a Hideout's Guards behind "an
+    /// Optics Lab"): the expansions it keeps, one of each, in order (`factions/syndicate/structures/hideout.md >
+    /// Produces`: the Guard's "Unit Prerequisite: player owns at least one Optics Lab"). No Chemical Plant, so no
+    /// Grenadiers: with one fighter in 3, 4 or 5 a Grenadier, standard beat passive later in the mirror than with
+    /// Guards alone, or not within 15 minutes (`crates/ai/tests/games.rs`, `ai_games`).
+    pub const EXPANSIONS: [ObjectKind; 2] = [ObjectKind::Hideout, ObjectKind::OpticsLab];
+    /// Placeholder (Q0147 point 2: "training its basic units without pause"): the units each Hideout keeps queued.
+    pub const TRAIN_QUEUE: usize = 2;
+    /// Placeholder (Q0147 point 2: "attacks in waves of about 8 units"): the Guards waiting at staging that make each of
+    /// its waves, the first too (`FactionAi::waves`). More than 8: a wave meets the enemy's whole army at its staging
+    /// point, beside the Tunnel its Guards come out of. The army layer's waves (`crate::tuning::army`: 8, then 32, or
+    /// after 2 minutes) beat a passive player on `maps/dev_skirmish.json` only after 16 minutes from slot 1 and 18 from
+    /// slot 2; waves of 20 beat it within 11 minutes on every Skirmish Default map, from either slot
+    /// (`crates/ai/tests/games.rs`, `ai_games`).
+    pub const WAVE_SIZE: usize = 20;
+    /// Placeholder (not in the design: as `crate::tuning::army::WAVE_PATIENCE_TICKS`, once Guards have waited at
+    /// staging this long, they go as a wave however few they are), ticks (4 minutes; at a crystal hatch's 12.5 Space
+    /// Crystals a second, design change 0294, a wave of 20 Guards takes about 3 and a half).
+    pub const WAVE_PATIENCE_TICKS: Tick = 3840;
+    /// Placeholder (not in the design: an Agent standing idle is given a job again at most this often), ticks (2
+    /// seconds).
+    pub const JOB_RETRY_TICKS: Tick = 32;
+    /// Placeholder (not in the design: a new Tunnel's site lies within this distance of where it is wanted), grid
+    /// units.
+    pub const SITE_REACH_GU: f32 = 16.0;
+    /// Placeholder (not in the design: the most build checks one search for a Tunnel's site makes, so that it costs
+    /// little).
+    pub const SITE_CHECKS: usize = 400;
+    /// Placeholder (not in the design: after a search for a Tunnel's site finds none, the next waits this long), ticks
+    /// (10 seconds).
+    pub const SITE_RETRY_TICKS: Tick = 160;
+}

@@ -12,7 +12,7 @@ The Cults' starting structure. Automatically produces Recruits from the surround
 ## FullArmor - 16
 ## SightRange - 6 grid units
 ## Destructible - true
-## Groupable - true (user, 2026-11-27; was false: selected Halls form one group, and a rally point set with several selected applies to all of them)
+## Groupable - true (user, 2026-11-27; was false: selected Halls form one group, and a rally point set with several selected applies to all of them. Select several with Shift-click, Ctrl-click or double-click; a box picks one building, systems/controls/selection.md > BoxSelection, Q0151)
 ## TechPrerequisite - None
 
 The player starts with one RecruitmentHall, but additional ones are buildable by Recruits like any other Cults structure. Space Crystals cost and construction time are listed under the Recruit's Constructs list (see Recruit > Building).
