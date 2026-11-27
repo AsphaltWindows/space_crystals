@@ -1478,6 +1478,16 @@ or `Visible` for each player, and each player remembers the structures and resou
   `Vision::seed` gives every player a record of each object without an owner (the crystal patches, the Supply
   Delivery Stations), `seen` 0, before the first sight; the players' Starting Layouts are never pre-known, and an
   object that appears later is unknown until seen.
+- **The map explored from the start** (slice M5-S7, design change 0416, `core/vision.md > Starting exploration`: "every
+  tile starts **Explored** for every player instead of Unexplored"): a game option, `SimConfig::start_explored`. With
+  it on, `Sim::settle_start` turns every tile Explored for every player (`Vision::explore_all`) before the first
+  sight, beside the neutral objects' records above; no player's object is recorded, and from there memory works as
+  ever (a patch mined out of a player's sight keeps its starting amount in their record). The rules that read the
+  Explored bits judge from 0:00 as they would later in a game: placement's known terrain (`Mode::Known`: a
+  never-explored tile passes, so with every tile explored every terrain problem counts from the start), the Tunnel
+  Area's and the Recruitment Hall's known ground, the client's fog (dimmed, not black) and its records out of sight,
+  and the areas the overlays leave out as unexplored; path knowledge, targeting remembered objects and the computer
+  players' `View` read the records and the Visible tiles, so they don't change. Tests: `tests/starting_exploration.rs`.
 - **Memory updates follow the vision's changes**, never a scan of the map or of every object for every player:
   5f's id-order walk over the objects also merges the footprints of the tile-based objects (`Footprints`), so only
   a footprint that came or went touches the index from tiles to objects; `see` and `unsee` note the tiles whose
@@ -3042,7 +3052,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `Sim` keeps and hashes them, and the `Replay` records them with the setup; map files don't hold them. `debug` turns
   debug commands on. `SimConfig::default()` has it off, as a real match will. The client turns it on
   (`AppConfig::new`; off with `--no-debug`), editor play-tests run with it on, and so does `TestSim::new`
-  (`TestSim::with_config` or `ScenarioBuilder::config` for other options).
+  (`TestSim::with_config` or `ScenarioBuilder::config` for other options). `start_explored` (slice M5-S7, design
+  change 0416; *Vision*) starts the map explored: off in `SimConfig::default()` and `SimConfig::DEBUG`, so the sim's
+  tests, the goldens and the client's test harness (`AppConfig::new`) start unexplored as before, and in a replay
+  recorded before it existed (`#[serde(default)]`, hashed only while on); the command line turns it on for every game
+  and play-test it launches (`cli::into_config`), `--unexplored` off.
 - `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove`, `SetPosition`, `SetAutoTargeting` (see
   *Behaviours*), `SetResources` (any player's banks, see *Economy*; the gate checks that the player it names is in
   the game, `UnknownPlayer`) and `SetTier` (a Tunnel's tier, `NoSuchTier` for a tier it has no row for or an object
@@ -3916,6 +3930,20 @@ the camera keeps the view of the one before and goes to the new one's, at their 
 sim (`SimRes::generation`: a play-test, a loaded scenario) forgets them all and leaves the camera where its switch
 put it.
 
+**Window** (`platform/window.rs`; slice M5-S7, design change 0413, `core/camera.md > Window Mode` and
+`core/camera.md > Panning > Arrow keys and screen edge`): a game, the editor and a playback open in borderless full
+screen on the monitor the window opens on (`window::FULL_SCREEN`, `MonitorSelection::Current`; at creation Bevy logs
+that it can't select the current monitor yet and leaves the choice to winit, which takes the one the window opens on),
+`--windowed` in a window of `--window-size`, and a QA run always in a window of its fixed size
+(`PlatformPlugin::primary_window`: never full screen when `reproducible`), so screenshots keep their size.
+`ToggleFullscreen` (F11 or Alt + Enter, both contexts; placeholder keys) switches between the two; back in a window, it
+takes the size it had before (`WindowedSize`) and is centred. While the window has the focus, the cursor is confined to
+it (`CursorOptions::grab_mode`, `CursorGrabMode::Confined`), in a window and in full screen alike: `confine_cursor`
+follows the window's `WindowFocused` messages, frees it on a focus loss and confines it again on the focus's return; a
+grab the platform refuses (bevy_winit puts the old mode back) is tried again for `CONFINE_TRIES` frames, and macOS,
+which has no confinement, leaves it free. A QA run (`RawInput` off) never confines it. The screen edge pans within
+`EDGE_PAN_MARGIN_PX` (8, the design's placeholder) of the window's edge. Tests: `tests/client/window.rs`.
+
 **HUD**: built with bevy_ui (`core/camera.md > HUD Layout`). It has a top resource bar and, at the bottom, the HUD
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
 CommandPanel. All five have the same height and keep fixed horizontal slots, and a hidden panel's slot stays reserved
@@ -4036,6 +4064,27 @@ fog on; load average 7.6): a redraw 0.029 ms at 1280 × 720, 0.039 ms at 1920 ×
 and `tests/layers.rs` (the frame and the mappings, the outline at two zooms, the redraws, the fog layers),
 `tests/commands/minimap.rs` (the clicks through the virtual mouse, and the panel).
 
+**Playtest menu** (`playtest_menu.rs`, `playtest_menu/`; slice M5-S7, design change 0414, `core/game_rules.md >
+Playtest menu (temporary)`): games only, not the editor, its play-tests or a playback (`build_app`). `PlaytestMenu` is
+`Closed`, `Paused` (F10, `InputAction::PlaytestMenu`: Resume, Restart and Quit, under "PAUSED") or `GameEnd` (opened
+when `Sim::outcome` is set: Restart and Quit, under the outcome's banner; F10 leaves it open). `use_menu` runs in
+`PreUpdate` after `ReadActions`, so the pause (`SimControl::paused`, the designer's placeholder) holds from the frame
+F10 is read, before that frame's `FixedUpdate`: nothing steps, the computer players don't think, and the command UI's
+input set doesn't run (`menu_closed`). While it is open the menu holds the input (`input::Modal`, *Input*). Its
+buttons are bevy_ui nodes in the HUD's colours (`playtest_menu/panel.rs`, a placeholder look); `MenuLayout` computes
+their rectangles from the surface size alone, and a click is the `Select` press under the cursor, as the HUD's
+headless-testable sections are. Quit writes `AppExit::Success`; there is no confirmation (the designer's placeholder).
+**Restart** (`playtest_menu/restart.rs`) starts the game over in-process, as a fresh launch of it would (`Launch`: the
+scenario with its setup and game options, the local player, the computer players and the recording as launched): a
+new `Sim` of the scenario, the local player, the pending and recorded inputs, the pause, the camera's start view, zoom
+and grab, the minimap's press, new computer players (`AiPlayers::start`) and a new recording (the old one written
+complete, `Recorder::close`); the rest of a game's client state starts over by the new sim's generation (selections
+and control groups, the players' cameras, the visuals and records, viewer events, combat effects, the Shroud's clouds,
+indicators, notices, the fog's and the minimap's layers), and the outcome screens follow the new sim's `outcome`.
+The client's own settings stay: F3, P, G, the pace, the window, the bindings. Tests: `tests/playtest_menu/` (the
+pause, Quit, the restart against a fresh launch, AI against AI, and the client state), `tests/game_end/menu.rs`,
+`tests/selection/menu.rs` (the input held).
+
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the
 focused text field's key handling), and gameplay and editor code read only what it produces: `InputAction`s, which
@@ -4076,6 +4125,15 @@ elsewhere.
   portraits, and F2 for the debug player switch, the fog of war F3 for its debug toggle (placeholders: the design
   has no debug keys), and the replay playback keys of the game's context: Space pauses and resumes, `.` plays one
   tick, `-` and `=` change the speed (`ReplayPause`, `ReplayStep`, `ReplaySlower`, `ReplayFaster`; placeholders).
+  Slice M5-S7 adds F11 and Alt + Enter, in both contexts, for `ToggleFullscreen` (*Window*), and F10 in the game's
+  for `PlaytestMenu` (design changes 0413 and 0414; placeholder keys).
+- **Modal** (`input::Modal`, slice M5-S7): while a menu holds the input (the playtest menu), the frame's presses go to
+  `ActionState::modal_pressed` for the menu, and the rest of the client sees only the actions that pass a menu
+  (`InputAction::passes_modal`: the window's toggle, F10, and the debug player switch and fog toggle, so hot-seat
+  players can still look at their own banners): no held action (the camera keys, the screen edge), no wheel, the
+  pointer over the UI and no map press, so no selection, command or pan starts, and one under way ends without a click
+  or a box. What is still held when it lets go comes back held, never pressed, so the click that closes it does
+  nothing else.
 - **Output**: `ActionState` (a `Resource`) holds this frame's actions (held, just pressed, just released), the wheel's
   turn, the modifiers, the context, the cursor in logical pixels, and the `Pointer`: the view point and the ground
   point (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside
@@ -4766,14 +4824,15 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--window-size <W>x<H>` | Window or offscreen image size in physical pixels. Default `1280x720`. |
 | `--fast` | Runs as many ticks per frame as fit in 50 ms instead of 16 per second. Screenshots are unchanged. |
 | `--no-debug` | Runs the game with debug commands off (the setup's `SimConfig`), as a real match will; they are on by default. |
+| `--unexplored` | Starts the map unexplored (`SimConfig::start_explored` off); by default a game and an editor play-test start with every tile explored (*Vision*). Not with `--replay` (a replay records its options). |
 | `--screenshot <tick>:<path>` | Saves a PNG of exactly that tick. Repeatable, in any order; creates parent dirs. |
 | `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's, or else to the `--replay`'s end. |
 | `--dump-state <path>` | Writes the state as JSON when the run ends (fields below). |
 | `--commands <file.json>` | Applies player commands at given ticks: a JSON list of `{"tick", "player", "command"}` (`qa::TimedCommand`; `command` is a `sc_sim::Command` in serde form). Each applies in the step that reaches its tick (1 or later), a tick's commands in file order. Not with `--editor`. |
-| `--input-script <file.json>` | Drives the virtual keyboard and mouse (`InjectedInput`) at given ticks: a JSON list of `{"tick", "cursor", "press", "tap", "release"}` (`qa::InputStep`; buttons by name: `MouseLeft`, `ControlLeft`, `Digit1`, `KeyQ`, `F2`, …). The sim waits at each step's tick until it is applied, so a button held across steps drags and a chord spans steps (Ctrl + 1: `press` Ctrl and `tap` 1, release Ctrl in a later step). Not with `--editor`. |
+| `--input-script <file.json>` | Drives the virtual keyboard and mouse (`InjectedInput`) at given ticks: a JSON list of `{"tick", "cursor", "press", "tap", "release"}` (`qa::InputStep`; buttons by name: `MouseLeft`, `ControlLeft`, `Digit1`, `KeyQ`, `F2`, …). The sim waits at each step's tick until it is applied, so a button held across steps drags and a chord spans steps (Ctrl + 1: `press` Ctrl and `tap` 1, release Ctrl in a later step). One step a frame (slice M5-S7): a tick's steps apply in consecutive frames, so F10 and then a click in the playtest menu, which pauses the game, go at the same tick. Not with `--editor`. |
 | `--show-paths` | Starts with the unit path overlay on (P toggles it). |
 | `--no-fog` | Starts with the fog of war off: the client shows everything (F3 toggles it). Display only; not with `--no-debug`. |
-| `--windowed` | Shows a QA run in a window on the user's display instead of rendering offscreen. |
+| `--windowed` | Starts a game, the editor or a playback in a window instead of borderless full screen (*Window*); shows a QA run, which is never full screen, in a window on the user's display instead of rendering offscreen. |
 | `--headless` | No window and no renderer: sim, client state and `--dump-state` only. Needs `--exit-at-tick`. |
 | `--replay <file.json>` | Plays a recorded game back (see Replays and golden hashes) with its own map, players and game options: not with `--scenario`, `--map`, `--factions`, `--editor`, `--no-debug` or `--commands`. Pauses at the end, so no tick of the other flags may come after it. The other QA flags work with it. |
 | `--record <file.json>` | Records the game to that file. A game is recorded to `replays/` anyway; a QA run only with this flag. Not with `--editor` or `--replay`. |
@@ -4799,6 +4858,11 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   `recording` file, and in a playback `replay`: its `file`, `end_tick`, number of `checkpoints` and the `desync`, if
   any) and `map` (the terrain).
 - `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
+- The playtest menu in a QA run: an `--input-script` step taps `F10` at a tick (the game pauses there, so the sim
+  holds that tick for good), and a screenshot of the same tick shows the menu, the step being read during the
+  screenshot's settling frames. A click on one of its buttons goes at the same tick, its centre from `MenuLayout`
+  (at 1280 × 720: x 640, Resume y 263.5, Restart y 308.2, Quit y 352.8; at the game's end Restart y 421.2, Quit y
+  465.8). After a Restart the ticks of later steps and screenshots are the new game's.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
 - To look at another part of a map, give the slot a different camera start in the editor (or the file's
   `camera_start`) and pass the file with `--map`. In an `--input-script`, pan with middle-button drags (a press, a
@@ -4832,6 +4896,10 @@ unchecked.
   `core/game_rules.md > End of Game`) and when the app exits (window closed, Ctrl+C, a QA run's end), atomically
   (`files::write_atomically`), so a crash loses a few seconds at most. QA runs record only with `--record`;
   `--no-record` turns recording off. Should the sim be replaced (`SimRes::generation`), the recording ends there.
+  Each game keeps its own replay (slice M5-S7, the Director's call): a Restart from the playtest menu writes the
+  recording complete to its last tick (`Recorder::close`) and records the new game to a file of its own
+  (`RecordingNames`): `replays/<UTC date>_<time>_<map>.json` of its start, or with `--record <stem>.json`
+  `<stem>.restart1.json`, `<stem>.restart2.json`, … beside it.
 - **Playback** (`--replay`, `crates/game/src/replay/playback.rs`): the game starts from the replay's scenario with its
   game options, and each step applies the recorded inputs of its tick and nothing else. The local player can't give
   commands: the command UI's input set (`CommandUiSystems::Input`) doesn't run, and anything else pending is dropped.
@@ -5046,7 +5114,9 @@ unchecked.
   document with the play-test setup (`PlayTestSetup`, the Play-test panel): each slot's faction, which slot you play,
   the seed, and debug commands on. It is not part of the map. `Sim::try_new` must accept the map; the game runs at
   the game's zoom, and its top bar says "Play-test (F5)" (`hud::TopBarNote::PlayTest`, slice M5-S6). Only F5 returns
-  (Esc is the game's Cancel), to the editor with the document, its history and the view unchanged.
+  (Esc is the game's Cancel), to the editor with the document, its history and the view unchanged. A play-test has no
+  playtest menu (F10; *Client architecture > Playtest menu*), and starts with the map explored as a game does, unless
+  `--unexplored` (`cli::into_config` sets the scenario's game options, which the play-test setup keeps).
 - **Unsaved changes**: New, Open, Quit and the window's close button (`WindowCloseRequested`, through
   `editor/input.rs::close_requests`; `platform::ConfirmClose` keeps the platform from exiting by itself) ask once with
   a status warning and go ahead when asked again, also during a play-test.
@@ -5164,6 +5234,10 @@ It never panics, whatever the game's state: an assumption that fails skips the a
 - **Input**: while the local player is a computer's, the command flow's input (`CommandUiSystems::Input`) doesn't
   run. Selecting and looking still work, F2 still switches the player, and the top bar's note says "(AI)"
   (`hud::TopBarNote::Computer`).
+- **Restart** (slice M5-S7): the playtest menu's Restart gives the new game new `Ai`s of the same players and profiles
+  (`AiPlayers::start`, as at launch), so a restarted game plays out as a fresh launch does
+  (`tests/playtest_menu/restart.rs`: an AI-against-AI game restarted at tick 600 has, 1200 ticks later, a fresh
+  launch's hash).
 
 ### Tests
 

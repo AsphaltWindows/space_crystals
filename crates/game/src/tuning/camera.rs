@@ -9,7 +9,9 @@ pub const VIEW_WIDTH_GU: f32 = 28.0;
 pub const PAN_SPEED_GU_PER_SECOND: f32 = 24.0;
 
 /// Screen-edge panning (`core/camera.md > Panning > Arrow keys and screen edge`): a cursor this close to a window
-/// edge (logical pixels) pans that way (`crate::input`). Placeholder (not in the design): the design gives no margin.
+/// edge (logical pixels) pans that way (`crate::input`): "the camera pans while the cursor is within **8 pixels** of
+/// the window's edge (placeholder)" (design change 0413; the design's placeholder). The cursor stays in the window
+/// while it is focused (`crate::platform`), so the edge is always within reach.
 pub const EDGE_PAN_MARGIN_PX: f32 = 8.0;
 
 /// The map editor's closest zoom: half the game's view (`crate::editor::view`). Placeholder (not in the design).

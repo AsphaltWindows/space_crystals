@@ -153,6 +153,7 @@ mod shrine;
 #[path = "shroud/main.rs"]
 mod shroud;
 mod skirmish_soak;
+mod starting_exploration;
 mod structures;
 mod structures_vision;
 mod symmetry;

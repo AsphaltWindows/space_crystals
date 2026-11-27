@@ -16,6 +16,7 @@ use crate::editor::actions::EditorAction;
 use crate::editor::{EditorConfig, files};
 use crate::platform::DisplayMode;
 use crate::qa::{QaConfig, ScreenshotRequest};
+use crate::replay::RecordingNames;
 use crate::{AppConfig, PlaybackSource, replay};
 
 pub use usage::usage;
@@ -47,6 +48,9 @@ pub struct CliOptions {
     pub fast: bool,
     /// Debug commands are on unless `--no-debug`.
     pub debug: bool,
+    /// (Slice M5-S7) `--unexplored`: the map starts unexplored, not Explored for every player (design change 0416,
+    /// `SimConfig::start_explored`).
+    pub unexplored: bool,
     pub screenshots: Vec<ScreenshotRequest>,
     pub exit_at_tick: Option<Tick>,
     pub dump_state: Option<PathBuf>,
@@ -55,6 +59,8 @@ pub struct CliOptions {
     pub show_paths: bool,
     /// The fog of war is on unless `--no-fog`.
     pub fog: bool,
+    /// `--windowed`: a window instead of borderless full screen (slice M5-S7), and a QA run's in a window instead of
+    /// offscreen.
     pub windowed: bool,
     pub headless: bool,
     /// `--replay`: the replay file to play back.
@@ -80,6 +86,7 @@ impl Default for CliOptions {
             window_size: DEFAULT_WINDOW_SIZE,
             fast: false,
             debug: true,
+            unexplored: false,
             screenshots: Vec::new(),
             exit_at_tick: None,
             dump_state: None,
@@ -118,6 +125,7 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
             "--window-size" => options.window_size = parse_size(&value()?)?,
             "--fast" => options.fast = true,
             "--no-debug" => options.debug = false,
+            "--unexplored" => options.unexplored = true,
             "--screenshot" => options.screenshots.push(parse_screenshot(&value()?)?),
             "--exit-at-tick" => options.exit_at_tick = Some(parse_tick(&value()?)?),
             "--dump-state" => options.dump_state = Some(value()?.into()),
@@ -172,8 +180,13 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
         ));
     }
     if playback.is_none() {
-        // A replay keeps the recorded game's options: only with them does it play out the same.
-        scenario.setup.config = SimConfig { debug: options.debug };
+        // A replay keeps the recorded game's options: only with them does it play out the same. The client starts its
+        // games with the map explored (design change 0416), unless `--unexplored`; the editor's play-tests take the
+        // options too.
+        scenario.setup.config = SimConfig {
+            debug: options.debug,
+            start_explored: !options.unexplored,
+        };
     }
     if options.windowed && options.headless {
         return Err("--windowed and --headless exclude each other".into());
@@ -263,15 +276,25 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
         qa.is_active(),
         scenario.name(),
     )?;
+    // (M5-S7) `core/camera.md > Window Mode`: "The game starts in borderless full screen by default"; a QA run keeps
+    // its window's size.
+    let fullscreen = display == DisplayMode::Window && !qa.is_active() && !options.windowed;
+    let recording_names = if options.record.is_some() {
+        RecordingNames::Numbered
+    } else {
+        RecordingNames::Dated
+    };
     Ok(AppConfig {
         scenario,
         player,
         display,
         window_size: options.window_size,
+        fullscreen,
         qa,
         fast: options.fast,
         editor,
         record,
+        recording_names,
         playback,
         ai: options.ai,
     })
@@ -285,6 +308,7 @@ fn playback_source(options: &CliOptions, path: &Path) -> Result<PlaybackSource, 
         (options.map.is_some(), "--map"),
         (options.factions.is_some(), "--factions"),
         (!options.debug, "--no-debug"),
+        (options.unexplored, "--unexplored"),
         (options.commands.is_some(), "--commands"),
         (!options.ai.is_empty(), "--ai"),
     ];

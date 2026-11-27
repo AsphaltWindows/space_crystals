@@ -27,9 +27,14 @@ pub(super) fn walking_keys(
 impl Sim {
     /// The starting objects are in: every player knows the neutral objects the map placed, from records of them
     /// (design change 0159: "known from the start (pathing and memory), like terrain", `Vision::seed`), and nothing
-    /// of the others' starting layouts; tick 0 already shows what they see, and remembers what it saw; and the grids
-    /// are built from all of it (`paths::knowledge`), for the units the game starts with.
+    /// of the others' starting layouts; in a game that starts explored (`SimConfig::start_explored`, design change
+    /// 0416) every tile is Explored for every player besides, so those records show from the start; tick 0 already
+    /// shows what they see, and remembers what it saw; and the grids are built from all of it (`paths::knowledge`),
+    /// for the units the game starts with.
     pub(super) fn settle_start(&mut self) {
+        if self.config.start_explored {
+            self.vision.explore_all();
+        }
         self.vision
             .seed(self.objects.values().filter(|o| o.owner.is_none()), self.tick);
         self.vision.update(&self.map, self.objects.values(), self.tick);

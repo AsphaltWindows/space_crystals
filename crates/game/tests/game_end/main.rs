@@ -10,12 +10,14 @@
 //! - a defeated player whose ally plays on would watch through the union of their own vision and their allies'
 //!   (0102): tested through `Sight::watching`, and the rule of who leaves with `hud::results::left_the_game`'s unit
 //!   tests;
-//! - every other player is told of a defeat while the game goes on (0357), in the defeat notice.
+//! - every other player is told of a defeat while the game goes on (0357), in the defeat notice;
+//! - (slice M5-S7) the playtest menu opens at the end, under the banner, with Restart and Quit (0414).
 //!
 //! One test binary: `outcome` (the banners, Victory, Defeat and Draw, and the stop), `recording` (the recording
 //! saved, a QA run's stop, a playback's pause), `results` (the results screen, in a game and in a replay, and
-//! the union of visions) and `notice` (the defeat notice).
+//! the union of visions), `notice` (the defeat notice) and `menu` (the playtest menu at the end).
 
+mod menu;
 mod notice;
 mod outcome;
 mod recording;

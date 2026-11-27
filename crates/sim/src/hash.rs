@@ -295,8 +295,12 @@ impl StateHash for ResourceState {
 
 impl StateHash for SimConfig {
     fn hash(&self, h: &mut StateHasher) {
-        let SimConfig { debug } = self;
+        let SimConfig { debug, start_explored } = self;
         debug.hash(h);
+        // (M5-S7) Only while it is on, under a tag of its own, so that the games without it hash as they did.
+        if *start_explored {
+            h.tag(1);
+        }
     }
 }
 

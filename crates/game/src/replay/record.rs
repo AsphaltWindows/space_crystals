@@ -9,22 +9,60 @@
 //! A recording belongs to the sim it started with: should the sim be replaced (`SimRes::generation`), the recording
 //! is written once more and stops.
 //!
+//! (Slice M5-S7) **A restarted game** (the playtest menu's Restart, `crate::playtest_menu`) keeps its own replay, the
+//! Director's call on design change 0414: the restart writes the game's recording one last time, with a checkpoint of
+//! its last tick ([`Recorder::close`]), and records the new game from its tick 0 to a file of its own
+//! ([`RecordingNames::restart_path`]): beside `--record`'s file, numbered (`game.json`, `game.restart1.json`,
+//! `game.restart2.json`, …), or by default a new `replays/<UTC time>_<map>.json`.
+//!
 //! When the game is over (`Sim::outcome`, `core/game_rules.md > End of Game`: "the replay is saved"), the recording
 //! is complete: it is written at once, with a checkpoint of the last tick, and the client steps no more
 //! (`sim_driver::SimControl::may_step`). Playing it back ends where the game did, in the same outcome.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use bevy::prelude::*;
 use bevy::window::ExitSystems;
-use sc_sim::{Replay, Tick};
+use sc_sim::{Replay, Scenario, Tick};
 
-use super::save_replay;
+use super::{recording_path, save_replay};
 use crate::sim_driver::{LoadedScenario, RecordedInputs, SimRes, StepSim};
 
 /// How often the recording is written while the game runs: every this many ticks of game time (10 s). A QA setting,
 /// not a design number.
 pub const AUTOSAVE_TICKS: Tick = 160;
+
+/// (Slice M5-S7) How the recordings of restarted games are named (module docs).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum RecordingNames {
+    /// Beside the first game's file, numbered: `game.json`, then `game.restart1.json`, `game.restart2.json`, … The
+    /// naming of `--record <file>`, and of the recordings tests ask for.
+    #[default]
+    Numbered,
+    /// A new `replays/<UTC time>_<map>.json` for each game ([`recording_path`]): the naming of the default recording.
+    Dated,
+}
+
+impl RecordingNames {
+    /// The file the game started by restart `restart` (1 for the first) records to, the launch's game recording to
+    /// `first`, on the map `map_name`.
+    pub fn restart_path(self, first: &Path, restart: u32, map_name: &str) -> PathBuf {
+        match self {
+            RecordingNames::Numbered => {
+                let stem = first
+                    .file_stem()
+                    .map_or_else(Default::default, |s| s.to_string_lossy().into_owned());
+                let name = match first.extension() {
+                    Some(extension) => format!("{stem}.restart{restart}.{}", extension.to_string_lossy()),
+                    None => format!("{stem}.restart{restart}"),
+                };
+                first.with_file_name(name)
+            }
+            RecordingNames::Dated => recording_path(SystemTime::now(), map_name),
+        }
+    }
+}
 
 /// The game being recorded.
 #[derive(Resource, Debug)]
@@ -45,6 +83,31 @@ pub struct Recorder {
 }
 
 impl Recorder {
+    /// Records the game of `scenario` that `sim` runs to `path`, from its tick 0; the file is written in the frame's
+    /// `Last` ([`save_recording`]).
+    pub fn start(path: PathBuf, scenario: &Scenario, sim: &SimRes) -> Self {
+        let mut replay = Replay::new(scenario.clone());
+        replay.record_checked(None, sim);
+        Self {
+            path,
+            replay,
+            generation: sim.generation(),
+            stopped: false,
+            finished: false,
+            saved_at: None,
+            error: None,
+        }
+    }
+
+    /// (M5-S7) Writes the recording one last time, with a checkpoint of `sim`'s latest tick, and stops it: its game is
+    /// about to be replaced by a restart, which records the new one elsewhere (module docs).
+    pub fn close(&mut self, sim: &SimRes) {
+        if !self.stopped {
+            self.save(sim);
+            self.stopped = true;
+        }
+    }
+
     /// The recording so far.
     pub fn replay(&self) -> &Replay {
         &self.replay
@@ -93,17 +156,7 @@ impl Plugin for RecordPlugin {
         else {
             panic!("RecordPlugin records the game of SimDriverPlugin: add it after that one");
         };
-        let mut replay = Replay::new(scenario.0.clone());
-        replay.record_checked(None, sim);
-        let recorder = Recorder {
-            path: self.path.clone(),
-            replay,
-            generation: sim.generation(),
-            stopped: false,
-            finished: false,
-            saved_at: None,
-            error: None,
-        };
+        let recorder = Recorder::start(self.path.clone(), &scenario.0, sim);
         app.insert_resource(recorder)
             .add_systems(FixedUpdate, record_step.after(StepSim))
             .add_systems(Last, save_recording.after(ExitSystems));
@@ -144,30 +197,35 @@ fn record_step(sim: Res<SimRes>, recorded: Res<RecordedInputs>, mut recorder: Re
 /// Writes the file when it is due ([`Recorder::save_due`]), with a checkpoint of the latest tick.
 fn save_recording(mut exits: MessageReader<AppExit>, sim: Res<SimRes>, mut recorder: ResMut<Recorder>) {
     let exiting = exits.read().count() > 0;
-    if !recorder.save_due(exiting) {
-        return;
+    if recorder.save_due(exiting) {
+        recorder.save(&sim);
     }
-    let recorder = &mut *recorder;
-    if !recorder.stopped && sim.generation() == recorder.generation {
-        recorder.replay.checkpoint(&sim);
-    }
-    let end = recorder.replay.end_tick();
-    if recorder.saved_at.is_none() {
-        info!("Recording the game to {}", recorder.path.display());
-    }
-    // A failed save waits for the next one too, rather than trying again every frame.
-    recorder.saved_at = Some(end);
-    match save_replay(&recorder.path, &recorder.replay) {
-        Ok(()) => {
-            if recorder.error.take().is_some() {
-                info!("Recording: {} written again", recorder.path.display());
-            }
+}
+
+impl Recorder {
+    /// Writes the file now, with a checkpoint of `sim`'s latest tick while it is still the recorded game.
+    fn save(&mut self, sim: &SimRes) {
+        if !self.stopped && sim.generation() == self.generation {
+            self.replay.checkpoint(sim);
         }
-        Err(error) => {
-            if recorder.error.as_ref() != Some(&error) {
-                error!("Recording: {error}");
+        let end = self.replay.end_tick();
+        if self.saved_at.is_none() {
+            info!("Recording the game to {}", self.path.display());
+        }
+        // A failed save waits for the next one too, rather than trying again every frame.
+        self.saved_at = Some(end);
+        match save_replay(&self.path, &self.replay) {
+            Ok(()) => {
+                if self.error.take().is_some() {
+                    info!("Recording: {} written again", self.path.display());
+                }
             }
-            recorder.error = Some(error);
+            Err(error) => {
+                if self.error.as_ref() != Some(&error) {
+                    error!("Recording: {error}");
+                }
+                self.error = Some(error);
+            }
         }
     }
 }

@@ -1,6 +1,11 @@
 //! `--input-script`: the virtual keyboard and mouse ([`InjectedInput`]) driven at given ticks, for QA screenshots of
 //! what only input shows, such as a selection box being dragged. The sim waits at each step's tick until the step
 //! has been applied ([`super::QaState::next_stop`]), so a step lands at its tick however the frames fall.
+//!
+//! (Slice M5-S7) One step a frame: the steps of one tick apply in consecutive frames, in file order, the sim waiting at
+//! the tick for the last of them, so that each step's input is read before the next one's. A step that opens the
+//! playtest menu (F10, `crate::playtest_menu`) pauses the game, and the one that clicks in the menu comes at the same
+//! tick, in a frame of its own, once the menu holds the input.
 
 use std::path::Path;
 
@@ -129,10 +134,11 @@ pub fn load_input_script(path: &Path) -> Result<Vec<InputStep>, String> {
     serde_json::from_str(&text).map_err(|e| format!("{} is not a list of input steps: {e}", path.display()))
 }
 
-/// Applies the steps of the sim's tick to the virtual keyboard and mouse, before the input layer reads them.
+/// Applies the next step of the sim's tick to the virtual keyboard and mouse, before the input layer reads them: one
+/// a frame (module docs).
 pub(super) fn apply_input_script(mut qa: ResMut<QaState>, sim: Res<SimRes>, mut input: ResMut<InjectedInput>) {
     let tick = sim.tick();
-    while let Some(step) = qa.input_steps.pop_front_if(|s| s.tick <= tick) {
+    if let Some(step) = qa.input_steps.pop_front_if(|s| s.tick <= tick) {
         if let Some(cursor) = step.cursor {
             input.cursor = Some(cursor);
         }

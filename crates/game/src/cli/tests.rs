@@ -4,6 +4,13 @@ fn args(s: &str) -> Vec<String> {
     s.split_whitespace().map(str::to_string).collect()
 }
 
+/// The game's options without flags: debug commands on, and the map explored from the start (slice M5-S7, design
+/// change 0416).
+const DEFAULT_OPTIONS: SimConfig = SimConfig {
+    debug: true,
+    start_explored: true,
+};
+
 #[test]
 fn no_flags_start_the_default_game_in_a_window() {
     let config = into_config(parse(&[]).unwrap()).unwrap();
@@ -12,11 +19,63 @@ fn no_flags_start_the_default_game_in_a_window() {
     assert_eq!(config.display, DisplayMode::Window);
     assert_eq!(config.window_size, DEFAULT_WINDOW_SIZE);
     assert!(!config.qa.is_active() && !config.fast);
-    assert_eq!(config.scenario.setup.config, SimConfig::DEBUG);
+    assert_eq!(config.scenario.setup.config, DEFAULT_OPTIONS);
     // The default setup: a GDO player in every slot.
     let mut expected = sc_sim::GameSetup::default_for(&config.scenario.map);
-    expected.config = SimConfig::DEBUG;
+    expected.config = DEFAULT_OPTIONS;
     assert_eq!(config.scenario.setup, expected);
+}
+
+/// Design change 0413 (`core/camera.md > Window Mode`): "The game starts in **borderless full screen** by default", on
+/// the monitor it opens on; `--windowed` opens a window of `--window-size`, and a QA run one of its fixed size and
+/// scale factor, so that screenshots keep their size (in a window with `--windowed`, else offscreen with no window).
+#[test]
+fn a_game_starts_in_borderless_full_screen_and_windowed_and_qa_runs_in_a_window() {
+    use bevy::window::{MonitorSelection, WindowMode};
+    let window = |flags: &str| {
+        let config = into_config(parse(&args(flags)).unwrap()).unwrap();
+        crate::platform_plugin(&config).primary_window()
+    };
+    let default = window("").unwrap();
+    assert_eq!(
+        default.mode,
+        WindowMode::BorderlessFullscreen(MonitorSelection::Current)
+    );
+    let windowed = window("--windowed --window-size 800x600").unwrap();
+    assert_eq!(windowed.mode, WindowMode::Windowed);
+    assert_eq!(windowed.resolution.physical_size(), UVec2::new(800, 600));
+    assert_eq!(windowed.resolution.scale_factor_override(), None);
+    let qa = window("--screenshot 3:s.png --windowed").unwrap();
+    assert_eq!(qa.mode, WindowMode::Windowed);
+    assert_eq!(qa.resolution.physical_size(), DEFAULT_WINDOW_SIZE);
+    assert_eq!(qa.resolution.scale_factor_override(), Some(1.0));
+    assert!(window("--screenshot 3:s.png").is_none(), "offscreen");
+    assert!(window("--headless --exit-at-tick 4").is_none());
+    let editor = into_config(parse(&args("--editor")).unwrap()).unwrap();
+    assert!(editor.fullscreen, "the map editor's window too");
+}
+
+/// Design change 0416: `--unexplored` starts the game with the map unexplored, as before the change; without it the
+/// map starts explored, in a game and in the editor's play-tests alike (their options are the command line's). A
+/// replay keeps its recorded options, so the flag can't go with `--replay` (`a_replay_plays_back_with_its_own_scenario
+/// _and_options`).
+#[test]
+fn unexplored_starts_the_map_unexplored() {
+    let config = |flags: &str| into_config(parse(&args(flags)).unwrap()).unwrap().scenario.setup.config;
+    assert!(config("").start_explored);
+    assert!(!config("--unexplored").start_explored);
+    assert_eq!(
+        config("--unexplored --no-debug"),
+        SimConfig {
+            debug: false,
+            start_explored: false
+        }
+    );
+    assert!(
+        config("--editor").start_explored,
+        "the play-tests follow the game's default"
+    );
+    assert!(!config("--editor --unexplored").start_explored);
 }
 
 #[test]
@@ -36,7 +95,13 @@ fn every_flag_parses() {
     assert_eq!(o.dump_state, Some(PathBuf::from("d.json")));
     assert!(o.debug);
     let off = into_config(parse(&args("--no-debug")).unwrap()).unwrap();
-    assert_eq!(off.scenario.setup.config, SimConfig { debug: false });
+    assert_eq!(
+        off.scenario.setup.config,
+        SimConfig {
+            debug: false,
+            ..DEFAULT_OPTIONS
+        }
+    );
 }
 
 #[test]
@@ -70,8 +135,7 @@ fn factions_set_each_slots_faction() {
     assert_eq!(default.scenario.name(), DEFAULT_SCENARIO);
     assert_eq!(factions(&default), [Colonists, Gdo]);
     assert_eq!(
-        default.scenario.setup.config,
-        SimConfig::DEBUG,
+        default.scenario.setup.config, DEFAULT_OPTIONS,
         "the flags' game options still apply"
     );
     let scenario = into_config(parse(&args("--scenario dev_skirmish --factions gdo,colonists")).unwrap()).unwrap();
@@ -359,7 +423,10 @@ fn a_replay_plays_back_with_its_own_scenario_and_options() {
     let dir = std::env::temp_dir().join(format!("sc_cli_replay_{}", std::process::id()));
     let path = dir.join("game.json");
     let mut scenario = scenarios::empty(8, 6);
-    scenario.setup.config = SimConfig { debug: false };
+    scenario.setup.config = SimConfig {
+        debug: false,
+        start_explored: false,
+    };
     let mut recorded = sc_sim::Replay::new(scenario);
     let mut sim = recorded.start();
     recorded.record_checked(None, &sim);
@@ -383,6 +450,7 @@ fn a_replay_plays_back_with_its_own_scenario_and_options() {
         "--factions colonists",
         "--editor",
         "--no-debug",
+        "--unexplored",
         "--commands c.json",
         "--record r.json",
         "--headless --exit-at-tick 11",

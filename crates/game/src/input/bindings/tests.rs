@@ -33,6 +33,15 @@ fn the_defaults_follow_the_design() {
     assert_eq!(only(InputAction::ReplayStep), press(KeyCode::Period));
     assert_eq!(only(InputAction::ReplaySlower), press(KeyCode::Minus));
     assert_eq!(only(InputAction::ReplayFaster), press(KeyCode::Equal));
+    // (M5-S7) `core/camera.md > Window Mode` and `core/game_rules.md > Playtest menu (temporary)`.
+    assert_eq!(
+        only(InputAction::ToggleFullscreen),
+        [
+            Binding::Press(Chord::key(KeyCode::F11)),
+            Binding::Press(Chord::key(KeyCode::Enter).with(Modifiers::ALT))
+        ]
+    );
+    assert_eq!(only(InputAction::PlaytestMenu), press(KeyCode::F10));
     let seven = Chord::key(KeyCode::Digit7);
     assert_eq!(
         only(InputAction::AssignGroup(group(7))),
@@ -61,7 +70,7 @@ fn the_defaults_follow_the_design() {
     );
     assert_eq!(only(InputAction::CommandSlot(CommandSlot::RALLY_POINT)), press(KeyC));
     let game = b.entries().iter().filter(|(a, _)| !matches!(a, InputAction::Editor(_)));
-    assert_eq!(game.count(), 22 + 4 * 10 + 12);
+    assert_eq!(game.count(), 25 + 4 * 10 + 12);
 }
 
 /// Except that a placement action's binding overrides another while a structure is being placed: the placement
@@ -407,4 +416,30 @@ fn double_taps_need_the_same_chord_quickly_and_start_over() {
     assert!(!taps.press(two, Modifiers::NONE, 20.5));
     assert!(!taps.press(one, Modifiers::NONE, 20.6));
     assert!(!taps.press(one, Modifiers::SHIFT, 20.7));
+}
+
+/// (M5-S7) The window's full-screen toggle (`core/camera.md > Window Mode`) works in the game and in the editor, by F11
+/// and by Alt + Enter, and Enter alone is nothing; the playtest menu's F10 (`core/game_rules.md > Playtest menu
+/// (temporary)`) works in the game only.
+#[test]
+fn f11_and_alt_enter_toggle_full_screen_everywhere_and_f10_is_the_games() {
+    use InputContext::{Editor, Game};
+    let b = Bindings::default();
+    let press = |context, k, modifiers| b.resolve(context, key(k), modifiers, false);
+    for context in [Game, Editor] {
+        assert_eq!(
+            press(context, KeyCode::F11, Modifiers::NONE),
+            Some(InputAction::ToggleFullscreen)
+        );
+        assert_eq!(
+            press(context, KeyCode::Enter, Modifiers::ALT),
+            Some(InputAction::ToggleFullscreen)
+        );
+        assert_eq!(press(context, KeyCode::Enter, Modifiers::NONE), None);
+    }
+    assert_eq!(
+        press(Game, KeyCode::F10, Modifiers::NONE),
+        Some(InputAction::PlaytestMenu)
+    );
+    assert_eq!(press(Editor, KeyCode::F10, Modifiers::NONE), None);
 }

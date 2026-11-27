@@ -4,7 +4,8 @@
 //! QA mode. Read `ARCHITECTURE.md > Client architecture` before changing anything here.
 //!
 //! [`build_app`] assembles one plugin per feature module:
-//! - [`platform`]: a window, an offscreen image (QA) or no rendering at all (tests);
+//! - [`platform`]: a window, in borderless full screen by default, an offscreen image (QA) or no rendering at all
+//!   (tests), and the cursor kept in the window;
 //! - [`sim_driver`]: owns the `Sim` and steps it in `FixedUpdate`, 16 ticks per second;
 //! - [`input`]: keys, mouse, wheel and the screen edge become [`input::InputAction`]s, clicks and boxes, through
 //!   the bindings of the mode's input context (the game's or the editor's);
@@ -25,7 +26,8 @@
 //! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
 //! - [`qa`]: screenshots, exit at a tick, state dump, commands and input at given ticks;
 //! - [`replay`]: recording the game, and playing a recording back (`--replay`);
-//! - [`ai_players`]: the computer players of `--ai` (`sc_ai`), which give their players' commands each tick.
+//! - [`ai_players`]: the computer players of `--ai` (`sc_ai`), which give their players' commands each tick;
+//! - [`playtest_menu`]: a game's temporary playtest menu (F10, and at the game's end): Resume, Restart, Quit.
 //!
 //! What the client knows of each object kind (its label, its look, its shots' style and its panel template) is in
 //! [`kinds`], one module per kind behind one registry; its feel tunables (the camera's, the input's, and how long
@@ -52,6 +54,7 @@ pub mod object_render;
 pub mod path_overlay;
 pub mod placement;
 pub mod platform;
+pub mod playtest_menu;
 pub mod qa;
 pub mod replay;
 pub mod selection;
@@ -79,8 +82,9 @@ use crate::object_render::ObjectRenderPlugin;
 use crate::path_overlay::PathOverlayPlugin;
 use crate::placement::PlacementPlugin;
 use crate::platform::{DisplayMode, PlatformPlugin};
+use crate::playtest_menu::{Launch, PlaytestMenuPlugin};
 use crate::qa::{QaConfig, QaPlugin};
-use crate::replay::{PlaybackPlugin, RecordPlugin};
+use crate::replay::{PlaybackPlugin, RecordPlugin, RecordingNames};
 use crate::selection::SelectionPlugin;
 use crate::shroud_view::ShroudViewPlugin;
 use crate::sim_driver::SimDriverPlugin;
@@ -139,6 +143,10 @@ pub struct AppConfig {
     pub display: DisplayMode,
     /// Physical size of the window or offscreen image.
     pub window_size: UVec2,
+    /// (Slice M5-S7) Open the window in borderless full screen (`core/camera.md > Window Mode`): a game's default
+    /// (`crate::cli`), not with `--windowed` nor in a QA run, whose window keeps its size ([`platform::window`]). Off in
+    /// [`AppConfig::new`], so tests never ask for it.
+    pub fullscreen: bool,
     pub qa: QaConfig,
     /// Run as many ticks per frame as possible.
     pub fast: bool,
@@ -147,6 +155,9 @@ pub struct AppConfig {
     /// Record the game to this file (`replay::record`). `None` in the editor, in a replay's playback, in QA runs
     /// without `--record`, with `--no-record`, and in tests.
     pub record: Option<PathBuf>,
+    /// (Slice M5-S7) How the recordings of restarted games ([`playtest_menu`]) are named: beside [`AppConfig::record`],
+    /// numbered (`--record`'s, and the default here), or each a new dated one in `replays/` (the default recording's).
+    pub recording_names: RecordingNames,
     /// Play this recorded game back instead of playing `scenario` (`--replay`, `replay::playback`), whose
     /// scenario it then is ([`AppConfig::playback`]).
     pub playback: Option<PlaybackSource>,
@@ -172,10 +183,12 @@ impl AppConfig {
             player: PlayerId(1),
             display: DisplayMode::Window,
             window_size: cli::DEFAULT_WINDOW_SIZE,
+            fullscreen: false,
             qa: QaConfig::default(),
             fast: false,
             editor: None,
             record: None,
+            recording_names: RecordingNames::Numbered,
             playback: None,
             ai: Vec::new(),
         }
@@ -201,57 +214,75 @@ impl AppConfig {
     }
 }
 
+/// The platform of `config`'s run: where its frames go, and its window's ([`platform`]). A QA run is reproducible.
+pub fn platform_plugin(config: &AppConfig) -> PlatformPlugin {
+    PlatformPlugin {
+        display: config.display,
+        size: config.window_size,
+        reproducible: config.qa.is_active(),
+        unpaced: config.fast,
+        fullscreen: config.fullscreen,
+    }
+}
+
 /// Builds the client app. Run it with `App::run`, or step it with `App::update` in tests (after `App::finish` and
 /// `App::cleanup`, which the runners otherwise call).
 pub fn build_app(config: AppConfig) -> App {
     let qa_run = config.qa.is_active();
     let editing = config.editor.is_some();
     let mut app = App::new();
-    app.add_plugins(PlatformPlugin {
-        display: config.display,
-        size: config.window_size,
-        reproducible: qa_run,
-        unpaced: config.fast,
-    })
-    .configure_sets(
-        Update,
-        (
-            ClientSystems::SyncSim,
-            ClientSystems::Actions,
-            ClientSystems::Present,
-            ClientSystems::Qa,
+    app.add_plugins(platform_plugin(&config))
+        .configure_sets(
+            Update,
+            (
+                ClientSystems::SyncSim,
+                ClientSystems::Actions,
+                ClientSystems::Present,
+                ClientSystems::Qa,
+            )
+                .chain(),
         )
-            .chain(),
-    )
-    .insert_resource(if editing { ClientMode::Editor } else { ClientMode::Game })
-    // Mode-independent: everything a view of the map needs.
-    .add_plugins((
-        SimDriverPlugin {
-            scenario: config.scenario.clone(),
-            player: config.player,
-            fast: config.fast,
-            preview: editing,
-        },
-        ActionInputPlugin { raw_input: !qa_run },
-        GameCameraPlugin,
-        MapRenderPlugin,
-        ObjectRenderPlugin,
-        PathOverlayPlugin {
-            visible: config.qa.show_paths,
-        },
-        CombatEffectsPlugin,
-        ShroudViewPlugin,
-        FogPlugin {
-            enabled: !config.qa.no_fog,
-        },
-        ViewerEventsPlugin,
-        QaPlugin { config: config.qa },
-        SelectionPlugin,
-        CommandUiPlugin,
-        PlacementPlugin,
-    ))
-    // The game mode; the editor hides the HUD except in its play-tests.
-    .add_plugins(HudPlugin);
+        .insert_resource(if editing { ClientMode::Editor } else { ClientMode::Game })
+        // Mode-independent: everything a view of the map needs.
+        .add_plugins((
+            SimDriverPlugin {
+                scenario: config.scenario.clone(),
+                player: config.player,
+                fast: config.fast,
+                preview: editing,
+            },
+            ActionInputPlugin { raw_input: !qa_run },
+            GameCameraPlugin,
+            MapRenderPlugin,
+            ObjectRenderPlugin,
+            PathOverlayPlugin {
+                visible: config.qa.show_paths,
+            },
+            CombatEffectsPlugin,
+            ShroudViewPlugin,
+            FogPlugin {
+                enabled: !config.qa.no_fog,
+            },
+            ViewerEventsPlugin,
+            QaPlugin { config: config.qa },
+            SelectionPlugin,
+            CommandUiPlugin,
+            PlacementPlugin,
+        ))
+        // The game mode; the editor hides the HUD except in its play-tests.
+        .add_plugins(HudPlugin);
+    if config.playback.is_none() && !editing {
+        // Games only: the editor, its play-tests and a replay's playback keep their own controls.
+        app.add_plugins(PlaytestMenuPlugin {
+            launch: Launch {
+                scenario: config.scenario.clone(),
+                player: config.player,
+                ai: config.ai.clone(),
+                recording: config.record.clone().map(|path| (path, config.recording_names)),
+                restarts: 0,
+            },
+        });
+    }
     if !config.ai.is_empty() && config.playback.is_none() && !editing {
         app.add_plugins(AiPlayersPlugin { slots: config.ai });
     }

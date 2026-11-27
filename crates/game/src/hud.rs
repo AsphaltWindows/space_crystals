@@ -54,11 +54,11 @@ const HUD_GAP_VH: f32 = 0.6;
 /// Height of the sections: the HUD Bar minus its padding.
 const SECTION_HEIGHT_VH: f32 = HUD_BAR_HEIGHT_VH - 2.0 * HUD_GAP_VH;
 
-const BAR_BACKGROUND: Color = Color::srgb(0.07, 0.08, 0.10);
-const SECTION_BACKGROUND: Color = Color::srgb(0.12, 0.13, 0.16);
-const SECTION_BORDER: Color = Color::srgb(0.28, 0.31, 0.36);
-const LABEL_COLOR: Color = Color::srgb(0.55, 0.60, 0.66);
-const TEXT_COLOR: Color = Color::srgb(0.88, 0.90, 0.93);
+pub(crate) const BAR_BACKGROUND: Color = Color::srgb(0.07, 0.08, 0.10);
+pub(crate) const SECTION_BACKGROUND: Color = Color::srgb(0.12, 0.13, 0.16);
+pub(crate) const SECTION_BORDER: Color = Color::srgb(0.28, 0.31, 0.36);
+pub(crate) const LABEL_COLOR: Color = Color::srgb(0.55, 0.60, 0.66);
+pub(crate) const TEXT_COLOR: Color = Color::srgb(0.88, 0.90, 0.93);
 /// The top bar's replay note after a desync (placeholder).
 const DESYNC_COLOR: Color = Color::srgb(1.0, 0.35, 0.3);
 /// Size of a section's name.

@@ -39,6 +39,15 @@ impl TileBits {
         }
     }
 
+    /// Sets the bits of the first `tiles` tiles, those of the words' padding beyond them left clear (as
+    /// [`TileBits::new`] has them, and a save loads them).
+    pub(super) fn fill(&mut self, tiles: usize) {
+        for (w, word) in self.words.iter_mut().enumerate() {
+            let bits = tiles.saturating_sub(w * 64).min(64);
+            *word = if bits == 64 { u64::MAX } else { (1u64 << bits) - 1 };
+        }
+    }
+
     pub(super) fn clear(&mut self, i: usize) {
         if let Some(w) = self.words.get_mut(i / 64) {
             *w &= !(1 << (i % 64));
@@ -271,6 +280,13 @@ impl PlayerVision {
             flips.push(i);
         });
         self.reveals.retain(|_, &mut end| end > tick);
+    }
+
+    /// (M5-S7) `core/vision.md > Starting exploration`: every tile Explored, as a game that starts explored has
+    /// them before its first look ([`super::Vision::explore_all`]).
+    pub(super) fn explore_all(&mut self) {
+        self.explored.fill(self.width as usize * self.height as usize);
+        self.dirty = true;
     }
 
     /// A new player's history besides the Explored tiles and the records (a save's, or a copy to check against):

@@ -116,7 +116,13 @@ fn commands_naming_missing_objects_are_rejected() {
 fn debug_commands_are_rejected_while_debug_is_off() {
     let mut off = two_patches(SimConfig::default());
     let mut on = two_patches(SimConfig::DEBUG);
-    assert_eq!(off.sim().config(), SimConfig { debug: false });
+    assert_eq!(
+        off.sim().config(),
+        SimConfig {
+            debug: false,
+            start_explored: false
+        }
+    );
     // The option is part of the state.
     assert_ne!(off.sim().state_hash(), on.sim().state_hash());
 

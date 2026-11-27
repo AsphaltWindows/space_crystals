@@ -19,6 +19,11 @@
 //!   trained, and what `Ai::think` cost: `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored
 //!   --nocapture`.
 //! - **The Colonists** (slice A2c, [`colonists`]): their default run and determinism.
+//! - **The map explored from the start** (slice M5-S7, design change 0416, `core/vision.md > Starting exploration`):
+//!   the client starts its games so by default, while these games keep the sim's default, unexplored, and `ai_games`
+//!   pins it off for its rows, so that they compare with the earlier ones. One game is played explored
+//!   ([`a_standard_computer_beats_a_passive_one_on_a_map_explored_from_the_start`]): the GDO's standard must beat its
+//!   passive.
 
 mod colonists;
 mod harness;
@@ -98,6 +103,23 @@ fn a_standard_syndicate_computer_attacks_a_passive_one() {
     assert!(standard.waves >= 1, "the standard player sent no wave: {report:?}");
     assert_eq!(passive.waves, 0, "the passive player never attacks: {report:?}");
     assert!(passive.lost >= 1 && standard.lost >= 1, "the wave fought: {report:?}");
+}
+
+/// Design change 0416: the client starts its games with the map explored (`SimConfig::start_explored`), and a
+/// computer player plays them as any other: the GDO's standard beats its passive on `dev_skirmish` explored from the
+/// start, within [`STANDARD_BEATS_PASSIVE`] as `ai_games` requires of the games without it, the harness checking
+/// every step (the rules' invariants, the gate, 0402's aims: the map explored shows no building).
+#[test]
+fn a_standard_computer_beats_a_passive_one_on_a_map_explored_from_the_start() {
+    let mut scenario = gdo_vs_gdo(scenarios::dev_skirmish());
+    scenario.setup.config.start_explored = true;
+    let report = play(
+        &scenario,
+        &[(P1, Standard), (P2, Passive)],
+        STANDARD_BEATS_PASSIVE,
+        Checks::Rules,
+    );
+    assert_eq!(report.winner(), Some(P1), "standard beats passive: {report:?}");
 }
 
 #[test]
@@ -213,7 +235,10 @@ fn ai_games() {
     for (flag, scenario) in maps() {
         for &a in &with_ai {
             for &b in &with_ai {
-                let scenario = with_factions(scenario.clone(), [a, b]);
+                let mut scenario = with_factions(scenario.clone(), [a, b]);
+                // Slice M5-S7: the map unexplored at the start, as the rows have always been played (design change
+                // 0416 made explored the client's default), so that they compare with master's.
+                scenario.setup.config.start_explored = false;
                 for profiles in [[Standard, Passive], [Passive, Standard], [Standard, Standard]] {
                     let ais = [(P1, profiles[0]), (P2, profiles[1])];
                     let report = play(&scenario, &ais, LIMIT, Checks::All);

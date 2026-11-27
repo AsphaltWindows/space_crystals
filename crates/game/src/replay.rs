@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use sc_sim::Replay;
 
 pub use playback::{Playback, PlaybackPlugin};
-pub use record::{RecordPlugin, Recorder};
+pub use record::{RecordPlugin, Recorder, RecordingNames};
 
 use crate::editor::files;
 
