@@ -24,8 +24,12 @@
 //! slice: M6-SB the Shadebringer, M6-SL the Laser Battery, M6-ST1 the Subterranean Transport.
 //! (M6-GK) The Deployment Center's build menus hold the slots of the eight buildings it doesn't construct yet
 //! (`factions/gdo/structures/deployment_center.md > Two build menus`), each in the game but greyed until its slice makes
-//! its entry live (`super::gdo::deployment_center`). The Field Engineer's two are in the game since then too, and stay
-//! greyed until slice M6-GB.
+//! its entry live (`super::gdo::deployment_center`): slice M6-GR made the Radar Station and the Defense System live,
+//! slice M6-GF the Factory, Advanced Mechanics and the Industrial Powerplant, and the Factory's panel holds the two
+//! units that later slices have it train, E and R
+//! (`super::gdo::factory`): M6-GP the Prospector, M6-GA the Artillery Rig. The Field Engineer's two are in the game
+//! since M6-GK too, and stay greyed until slice M6-GB. The Twister's R and F hold its mines' two commands, Lay Mine and
+//! Buy Mine, until slice M6-GM (slice M6-GF, `crate::kinds::gdo::twister`).
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
@@ -80,18 +84,26 @@ pub enum Planned {
     /// (M6-GK) The buildings of the Deployment Center's build menus that it doesn't construct yet
     /// (`factions/gdo/structures/deployment_center.md > Constructs`), in its Constructs order: each in the game (plan
     /// decision T84), its entry held until its slice (`sc_sim::defs::PLANNED_RECIPES`). The Radar Station and the
-    /// Defense System are constructed (slice M6-GR).
+    /// Defense System are constructed (slice M6-GR), and so are the Factory, Advanced Mechanics and the Industrial
+    /// Powerplant (slice M6-GF).
     SupplyTower,
-    Factory,
-    AdvancedMechanics,
     Airfield,
     PropulsionLabs,
-    IndustrialPowerplant,
+    /// (M6-GF) The Factory's E and R (`factions/gdo/structures/factory.md > Placeholder stats`: "**E** Prospector,
+    /// **R** Artillery Rig (greyed without Advanced Mechanics)"), which it trains from slices M6-GP and M6-GA on. Their
+    /// types are in the game (slice M6-GK), so each label is its type's ([`Planned::label`]).
+    Prospector,
+    ArtilleryRig,
+    /// (M6-GF) The Twister's R and F, its mines' commands (`factions/gdo/units/twister.md > Placeholder stats`: "Panel:
+    /// BasicCombatUnitInterfaceState plus **R: Lay Mine** (targeted) and **F: Buy Mine**"), slice M6-GM's
+    /// (`crate::kinds::gdo::twister`).
+    LayMine,
+    BuyMine,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 30] = [
+    pub const ALL: [Planned; 31] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -117,11 +129,12 @@ impl Planned {
         Planned::Bunker,
         Planned::FirstAidTent,
         Planned::SupplyTower,
-        Planned::Factory,
-        Planned::AdvancedMechanics,
         Planned::Airfield,
         Planned::PropulsionLabs,
-        Planned::IndustrialPowerplant,
+        Planned::Prospector,
+        Planned::ArtilleryRig,
+        Planned::LayMine,
+        Planned::BuyMine,
     ];
 
     /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
@@ -160,11 +173,12 @@ impl Planned {
             Planned::Bunker => "Bunker",
             Planned::FirstAidTent => "First Aid Tent",
             Planned::SupplyTower => "Supply Tower",
-            Planned::Factory => "Factory",
-            Planned::AdvancedMechanics => "Advanced Mechanics",
             Planned::Airfield => "Airfield",
             Planned::PropulsionLabs => "Propulsion Labs",
-            Planned::IndustrialPowerplant => "Industrial Powerplant",
+            Planned::Prospector => "Prospector",
+            Planned::ArtilleryRig => "Artillery Rig",
+            Planned::LayMine => "Lay Mine",
+            Planned::BuyMine => "Buy Mine",
         }
     }
 
@@ -180,8 +194,11 @@ impl Planned {
     /// its label with it into the game (the Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the
     /// Gunworks' "GS", the Garrison's "GA", the Vehicle Assembly's "VA", `crate::kinds`), and a command its own: the
     /// Tunnel's Upgrade's "Upgr." (slice M4-G). (M6-SV) The Vehicle Assembly's units not trained yet are labelled by
-    /// their types, in the game already (slice M6-SK): "SBR", "LB" and "STR". (M6-GK) The Deployment Center's six,
-    /// whose types are in the game, have their types' labels.
+    /// their types, in the game already (slice M6-SK): "SBR", "LB" and "STR". (M6-GK) The Deployment Center's three,
+    /// whose types are in the game, have their types' labels; (M6-GF) and so have the Factory's two units not trained
+    /// yet, "PR" and "ARG". The Twister's mines' commands by their names' first words, "Lay" and "Buy", as the Drone
+    /// Operator's Launch Drone is "Launch" (slice M6-GD, `PanelCommand::label`); not Buy Mine by the mine's tag, as
+    /// Build Drone is by the drone's, "DRN": "ME" is the mine type's own, which no placeholder shares.
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -209,11 +226,12 @@ impl Planned {
             Planned::Bunker => "BKR",
             Planned::FirstAidTent => "FAT",
             Planned::SupplyTower => "SPT",
-            Planned::Factory => "FY",
-            Planned::AdvancedMechanics => "AM",
             Planned::Airfield => "AD",
             Planned::PropulsionLabs => "PL",
-            Planned::IndustrialPowerplant => "IP",
+            Planned::Prospector => "PR",
+            Planned::ArtilleryRig => "ARG",
+            Planned::LayMine => "Lay",
+            Planned::BuyMine => "Buy",
         }
     }
 
@@ -228,20 +246,14 @@ impl Planned {
                 | Planned::Shadebringer
                 | Planned::LaserBattery
                 | Planned::SubterraneanTransport
+                | Planned::Prospector
+                | Planned::ArtilleryRig
         )
     }
 
     /// (M6-GK) Whether it is a building of the Deployment Center's build menus.
     pub fn is_constructed(self) -> bool {
-        matches!(
-            self,
-            Planned::SupplyTower
-                | Planned::Factory
-                | Planned::AdvancedMechanics
-                | Planned::Airfield
-                | Planned::PropulsionLabs
-                | Planned::IndustrialPowerplant
-        )
+        matches!(self, Planned::SupplyTower | Planned::Airfield | Planned::PropulsionLabs)
     }
 
     /// Whether it is an expansion of the Tunnel's ExpandMenu.
@@ -260,9 +272,12 @@ impl Planned {
     /// Furnace" or "Build Vault" ("Train Shadebringer", M6-SV), as a unit in the game is trained, a building warped in
     /// and an expansion built (`PanelCommand::Expand`); (M6-GK) "Build Factory", as the Deployment Center's buildings
     /// are constructed (`PanelCommand::Construct`). The Field Engineer's as the design names its abilities
-    /// (`factions/gdo/units/field_engineer.md > Abilities`): "**Build Bunker**", "**Set up First Aid Tent**".
+    /// (`factions/gdo/units/field_engineer.md > Abilities`): "**Build Bunker**", "**Set up First Aid Tent**". (M6-GF) The
+    /// Twister's mines' commands by their names, as the design names them: "**R: Lay Mine**", "**F: Buy Mine**".
     pub fn command_name(self) -> String {
-        if self == Planned::FirstAidTent {
+        if matches!(self, Planned::LayMine | Planned::BuyMine) {
+            self.name().to_string()
+        } else if self == Planned::FirstAidTent {
             format!("Set up {}", self.name())
         } else if self == Planned::Bunker {
             format!("Build {}", self.name())

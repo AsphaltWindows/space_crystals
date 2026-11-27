@@ -232,7 +232,8 @@ impl Sim {
     ///
     /// Then it goes to the building's RallyPoint, with the order the rally gives (`Sim::rally_order`), as a producer's
     /// unit does (design change 0348, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`:
-    /// "ejected and released units walk **to the RallyPoint**, like trained units").
+    /// "ejected and released units walk **to the RallyPoint**, like trained units"); (M6-GF) a vehicle trained there
+    /// parks round the point if that is taken (design change 0451, `Sim::park_out_of`).
     fn let_out(&mut self, building: ObjectId, unit: ObjectId) {
         let production = self.objects.get(&building).and_then(|o| o.production.as_ref());
         let rally = production.and_then(|production| production.rally);
@@ -245,21 +246,28 @@ impl Sim {
             let production = self.objects.get_mut(&building)?.production.as_mut()?;
             production.release()
         });
-        match released {
+        let trained = match released {
             Some((entry @ (QueueEntry::Unit(_) | QueueEntry::Augment { .. }), reserved)) => {
                 self.complete(unit, entry, reserved.get(1..).unwrap_or_default());
                 self.events.push(SimEvent::UnitProduced {
                     producer: building,
                     unit,
                 });
+                true
             }
             // A research reserves no unit, so it is never the entry of the unit let out.
             Some((QueueEntry::Release | QueueEntry::Research { .. }, _)) | None => {
-                self.events.push(SimEvent::LeftBuilding { unit, building })
+                self.events.push(SimEvent::LeftBuilding { unit, building });
+                false
             }
-        }
+        };
         if let Some(kind) = rally.and_then(|rally| self.rally_order(unit, rally)) {
             self.give_order(&[unit], kind, false);
+            // (M6-GF) Design change 0451: a vehicle the pool trained parks round its rally point if that is taken
+            // (`producers/park.rs`).
+            if trained {
+                self.park_out_of(building, unit);
+            }
         }
     }
 
@@ -302,7 +310,7 @@ impl Sim {
         let held = (self.held.get(&unit)).filter(|held| held.place == Place::Building(building))?;
         let kind = becomes.unwrap_or(held.object.kind);
         let def = kind.def();
-        let (Some(unit_def), Some(_)) = (&def.unit, def.half_extents()) else {
+        let (Some(_), Some(_)) = (&def.unit, def.half_extents()) else {
             return None;
         };
         // The units this building let out that are still in its doorway, each keeping its door occupied.
@@ -315,7 +323,7 @@ impl Sim {
         let mut doors = doorway.order(toward).filter(free);
         let (door, pos, half) = doors.find_map(|door| {
             let half = producers::exit_half(kind, &door);
-            Some((door, self.doorway_spot(&door, unit_def, half)?, half))
+            Some((door, self.doorway_spot(&door, kind, half)?, half))
         })?;
         Some(Spot {
             pos,

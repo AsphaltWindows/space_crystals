@@ -16,6 +16,10 @@
 //! thirty more of them, fifteen a player, crossing the same way north of the first two groups
 //! (`perf_30_vehicles_and_30_more_tracked`).
 //!
+//! (M6-GF) A third run has player 1 play the GDO, its fifteen Seekers replaced by fifteen Raptors (48 × 32 su; the
+//! same FixedTurnRadiusMovement, an 80 su turn radius, 10 su a frame), each with its 60° turret
+//! (`perf_30_vehicles_with_raptors`).
+//!
 //! It prints, for the whole tick and for the movement phase (5d), the mean, the 99th percentile and the worst tick,
 //! flagging a worst tick over 10 ms (slice M2-J2's target for a whole tick). The assertions are on the game, never on
 //! wall time. New in M5-V1, so its figures are absolute ones: compare them by A/B runs.
@@ -61,12 +65,17 @@ fn timed_step(sim: &mut Sim, inputs: &TickInputs) -> [Duration; PHASES] {
     times
 }
 
+/// A run's crowd: player 1's first group of wheeled vehicles, the Seekers or (M6-GF) the Raptors, and (M5-V3) whether
+/// thirty more Hands of Heaven cross north of the first two groups.
+#[derive(Copy, Clone)]
+struct Crowd {
+    wheeled: ObjectKind,
+    more: bool,
+}
+
 /// The groups of 15 in the order of their ids, from 1: kind, owner, where they start and where they are sent.
-fn groups(more: bool) -> Vec<(ObjectKind, PlayerId, Vec2, Vec2)> {
-    let mut groups = vec![
-        (ObjectKind::Seeker, P1, WEST, EAST),
-        (ObjectKind::HandOfHeaven, P2, EAST, WEST),
-    ];
+fn groups(Crowd { wheeled, more }: Crowd) -> Vec<(ObjectKind, PlayerId, Vec2, Vec2)> {
+    let mut groups = vec![(wheeled, P1, WEST, EAST), (ObjectKind::HandOfHeaven, P2, EAST, WEST)];
     if more {
         groups.push((ObjectKind::HandOfHeaven, P1, NORTH_WEST, NORTH_EAST));
         groups.push((ObjectKind::HandOfHeaven, P2, NORTH_EAST, NORTH_WEST));
@@ -74,20 +83,21 @@ fn groups(more: bool) -> Vec<(ObjectKind, PlayerId, Vec2, Vec2)> {
     groups
 }
 
-/// The game at tick 0: ids 1–15 player 1's Seekers in a block of 5 × 3 around [`WEST`], 16–30 player 2's Hands of
-/// Heaven around [`EAST`], 90 su apart; with `more`, 31–45 player 1's Hands of Heaven around [`NORTH_WEST`] and 46–60
-/// player 2's around [`NORTH_EAST`].
-fn game(more: bool) -> Sim {
+/// The game at tick 0: ids 1–15 player 1's Seekers (or Raptors) in a block of 5 × 3 around [`WEST`], 16–30 player 2's
+/// Hands of Heaven around [`EAST`], 90 su apart; with `more`, 31–45 player 1's Hands of Heaven around [`NORTH_WEST`]
+/// and 46–60 player 2's around [`NORTH_EAST`]. Player 1 plays the faction of its wheeled vehicles, player 2 the Cults.
+fn game(crowd: Crowd) -> Sim {
     let map = vec![".".repeat(48); 32].join("\n");
+    let faction = crowd.wheeled.def().faction.expect("a faction's unit");
     let mut builder = (ScenarioBuilder::new(&map))
-        .faction(P1, Faction::Cults)
+        .faction(P1, faction)
         .faction(P2, Faction::Cults)
         .config(SimConfig::DEBUG);
     let block = |centre: Vec2, i: usize| {
         let offset = Vec2::new((i % 3) as f32 - 1.0, (i / 3) as f32 - 2.0) * 90.0;
         SpawnAt::Point(centre + offset)
     };
-    for (kind, owner, from, _) in groups(more) {
+    for (kind, owner, from, _) in groups(crowd) {
         for i in 0..15 {
             builder = builder.spawn(kind, Some(owner), block(from, i));
         }
@@ -96,12 +106,12 @@ fn game(more: bool) -> Sim {
 }
 
 /// The orders of tick 1: auto-targeting off, each group to the other's side.
-fn orders(more: bool) -> Vec<PlayerCommand> {
+fn orders(crowd: Crowd) -> Vec<PlayerCommand> {
     let mut orders = vec![PlayerCommand {
         player: P1,
         command: Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
     }];
-    for (n, (_, owner, _, to)) in groups(more).into_iter().enumerate() {
+    for (n, (_, owner, _, to)) in groups(crowd).into_iter().enumerate() {
         let first = 1 + 15 * n as u32;
         orders.push(PlayerCommand {
             player: owner,
@@ -135,27 +145,43 @@ fn line(label: &str, times: &[(Tick, Duration)]) -> String {
 #[test]
 #[ignore = "timing: run with --release --ignored --nocapture"]
 fn perf_30_vehicles_in_a_crowd() {
-    run(false);
+    run(Crowd {
+        wheeled: ObjectKind::Seeker,
+        more: false,
+    });
 }
 
 /// (M5-V3) The same with thirty more tracked units, the Hands of Heaven north of the others.
 #[test]
 #[ignore = "timing: run with --release --ignored --nocapture"]
 fn perf_30_vehicles_and_30_more_tracked() {
-    run(true);
+    run(Crowd {
+        wheeled: ObjectKind::Seeker,
+        more: true,
+    });
 }
 
-/// One run: the game, its orders and its timings; with `more`, the thirty more Hands of Heaven.
-fn run(more: bool) {
-    let groups = groups(more);
+/// (M6-GF) The first run with fifteen Raptors in place of the Seekers.
+#[test]
+#[ignore = "timing: run with --release --ignored --nocapture"]
+fn perf_30_vehicles_with_raptors() {
+    run(Crowd {
+        wheeled: ObjectKind::Raptor,
+        more: false,
+    });
+}
+
+/// One run: the game of `crowd`, its orders and its timings.
+fn run(crowd: Crowd) {
+    let groups = groups(crowd);
     let count = 15 * groups.len() as u32;
-    let mut sim = game(more);
+    let mut sim = game(crowd);
     let mut invariants = Invariants::new(&sim);
     let (mut whole, mut movement) = (Vec::new(), Vec::new());
     let mut turns = 0;
     let mut facings: Vec<f32> = (1..=count).map(|id| sim.object(ObjectId(id)).unwrap().facing).collect();
     while sim.tick() < END {
-        let commands = if sim.tick() == 0 { orders(more) } else { Vec::new() };
+        let commands = if sim.tick() == 0 { orders(crowd) } else { Vec::new() };
         let inputs = TickInputs { commands };
         let times = timed_step(&mut sim, &inputs);
         if let Err(violation) = invariants.check(&sim, &inputs) {
@@ -184,9 +210,10 @@ fn run(more: bool) {
     );
     assert!(turns > 10 * count as usize, "the vehicles turned {turns} times");
     println!(
-        "{count} vehicles, {END} ticks: {} groups of 15, two by two through each other, {turns} turns; {crossed} past \
-         the middle, {arrived} arrived",
-        groups.len()
+        "{count} vehicles, {END} ticks: {} groups of 15 ({:?} first), two by two through each other, {turns} turns; \
+         {crossed} past the middle, {arrived} arrived",
+        groups.len(),
+        crowd.wheeled
     );
     println!("{}", line("whole tick", &whole));
     println!("{}", line("movement (5d)", &movement));

@@ -2153,7 +2153,9 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   ms on average, 0.14 to 0.20 ms at the 99th percentile (master's side, which had no tread law, 0.032 and 0.10); with
   30 more Hands of Heaven crossing north of them (`perf_30_vehicles_and_30_more_tracked`), 0.093 ms and 0.24 to 0.25
   ms. The corner choice tests arcs against the nav grid each tick a unit turns. `movement_perf`: 0.485 ms on master's
-  side, 0.483 on this one.
+  side, 0.483 on this one. (M6-GF) With fifteen Raptors in place of the Seekers (`perf_30_vehicles_with_raptors`), ten
+  rounds interleaved with master's runs at a load average of 1.1: a whole tick 0.037 to 0.048 ms on average, 0.13 to
+  0.18 ms at the 99th percentile, beside master's Seekers' 0.040 to 0.050 and 0.13 to 0.23 in the same rounds.
 - **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
   one step: a lane step (above), else free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
   or oncoming one (`collide/contact.rs`: a glance along its face, else **the contact step** of design change 0323:
@@ -2985,15 +2987,17 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   in the doorway behind it and the queue waits until the player moves the first (**the implementer's reading**, a jam
   for the playtest notes). (M5-S8) **It starts with a rally point** 3 grid units out of side C (*Production > Rally
   points*, design changes 0446 and 0447, answering Q0175), so that stall comes only with the rally point cleared ("A
-  cleared vehicle building leaves the stall to the player"); left alone, three Seekers park between the point and the
-  door (the first on it, the others 62 and 126 su behind), and a fourth stops in the doorway behind them (the
-  placeholder distance holds three). Recruits build it while their player owns an Armory, and it is the Machine
+  cleared vehicle building leaves the stall to the player"); left alone, three Seekers parked between the point and the
+  door (the first on it, the others 62 and 126 su behind), and a fourth stopped in the doorway behind them, until
+  (M6-GF) design change 0451: the vehicles it trains park round the point (*Production > Parking round a taken rally
+  point*), and five leave without the doorway stalling. Recruits build it while their player owns an Armory, and it is the Machine
   Shop's and the Airstrip's TechPrerequisite. Tests: `crates/sim/tests/chop_shop/` (`training.rs`: 0319's NoRecruit,
   the price, the frames and the rally point, the queue of 5, X, Release and Eject All, the right-click; `exit.rs`: the
   four orientations, no rally point (cleared first since slice M5-S8: 0447's Verification), the doorway behind a
   stopped Seeker; `rally.rs` (slice M5-S8): the default rally point in the 16 orientations, a site's from its
   placement through its completion, three Seekers to it with the doorway never stalling, a moved one, the map's edge
-  and water, a save with none; `seeker.rs`: full HP and no Augmentation, the Unit
+  and water, a save with none; `parking.rs` (slice M6-GF): 0451's Verification, five Seekers, five Hands of Heaven
+  and five Seekers rallied farther away, each time clustered round the point; `seeker.rs`: full HP and no Augmentation, the Unit
   Control; `combat.rs`: a Militant killed on the move, the DirectionalArmor's three sides, Rugged terrain;
   `destruction.rs`; `normal_game.rs`: an Armory, a Chop Shop and a Seeker from the Cults' start, the Machine Shop and
   the Airstrip no longer greyed; `saves.rs`) and `tests/repair/vehicles.rs` (the Seeker repaired by the real recipe),
@@ -3001,6 +3005,22 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `requires: &[Temple]`, design change 0444), trains the same way, 2 Recruits of the kind, refused
   `Reject::Requires(Temple)` without a Temple; it comes out with its type's 50 energy (`crates/sim/tests/prayer_mobile/
   production.rs`). The client puts it in the KindMenus' E (`PanelTemplate::trains`), W left to the Hand of Heaven.
+- **The Factory** (slice M6-GF; `factions/gdo/structures/factory.md`, `factions/gdo/units/raptor.md`,
+  `factions/gdo/units/twister.md`, design changes 0366, 0441, 0446 and 0451): "Production as the Barracks" (its
+  queue of 20, the refunds, the rally), out of side B (`ExitRule::Side(B)`, the Barracks' exits), with the default
+  rally point of a vehicle building (`default_rally: Some(3)`, *Production > A vehicle building's default rally
+  point*). Its recipes, in its `Produces` order, are the Raptor (100 Space Crystals, 240 frames) and the Twister (125
+  and 1 Supply, 320 frames: GD's second cost, `Recipe::supplies`), Unit Control 2 each, reserved as production starts;
+  the Prospector and the Artillery Rig stay held (`defs::PLANNED_RECIPES`) until slices M6-GP and M6-GA, the client's
+  E and R greyed meanwhile. The Deployment Center constructs it behind a Barracks, Advanced Mechanics behind it and
+  the Industrial Powerplant (Power +60) behind Advanced Mechanics, each its def module's `RECIPE` in the
+  Deployment Center's `constructs`, in the design's order, its TechPrerequisite its own `StructureDef::requires`.
+  A vehicle comes out half inside the middle of side B, its box turned out of the door (`producers::exit_half`), and
+  drives to the rally point, where (design change 0451) it parks round it if it is taken (below). The Raptor (a
+  WheeledVehicle on FixedTurnRadiusMovement, an 80 su minimum turn radius, 10 su a frame forward) fires a homing
+  missile from a 60° turret, so it takes slice M6-SV's rule for a narrow turret (`orders::engage`'s `rests_in_arc`,
+  *Combat*); the Twister's 360° machine gun hits air only, and an Attack on a ground unit by Twisters alone is refused
+  (`Reject::CannotHit`, *Commands*). Tests: `crates/sim/tests/factory/` (below) and the golden `gdo_vehicles`.
 - **Research** (slice M5-N3, plan decisions T70 and T74 as design changes 0335 to 0338 amend them;
   `core/tech_and_research.md > Research`, `factions/cults/structures/temple.md`; `defs/cults/research.rs`,
   `defs/structures/research.rs`, `sim/producers/research.rs`): the technologies are data (`Tech`, its `TechDef`: name,
@@ -3040,7 +3060,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
     stands as far out as there is room, fully inside against the exit side at most (`Sim::doorway_spot`;
     `Door::room_before` counts only what is in front, not what stands behind the door or beyond the building): the
     design's "half inside" would overlap what stands there, and its verification wants the unit to appear all the
-    same. **Several exit sides** (slice M5-C, `ExitRule::Sides(A)`: the Recruitment Hall's four, until design change
+    same. (M6-GF, plan decision T100) The tiles it checks are those of the grid its type walks on, by its Silhouette
+    (`paths::unit_grid`, `paths::key_of`), not by its box as turned out of the door, which may be a hair longer (a 64
+    su one 64.000008 su out of a side facing west) and would name the next size class's grid, one no unit walks on:
+    the 64 × 48 Artillery Rig's case, `sim/producers/tests.rs`. **Several exit sides** (slice M5-C,
+    `ExitRule::Sides(A)`: the Recruitment Hall's four, until design change
     0342 gave it one, B, so that no type has them now; `core/entities.md > Structure Type > Exit Doorway`: "a side
     whose doorway is occupied counts as blocked, and the building pauses only when every eligible doorway is
     occupied"): a door on each, tried in `Doorway::order`, the side facing the rally point (the greatest cosine with
@@ -3149,7 +3173,29 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   set by hand may be. A saved game's building placed before it existed has none, and loads with none: loading
   builds no object anew. Tests: `tests/chop_shop/rally.rs` and `exit.rs`; in the client,
   `crates/game/tests/commands/chop_shop.rs` (0446's and 0447's Verifications: the marker 3 grid units out of side C,
-  a right-click on the Chop Shop clearing it, one turned a quarter).
+  a right-click on the Chop Shop clearing it, one turned a quarter) and (M6-GF) `crates/game/tests/commands/
+  factory.rs` (the Factory's, 3 grid units out of side B).
+- **Parking round a taken rally point** (slice M6-GF, `sim/producers/park.rs`; `core/entities.md > Entrance and exit
+  > Exit Doorway` point 7, design change 0451 answering Q0177): "a newly released vehicle whose rally point is
+  already taken by parked vehicles **parks at the nearest free spot around the point**". It is the end of one move
+  only: the rally Move to a point of a wheeled or tracked vehicle just made and let out of an exit side's doorway, the
+  Factory's (`Sim::release_unit`) and the Chop Shop's trained ones (`Sim::let_out`, `Sim::park_out_of`); not
+  infantry, an ejected or released unit, a portal's, a Tunnel Network's or an aircraft. `Sim::park` gives that Move
+  the spot as the unit's own destination (`orders::Order::slot`, the magic box's field), so it travels and arrives as
+  any Move, and a player's Move keeps its own arrival. **Taken**: within the vehicle's reach of the point (the half
+  diagonal of its Silhouette) stands a unit that doesn't yield (a wheeled or tracked vehicle, design change 0440:
+  `UnitBaseDef::yields`) or lies the destination of another of its owner's vehicles' Moves (its claim, as a
+  builder's on its spot: **placeholder**). **Free**: nothing takes it, the vehicle fits there in four facings
+  (`Sim::check_unit_fits_facing`), it is off the lane out of the doorway (**placeholder**), and the straight way
+  there from the door, the vehicle's width and `Production::parking_lane_margin_su` more each side, meets no taker
+  and no claim (**placeholder**: a spot behind the cluster would leave it stopped short in front of it, by
+  MovingToLocation's "Occupied target location", in the line toward the door the rule does away with). **The search**:
+  rings `Production::parking_step_su` (8) apart out to `Production::parking_radius_gu` (3), each from the point
+  straight beyond the point round both ways, the first free point the spot; none, and it drives to the point as
+  before (**placeholder**). Nothing new is stored: the slot is the order's, hashed and saved with it. Tests:
+  `tests/factory/parking.rs` (five Raptors and five Twisters round the Factory's default point; with it cleared, the
+  stall stays the player's, 0447), `tests/chop_shop/parking.rs` (0451's Verification 1 to 3) and the goldens
+  `gdo_vehicles` and `cults_vehicles` (re-blessed: its second Seeker parks at the free spot nearest the first).
 - **Tests**: `src/production.rs` and `production/exit/tests.rs` (the queue, the Barracks' door in all 8
   orientations and its rule, the room before a door, the Hall's four doors and their order), `recruitment/tests.rs`
   (slice M5-C: the area, the exact capacity, the claims and their order, the lineages' points),
@@ -3219,7 +3265,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   ids (`TooManyUnits`), repeated ids count once, ids of objects that are gone and objects that take no orders are
   dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
-  (`NotAttackable`). A Gather's target is a Space Crystals patch the player sees or remembers, with no plate on it
+  (`NotAttackable`); (M6-GF) an Attack goes to the units whose weapon can hit the target's domain (`systems/combat.md
+  > ValidTarget` 3, `combat::domain_allows`), and none is `CannotHit(target)`: Twisters alone on a Peacekeeper. A Gather's target is a Space Crystals patch the player sees or remembers, with no plate on it
   that the player knows of (`NotGatherable`; a remembered one judged by its record), a Drop Off's a drop-off of the
   player's own (`NotDropOff`), and only the workers among the units
   take either (`NoWorkers` if there is none; `sim/workers.rs`), a Drop Off only those that carry a load
@@ -3960,6 +4007,17 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `saves`. The 72 × 48 box of plan decision T100
   is `sim/network/tests.rs`'s (a test def). In the client, `command_ui/interface/tests/syndicate.rs` (the VA's Q, W,
   E, R, X and C) and the ExpandMenu's tests above (its A, greyed by tier and by the Chemical Plant).
+- **Factory tests** (slice M6-GF) are `crates/sim/tests/factory/`, under the invariants: `buildings` (each of the
+  three refused without the one before it, its frames, the Industrial Powerplant's +60 in the Power summary),
+  `production` (both vehicles at their cost and time, Unit Control reserved at the start, the Twister's Supply, no
+  Prospector or Artillery Rig yet), `exit` (the default rally point in every orientation, five Raptors out of side B
+  facing out with no overlap), `parking` (0451 at the Factory, and the stall with the point cleared), `raptor` (a
+  running Peacekeeper hit from Range 6 every 32 frames, the turret tracking while the hull drives and turns) with
+  `raptor::close_range` (question Q0184's cases, the Raptor as built: a target near the rim of its turning circle that
+  it gives up, Attack Ground refused, kept together for slice M6-S6a and design change 0454), `twister` (a Sparrow
+  behind it shot down, the turret turned round; an Attack on a Peacekeeper refused); with
+  `sim/producers/tests.rs` (T100's exit spot for a 64 × 48 box) and, in the client,
+  `crates/game/tests/commands/factory.rs`.
 - **Upgrade tests** (slice M4-G) are `crates/sim/tests/upgrades/`, under O1 after every tick: `costs` (2 then 4, 3
   then 6, a Tier 3 Tunnel in the Tier 2 price, two started together, 0232's refunds in either order, and the books
   over random starts and cancels), `blocked` (an own neighbour, an enemy's site and Tunnel by the truth, Mountain and
@@ -4981,6 +5039,15 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   first one's construction, and its Place places the first one's turret (`systems/panel.rs`, a Placeholder). The
   Deployment Center's A and F construct them. The Missile Turret has the turret look (`Look::Turret`) and draws its
   missiles as the Rocketman's (`ShotStyle::Missile`).
+- **The Factory's panel** (slice M6-GF): `templates/gdo/factory.rs`, the Production template of its recipes, the
+  Raptor in Q and the Twister in W (greyed while the bank holds no Supply: "Not enough Supplies"), its Prospector and
+  Artillery Rig held in E and R (`Planned::Prospector`, `Planned::ArtilleryRig`: "Not available yet"), X and C. The
+  Deployment Center's Advanced menu constructs the Factory (Q), Advanced Mechanics (W) and the Industrial Powerplant
+  (A), each greyed "Requires a ..." without the one before it. A Twister's A-click on a ground unit is an invalid
+  target, as the gate refuses it (`Reject::CannotHit`), and its R and F hold its mines' commands, Lay Mine ("Lay")
+  and Buy Mine ("Buy"), greyed "Not available yet" until slice M6-GM (`Planned::LayMine`,
+  `Planned::BuyMine`, in the BasicCombatUnit grid by its template's `planned`). Tests:
+  `crates/game/tests/commands/factory.rs`.
 - **The Prayer-mobile's panel** (slice M5-N11; `factions/cults/units/prayer_mobile.md > Placeholder stats`:
   "ObjectInterfaceState: BasicCombatUnitInterfaceState without attack commands, plus **R: Inspire** and **F:
   Suppress**"): the BasicCombatUnit grid with no D (`PanelTemplate::without_attacks`; its A the selection's, absent
@@ -5360,8 +5427,8 @@ unchecked.
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
-  `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs` and `main.rs`, the
-  recording and the comparison in `harness.rs`): twenty-six games, a 3v3 duel, a 40-unit
+  `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs` and
+  `main.rs`, the recording and the comparison in `harness.rs`): twenty-seven games, a 3v3 duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
   fire and lower them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1
@@ -5373,7 +5440,7 @@ unchecked.
   M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
   M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below),
   `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
-  M6-GD, below) and `gdo_defense` (slice M6-GR, below), are blessed as replays
+  M6-GD, below), `gdo_defense` (slice M6-GR, below) and `gdo_vehicles` (slice M6-GF, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5486,7 +5553,11 @@ unchecked.
   Sparrows raid the base, so that the turrets fire slowed, banking a share of each tick, and the station's cooldown
   runs slow, until a third Generator placed mid-fight brings both back to full speed; the turrets' homing missiles
   bring the three down without a miss, and the station scans again in tick 1300, its cooldown over at the end of 1297,
-  16 ticks later than at full Power. The
+  16 ticks later than at full Power. In `gdo_vehicles` (to 1:40, debug commands on for player 1's Space Crystals and
+  2 Supplies) a Factory trains two Raptors and two Twisters, which drive out of side B and park round its default
+  rally point, the first on it and each other at the free spot nearest it (design change 0451), then attack-move onto
+  four Recruits and two Sparrows: the Raptors' missiles kill the Recruits, the Twisters' machine guns, which hit air
+  alone, the Sparrows, all six down by 1:33. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

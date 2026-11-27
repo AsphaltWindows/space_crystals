@@ -24,7 +24,8 @@ use crate::command_ui::interface::templates::Planned;
 /// (their entries' labels), the Supply Tower's SPT (ST is the Scout's, STR the Subterranean Transport's); the Raptor's
 /// RR, the Twister's TR, the Prospector's PR, the Artillery Rig's ARG and ARD (AR is the Altar's), the Hornet's HT,
 /// the Dragonfly's DY, the Drone Operator's DO, its drone's DRN (DR is the Colonists' Drone's), the Supply Chopper's
-/// SCR (SC is the patch's) and the mine's ME; the Deployment Center's eight entries with their types' labels.
+/// SCR (SC is the patch's) and the mine's ME; the Deployment Center's eight entries with their types' labels. Slice
+/// M6-GF: the Twister's mines' placeholders, Lay and Buy (not the mine's ME).
 #[test]
 fn every_label_is_its_own() {
     let in_game = |planned: &Planned| ObjectKind::ALL.iter().any(|kind| kind.def().name == planned.name());

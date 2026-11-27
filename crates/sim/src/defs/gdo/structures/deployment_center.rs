@@ -1,6 +1,6 @@
 //! The Deployment Center — `factions/gdo/structures/deployment_center.md`.
 
-use super::{defense_system, radar_station};
+use super::{advanced_mechanics, defense_system, factory, industrial_powerplant, radar_station};
 use crate::defs::structures::{Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
@@ -33,8 +33,11 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         // start, the Arsenal (slice M5-K, design change 0356) and the Career Campus (slice M5-N9, design change 0328),
         // whose "Requires: player owns at least one Barracks" is each type's own TechPrerequisite
         // (`StructureDef::requires`), and (M6-GR) the Radar Station and the Defense System, each with its own (a
-        // Generator; a Radar Station and an Arsenal). The design's others (Supply Tower, Factory, …) come with their
-        // slices, their Requires clauses (`core/tech_and_research.md > Tech Prerequisites`) with them.
+        // Generator; a Radar Station and an Arsenal), and (M6-GF) the Factory, Advanced Mechanics and the Industrial
+        // Powerplant, each its def module's entry, behind its own (a Barracks, a Factory, Advanced Mechanics), all in the
+        // design's order. The design's others (Supply Tower, Airfield, Propulsion Labs) come with their slices, their
+        // Requires clauses (`core/tech_and_research.md > Tech Prerequisites`) with them, held until then
+        // (`crate::defs::PLANNED_RECIPES`).
         constructs: &[
             Recipe {
                 kind: ObjectKind::Generator,
@@ -71,8 +74,17 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
                 requires: &[], // Requires: player owns at least one Barracks (the Career Campus's own)
                 supplies: 0,
             },
+            // (M6-GF) "Factory: 250 Space Crystals, 480 frames (30 seconds) (placeholder). Requires: player owns at
+            // least one Barracks."
+            factory::RECIPE,
             // (M6-GR) Radar Station: 150 Space Crystals, 320 frames (20 seconds) (placeholder).
             radar_station::RECIPE,
+            // (M6-GF) "Advanced Mechanics: 200 Space Crystals, 400 frames (25 seconds) (placeholder). Requires: player
+            // owns at least one Factory."
+            advanced_mechanics::RECIPE,
+            // (M6-GF) "Industrial Powerplant: 250 Space Crystals, 480 frames (30 seconds) (placeholder). Requires:
+            // player owns at least one Advanced Mechanics."
+            industrial_powerplant::RECIPE,
             // (M6-GR) Defense System: 150 Space Crystals, 320 frames (20 seconds) (placeholder).
             defense_system::RECIPE,
         ],
@@ -86,11 +98,12 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
 mod tests {
     use super::*;
 
-    /// The stat block, and `> Constructs`: the seven buildings in the game with each one's cost and time, the Arsenal
-    /// and the Career Campus requiring a Barracks (each its own TechPrerequisite, which `tech::recipe_requires` adds to
-    /// its entry's), (M6-GR) the Radar Station a Generator, the Defense System a Radar Station and an Arsenal. It, the
-    /// Extraction Facility (`factions/gdo/economy.md > ExtractionFacility > Constructs`) and (M6-GR) the Defense System
-    /// are the three constructors.
+    /// The stat block, and `> Constructs`: the ten buildings in the game with each one's cost and time, in the design's
+    /// order, the Arsenal and the Career Campus requiring a Barracks (each its own TechPrerequisite, which
+    /// `tech::recipe_requires` adds to its entry's), (M6-GR) the Radar Station a Generator, the Defense System a Radar
+    /// Station and an Arsenal, and (M6-GF) the Factory a Barracks, Advanced Mechanics a Factory and the Industrial
+    /// Powerplant Advanced Mechanics. It, the Extraction Facility (`factions/gdo/economy.md > ExtractionFacility >
+    /// Constructs`) and (M6-GR) the Defense System are the three constructors.
     #[test]
     fn the_deployment_center_follows_the_design() {
         let structure = super::super::assert_stat_block(
@@ -119,16 +132,21 @@ mod tests {
                 recipe(ObjectKind::ExtractionFacility, 200, 320),
                 recipe(ObjectKind::Arsenal, 150, 320),
                 recipe(ObjectKind::CareerCampus, 150, 320),
+                recipe(ObjectKind::Factory, 250, 480),
                 recipe(ObjectKind::RadarStation, 150, 320),
+                recipe(ObjectKind::AdvancedMechanics, 200, 400),
+                recipe(ObjectKind::IndustrialPowerplant, 250, 480),
                 recipe(ObjectKind::DefenseSystem, 150, 320),
             ]
         );
         let requires = |i: usize| crate::tech::recipe_requires(&structure.constructs[i]).collect::<Vec<_>>();
-        for needs_barracks in 3..5 {
+        for needs_barracks in 3..6 {
             assert_eq!(requires(needs_barracks), [ObjectKind::Barracks]);
         }
-        assert_eq!(requires(5), [ObjectKind::Generator]);
-        assert_eq!(requires(6), [ObjectKind::RadarStation, ObjectKind::Arsenal]);
+        assert_eq!(requires(6), [ObjectKind::Generator]);
+        assert_eq!(requires(7), [ObjectKind::Factory]);
+        assert_eq!(requires(8), [ObjectKind::AdvancedMechanics]);
+        assert_eq!(requires(9), [ObjectKind::RadarStation, ObjectKind::Arsenal]);
         for &kind in ObjectKind::ALL {
             let constructs = kind.def().structure.as_ref().is_some_and(|s| !s.constructs.is_empty());
             let constructor = matches!(

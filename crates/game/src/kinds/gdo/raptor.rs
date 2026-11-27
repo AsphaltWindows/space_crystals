@@ -2,7 +2,7 @@
 //! rectangle turned with its facing, as every vehicle's, with its first and last letters, "RR", on it. Its homing
 //! missiles are drawn as missiles ([`ShotStyle::Missile`], the Rocketman's), from the barrel every unit turret has
 //! (`crate::object_render::turret`). Its panel is the BasicCombatUnit template ("ObjectInterfaceState:
-//! BasicCombatUnitInterfaceState"). No player produces one until slice M6-GF, which makes its Factory entry live.
+//! BasicCombatUnitInterfaceState"). (M6-GF) The Factory trains it, its Q.
 
 use crate::combat_effects::ShotStyle;
 use crate::command_ui::interface::templates::{InterfaceTemplate, PanelTemplate};

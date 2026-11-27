@@ -1,8 +1,11 @@
 //! The Twister — `factions/gdo/units/twister.md` (design change 0366, slice M6-GK): "GDO vehicle produced at the
 //! Factory. A little slower than the Raptor. Mounts a machine gun on a fully rotating turret for anti-air defense, and
 //! lays hidden mines." Its numbers are the design's "Placeholder stats" (plan decision T84), its machine gun among
-//! them. Its mines (`> Mines`: a stock of 3, Buy Mine and Lay Mine; the mine is a kind of its own, `ObjectKind::Mine`)
-//! are slice M6-GM's, and its Factory entry ([`RECIPE`], held) slice M6-GF's; no player produces one before.
+//! them. (M6-GF) The Factory trains it ([`RECIPE`], the second of the Factory's `production`), for its Space Crystals
+//! and a Supply (design change 0441, the gate's `Reject::InsufficientSupplies` without it); its machine gun, on a turret
+//! that turns all the way round, hits air units only (`systems/combat.md > ValidTarget` 3). Its mines
+//! (`factions/gdo/units/twister.md > Mines`: a stock of 3, Buy Mine and Lay Mine; the mine is a kind of its own,
+//! `ObjectKind::Mine`) are slice M6-GM's.
 
 use crate::defs::structures::Recipe;
 use crate::defs::units::{
@@ -75,8 +78,8 @@ pub(crate) const TWISTER: ObjectDef = ObjectDef {
 };
 
 /// `factions/gdo/structures/factory.md > Produces`: "Twister: 125 Space Crystals, 320 frames (20 seconds)
-/// (placeholder)", and `> Placeholder stats`: "Cost: Factory, 125 Space Crystals **+ 1 Supply** (user, 2026-11-26),
-/// 320 frames" (design change 0441). Held until slice M6-GF (`crate::defs::PLANNED_RECIPES`).
+/// (placeholder)", and `factions/gdo/units/twister.md > Placeholder stats`: "Cost: Factory, 125 Space Crystals **+ 1
+/// Supply** (user, 2026-11-26), 320 frames" (design change 0441). (M6-GF) In the Factory's `production`, its W.
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::Twister,
     cost: 125,
@@ -93,7 +96,7 @@ mod tests {
     /// The placeholder stats: a WheeledVehicle, 52×36, MaxHP 140, armour 2/2, SightRange 6, Unit Control 2; up to 8 su
     /// a frame, slower than the Raptor, on its turn radius; a full turret turning 12° a frame; a machine gun at air
     /// only, 4 damage up to 6 grid units every 4 frames. Its Factory entry, 125 Space Crystals and 1 Supply in 320
-    /// frames, is held.
+    /// frames, is live (M6-GF).
     #[test]
     fn the_twister_follows_the_design() {
         let unit = super::super::assert_stat_block(
@@ -132,5 +135,10 @@ mod tests {
             supplies: 1,
         };
         assert_eq!(RECIPE, recipe);
+        let factory = ObjectKind::Factory.def().structure.as_ref().unwrap();
+        assert_eq!(
+            factory.production.and_then(|p| p.recipe(ObjectKind::Twister)),
+            Some(&RECIPE)
+        );
     }
 }

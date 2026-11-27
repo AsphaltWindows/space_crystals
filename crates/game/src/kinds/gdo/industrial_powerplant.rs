@@ -1,6 +1,6 @@
 //! The Industrial Powerplant (`factions/gdo/structures/industrial_powerplant.md`, design change 0366, slice M6-GK): a
-//! structure, labelled "IP", the initials of its name, with no panel (its design gives it none). No player constructs one until
-//! slice M6-GF, which makes its Deployment Center entry live, its BuildMenu\[Advanced\]'s A greyed until then
+//! structure, labelled "IP", the initials of its name, with no panel (its design gives it none). (M6-GF) The
+//! Deployment Center constructs it, its BuildMenu\[Advanced\]'s A
 //! (`crate::command_ui::interface::templates::gdo::deployment_center`).
 
 use crate::command_ui::interface::templates::PanelTemplate;

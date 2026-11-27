@@ -134,13 +134,19 @@ fn the_gdo_kinds_are_every_designed_one() {
 /// The kinds of [`NEW`] that a slice since M6-GK has made live, each with the kind whose list makes it, in the order
 /// the slices landed: (M6-GD) the Barracks' Drone Operator, and its drone, which the operator's stock launches
 /// (`UnitDef::stock`); (M6-GR) the Deployment Center's Radar Station and Defense System, and the Defense System's
-/// Missile Turret.
+/// Missile Turret; (M6-GF) the Deployment Center's Factory, Advanced Mechanics and Industrial Powerplant, and the
+/// Factory's Raptor and Twister.
 const LIVE: &[(ObjectKind, ObjectKind)] = &[
     (ObjectKind::Barracks, ObjectKind::DroneOperator),
     (ObjectKind::DroneOperator, ObjectKind::OperatorDrone),
     (ObjectKind::DeploymentCenter, ObjectKind::RadarStation),
     (ObjectKind::DeploymentCenter, ObjectKind::DefenseSystem),
     (ObjectKind::DefenseSystem, ObjectKind::MissileTurret),
+    (ObjectKind::DeploymentCenter, ObjectKind::Factory),
+    (ObjectKind::DeploymentCenter, ObjectKind::AdvancedMechanics),
+    (ObjectKind::DeploymentCenter, ObjectKind::IndustrialPowerplant),
+    (ObjectKind::Factory, ObjectKind::Raptor),
+    (ObjectKind::Factory, ObjectKind::Twister),
 ];
 
 /// The kinds that some live list makes, each with the kind whose list it is: a constructor's `Constructs` list
@@ -223,26 +229,57 @@ fn no_new_kind_is_made_yet() {
     assert_eq!(unmade, others);
 }
 
-/// `factions/gdo/structures/deployment_center.md > Constructs`: the Deployment Center's held buildings, in the
-/// design's order, each behind the buildings of its "Requires" clause, its own TechPrerequisite
-/// (`StructureDef::requires`): the Supply Tower a Radar Station, the Factory a Barracks, Advanced Mechanics a Factory,
-/// the Airfield Advanced Mechanics, Propulsion Labs an Airfield, and the Industrial Powerplant Advanced Mechanics.
-/// (M6-GR) The Radar Station's and the Defense System's are live (`defs::gdo::structures::deployment_center`'s test).
+/// `factions/gdo/structures/deployment_center.md > Constructs`: the Deployment Center's eight new buildings, held or
+/// live ((M6-GR) the Radar Station and the Defense System; (M6-GF) the Factory, Advanced Mechanics and the Industrial
+/// Powerplant), each behind the buildings of its "Requires" clause, its own TechPrerequisite
+/// (`StructureDef::requires`): the Supply Tower a Radar Station, the Factory a Barracks, the Radar Station a Generator,
+/// Advanced Mechanics a Factory, the Airfield Advanced Mechanics, Propulsion Labs an Airfield, the Industrial
+/// Powerplant Advanced Mechanics, and the Defense System a Radar Station and an Arsenal (here in the registry's order).
+/// The live ones follow the buildings of the M1 to M5 game in its `constructs`, in the design's order.
 #[test]
-fn the_deployment_centers_held_buildings_need_theirs() {
-    let held: Vec<(ObjectKind, &[ObjectKind])> = (PLANNED_RECIPES.iter())
-        .filter(|(maker, _)| *maker == ObjectKind::DeploymentCenter)
-        .map(|(_, recipe)| (recipe.kind, recipe.kind.def().structure.as_ref().unwrap().requires))
+fn the_deployment_centers_new_buildings_need_theirs() {
+    let constructs = ObjectKind::DeploymentCenter
+        .def()
+        .structure
+        .as_ref()
+        .unwrap()
+        .constructs;
+    let live: Vec<ObjectKind> = (constructs.iter())
+        .map(|recipe| recipe.kind)
+        .filter(|kind| NEW.contains(kind))
         .collect();
     assert_eq!(
-        held,
+        live,
         [
-            (ObjectKind::SupplyTower, &[ObjectKind::RadarStation][..]),
-            (ObjectKind::Factory, &[ObjectKind::Barracks]),
-            (ObjectKind::AdvancedMechanics, &[ObjectKind::Factory]),
+            ObjectKind::Factory,
+            ObjectKind::RadarStation,
+            ObjectKind::AdvancedMechanics,
+            ObjectKind::IndustrialPowerplant,
+            ObjectKind::DefenseSystem
+        ]
+    );
+    let held = (PLANNED_RECIPES.iter())
+        .filter(|(maker, _)| *maker == ObjectKind::DeploymentCenter)
+        .map(|(_, recipe)| recipe.kind);
+    let mut new: Vec<ObjectKind> = held.chain(live).collect();
+    new.sort();
+    let requires: Vec<(ObjectKind, &[ObjectKind])> = (new.iter())
+        .map(|&kind| (kind, kind.def().structure.as_ref().unwrap().requires))
+        .collect();
+    assert_eq!(
+        requires,
+        [
+            (ObjectKind::Factory, &[ObjectKind::Barracks][..]),
             (ObjectKind::Airfield, &[ObjectKind::AdvancedMechanics]),
+            (ObjectKind::AdvancedMechanics, &[ObjectKind::Factory]),
             (ObjectKind::PropulsionLabs, &[ObjectKind::Airfield]),
             (ObjectKind::IndustrialPowerplant, &[ObjectKind::AdvancedMechanics]),
+            (ObjectKind::RadarStation, &[ObjectKind::Generator]),
+            (
+                ObjectKind::DefenseSystem,
+                &[ObjectKind::RadarStation, ObjectKind::Arsenal]
+            ),
+            (ObjectKind::SupplyTower, &[ObjectKind::RadarStation]),
         ]
     );
 }

@@ -65,7 +65,10 @@ fn cults_p1_syndicate_p2(builder: ScenarioBuilder) -> Scenario {
 /// 2's Militants (ids 6, 7) and the Guards (ids 8, 9) behind them: they kill the two Militants, a Guard kills one of
 /// them, and the other kills both Guards (as the game played when it was made). (M5-S8) Until [`TRAIN`] the Chop Shop
 /// has the rally point it starts with, 3 grid units out of side C (design change 0446), which the game's own replaces:
-/// re-blessed for it, the checkpoints of ticks 0 and 32 alone moved.
+/// re-blessed for it, the checkpoints of ticks 0 and 32 alone moved. (M6-GF) The second Seeker, the rally point taken
+/// by the first, parks at the free spot nearest it rather than stopping behind it (design change 0451,
+/// `sim/producers/park.rs`): re-blessed for it, the checkpoints from tick 704 on moved, the game the same with the
+/// parking switched off (`Production::parking_radius_gu` 0), and the fight ending as before.
 pub(crate) fn cults_vehicles() -> Game {
     let mut builder =
         ScenarioBuilder::new(&open(40, 18)).spawn(ObjectKind::ChopShop, Some(P1), SpawnAt::Tile(TilePos::new(30, 8)));

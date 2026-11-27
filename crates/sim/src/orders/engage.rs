@@ -112,8 +112,8 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
 }
 
 /// (M6-SV) Step 2's "Locomotion = Stopping" for a unit that can't turn in place (FixedTurnRadiusMovement,
-/// `movement::wheeled`) and fights from a turret whose arc is less than a full turn: the Assault Bike (and the Raptor,
-/// once in play). Stopping, it brakes straight along its facing by Deceleration ("Stopping + Turning: invalid",
+/// `movement::wheeled`) and fights from a turret whose arc is less than a full turn: the Assault Bike and (M6-GF) the
+/// Raptor. Stopping, it brakes straight along its facing by Deceleration ("Stopping + Turning: invalid",
 /// `systems/combat.md > LocomotionOrientationConstraints[FixedTurnRadiusMovement]`; `Wheeled::coast`), so a target
 /// that has just come into its arc as it turns toward it slips out again as it coasts on, and step 4 sends it after
 /// the target, round and round, until its move ends as near as it gets and it gives up without firing. So it stops only
@@ -551,7 +551,7 @@ mod tests {
 
     /// (M6-SV) The types whose units stop only where the target will still be in their turret's arc at rest
     /// ([`brakes_into_arc`]): the wheeled ones with a turret narrower than a full turn, the Assault Bike (40°) and the
-    /// Raptor (60°, slice M6-GK's, which no player produces until slice M6-GF). Not the Seeker or the Twister, whose
+    /// Raptor (60°, slice M6-GK's, which the Factory trains since slice M6-GF). Not the Seeker or the Twister, whose
     /// turrets turn all the way round, nor a unit that turns in place (the Hand of Heaven keeps its hull aim) or flies
     /// (a Glider strafes): every other turret unit keeps step 4 as it was.
     #[test]

@@ -1,15 +1,19 @@
 //! Production in the sim (slice M2-D2; `crate::production` has the state and the rules it runs): the application of
 //! `Command::Production`, whose gate is `producers/queuing.rs`, the producers' step of the economy phase
 //! (`producers/step.rs`, with the start check of design change 0143), the release of a finished unit
-//! (`producers/release.rs`), and the refund when a producer leaves the game. A producer that holds units makes them
-//! of its units inside (`producers/pool.rs`, slice M5-F2). A Temple researches on its queue, staffed by the units
-//! inside (`producers/research.rs`, slice M5-N3).
+//! (`producers/release.rs`; (M6-GF) a vehicle's parking round a taken rally point, `producers/park.rs`), and the
+//! refund when a producer leaves the game. A producer that holds units makes them of its units inside
+//! (`producers/pool.rs`, slice M5-F2). A Temple researches on its queue, staffed by the units inside
+//! (`producers/research.rs`, slice M5-N3).
 
+mod park;
 pub(super) mod pool;
 mod queuing;
 mod release;
 mod research;
 mod step;
+#[cfg(test)]
+mod tests;
 
 pub(super) use release::exit_half;
 

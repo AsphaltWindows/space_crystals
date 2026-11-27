@@ -3,13 +3,15 @@
 //! ([`drone_operator`]), and its drone's ([`operator_drone`]); (M6-GR) the Radar Station's, which scans, and the
 //! Defense System's, which builds Missile Turrets as the Extraction Facility its plate. The Peacekeeper's is the
 //! BasicCombatUnit template, and the Barracks' the Production template (`super`), its Field Engineer in E and its Drone
-//! Operator in R ([`barracks`]).
+//! Operator in R ([`barracks`]); (M6-GF) the Factory's too, its Prospector and Artillery Rig held in E and R
+//! ([`factory`]).
 
 pub mod barracks;
 pub mod defense_system;
 pub mod deployment_center;
 pub mod drone_operator;
 pub mod extraction_facility;
+pub mod factory;
 pub mod field_engineer;
 pub mod operator_drone;
 pub mod radar_station;

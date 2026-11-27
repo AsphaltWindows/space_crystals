@@ -12,6 +12,8 @@
 //!   side C, however it is turned, its site from its placement on; three Seekers drive to it, the doorway never
 //!   stalling; a moved rally point takes the next ones there; one off the map is drawn in to its edge; a save with
 //!   none loads with none;
+//! - `parking` (slice M6-GF, design change 0451): five Seekers, five Hands of Heaven, and five Seekers rallied farther
+//!   away cluster round their rally point, each parking at the free spot nearest it, the doorway never stalling;
 //! - `seeker`: two damaged, augmented Recruits make a Seeker at full HP with no augmentation (design change 0330); it
 //!   counts one Unit Control against each of its Recruits' Halls, half of it an orphan once one Hall is gone;
 //! - `combat`: it kills a Militant while driving past, its turret firing on a Move; rear hits do more than frontal ones
@@ -29,6 +31,7 @@ mod combat;
 mod destruction;
 mod exit;
 mod normal_game;
+mod parking;
 mod rally;
 mod saves;
 mod seeker;

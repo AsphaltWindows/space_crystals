@@ -1,8 +1,9 @@
 //! Advanced Mechanics — `factions/gdo/structures/advanced_mechanics.md` (design change 0366, slice M6-GK): "GDO
 //! vehicle upgrade structure [...] Unlocks the **Prospector** (expansion vehicle) and the **Artillery Rig** at the
 //! Factory." Its numbers are the design's "Placeholder stats" (plan decision T84); it has no panel ("Panel: none yet
-//! (its upgrades are not designed)"). No player constructs one until slice M6-GF makes its Deployment Center entry
-//! ([`RECIPE`], held) live.
+//! (its upgrades are not designed)"). (M6-GF) The Deployment Center constructs it ([`RECIPE`], in its `constructs`),
+//! behind a Factory; it is the TechPrerequisite of the Industrial Powerplant, and of the Factory's Prospector and
+//! Artillery Rig, whose entries are held until slices M6-GP and M6-GA (`crate::defs::PLANNED_RECIPES`).
 
 use crate::defs::structures::{Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
@@ -37,8 +38,8 @@ pub(crate) const ADVANCED_MECHANICS: ObjectDef = ObjectDef {
 };
 
 /// `factions/gdo/structures/deployment_center.md > Constructs`: "Advanced Mechanics: 200 Space Crystals, 400 frames
-/// (25 seconds) (placeholder). Requires: player owns at least one Factory" (its own TechPrerequisite). Held until
-/// slice M6-GF (`crate::defs::PLANNED_RECIPES`).
+/// (25 seconds) (placeholder). Requires: player owns at least one Factory" (its own TechPrerequisite). (M6-GF) In the
+/// Deployment Center's `constructs`.
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::AdvancedMechanics,
     cost: 200,
@@ -52,7 +53,7 @@ mod tests {
     use super::*;
 
     /// The placeholder stat block, and its TechPrerequisite: a Factory. It produces, constructs and researches nothing;
-    /// its Deployment Center entry, 200 Space Crystals and 400 frames, is held.
+    /// its Deployment Center entry, 200 Space Crystals and 400 frames, is live (M6-GF).
     #[test]
     fn advanced_mechanics_follows_the_design() {
         let structure = super::super::assert_stat_block(
@@ -67,7 +68,16 @@ mod tests {
             -20,
         );
         assert_eq!(structure.requires, [ObjectKind::Factory]);
-        assert!(structure.production.is_none() && structure.research.is_none());
-        assert_eq!(RECIPE, super::super::held(ObjectKind::AdvancedMechanics, 200, 400));
+        assert!(structure.production.is_none() && structure.research.is_none() && structure.constructs.is_empty());
+        let recipe = Recipe {
+            kind: ObjectKind::AdvancedMechanics,
+            cost: 200,
+            frames: 400,
+            requires: &[],
+            supplies: 0,
+        };
+        assert_eq!(RECIPE, recipe);
+        let dc = ObjectKind::DeploymentCenter.def().structure.as_ref().unwrap();
+        assert!(dc.constructs.contains(&RECIPE), "the Deployment Center constructs it");
     }
 }

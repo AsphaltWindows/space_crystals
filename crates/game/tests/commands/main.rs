@@ -70,6 +70,9 @@
 //! its refusal to move, with feedback, until the drone is gone): `drone_operator_ui`. The Radar Station (slice M6-GR:
 //! two stations two SelectionGroups, Q's Scan at any point under the Cast pointer and its circle, the station cooling
 //! down, greyed, and Tab to the other): `radar_station`; the Defense System's Missile Turrets are `construction`'s.
+//! The Factory (slice M6-GF: its panel, Q and W training, W greyed for want of a Supply, E and R not available yet; its
+//! default rally point out of side B, cleared by a right-click on it; the Advanced menu's Q once a Barracks stands;
+//! a Twister's Attack on a Peacekeeper, an invalid target; its R and F, its mines, not available yet): `factory`.
 //!
 //! A computer player's player (slice A1, `--ai`: no command from the client's input while it is the local player, the
 //! top bar's "(AI)", F2 to a human player): `computer`.
@@ -90,6 +93,7 @@ mod construction;
 mod convert;
 mod drone_operator_ui;
 mod expansions;
+mod factory;
 mod field_engineer_ui;
 mod indicators;
 mod minimap;

@@ -30,9 +30,8 @@ fn busy(kind: ObjectKind, constructor: Constructor) -> Conditions {
 /// (Q), a Barracks (W), an Extraction Facility (E), an Arsenal (S, slice M5-K) or a Career Campus (D, slice M5-N9),
 /// and (slice M6-GR) a Radar Station (A) or a Defense System (F), and (slice M6-GK) holds the slot of its Supply Tower
 /// (R), greyed "Not available yet" with its label and name; Z is Back; X shows only while something is constructed or
-/// ready. The
-/// Advanced menu holds the slots of its five, all greyed: the Factory (Q), Advanced Mechanics (W), the Airfield (E),
-/// Propulsion Labs (R) and the Industrial Powerplant (A).
+/// ready. The Advanced menu constructs (slice M6-GF) the Factory (Q), Advanced Mechanics (W) and the Industrial
+/// Powerplant (A), and holds the slots of the Airfield (E) and Propulsion Labs (R), greyed.
 #[test]
 fn the_deployment_center_opens_its_build_menus() {
     use ButtonLook::{Back, Common, Disabled, Group, Unavailable};
@@ -102,18 +101,25 @@ fn the_deployment_center_opens_its_build_menus() {
     assert_eq!(
         shown(&menu),
         [
-            (q, planned(Planned::Factory), Unavailable),
-            (w, planned(Planned::AdvancedMechanics), Unavailable),
+            (q, command(Construct(ObjectKind::Factory)), Common),
+            (w, command(Construct(ObjectKind::AdvancedMechanics)), Common),
             (e, planned(Planned::Airfield), Unavailable),
             (slot(0, 3), planned(Planned::PropulsionLabs), Unavailable),
-            (slot(1, 0), planned(Planned::IndustrialPowerplant), Unavailable),
+            (slot(1, 0), command(Construct(ObjectKind::IndustrialPowerplant)), Common),
             (CommandSlot::BACK, PanelButton::Back, Back),
         ]
     );
     let labels = [q, w, e, slot(0, 3), slot(1, 0)].map(|s| menu.get(s).unwrap().label());
     assert_eq!(labels, ["FY", "AM", "AD", "PL", "IP"]);
-    assert_eq!(press(&menu, q), SlotPress::Nothing);
-    assert_eq!(menu.get(q).unwrap().name(), "Build Factory");
+    assert_eq!(press(&menu, e), SlotPress::Nothing);
+    assert_eq!(menu.get(e).unwrap().name(), "Build Airfield");
+    assert_eq!(
+        press(&menu, q),
+        SlotPress::Construct(
+            Construct(ObjectKind::Factory),
+            ConstructionCommand::Construct(ObjectKind::Factory)
+        )
+    );
     // A Peacekeeper beside the Deployment Center (the Peacekeepers' group comes first: Tab to the Deployment
     // Center): its commands are group commands.
     let mut mixed = Selection::new([(id(1), DC), (id(2), PK)]);

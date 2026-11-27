@@ -5,7 +5,7 @@
 
 use glam::Vec2;
 
-use crate::defs::{ExitRule, ObjectKind, ProductionDef, UnitDef};
+use crate::defs::{ExitRule, ObjectKind, ProductionDef};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::math;
@@ -38,7 +38,9 @@ impl Sim {
     /// RallyPoint behavior`); or it stays inside, finished, while the doorway is occupied: "the next unit can only
     /// appear once the doorway is free. While a unit still stands in it, the building pauses". The doorway is occupied
     /// while a unit this building released (`Mover::exit`) is still in it. Out of a side doorway the unit appears half
-    /// inside the middle of the exit side, facing out ([`Sim::doorway_spot`]); out of a portal's energy doorway, at the
+    /// inside the middle of the exit side, facing out ([`Sim::doorway_spot`]), and (M6-GF) a wheeled or tracked vehicle
+    /// whose rally point is taken parks at the free spot nearest it (design change 0451, `Sim::park`); out of a
+    /// portal's energy doorway, at the
     /// centre, facing the heading it leaves along (design change 0145: `production::EnergyDoorway::release`, which
     /// draws from the sim's Rng only with no rally point and two or more ways out to choose from). A building with
     /// several exit sides releases it through the first door in its order whose doorway is free and has a spot for it
@@ -75,20 +77,20 @@ impl Sim {
             .map(|o| o.pos)
             .collect();
         let recruits = producer_def(building).is_some_and(|def| def.recruitment.is_some());
-        // Where it appears, which way it faces, the heading of a unit leaving an energy doorway, and its box's half
-        // extents there (out of a side, turned to face out of it: [`exit_half`]).
-        let (pos, facing, heading, half) = match doorway {
+        // Where it appears, which way it faces, the heading of a unit leaving an energy doorway, its box's half
+        // extents there (out of a side, turned to face out of it: [`exit_half`]), and the side's door.
+        let (pos, facing, heading, half, door) = match doorway {
             ExitDoor::Side(doorway) => {
                 let toward = rally.map(|rally| rally.point() - building.pos);
                 let free = |door: &Door| released.iter().all(|&pos| doorway.door_at(pos) != *door);
                 let mut doors = doorway.order(toward).filter(free);
                 let Some((door, pos, half)) = doors.find_map(|door| {
                     let half = exit_half(kind, &door);
-                    Some((door, self.doorway_spot(&door, unit, half)?, half))
+                    Some((door, self.doorway_spot(&door, kind, half)?, half))
                 }) else {
                     return;
                 };
-                (pos, door.outward(), None, half)
+                (pos, door.outward(), None, half, Some(door))
             }
             ExitDoor::Centre(_) if !released.is_empty() => return,
             ExitDoor::Centre(portal) => {
@@ -98,7 +100,7 @@ impl Sim {
                 let Some(release) = portal.release(unit, half, grid, &self.objects, rally, |n| rng.below(n)) else {
                     return;
                 };
-                (release.pos, release.heading, Some(release.heading), half)
+                (release.pos, release.heading, Some(release.heading), half, None)
             }
         };
         if let Some(production) = self.objects.get_mut(&producer).and_then(|o| o.production.as_mut()) {
@@ -119,18 +121,28 @@ impl Sim {
         self.events.push(SimEvent::UnitProduced { producer, unit: id });
         if let Some(kind) = rally.and_then(|rally| self.rally_order(id, rally)) {
             self.give_order(&[id], kind, false);
+            // (M6-GF) Design change 0451: a vehicle out of an exit side parks round its rally point if that is taken
+            // (`producers/park.rs`).
+            if let Some(door) = door {
+                self.park(id, &door);
+            }
         }
     }
 
-    /// Where a unit with half extents `half` (its box as it faces out of the door: [`exit_half`]) appears in `door`:
-    /// "half inside the building, at the middle of the exit side", or as far out as there is room when another unit or a blocked tile is right in front of the
-    /// doorway (fully inside, against the exit side, at most: see `production::exit` for this reading of the
-    /// design). Its box overlaps no unit of its layer and no blocked tile but the building's own, nor ground under
-    /// those that the unit can't stand on (`production::ExitDoor::box_clear`, slice M5-Z1). `None` if there is no
-    /// such spot: the unit waits inside, as behind an occupied doorway.
-    pub(in crate::sim) fn doorway_spot(&self, door: &Door, unit: &UnitDef, half: Vec2) -> Option<Vec2> {
+    /// Where a unit of `kind` with half extents `half` (its box as it faces out of the door: [`exit_half`]) appears in
+    /// `door`: "half inside the building, at the middle of the exit side", or as far out as there is room when another
+    /// unit or a blocked tile is right in front of the doorway (fully inside, against the exit side, at most: see
+    /// `production::exit` for this reading of the design). Its box overlaps no unit of its layer and no blocked tile
+    /// but the building's own, nor ground under those that the unit can't stand on (`production::ExitDoor::box_clear`,
+    /// slice M5-Z1). `None` if there is no such spot: the unit waits inside, as behind an occupied doorway. The tiles
+    /// are those of the grid its type walks on, by its Silhouette as it is (`paths::key_of`): (M6-GF) the turned box
+    /// may be a hair longer, a 64 su one 64.000008 su out of a side facing west, which would name the next size class's
+    /// grid, one no unit in the game walks on (plan decision T100's 64 × 48 Rig, `producers/tests.rs`).
+    pub(in crate::sim) fn doorway_spot(&self, door: &Door, kind: ObjectKind, half: Vec2) -> Option<Vec2> {
+        let def = kind.def();
+        let (unit, silhouette) = (def.unit.as_ref()?, def.silhouette()?);
         let base = unit.base_def();
-        let grid = paths::unit_grid(self.nav.nav(), base, half * 2.0);
+        let grid = paths::unit_grid(self.nav.nav(), base, silhouette);
         let clear = |p: Vec2| grid.is_none_or(|grid| door.box_clear(grid, half, p));
         let depth = door.outward().abs().dot(half);
         // The other units of its layer, with their half extents: (M5-V1) of their shapes' bounding boxes, a turned

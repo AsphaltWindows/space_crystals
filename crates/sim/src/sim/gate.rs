@@ -131,7 +131,8 @@ impl Sim {
     ///    drop the ids of objects that no longer exist, and repeated ids; an order is rejected if no unit remains
     ///    (`docs/movement.md > 3`);
     /// 4. the command's own rules hold: an order's size and target (which the player must see, [`Reject::NotVisible`]),
-    ///    and for an Attack, units that can attack now ([`Reject::CannotAttack`]), for an Attack Ground, a point on the
+    ///    and for an Attack, units that can attack now ([`Reject::CannotAttack`]) with a weapon that can hit the
+    ///    target's domain ([`Reject::CannotHit`], slice M6-GF), for an Attack Ground, a point on the
     ///    map and units that can target the ground ([`Reject::CannotTargetGround`]), (M5-N4b) for a Shroud, units that
     ///    cast it ([`Reject::LacksAbility`]) with the energy it needs to start ([`Reject::NotEnoughEnergy`]), (M5-V2)
     ///    for a Reverse, units that can back up ([`Reject::CannotReverse`]), (M5-K) for a Target Lock, an enemy's

@@ -83,6 +83,8 @@ mod economy_resources;
 mod energy;
 #[path = "expansions/main.rs"]
 mod expansions;
+#[path = "factory/main.rs"]
+mod factory;
 #[path = "field_engineer/main.rs"]
 mod field_engineer;
 mod fog_delay;

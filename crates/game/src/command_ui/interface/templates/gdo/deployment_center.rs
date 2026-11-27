@@ -52,17 +52,20 @@ const BASIC_MENU: [Option<PanelCommand>; 12] = {
 };
 
 /// `> BuildMenu[Advanced]` ("the Factory and everything that follows it"), slot by slot: "[Q] Factory [W] Advanced
-/// Mechanics [E] Airfield [R] Propulsion Labs / [A] Industrial Powerplant". (M6-GK) All five are in the game (plan
-/// decision T84), but no player constructs one yet: each holds its slot, greyed ([`Planned`]), until its slice makes
-/// its entry live (M6-GF the Factory's, Advanced Mechanics' and the Industrial Powerplant's, M6-GH1 the Airfield's,
-/// M6-GL Propulsion Labs'). The menu opens on them (`super::super::offers`).
+/// Mechanics [E] Airfield [R] Propulsion Labs / [A] Industrial Powerplant". (M6-GF) The Factory, Advanced Mechanics and
+/// the Industrial Powerplant it constructs, each greyed while the player owns none of the one before it (their
+/// TechPrerequisites: the gate's `Reject::Requires`, "Requires a Barracks", "Requires a Factory", "Requires an
+/// Advanced Mechanics"). (M6-GK) The Airfield and Propulsion Labs are in the game (plan decision T84), but no player
+/// constructs one yet: each holds its slot, greyed ([`Planned`]), until its slice makes its entry live (M6-GH1 the
+/// Airfield's, M6-GL Propulsion Labs'). The menu opens on them (`super::super::offers`).
 #[rustfmt::skip]
 const ADVANCED_MENU: [Option<PanelCommand>; 12] = {
-    use Planned::{AdvancedMechanics, Airfield, Factory, IndustrialPowerplant, PropulsionLabs};
-    use PanelCommand::Planned as P;
+    use sc_sim::ObjectKind::{AdvancedMechanics, Factory, IndustrialPowerplant};
+    use Planned::{Airfield, PropulsionLabs};
+    use PanelCommand::{Construct as C, Planned as P};
     [
-        Some(P(Factory)),              Some(P(AdvancedMechanics)), Some(P(Airfield)), Some(P(PropulsionLabs)),
-        Some(P(IndustrialPowerplant)), None,                       None,              None,
+        Some(C(Factory)),              Some(C(AdvancedMechanics)), Some(P(Airfield)), Some(P(PropulsionLabs)),
+        Some(C(IndustrialPowerplant)), None,                       None,              None,
         None,                          None,                       None,              None,
     ]
 };

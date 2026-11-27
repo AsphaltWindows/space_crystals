@@ -7,7 +7,7 @@ use glam::Vec2;
 use super::Checked;
 use crate::command::Ability;
 use crate::construction::site::assists;
-use crate::defs::SpellDef;
+use crate::defs::{Domain, SpellDef};
 use crate::energy;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
@@ -55,6 +55,25 @@ impl Sim {
                 ordered.retain(|id| (self.objects.get(id)).is_some_and(|o| combat::takes_attack_orders(o.kind)));
                 if ordered.is_empty() {
                     return Err(Reject::CannotAttack);
+                }
+                // (M6-GF) `systems/combat.md > ValidTarget` 3: the units whose weapon can hit the target's domain, as
+                // the player knows the target (a structure stands on the ground), take it, the others ignore it, as a
+                // unit whose attack can't target the ground ignores an Attack Ground: none of them, and the Attack is
+                // refused (the plan's "An Attack on a Peacekeeper is refused, with feedback", for the Twister's
+                // anti-air machine gun; `Reject::CannotHit`).
+                let domain = self
+                    .known_kind(player, id)?
+                    .def()
+                    .unit
+                    .as_ref()
+                    .map_or(Domain::Ground, |unit| unit.base_def().domain);
+                let research = self.research();
+                let hits = |o: &Object| {
+                    combat::weapon(o, research).is_some_and(|attrs| combat::domain_allows(attrs.target_domain, domain))
+                };
+                ordered.retain(|id| self.objects.get(id).is_some_and(hits));
+                if ordered.is_empty() {
+                    return Err(Reject::CannotHit(id));
                 }
             }
             OrderKind::Hold | OrderKind::Stop => {}

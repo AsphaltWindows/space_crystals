@@ -141,6 +141,11 @@ pub enum Reject {
     /// (`systems/controls/commands.md > AttackGround`: "Only available to units whose AttackType has CanTargetGround";
     /// `combat::can_target_ground`).
     CannotTargetGround,
+    /// (M6-GF) None of the units an Attack names has a weapon that can hit its target, an object of a domain no
+    /// weapon of theirs targets (`systems/combat.md > ValidTarget` 3: "Ground attacks can target Ground and surfaced
+    /// Underground units, Air attacks can target Air units, Universal attacks can target any unit";
+    /// `combat::domain_allows`): a Twister's anti-air machine gun at a Peacekeeper.
+    CannotHit(ObjectId),
     /// (M4-F) The Tunnel performs an operation already (`factions/syndicate/tunnels.md > Construction and Upgrade
     /// Rules`: "A Tunnel can only perform one operation at a time"; `tunnel::Operation`).
     OperationUnderWay(ObjectId),
@@ -316,6 +321,7 @@ impl fmt::Display for Reject {
             Reject::NotInNetwork(kind) => write!(f, "no {} in the Tunnel Network is free to leave", kind.def().name),
             Reject::InTransit(kind) => write!(f, "the {} only just entered the Tunnel Network", kind.def().name),
             Reject::CannotTargetGround => write!(f, "none of the units can attack the ground"),
+            Reject::CannotHit(id) => write!(f, "none of the units' weapons can hit object {}", id.0),
             Reject::OperationUnderWay(id) => write!(f, "Tunnel {} performs an operation already", id.0),
             Reject::TierRequirement { kind, tier } => write!(f, "a {} needs a Tier {tier} Tunnel", kind.def().name),
             Reject::NoOperation(id) => write!(f, "Tunnel {} performs no operation", id.0),

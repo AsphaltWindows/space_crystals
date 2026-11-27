@@ -108,8 +108,9 @@ fn its_site_has_its_rally_point_from_its_placement_and_keeps_it() {
 /// "Build three Seekers without touching the rally: each drives to the rally point area; the doorway never stalls."
 /// Six Recruits inside queue three Seekers at once: each comes out 320 frames after the one before, never held back
 /// by its doorway (the building never waits, `ProductionStatus::waiting`), and drives to its default rally point:
-/// the first stops on it, the second and third as near it as the ones before let them, between it and side C, all
-/// out of the doorway (measured: 62 and 126 su east of it, the third's box 38 su clear of side C).
+/// the first stops on it; (M6-GF) the second and third, the point taken, park at the free spot nearest it (design
+/// change 0451, `parking.rs`), all out of the doorway (measured: beside the first, 55 su north and south of it and 8
+/// su nearer side C; before 0451 they stopped in a line toward the door, 62 and 126 su east of it).
 #[test]
 fn three_seekers_drive_to_the_rally_point_area_and_the_doorway_never_stalls() {
     let (mut t, _) = filled(6);

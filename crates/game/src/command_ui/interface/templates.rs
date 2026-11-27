@@ -181,8 +181,8 @@ pub struct PanelTemplate {
     /// The units of a producing structure's panel that aren't in the game yet ([`Planned`]), each with its slot
     /// (`CommandSlot::all` order), which [`production_grid`] adds to its recipes: a portal's (design change 0124); and
     /// the commands of a combat unit's panel that aren't in the game yet, which the BasicCombatUnit grid adds to its
-    /// own ([`basic_combat_unit_grid`]): none now, the Disciple's Shroud having held R from slice M5-N4a until slice
-    /// M5-N4b brought it ([`SHROUD_SLOT`]).
+    /// own ([`basic_combat_unit_grid`]): the Disciple's Shroud held R from slice M5-N4a until slice M5-N4b brought it
+    /// ([`SHROUD_SLOT`]), and (M6-GF) the Twister's mines hold R and F until slice M6-GM.
     pub planned: &'static [(usize, Planned)],
     /// (M5-N9) The units of a producing structure's panel that the design puts in a slot of their own, each with its
     /// slot (`CommandSlot::all` order), where [`production_grid`] puts their Train, the others going in order into the

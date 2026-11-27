@@ -212,9 +212,11 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q | Move | Move | click a target; Shift queues |
 | W | Rev. | Reverse | click a target; Shift queues |
 | E | Hold | Hold Position | Shift queues |
+| R | Lay | Lay Mine | greyed: "Not available yet" |
 | A | Attack | Attack | click a target; Shift queues |
 | S | Patrol | Patrol | click a target; Shift queues |
 | D | AtkGnd | Attack Ground | click a target; Shift queues; greyed: "Not available for this unit" |
+| F | Buy | Buy Mine | greyed: "Not available yet" |
 | X | Stop | Stop | Shift queues |
 
 #### Prospector (PR)
@@ -319,11 +321,11 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q → D | CC | Build Career Campus | Requires a Barracks |
 | Q → F | DS | Build Defense System | Requires a Radar Station; Requires an Arsenal |
 | W | Adv. | Advanced Construction | opens a menu |
-| W → Q | FY | Build Factory | greyed: "Not available yet" |
-| W → W | AM | Build Advanced Mechanics | greyed: "Not available yet" |
+| W → Q | FY | Build Factory | Requires a Barracks |
+| W → W | AM | Build Advanced Mechanics | Requires a Factory |
 | W → E | AD | Build Airfield | greyed: "Not available yet" |
 | W → R | PL | Build Propulsion Labs | greyed: "Not available yet" |
-| W → A | IP | Build Industrial Powerplant | greyed: "Not available yet" |
+| W → A | IP | Build Industrial Powerplant | Requires an Advanced Mechanics |
 
 **While it builds:** E Place the building (greyed: "Still under construction"), X Cancel Construction.
 
@@ -352,6 +354,19 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 
 **Once the building is ready:** Q Place the building, X Cancel Ready Plate.
 
+#### Factory (FY)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | RR | Train Raptor |  |
+| W | TR | Train Twister |  |
+| E | PR | Train Prospector | greyed: "Not available yet" |
+| R | ARG | Train Artillery Rig | greyed: "Not available yet" |
+| X | Cancel | Cancel Production |  |
+| C | Rally | Set Rally Point | click a target |
+
+**Right-click** sets its rally point, on the ground or on an object; on the building itself, it clears it.
+
 #### Radar Station (RS)
 
 | Keys | Button | Command | Notes |
@@ -368,7 +383,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 
 **Once the building is ready:** Q Place the building, X Cancel Ready Turret.
 
-No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL), Factory (FY), Airfield (AD), Advanced Mechanics (AM), Propulsion Labs (PL), Industrial Powerplant (IP), Missile Turret (MTT), Outpost (OT), Bunker (BKR), First Aid Tent (FAT), Supply Tower (SPT), Mine (ME).
+No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL), Airfield (AD), Advanced Mechanics (AM), Propulsion Labs (PL), Industrial Powerplant (IP), Missile Turret (MTT), Outpost (OT), Bunker (BKR), First Aid Tent (FAT), Supply Tower (SPT), Mine (ME).
 
 ## Syndicate
 

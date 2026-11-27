@@ -1,8 +1,11 @@
 //! The Raptor — `factions/gdo/units/raptor.md` (design change 0366, slice M6-GK): "GDO light missile vehicle produced
 //! at the Factory — a Humvee-like wheeled vehicle with a missile launcher turret. Like a Rocketman whose missiles are
 //! always homing. Does not carry infantry." Its numbers are the design's "Placeholder stats" (plan decision T84), its
-//! movement, its turret and its homing missile among them. No player produces one until slice M6-GF makes its Factory
-//! entry ([`RECIPE`], held) live.
+//! movement, its turret and its homing missile among them. (M6-GF) The Factory trains it ([`RECIPE`], the first of the
+//! Factory's `production`): it drives on V2's FixedTurnRadiusMovement (`crate::movement::wheeled`), fires from U1's
+//! turret (`crate::combat::turret`), whose 60° arc makes it take SV's rule for stopping in range
+//! (`orders::engage`'s `rests_in_arc`), and its missile is K's HeadDisjointed homing one
+//! (`crate::combat::projectiles`).
 
 use crate::defs::structures::Recipe;
 use crate::defs::units::{
@@ -75,7 +78,7 @@ pub(crate) const RAPTOR: ObjectDef = ObjectDef {
 };
 
 /// `factions/gdo/structures/factory.md > Produces`: "Raptor: 100 Space Crystals, 240 frames (15 seconds)
-/// (placeholder)". Held until slice M6-GF (`crate::defs::PLANNED_RECIPES`).
+/// (placeholder)". (M6-GF) In the Factory's `production`, its Q.
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::Raptor,
     cost: 100,
@@ -92,7 +95,7 @@ mod tests {
     /// The placeholder stats: a WheeledVehicle, 48×32, MaxHP 110, armour 1/1, SightRange 7, Unit Control 2; up to 10 su
     /// a frame on an 80 su turn radius; a 60° turret turning 10° a frame; a homing missile at ground and air, 14 damage
     /// up to 6 grid units at 14 su a frame, one every 32 frames. Its Factory entry, 100 Space Crystals and 240 frames, is
-    /// held.
+    /// live (M6-GF).
     #[test]
     fn the_raptor_follows_the_design() {
         let unit = super::super::assert_stat_block(
@@ -132,5 +135,10 @@ mod tests {
             supplies: 0,
         };
         assert_eq!(RECIPE, recipe);
+        let factory = ObjectKind::Factory.def().structure.as_ref().unwrap();
+        assert_eq!(
+            factory.production.and_then(|p| p.recipe(ObjectKind::Raptor)),
+            Some(&RECIPE)
+        );
     }
 }
