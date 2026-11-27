@@ -1865,6 +1865,9 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - the cast lands on the ground under the cursor;
     - the Shrine has no rally point or right-click;
     - the looks (Q0001).
+    - whether enemies see the buff marks went out as **Q0145**.
+  - **Perf** (`movement_perf`, 6 pairs, load 8.7–10.3): 0.610 against 0.623 ms a tick, within the noise.
+  - 2371 tests passed, 37 ignored. The 17 other goldens are unchanged, and the seed sweep passes.
 - **M5-S4 A Recruitment Hall at the map edge** (Opus; merged in `cce50b54`; design change 0387):
   - **The sim:** `placement/recruitment_area.rs` and `WholeProblem::RecruitmentAreaOffMap` are gone, so a Hall takes only its footprint rules, in every placement mode. Off-map tiles count as non-Recruitable, out of 100: 70% flush against an edge, 49% in a corner. The Tunnel's on-map rule (0242) stays.
   - **The client:** the preview and the selected-Hall display already drew only on-map tiles. The Effectiveness label goes south of a Hall at the north edge (`label_ground`, a placeholder).
@@ -1982,6 +1985,15 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - Defense when its buildings are hit.
     - Every number is in `crates/ai/src/tuning.rs`. Waves of 8 alone never beat a passive player on `dev_skirmish`, since they trade evenly with its whole army at its staging point.
   - **`ai_games`** (ignored, release), GDO against GDO; every invariant, the gate and 0402's fairness are checked each tick:
+
+    | Map | Standard as P1 vs passive | Passive vs standard as P2 | Standard vs standard |
+    |---|---|---|---|
+    | dev_skirmish | P1 wins 10:36 | P2 wins 11:25 | P2 wins 7:16 |
+    | playtest.json | P1 wins 7:41 | P2 wins 12:28 | P1 wins 5:55 |
+
+  - **Perf:** `think` takes 10.4 µs on average, 112 µs at worst, over 162,688 calls.
+  - **The Director's reading:** a wave sent to search the map's patches is fair, since the map's patches are known from the start (`systems/controls/behaviors.md > PathKnowledge`).
+  - 2453 tests passed, 57 ignored. No golden moved, and the sim is untouched.
 - **A2b The Syndicate's computer player** (Opus; merged in `73da4292`):
   - **What it plays:**
     - three Agents on its crystal hatch (0294);
@@ -2381,28 +2393,30 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Tests:** `tests/prayer_mobile/` (production, energy, Inspire, Suppress, saves) and the Disciple's channel. The controls doc is regenerated, and the new golden `cults_prayer_mobile` is the 23rd; no other golden moved.
   - **Perf** (5 interleaved rounds against `4d877527`, load 2.3–2.7): unchanged, for example movement 0.695 against 0.697 ms and structures 0.537 against 0.535.
   - 2747 tests passed, 62 ignored. The computer players' games are unchanged.
-
-    | Map | Standard as P1 vs passive | Passive vs standard as P2 | Standard vs standard |
-    |---|---|---|---|
-    | dev_skirmish | P1 wins 10:36 | P2 wins 11:25 | P2 wins 7:16 |
-    | playtest.json | P1 wins 7:41 | P2 wins 12:28 | P1 wins 5:55 |
-
-  - **Perf:** `think` takes 10.4 µs on average, 112 µs at worst, over 162,688 calls.
-  - **The Director's reading:** a wave sent to search the map's patches is fair, since the map's patches are known from the start (`systems/controls/behaviors.md > PathKnowledge`).
-  - 2453 tests passed, 57 ignored. No golden moved, and the sim is untouched.
-
-    Whether enemies see buff marks went out as **Q0145**.
-  - **Perf** (`movement_perf`, 6 pairs, load 8.7–10.3): 0.610 against 0.623 ms a tick, within the noise.
-  - 2371 tests passed, 37 ignored. The 17 other goldens are unchanged, and the seed sweep passes.
+- **M5-X1a The sim's ruleset** (Opus; merged in `4d17cff4`, X1a's `8372d899` with a merge of master's bookkeeping; T66 and T101). Its agent split X1 at 3.5 h: X1a is the whole ruleset, read on the built-in rules, and X1b adds SetRules. No behaviour change.
+  - **`Ruleset { defs, bases, factions, tuning }`** (`crates/sim/src/ruleset.rs`) holds every number the sim reads.
+    - `Ruleset::BUILTIN`, generation 0, is made of the def modules' `const` defs (the kind registry's `ObjectKind::BUILTIN_DEFS`), the bases', `FactionRules::BUILTIN` (`GdoRules`, `SyndicateRules`, `CultsRules`, `ColonistsRules`) and `tuning::BUILTIN`.
+    - `kind.def()`, `base.def()`, `tech.def()` and `ability.def()` read `rules()`, and a tunable is `rules().tuning.<system>.<field>`.
+    - The state hash leaves the rules out.
+  - **14 tuning modules,** each one struct declared by `tunables!`, its fields named as the constants were, with their docs and built-in values. `holding.rs` is new.
+  - **Structure** (`ruleset/structure.rs`): a skeleton of the serialization with every number and name blanked. `FREE` lists the non-number fields read only as something starts (the requirements, the default rally and the blast domain), and `KEPT` the footprints' sizes.
+  - **Generations:** up to 64, leaked so that every `&'static` def stays valid. The installer waits for X1b.
+  - **Perf:** a number read at run time loses constant folding.
+    - Before hoisting it cost 2.5–5%, mostly the ElevationModifier read in the sight stamp's loop. A thread-local fast path was worse (+6%).
+    - With the tunables read once before each hot loop, the Director's A/B (5 interleaved rounds on one P-core against `30a50ae5`, load 2.3–3.8) gives: movement 0.589 against 0.578 ms (+1.8%; +1.1% without A's first round), recruits +2.0%, drones +0.6%, and air, vehicles, nav and structures within ±0.8%.
+  - **The placeholders list** is regenerated: 215 → 226 marks, the 11 new ones N11's.
+  - 2750 tests passed, 62 ignored. The 23 goldens are unchanged, the seed sweep passes, and the computer players' 192 games are identical.
 
 ## In progress
 - **Running:**
-  - **M5-X1 The sim's ruleset** (Opus; brief `scratchpad/briefs/m5x1-ruleset.md`), launched alone after N11's merge, on 2026-11-27. It may split into X1a, the tuning modules, and X1b.
+  - **M5-X1b SetRules** (the same agent, after X1a): `DebugCommand::SetRules`, refused for a structural change (`Reject::RulesStructural`) or past 64 generations (`RulesFull`), applied as the next tick starts, with `RulesChanged`; HP that follows a new MaxHP; the generation in saves and replays; `tests/rules.rs`.
+  - **M6-GK The GDO kinds** (Opus; brief `scratchpad/briefs/m6gk-gdo-kinds.md`), launched at X1a's merge, on 2026-11-27. It adds the struct-update defaults (T84).
+  - **M6-SK The Syndicate kinds** (Opus; brief `scratchpad/briefs/m6sk-syndicate-kinds.md`), beside GK. Its block goes after GK's in the registry.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** X2 after X1, then **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
+- **Next:** X2 after X1b, then **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
   - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
-  - **M6 starts at X1's merge** (T101), beside X2: **GK** and **SK** first (W1), then GR and GD beside Mb (W2).
-  - **The briefs:** `scratchpad/briefs/m5x2-data-files.md`, `m6-common.md`, `m6gk-gdo-kinds.md` and `m6sk-syndicate-kinds.md`, drafted. Each gets X1's report at launch.
+  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: **GK** and **SK** (W1), then GR and GD beside Mb (W2).
+  - **The briefs:** `scratchpad/briefs/m5x2-data-files.md` gets X1b's report at launch. `m6-common.md` holds X1's shape for every M6 slice.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
@@ -2648,7 +2662,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 
 ### M6: the GDO's and the Syndicate's remaining content (planned: `artifacts/director/m6-plan.md`, adopted 2026-11-26)
 - **Scope:** 0366–0369: every designed GDO and Syndicate building and unit that isn't built yet, on 0366's and 0367's placeholder numbers. This is the Director's reading of the user's "just continue with the milestones work" (2026-11-26); the user was told, and can redirect.
-- **When:** after M5. M6 starts at X1's merge, since X1 and X2 stay in M5 and M6 is written in X1's form (T101).
+- **When:** after M5's content. M6 started at X1a's merge (2026-11-27), since X1 and X2 stay in M5 and M6 is written in X1's form (T101).
 - **Slices:** 27, about 73.5 agent hours. V3 and V4 moved into M5 at adoption.
   - **Kinds:** GK and SK.
   - **The GDO:** GR, GD, GF, GA, GM, GP, GB, GH1, GH2, GL and GS.
