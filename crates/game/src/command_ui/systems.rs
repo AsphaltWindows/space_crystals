@@ -277,7 +277,8 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
 /// "The operator refuses Move, with feedback, until the drone is gone" (plan §GD). (M6-GH1) So does one that reassigns
 /// no aircraft for its Airfield's room (`Reject::AirfieldFull`: `m6-plan.md > GH1 > Acceptance`, "A right-click on
 /// Airfield B assigns the Hornet to B if B's assigned and queued aircraft are fewer than 4, and is refused otherwise").
-/// The gate's other refusals of a right-click stay unsaid, as before.
+/// (M6-GA) So does one that moves none of the units for their types (`Reject::CannotMove`: a deployed Rig "**cannot
+/// move**"), as a greyed Move says it. The gate's other refusals of a right-click stay unsaid, as before.
 pub(super) fn right_click_orders(
     actions: Res<ActionState>,
     mut clicks: MessageReader<MapClick>,
@@ -310,7 +311,7 @@ pub(super) fn right_click_orders(
         let queue = bindings.holds(InputAction::Queue, modifiers);
         match right_click(&control, &mut outbox, &target, queue) {
             None => return,
-            Some(Err(reject @ (Reject::DroneOut | Reject::AirfieldFull))) => {
+            Some(Err(reject @ (Reject::DroneOut | Reject::AirfieldFull | Reject::CannotMove))) => {
                 let why = WhyUnavailable::Refused(reject);
                 refused.write(CommandRefused {
                     why,

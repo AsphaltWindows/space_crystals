@@ -85,8 +85,8 @@ pub fn holds(o: &Object) -> bool {
 
 /// Whether a unit that holds still for its drone ([`holds`]) takes an order of `kind` (module docs): only one that
 /// doesn't move it, a Stop, a Hold Position, (M5-N4b) a channel or (M5-K) a Target Lock, which stand where the unit
-/// is; a Launch has its own refusal while the drone is out (`Reject::DroneOut`). Every other order moves the unit, to
-/// a point, an object or within range.
+/// is; a Launch has its own refusal while the drone is out (`Reject::DroneOut`); and (M6-GA) a vehicle deploy, which
+/// stands too (no operator deploys). Every other order moves the unit, to a point, an object or within range.
 pub fn allows(kind: OrderKind) -> bool {
     match kind {
         OrderKind::Stop | OrderKind::Hold | OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => true,
@@ -96,6 +96,7 @@ pub fn allows(kind: OrderKind) -> bool {
         OrderKind::Reverse(_) => false,
         // (M6-GH1) An aircraft's flight to its Airfield (no operator is one).
         OrderKind::Rebase(_) | OrderKind::ReturnToBase => false,
+        OrderKind::VehicleDeploy { .. } => true,
     }
 }
 

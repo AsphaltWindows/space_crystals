@@ -5,10 +5,10 @@
 //! boxes turned to face out of it (plan decision T100, `ExitRule::Side`), and it starts with the default RallyPoint of a
 //! building that releases vehicles through an exit side (`core/entities.md > Entrance and exit > Exit Doorway` point
 //! 7, design changes 0446 and 0447: 3 grid units out, `ProductionDef::default_rally`). It trains the Raptor and the
-//! Twister; the Prospector and the Artillery Rig, the design's other two, are slices M6-GP's and M6-GA's, their entries
-//! held until then (`crate::defs::PLANNED_RECIPES`).
+//! Twister, and (M6-GA) the Artillery Rig behind Advanced Mechanics; the Prospector, the design's other one, is slice
+//! M6-GP's, its entry held until then (`crate::defs::PLANNED_RECIPES`).
 
-use crate::defs::gdo::units::{raptor, twister};
+use crate::defs::gdo::units::{artillery_rig, raptor, twister};
 use crate::defs::structures::{ExitRule, ProductionDef, Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
@@ -42,9 +42,11 @@ pub(crate) const FACTORY: ObjectDef = ObjectDef {
             exits: ExitRule::Side(SideLetter::B), // "exit side B, like the Barracks"
             // `factions/gdo/structures/factory.md > Produces`, in its order: "Raptor: 100 Space Crystals, 240 frames
             // (15 seconds) (placeholder)" and "Twister: 125 Space Crystals, 320 frames (20 seconds) (placeholder)",
-            // its "+ 1 Supply" (design change 0441), each its def module's. The Prospector's and the Artillery Rig's,
-            // behind Advanced Mechanics, are held until slices M6-GP and M6-GA (`crate::defs::PLANNED_RECIPES`).
-            recipes: &[raptor::RECIPE, twister::RECIPE],
+            // its "+ 1 Supply" (design change 0441), each its def module's; (M6-GA) "Artillery Rig: 250 Space
+            // Crystals, 480 frames (30 seconds) (placeholder). Requires: player owns at least one Advanced Mechanics",
+            // its "+ 5 Supplies" (design change 0435). The Prospector's, behind Advanced Mechanics too, is held until
+            // slice M6-GP (`crate::defs::PLANNED_RECIPES`).
+            recipes: &[raptor::RECIPE, twister::RECIPE, artillery_rig::RECIPE],
             recruitment: None,
             augment: &[],
             // `core/entities.md > Entrance and exit > Exit Doorway` point 7: "Every building that releases **wheeled or
@@ -78,7 +80,8 @@ mod tests {
     /// The placeholder stat block, ABAC, and its TechPrerequisite: a Barracks. Its Deployment Center entry, 250 Space
     /// Crystals and 480 frames, is live (M6-GF). It constructs nothing, and produces as the Barracks does, out of side
     /// B: the Raptor for 100 Space Crystals in 240 frames, then the Twister for 125 and 1 Supply in 320, each with no
-    /// prerequisite of its own; with a default rally point 3 grid units out.
+    /// prerequisite of its own, then (M6-GA) the Artillery Rig for 250 and 5 Supplies in 480, behind Advanced Mechanics;
+    /// with a default rally point 3 grid units out.
     #[test]
     fn the_factory_follows_the_design() {
         let structure = super::super::assert_stat_block(
@@ -101,6 +104,10 @@ mod tests {
             requires: &[],
             supplies,
         };
+        let rig = Recipe {
+            requires: &[ObjectKind::AdvancedMechanics],
+            ..recipe(ObjectKind::ArtilleryRig, 250, 480, 5)
+        };
         assert_eq!(RECIPE, recipe(ObjectKind::Factory, 250, 480, 0));
         let dc = ObjectKind::DeploymentCenter.def().structure.as_ref().unwrap();
         assert!(dc.constructs.contains(&RECIPE), "the Deployment Center constructs it");
@@ -117,7 +124,8 @@ mod tests {
             production.recipes,
             [
                 recipe(ObjectKind::Raptor, 100, 240, 0),
-                recipe(ObjectKind::Twister, 125, 320, 1)
+                recipe(ObjectKind::Twister, 125, 320, 1),
+                rig
             ]
         );
         assert_eq!(

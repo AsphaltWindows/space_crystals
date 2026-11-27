@@ -4,13 +4,15 @@
 //! (Deployed)**, with separate SelectionGroups", a kind each ([`ARTILLERY_RIG`], [`ARTILLERY_RIG_DEPLOYED`]), as the
 //! Peacekeeper's two (plan decision T84). Their numbers are the design's "Placeholder stats". The deployed kind is
 //! immobile by its def (plan decision T87): the mobile kind's SpeedTurnRadiusMovement with MaxSpeed and ReverseMaxSpeed
-//! 0, so it neither drives nor turns its hull, and aims with its turret. Deploying and undeploying ("**Deploy 48 frames
-//! (3 s), Undeploy 48 frames.**", the vehicle deploy model) and its Factory entry ([`RECIPE`], held) are slice M6-GA's;
-//! no player produces one before.
+//! 0, so it neither drives nor turns its hull, and aims with its turret. (M6-GA) Deploying and undeploying ("**Deploy 48
+//! frames (3 s), Undeploy 48 frames.**") are the vehicle deploy model's (plan decisions T44 and T87,
+//! `crate::vehicle_deploy`), from a row on each type (`UnitDef::vehicle_deploy`): the mobile Rig's Deploy leads into the
+//! deployed one, whose Undeploy leads back. The Factory trains it ([`RECIPE`], in its production since slice M6-GA).
 
 use crate::defs::structures::Recipe;
 use crate::defs::units::{
     AttackAttrs, AttackType, BlastDomain, MovementAttrs, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitDef,
+    VehicleDeploy,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -56,6 +58,12 @@ const ARTILLERY_RIG_UNIT: UnitDef = UnitDef {
     attack: None,               // "**Mobile:** moves normally; **has no attack**."
     turret: None,               // "TurnAngle (Deployed): 360° (full rotation)": the deployed kind's
     unit_control_cost: Some(3), // UnitControlCost 3
+    // `> Modes`: "**Deploy** [...] the unit becomes Artillery Rig (Deployed) (type and SelectionGroup) when deploying
+    // finishes"; `> Placeholder stats`: "**Deploy 48 frames (3 s)**".
+    vehicle_deploy: Some(VehicleDeploy {
+        into: ObjectKind::ArtilleryRigDeployed,
+        frames: 48,
+    }),
     ..UnitDef::NONE
 };
 
@@ -104,6 +112,12 @@ pub(crate) const ARTILLERY_RIG_DEPLOYED: ObjectDef = ObjectDef {
             cooldown_ticks: 8,
             reload_ticks: 64,
         }),
+        // `> Modes`: "Undeploying likewise always completes, and Deploy is available again only once it has";
+        // `> Placeholder stats`: "**Undeploy 48 frames.**"
+        vehicle_deploy: Some(VehicleDeploy {
+            into: ObjectKind::ArtilleryRig,
+            frames: 48,
+        }),
         ..ARTILLERY_RIG_UNIT
     }),
     ..ARTILLERY_RIG
@@ -112,7 +126,8 @@ pub(crate) const ARTILLERY_RIG_DEPLOYED: ObjectDef = ObjectDef {
 /// `factions/gdo/structures/factory.md > Produces`: "Artillery Rig: 250 Space Crystals, 480 frames (30 seconds)
 /// (placeholder). Requires: player owns at least one Advanced Mechanics", its Unit Prerequisite, and `> Placeholder
 /// stats` of `factions/gdo/units/artillery_rig.md`: "Cost: Factory, 250 Space Crystals **+ 5 Supplies** (user,
-/// 2026-11-26; Q0169), 480 frames" (design change 0435). Held until slice M6-GA (`crate::defs::PLANNED_RECIPES`).
+/// 2026-11-26; Q0169), 480 frames" (design change 0435). In the Factory's production since slice M6-GA, after the
+/// Twister's.
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::ArtilleryRig,
     cost: 250,
@@ -129,8 +144,8 @@ mod tests {
     /// The placeholder stats, both types: a TrackedVehicle, 64×48, MaxHP 180, armour 3/3, SightRange 6, Unit Control
     /// 3. Mobile, up to 4 su a frame with no attack and no turret. Deployed, it doesn't move (MaxSpeed, ReverseMaxSpeed
     /// and SpinRate 0), turns a full turret 3° a frame, and fires a TailDisjointed shell at the ground, 300 over 1 GU,
-    /// from 3 to 12 grid units, one every 104 frames. Its Factory entry, 250 Space Crystals and 5 Supplies in 480 frames
-    /// behind Advanced Mechanics, is held.
+    /// from 3 to 12 grid units, one every 104 frames. (M6-GA) Each deploys into the other in 48 frames. Its Factory
+    /// entry: 250 Space Crystals and 5 Supplies in 480 frames behind Advanced Mechanics.
     #[test]
     fn the_artillery_rig_follows_the_design() {
         let mobile = super::super::assert_stat_block(
@@ -183,5 +198,8 @@ mod tests {
             supplies: 5,
         };
         assert_eq!(RECIPE, recipe);
+        let deploy = |into| Some(VehicleDeploy { into, frames: 48 });
+        assert_eq!(mobile.vehicle_deploy, deploy(ObjectKind::ArtilleryRigDeployed));
+        assert_eq!(deployed.vehicle_deploy, deploy(ObjectKind::ArtilleryRig));
     }
 }

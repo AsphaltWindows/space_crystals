@@ -141,6 +141,10 @@ pub struct UnitDef {
     /// `factions/gdo/structures/airfield.md > Aircraft Support`: "GDO aircraft carry limited ammo and **rearm at an
     /// Airfield**"): the Hornet's missiles. `None` for every other type, whose weapon never runs out.
     pub ammo: Option<AmmoDef>,
+    /// (M6-GA) Its deploy into its pair's other type, for a unit of a vehicle deploy pair (plan decisions T44 and T87,
+    /// `crate::vehicle_deploy`): the Artillery Rig's two types (`factions/gdo/units/artillery_rig.md > Modes`), one row
+    /// on each. `None` for every other type.
+    pub vehicle_deploy: Option<VehicleDeploy>,
 }
 
 /// (M6-GH1) An aircraft's ammo (plan decision T88, `crate::aircraft`): "Ammo per unit is on each aircraft"
@@ -189,6 +193,19 @@ pub struct TetherDef {
     pub leash: f32,
     /// Its battery, frames ("**battery 20 s** (320 frames)"): as it runs out, it falls without exploding.
     pub battery: u32,
+}
+
+/// (M6-GA) A vehicle deploy (plan decisions T44 and T87, `crate::vehicle_deploy`): the unit becomes a unit of type
+/// `into` in place, an order that takes `frames` frames and can't be cancelled (`factions/gdo/units/artillery_rig.md >
+/// Modes`: "**Deploy is an order, not a mode switch** [...] **the deploying process is what actually changes the
+/// unit**: it stays the mobile type until the process completes"). Each type of a pair has its row, which names the
+/// other: the Artillery Rig's Deploy into the Artillery Rig (Deployed), whose Undeploy leads back.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VehicleDeploy {
+    /// The type the unit becomes once its frames are done: its pair's other type.
+    pub into: ObjectKind,
+    /// How long the deploy takes, frames ("**Deploy 48 frames (3 s), Undeploy 48 frames.**").
+    pub frames: u32,
 }
 
 /// (M5-N1a) How an augmentable unit type takes its Augmentations' increments (`UnitDef::augmentable`,

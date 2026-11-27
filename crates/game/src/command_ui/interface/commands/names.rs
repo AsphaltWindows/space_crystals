@@ -1,7 +1,7 @@
 //! The panel commands' labels and names ([`PanelCommand::label`], [`PanelCommand::name`], [`PanelCommand::name_on`]):
 //! what a button shows, and what the InfoPanel's hint for it says (`crate::hud::info_panel::hint`).
 
-use sc_sim::{AreaAbility, AugmentOrder, ObjectKind, RecruitKind, Tech};
+use sc_sim::{AreaAbility, AugmentOrder, ObjectKind, RecruitKind, Tech, vehicle_deploy};
 
 use super::super::BuildMenu;
 use super::PanelCommand;
@@ -33,7 +33,8 @@ impl PanelCommand {
     /// M5-N11). A Drone Operator's Launch Drone is its name's first word, "Launch", and its Build Drone the drone's tag,
     /// "DRN", what it makes, as a Train shows its unit's (slice M6-GD). An aircraft's Return to Base is its name's last
     /// word, "Base", where it goes (slice M6-GH1). A Radar Station's Scan is its name, whole
-    /// (slice M6-GR).
+    /// (slice M6-GR). A vehicle's R is "Deploy", its name, into a type that can't move, and "Undep.", a shortening of
+    /// Undeploy, into one that can (`sc_sim::vehicle_deploy::immobile`; slice M6-GA).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -91,6 +92,8 @@ impl PanelCommand {
             PanelCommand::TargetLock => "Lock",
             PanelCommand::Launch => "Launch",
             PanelCommand::ReturnToBase => "Base",
+            PanelCommand::VehicleDeploy(into) if vehicle_deploy::immobile(into) => "Deploy",
+            PanelCommand::VehicleDeploy(_) => "Undep.",
         }
     }
 
@@ -144,6 +147,8 @@ impl PanelCommand {
             PanelCommand::Launch => "Launch Drone".into(),
             PanelCommand::ReturnToBase => "Return to Base".into(),
             PanelCommand::Buy(kind) => named("Build", kind),
+            PanelCommand::VehicleDeploy(into) if vehicle_deploy::immobile(into) => "Deploy".into(),
+            PanelCommand::VehicleDeploy(_) => "Undeploy".into(),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol

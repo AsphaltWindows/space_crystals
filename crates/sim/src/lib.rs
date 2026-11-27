@@ -69,6 +69,7 @@ pub mod transform;
 pub mod tuning;
 pub mod tunnel;
 pub mod units;
+pub mod vehicle_deploy;
 pub mod vision;
 
 pub use augmentation::{AugmentOrder, Augmentation, Increments, Level, Levels, RecruitKind, Research};

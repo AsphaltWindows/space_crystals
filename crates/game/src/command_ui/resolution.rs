@@ -189,8 +189,12 @@ impl UnitCapabilities {
     /// operation yet resolves nothing (`factions/colonists/economy.md > Beacon Deployment > While transforming: only
     /// Cancel`, design change 0116; slice M3-J1), but (M5-S6) a building that will produce or release units, whose
     /// right-click sets its rally point "as on the finished building" (design change 0396,
-    /// `sc_sim::production::takes_rally`).
+    /// `sc_sim::production::takes_rally`). (M6-GA) A unit that deploys resolves as the type it becomes
+    /// ([`Modes::becomes`]): it holds the order, the first thing it tries once its deploy is done
+    /// (`factions/gdo/units/artillery_rig.md > Modes`), so that the mobile Rig, deploying, holds an Attack on the enemy
+    /// right-clicked.
     pub fn of(id: ObjectId, kind: ObjectKind, modes: &Modes) -> Self {
+        let kind = modes.becomes(id, kind);
         let transforming = modes.transforming(id);
         Self {
             template: InterfaceTemplate::of(kind).filter(|_| !transforming || takes_rally(kind)),

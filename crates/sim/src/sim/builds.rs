@@ -298,14 +298,18 @@ impl Sim {
 
     /// Unit `id`'s orders all go, current and queued, and the Build orders among them are refunded
     /// ([`Sim::refund_builds`]): a new order replaces them (`Sim::give_order`), or the unit leaves the map
-    /// (`Sim::take_off_map`). Nothing for an object without orders.
+    /// (`Sim::take_off_map`). Nothing for an object without orders. (M6-GA) But for a vehicle deploy under way, which
+    /// nothing cancels (`crate::vehicle_deploy`: "once deploying has started it always runs to completion"): it stays,
+    /// and the new order goes behind it (`Orders::give`).
     pub(super) fn drop_orders(&mut self, id: ObjectId) {
         let Some(o) = self.objects.get_mut(&id) else {
             return;
         };
         let dropped = dropped_of(o);
         if let Some(orders) = &mut o.orders {
-            orders.current = None;
+            if !orders.deploying() {
+                orders.current = None;
+            }
             orders.queue.clear();
         }
         self.refund_builds(&dropped);

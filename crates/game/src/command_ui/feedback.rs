@@ -44,7 +44,12 @@
 //!   drone out (`sc_sim::Reject::DroneOut`), said as a greyed Move is ([`DRONE_OUT_TEXT`], `super::CommandRefused`);
 //! - (M6-GH1) a right-click on an own Airfield that reassigns no aircraft, the Airfield full
 //!   (`factions/gdo/structures/airfield.md > Assignment`: "if that Airfield has room"; `sc_sim::Reject::AirfieldFull`):
-//!   [`AIRFIELD_FULL_TEXT`], as a greyed Q says it.
+//!   [`AIRFIELD_FULL_TEXT`], as a greyed Q says it;
+//! - (M6-GA) an order a vehicle deploy dropped as it ended (`SimEvent::OrderDropped`; `factions/gdo/units/
+//!   artillery_rig.md > Modes`: "one it can't carry out (e.g. **Move**, since a deployed unit can't move) is **dropped**
+//!   with the usual unavailable-command feedback"): the gate's refusal of that order to the unit as it is now
+//!   ([`dropped_text`]), as its greyed button says it ([`CANNOT_MOVE_TEXT`] for a Move); and a right-click on the ground
+//!   that moves none of the units for their types (`sc_sim::Reject::CannotMove`), the same.
 //!
 //! The sim's events among these come through the filter of events (`crate::viewer_events`), which gives each to the
 //! owner of its producer, constructor or unit alone.
@@ -61,8 +66,8 @@ use std::sync::LazyLock;
 use bevy::picking::Pickable;
 use bevy::prelude::*;
 use sc_sim::{
-    ArmyResource, ObjectKind, PlacementCheck, PlacementProblem, PlayerId, Refusal, Reject, SimEvent, Tech, Tick,
-    TileProblem, WholeProblem,
+    ArmyResource, Command, ObjectId, ObjectKind, OrderKind, PlacementCheck, PlacementProblem, PlayerCommand, PlayerId,
+    Refusal, Reject, Sim, SimEvent, Tech, Tick, TileProblem, WholeProblem,
 };
 
 use super::{CommandRefused, DataRefused, InvalidPlacement, InvalidTarget, WhyUnavailable};
@@ -212,6 +217,14 @@ pub const OUT_OF_AMMO_TEXT: &str = "Out of ammo";
 /// (M6-GH1) The message of a Rebase onto what isn't one of the player's Airfields (`Reject::NotAnAirfield`).
 /// Placeholder wording; no click gives one.
 pub const NOT_AN_AIRFIELD_TEXT: &str = "Not an Airfield";
+/// (M6-GA) The message of an order that would move units of a type that can't move (`Reject::CannotMove`;
+/// `factions/gdo/units/artillery_rig.md > Modes`: "**Deployed:** cannot move"), and of such an order a deploy dropped
+/// (`SimEvent::OrderDropped`). Placeholder (not in the design: the wording).
+pub const CANNOT_MOVE_TEXT: &str = "Cannot move while deployed";
+/// (M6-GA) The message of a Deploy or an Undeploy while every one of its units deploys already (`Reject::Deploying`;
+/// `factions/gdo/units/artillery_rig.md > Modes`: "**Undeploy is only available once deployment is complete**").
+/// Placeholder (not in the design: the wording).
+pub const DEPLOYING_TEXT: &str = "Still switching modes";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -376,7 +389,7 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 /// completed, its previous level missing), (M6-GD) a Drone Operator's (its drone out, its stock full, empty or being
 /// filled; Supplies short for the Barracks' R, "a feedback line that names Supplies", design change 0441), (M6-GR) a
 /// Scan's (its station cooling down), (M6-GH1) an Airfield's and its aircraft's (the Airfield full, no base, out of
-/// ammo, not an Airfield), and placeholders for the others.
+/// ammo, not an Airfield), (M6-GA) a vehicle's (it can't move, it deploys already), and placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -414,6 +427,8 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::NoBase => NO_BASE_TEXT,
         Reject::OutOfAmmo => OUT_OF_AMMO_TEXT,
         Reject::NotAnAirfield(_) => NOT_AN_AIRFIELD_TEXT,
+        Reject::CannotMove => CANNOT_MOVE_TEXT,
+        Reject::Deploying => DEPLOYING_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }
@@ -454,6 +469,28 @@ pub fn requires_tech_text(tech: Tech) -> &'static str {
     TEXTS[tech as usize]
 }
 
+/// (M6-GA) The message of an order of `unit`'s that its vehicle deploy dropped as it ended (`SimEvent::OrderDropped`):
+/// the gate's refusal of that order, unqueued, to the unit as it is now ([`reject_text`]), as the order's greyed button
+/// or a refused click says it (`factions/gdo/units/artillery_rig.md > Modes`: "the usual unavailable-command feedback";
+/// design change 0162: "the same feedback as when an order is refused, naming the reason"): "Cannot move while
+/// deployed" for a Move. An Attack or an Attack Ground the unit's type can't carry out (`Reject::CannotAttack`,
+/// `Reject::CannotTargetGround`: a Rig undeployed) is [`NOT_FOR_TYPE_TEXT`], as a greyed Attack Ground says it, not a
+/// Riot Shield's [`SHIELDS_UP_TEXT`]; so is an order the gate would take now, or one of a unit that is gone.
+pub fn dropped_text(sim: &Sim, unit: ObjectId, order: OrderKind) -> &'static str {
+    let Some(player) = sim.object(unit).and_then(|o| o.owner) else {
+        return NOT_FOR_TYPE_TEXT;
+    };
+    let command = Command::Order {
+        units: vec![unit],
+        kind: order,
+        queue: false,
+    };
+    match sim.validate(&PlayerCommand { player, command }) {
+        Err(Reject::CannotAttack | Reject::CannotTargetGround) | Ok(()) => NOT_FOR_TYPE_TEXT,
+        Err(reject) => reject_text(reject),
+    }
+}
+
 /// The message of a Deploy or a Build that failed on arrival (`SimEvent::DeployFailed`, `SimEvent::BuildFailed`): the
 /// first problem the check of its site found ([`placement_text`]), or, with none, that the worker stopped short of the
 /// footprint.
@@ -465,7 +502,8 @@ pub fn deploy_failed_text(problems: &PlacementCheck) -> &'static str {
 }
 
 /// Takes the frame's invalid clicks (on a target, or a placement), its greyed-out buttons pressed, the refusals and
-/// the waits of the producers, constructors and units that the local player perceives (their own:
+/// the waits of the producers, constructors and units, (M6-GA) the orders their deploys dropped, that the local player
+/// perceives (their own:
 /// `crate::viewer_events`), and (M5-X2) the data files' refusals, and shows the latest one's message for
 /// `FeedbackTuning::feedback_ticks` (a data file's for `FeedbackTuning::refusal_ticks`). (M5-Mb) A message shows to
 /// the player it belongs to ([`TargetFeedback::owner`]): once F2 switches to another player, an earlier one of the
@@ -501,6 +539,7 @@ fn show_feedback(
         }
         SimEvent::TargetTooClose { .. } | SimEvent::LocationTooClose { .. } => Some((tick, TARGET_TOO_CLOSE_TEXT)),
         SimEvent::EnterFailed { full: true, .. } => Some((tick, BUILDING_FULL_TEXT)),
+        SimEvent::OrderDropped { unit, order } => Some((tick, dropped_text(&sim, *unit, *order))),
         _ => None,
     });
     let lasts = tuning.feedback.feedback_ticks;

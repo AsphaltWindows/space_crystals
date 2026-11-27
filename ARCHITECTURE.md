@@ -697,8 +697,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   right after 5a), or sync the grids yourself (`paths::sync`). A caller whose new kind isn't functional yet (a
   building warping in) holds its functions back itself. Slice E's Warp In and its cancel are its first callers
   (`sim/transform.rs`), then a toggle's press (`Sim::use_ability` in `sim/modes.rs`: slice B's Weapon Conversion and
-  slice M3-S's Riot Shield, see *Type and form*) and slice F's deployment (`sim/deploy.rs`, the step right after
-  5a). `sim/kinds/tests.rs` unit-tests it. The client rebuilds the visuals of
+  slice M3-S's Riot Shield, see *Type and form*), slice F's deployment (`sim/deploy.rs`, the step right after
+  5a) and (M6-GA) a vehicle deploy's completion (`sim/vehicle_deploy.rs`, the step right after the Modes step, see
+  *Vehicle deploy*). `sim/kinds/tests.rs` unit-tests it. The client rebuilds the visuals of
   a changed object and keeps it selected (see *Commands, events and replays > Events*).
 - **Type and form** (design change 0198, slice M3-T): a toggle, the Legionnaires' Convert or the Peacekeeper's Riot
   Shield, sets the state the unit works toward ("however fast R is pressed, every unit that received the presses
@@ -775,6 +776,25 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     fails on any its list doesn't allow with a reason (a structure's MaxHP, a turn rate, a kind's weapon). A new read
     goes through the accessor, or joins the list with its reason. A test rather than unreachable fields: the defs are
     public data that their own tests and the client's panels read, and `Object::max_hp` stays the structures' MaxHP.
+- **Vehicle deploy** (plan decisions T44 and T87, slice M6-GA; `vehicle_deploy.rs`, `orders/vehicle_deploy.rs`,
+  `sim/vehicle_deploy.rs`): a unit of a pair of types becomes the pair's other type in place, by an order that takes
+  its type's frames and can't be cancelled, unlike a toggle ("**the deploying process is what actually changes the
+  unit**: it stays the mobile type until the process completes"). **Data**: each type of a pair has a row,
+  `UnitDef::vehicle_deploy` (`VehicleDeploy { into, frames }`), so a new pair is a def row on each type (the Artillery
+  Rig's two now; slices M6-SL's Laser Battery and M6-ST2's Transport). **The order**, `OrderKind::VehicleDeploy {
+  into }` (the panel's R, `PanelCommand::VehicleDeploy`), names the type the unit becomes, so a Deploy pressed twice is
+  no Undeploy; it starts in 5a (`Behaviour::VehicleDeploy`, a `Progress`), stops the unit where it is and keeps it
+  from attacking (`Unit::may_attack`), and the step after the Modes step counts its frames and completes it (*Tick
+  pipeline*). **Held orders**: a deploy under way stays the current order whatever is given (`Orders::give`,
+  `Sim::drop_orders`): an order given meanwhile is held behind it, Shift-queued ones after that. **The gate** skips its
+  per-unit capability filters for a deploying unit (its target checks still apply) and refuses it only another deploy
+  (`Reject::Deploying`); every other unit goes through `vehicle_deploy::can_take`, the one rule the gate and the
+  completion share, which adds that a type that can't move (`vehicle_deploy::immobile`: MaxSpeed 0, a deployed Rig)
+  takes no order that would move it (`vehicle_deploy::moves`; `Reject::CannotMove`). **The client** judges a deploying
+  unit as the type it becomes (`Modes::becomes`: its A and its right-click), and says a dropped order as the gate's
+  refusal of it (`feedback::dropped_text`). **A site** (T87, slice M6-GP's Prospector, not built): the order's start,
+  where a deploy that needs a site would walk to it first, and `Sim::complete_vehicle_deploy`, where the type it
+  becomes would be a structure placed on that site.
 - **Mechanics implemented once** (plan decision T54, slice M4-R1): `Progress` (`progress.rs`), ticks done of a total
   in the fixed point of plan decision T6, so that a tick at part speed counts its share of a tick; a transformation
   counts its frames with one (`Transform`). The toggle rule (`toggle.rs`, design change 0198, see *Type and form*):
@@ -962,6 +982,14 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      conversion that waits for the unit's shot begins in the first Modes step after its Cooldown (design changes 0172
      and 0153). After the commands, so that a toggle or a Convert counts from its own tick; before 5a, so that the
      behaviours, the movement and the combat of the tick all see the form it leaves.
+   - Vehicle deploys, `Sim::step_vehicle_deploys` (slice M6-GA, `sim/vehicle_deploy.rs`, `vehicle_deploy.rs`; plan
+     decision T44: "Progress and completion in a Sim step right after `step_modes`, before 5a"): for the units before
+     the tick's first new id, each whose current order is a vehicle deploy under way takes one frame of it; one whose
+     frames are done becomes its pair's other type (`Sim::change_kind`, a `SimEvent::KindChanged`), its deploy order
+     ends, and each order of its queue its new type can't carry out is dropped (`vehicle_deploy::can_take`, the gate's
+     rule; `SimEvent::OrderDropped`). Before 5a, so that the unit acts as its new type from that tick's first phase,
+     its held order first; a deploy that 5a starts takes its first frame at the next tick's step (*Object model >
+     Vehicle deploy*). It passes over every object each tick, a check of its current order.
    - 5a `orders::update`: a unit's finished order completes and its next one starts, until one is in progress, so
      legs follow each other without an idle tick; then that order's behaviour runs for the tick, or the idle one
      (see *Behaviours*), and a turret's own after it (slice M5-U1). They write goals (`Mover::go_to`, `stop`), the
@@ -5534,7 +5562,8 @@ unchecked.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
   `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs`,
-  `syndicate_air.rs` and `main.rs`, the recording and the comparison in `harness.rs`): twenty-eight games, a 3v3 duel,
+  `syndicate_air.rs`, `artillery.rs` and `main.rs`, the recording and the comparison in `harness.rs`): twenty-nine
+  games, a 3v3 duel,
   a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5547,8 +5576,8 @@ unchecked.
   M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
   M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below),
   `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
-  M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below) and `syndicate_air` (slice
-  M6-SD, below), are blessed as replays
+  M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below), `syndicate_air` (slice
+  M6-SD, below) and `gdo_artillery` (slice M6-GA, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5673,7 +5702,13 @@ unchecked.
   rise begun). They AttackMove onto two of the GDO's Peacekeepers on Hold, whose attacks can't reach them, and a
   Sparrow, which lands the only hit on them, and kill all three with their Universal lasers; sent home, each flies to
   the air entry door and descends into it for 16 ticks, the door letting one down every 8 at most, two at once, and all
-  three end inside. The
+  three end inside. In `gdo_artillery` (to 1:43.125, on an open test map, debug commands on for player 1's 250 Space
+  Crystals and 5 Supplies) a Factory, with Advanced Mechanics, trains an Artillery Rig, which drives to a point on a Move
+  and deploys there on a Shift-Deploy, in tick 708; an Attack given while it deploys is held, and a Shift-Move queued
+  behind it dropped as it deploys (`SimEvent::OrderDropped`). Deployed, it shells three Militants on Hold 10 grid units
+  off, out of its own sight, which a Peacekeeper on Hold spots: five shells, 104 frames apart, kill the first (its
+  Attack) and the third, which it picks by itself; the second, out of the Peacekeeper's sight, it never fires at. It
+  undeploys in tick 1400, holds a Move given meanwhile, mobile again 48 frames on, and drives off on it. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

@@ -91,11 +91,12 @@ fn the_twister_needs_a_supply() {
     assert_eq!(bank(&t), (BANK, 1), "both back");
 }
 
-/// "**E** Prospector, **R** Artillery Rig (greyed without Advanced Mechanics)": slices M6-GP's and M6-GA's, their
-/// entries held until then. The Factory trains neither, with Advanced Mechanics or without (`Reject::CannotProduce`;
-/// the client greys E and R, "Not available yet").
+/// "**E** Prospector, **R** Artillery Rig (greyed without Advanced Mechanics)": slice M6-GP's Prospector, its entry
+/// held until then, which the Factory doesn't train, with Advanced Mechanics or without (`Reject::CannotProduce`; the
+/// client greys E, "Not available yet"). (M6-GA) The Artillery Rig, live: refused without Advanced Mechanics
+/// (`Reject::Requires`), queued with it (`tests/artillery_rig/` tests the rest).
 #[test]
-fn it_trains_no_prospector_nor_artillery_rig_yet() {
+fn it_trains_no_prospector_yet_and_the_rig_behind_advanced_mechanics() {
     let without = works(5);
     let with = started(
         base().spawn(FACTORY, Some(P1), SpawnAt::Tile(WORKS_AT)).spawn(
@@ -106,8 +107,11 @@ fn it_trains_no_prospector_nor_artillery_rig_yet() {
         5,
     );
     for t in [&without, &with] {
-        for kind in [ObjectKind::Prospector, ObjectKind::ArtilleryRig] {
-            assert_eq!(gate(t, P1, train(kind)), Err(Reject::CannotProduce(kind)));
-        }
+        let kind = ObjectKind::Prospector;
+        assert_eq!(gate(t, P1, train(kind)), Err(Reject::CannotProduce(kind)));
     }
+    let rig = ObjectKind::ArtilleryRig;
+    let mechanics = ObjectKind::AdvancedMechanics;
+    assert_eq!(gate(&without, P1, train(rig)), Err(Reject::Requires(mechanics)));
+    assert_eq!(gate(&with, P1, train(rig)), Ok(()));
 }

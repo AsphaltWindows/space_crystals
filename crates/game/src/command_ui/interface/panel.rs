@@ -271,11 +271,14 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
 /// The progress the Place button of a `kind` constructor's `command` shows while the constructor, in its state
 /// (`Conditions::constructor`), constructs its building (design changes 0388 and 0392): its ConstructionProgress of its
 /// recipe's frames (`construction::recipe`), as the sim counts it (`Constructor::Constructing`), never kept by the
-/// client; and (M6-GD) a Build Drone's, the purchase under way ([`Conditions::purchase`]). None for another command, or
-/// while the building isn't under construction.
+/// client; (M6-GD) a Build Drone's, the purchase under way ([`Conditions::purchase`]); and (M6-GA) a vehicle's R, the
+/// deploy under way ([`Conditions::deploy`]). None for another command, or while the building isn't under construction.
 fn progress(kind: ObjectKind, command: PanelCommand, conditions: &Conditions) -> Option<Progress> {
     if let PanelCommand::Buy(_) = command {
         return conditions.purchase();
+    }
+    if let PanelCommand::VehicleDeploy(_) = command {
+        return conditions.deploy();
     }
     let Some(Constructor::Constructing {
         kind: building,

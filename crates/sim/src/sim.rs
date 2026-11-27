@@ -537,4 +537,5 @@ mod too_close;
 mod transform;
 mod tunnels;
 mod upgrades;
+mod vehicle_deploy;
 mod workers;

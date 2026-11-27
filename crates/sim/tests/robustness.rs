@@ -153,7 +153,13 @@ fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
             Some(unit) if unit.0.is_multiple_of(3) => OrderKind::Launch,
             _ => OrderKind::Hold,
         },
-        5 => OrderKind::Stop,
+        // (M6-GA) A vehicle deploy in place of a Stop for a group whose first unit's type deploys and whose id is even,
+        // into the type it deploys into, the stream of random numbers the same.
+        5 => match units.first().and_then(|&unit| sim.object(unit)) {
+            Some(o) if o.id.0.is_multiple_of(2) => (sc_sim::vehicle_deploy::def_of(o.kind))
+                .map_or(OrderKind::Stop, |deploy| OrderKind::VehicleDeploy { into: deploy.into }),
+            _ => OrderKind::Stop,
+        },
         // (M5-K) A Target Lock on the nearest object, in place of a Shroud for a group whose first unit's id is even,
         // so that the stream of random numbers stays the same.
         6 => match nearest {
@@ -438,7 +444,8 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::RulesChanged
                 | SimEvent::DroneLaunched { .. }
                 | SimEvent::DroneFell { .. }
-                | SimEvent::StockBought { .. } => {}
+                | SimEvent::StockBought { .. }
+                | SimEvent::OrderDropped { .. } => {}
             }
         }
         unit_steps += sim

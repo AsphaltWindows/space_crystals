@@ -236,6 +236,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q | Move | Move | click a target; Shift queues |
 | W | Rev. | Reverse | click a target; Shift queues |
 | E | Hold | Hold Position | Shift queues |
+| R | Deploy | Deploy | Shift queues |
 | S | Patrol | Patrol | click a target; Shift queues |
 | X | Stop | Stop | Shift queues |
 
@@ -246,6 +247,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q | Move | Move | click a target; Shift queues |
 | W | Rev. | Reverse | click a target; Shift queues |
 | E | Hold | Hold Position | Shift queues |
+| R | Undep. | Undeploy | Shift queues |
 | A | Attack | Attack | click a target; Shift queues |
 | S | Patrol | Patrol | click a target; Shift queues |
 | D | AtkGnd | Attack Ground | click a target; Shift queues |
@@ -362,7 +364,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q | RR | Train Raptor |  |
 | W | TR | Train Twister |  |
 | E | PR | Train Prospector | greyed: "Not available yet" |
-| R | ARG | Train Artillery Rig | greyed: "Not available yet" |
+| R | ARG | Train Artillery Rig | Requires an Advanced Mechanics |
 | X | Cancel | Cancel Production |  |
 | C | Rally | Set Rally Point | click a target |
 

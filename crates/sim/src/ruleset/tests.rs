@@ -191,6 +191,33 @@ fn a_stock_and_a_tether_are_structure_and_their_numbers_live() {
     );
 }
 
+/// (M6-GA) A vehicle deploy is structure, the type it leads into included (`crate::vehicle_deploy`: a type's order and
+/// its panel's R follow it), and its frames are a number that applies live.
+#[test]
+fn a_vehicle_deploy_is_structure_and_its_frames_live() {
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    fn rig(rules: &mut Ruleset) -> &mut UnitDef {
+        rules.defs.get_mut(ObjectKind::ArtilleryRig).unit.as_mut().unwrap()
+    }
+    let change = |field| {
+        Some(RuleField {
+            entry: "ArtilleryRig",
+            field,
+        })
+    };
+    assert_eq!(changed(&|r| rig(r).vehicle_deploy.as_mut().unwrap().frames = 96), None);
+    assert_eq!(changed(&|r| rig(r).vehicle_deploy = None), change("vehicle_deploy"));
+    assert_eq!(
+        changed(&|r| rig(r).vehicle_deploy.as_mut().unwrap().into = ObjectKind::Peacekeeper),
+        change("into")
+    );
+}
+
 /// (M5-X1b) `Ruleset::non_finite` names the first number that isn't finite: an attack's NaN Damage, an infinite
 /// MaxHP, a tunable; none of the built-in rules'.
 #[test]

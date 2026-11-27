@@ -67,7 +67,7 @@ fn numbers_keep_their_signs() {
 /// The bounds of `defs/tests.rs` beyond the signs: a recipe's time and a technology's, a Recruitment Area that
 /// covers its Hall, an air unit's SeparationRadius beyond its Silhouette, a default rally point out of its building
 /// (a field the signs don't take: it isn't structure), (M6-GD) a stock's purchase time and its start, (M6-SD) an
-/// aircraft's time at an air door.
+/// aircraft's time at an air door, (M6-GA) a vehicle deploy's time.
 #[test]
 fn numbers_stay_within_the_defs_bounds() {
     let longest = |r: &mut Ruleset| {
@@ -142,6 +142,23 @@ fn numbers_stay_within_the_defs_bounds() {
     assert_eq!(
         checked(&door(LONGEST_RECIPE + 1)),
         Some(("Phantom", "air_door_ticks", "must be at most 65535 ticks"))
+    );
+    // (M6-GA) The Artillery Rig's deploy: as long as a recipe at most, and never instant.
+    let deploy = |frames| {
+        move |r: &mut Ruleset| {
+            let unit = r.defs.get_mut(ObjectKind::ArtilleryRig).unit.as_mut().unwrap();
+            unit.vehicle_deploy.as_mut().unwrap().frames = frames;
+        }
+    };
+    assert_eq!(
+        checked(&deploy(LONGEST_RECIPE + 1)),
+        Some(("ArtilleryRig", "frames", "must be at most 65535 ticks"))
+    );
+    assert_eq!(checked(&deploy(LONGEST_RECIPE)), None);
+    assert_eq!(
+        checked(&deploy(0)),
+        Some(("ArtilleryRig", "frames", "must be positive")),
+        "the sign's rule"
     );
     assert_eq!(checked(&door(LONGEST_RECIPE)), None);
     assert_eq!(

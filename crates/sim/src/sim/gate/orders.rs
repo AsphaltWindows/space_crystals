@@ -14,10 +14,14 @@ use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::sim::{Reject, Sim};
 use crate::stock::{self, Unbuyable};
-use crate::{aircraft, combat, conversion, tether};
+use crate::{aircraft, combat, conversion, tether, vehicle_deploy};
 
 impl Sim {
-    /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped.
+    /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped. (M6-GA) A unit that
+    /// deploys passes the capability filters (`crate::vehicle_deploy`: "Orders arriving during deploying are stored,
+    /// not executed or rejected"), its order's target checked as any; the last filter, the vehicle deploy model's,
+    /// holds the order behind its deploy, and holds every other unit to what its type can carry out
+    /// ([`Sim::takers`]).
     pub(super) fn check_order(
         &self,
         player: PlayerId,
@@ -31,6 +35,9 @@ impl Sim {
             return Err(Reject::NoUnits);
         }
         let kind = self.onto_map(kind)?;
+        // (M6-GA) What a unit that deploys can carry out is checked as its deploy completes, against its new type
+        // (`crate::vehicle_deploy`): the filters of what a type can do pass it.
+        let deploying = |o: &Object| vehicle_deploy::is_deploying(o);
         match kind {
             // On the map ([`Sim::onto_map`]).
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {}
@@ -52,7 +59,9 @@ impl Sim {
                 // down takes it, and attacks once its shield is down. (M5-N4a) A unit without a weapon (the
                 // Disciple's "AttackAttributes - None") ignores it too, as Attack Ground below
                 // (`combat::takes_attack_orders`).
-                ordered.retain(|id| (self.objects.get(id)).is_some_and(|o| combat::takes_attack_orders(o.kind)));
+                ordered.retain(|id| {
+                    (self.objects.get(id)).is_some_and(|o| deploying(o) || combat::takes_attack_orders(o.kind))
+                });
                 if ordered.is_empty() {
                     return Err(Reject::CannotAttack);
                 }
@@ -69,7 +78,9 @@ impl Sim {
                     .map_or(Domain::Ground, |unit| unit.base_def().domain);
                 let research = self.research();
                 let hits = |o: &Object| {
-                    combat::weapon(o, research).is_some_and(|attrs| combat::domain_allows(attrs.target_domain, domain))
+                    deploying(o)
+                        || combat::weapon(o, research)
+                            .is_some_and(|attrs| combat::domain_allows(attrs.target_domain, domain))
                 };
                 ordered.retain(|id| self.objects.get(id).is_some_and(hits));
                 if ordered.is_empty() {
@@ -101,7 +112,8 @@ impl Sim {
             OrderKind::AttackGround(_) => {
                 let research = self.research();
                 let can = |o: &Object| {
-                    combat::weapon(o, research).is_some_and(|attrs| combat::can_target_ground(attrs.attack_type))
+                    deploying(o)
+                        || combat::weapon(o, research).is_some_and(|attrs| combat::can_target_ground(attrs.attack_type))
                 };
                 ordered.retain(|id| self.objects.get(id).is_some_and(can));
                 if ordered.is_empty() {
@@ -128,7 +140,7 @@ impl Sim {
             // (M5-V2) `systems/controls/commands.md > Reverse`: "Only available to bases with CanReverse = true": the
             // units that can back up take it (`UnitDef::can_reverse`), the others ignore it. The point is on the map.
             OrderKind::Reverse(_) => {
-                let can = |o: &Object| o.def().unit.as_ref().is_some_and(|unit| unit.can_reverse());
+                let can = |o: &Object| deploying(o) || o.def().unit.as_ref().is_some_and(|unit| unit.can_reverse());
                 ordered.retain(|id| self.objects.get(id).is_some_and(can));
                 if ordered.is_empty() {
                     return Err(Reject::CannotReverse);
@@ -145,6 +157,9 @@ impl Sim {
             OrderKind::Rebase(airfield) => ordered = self.check_rebase(player, ordered, airfield)?,
             // (M6-GH1) `factions/gdo/structures/airfield.md > Returning and rearming`: the aircraft with a base take it.
             OrderKind::ReturnToBase => ordered = self.check_return(ordered)?,
+            // (M6-GA) `factions/gdo/units/artillery_rig.md > Modes` (`crate::vehicle_deploy`): the units whose type
+            // deploys into the type it names take it, the others ignore it ([`Sim::takers`]).
+            OrderKind::VehicleDeploy { .. } => {}
         }
         // (M6-GD) "The Drone Operator **cannot move** while it has a drone active" (`crate::tether`): a unit that holds
         // still for its drone ignores an order that would move it; if every unit does, the order is refused, with
@@ -155,6 +170,8 @@ impl Sim {
                 return Err(Reject::DroneOut);
             }
         }
+        // (M6-GA) The vehicle deploy model's filter, last (`crate::vehicle_deploy`).
+        let ordered = self.takers(player, ordered, kind)?;
         Ok(Checked::Order {
             units: ordered,
             kind,
@@ -304,6 +321,46 @@ impl Sim {
             return Err(Reject::StockEmpty);
         }
         Ok(stocked)
+    }
+
+    /// (M6-GA) Of `units`, which the gate's other checks of an order of `kind` took, those that take it by the vehicle
+    /// deploy model (`crate::vehicle_deploy`, plan decision T44): a unit that deploys takes any order but a vehicle
+    /// deploy ([`Reject::Deploying`]), held behind its deploy and checked against its new type as it completes
+    /// (`Sim::step_vehicle_deploys`); every other unit an order its type can carry out by the rule that check goes by,
+    /// T44's one `can_take` (`vehicle_deploy::can_take`, an Attack's target as `player` knows it), which adds to the
+    /// checks before it that a unit whose type can't move ignores an order that would take it somewhere
+    /// ([`Reject::CannotMove`]), and that a vehicle deploy goes to the units whose type deploys into the type it names
+    /// ([`Reject::LacksAbility`]). With none of them left, the reason of the first, in id order.
+    fn takers(&self, player: PlayerId, units: Vec<ObjectId>, kind: OrderKind) -> Result<Vec<ObjectId>, Reject> {
+        let research = self.research();
+        let domain = match kind {
+            OrderKind::Attack(id) => Some(
+                (self.known_kind(player, id)?.def().unit.as_ref())
+                    .map_or(Domain::Ground, |unit| unit.base_def().domain),
+            ),
+            _ => None,
+        };
+        let mut first = None;
+        let taking: Vec<ObjectId> = (units.into_iter())
+            .filter(|id| {
+                let Some(o) = self.objects.get(id) else {
+                    return false;
+                };
+                let why = if vehicle_deploy::is_deploying(o) {
+                    matches!(kind, OrderKind::VehicleDeploy { .. }).then_some(Reject::Deploying)
+                } else {
+                    vehicle_deploy::can_take(o, kind, domain, research).err()
+                };
+                if let Some(why) = why {
+                    first.get_or_insert(why);
+                }
+                why.is_none()
+            })
+            .collect();
+        match first {
+            Some(why) if taking.is_empty() => Err(why),
+            _ => Ok(taking),
+        }
     }
 
     /// (M6-GH1) The units of `units` with ammo left, or whose weapon never runs out (`crate::aircraft::armed`), else

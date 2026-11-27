@@ -425,8 +425,9 @@ impl Mover {
     /// `systems/units.md > UnitCollision > Ground Collision > Friendly yielding` (design change 0023): whether the
     /// unit can move at all in its current mode, at `max_speed` space units per tick. Modes that only slow it
     /// (a raised Riot Shield, `speed_factor` 0.5) leave it able to, and it sidesteps at that speed. **The hook for
-    /// units that can't move**: a deployed or deploying Artillery Rig will answer `false` here (its mode stops it),
-    /// and then it never yields.
+    /// units that can't move**: (M6-GA) a deployed Artillery Rig answers `false` here, its type's top speed 0 (plan
+    /// decision T87, `crate::vehicle_deploy::immobile`), and then it never yields; a deploying one has an order, so it
+    /// never yields either (`crate::vehicle_deploy`).
     pub fn can_move(&self, max_speed: f32) -> bool {
         max_speed * self.speed_factor > 0.0
     }

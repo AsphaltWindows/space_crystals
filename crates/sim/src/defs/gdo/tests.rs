@@ -135,7 +135,9 @@ fn the_gdo_kinds_are_every_designed_one() {
 /// the slices landed: (M6-GD) the Barracks' Drone Operator, and its drone, which the operator's stock launches
 /// (`UnitDef::stock`); (M6-GR) the Deployment Center's Radar Station and Defense System, and the Defense System's
 /// Missile Turret; (M6-GF) the Deployment Center's Factory, Advanced Mechanics and Industrial Powerplant, and the
-/// Factory's Raptor and Twister; (M6-GH1) the Airfield's Hornet, the Airfield itself staying held until slice M6-GH2.
+/// Factory's Raptor and Twister; (M6-GH1) the Airfield's Hornet, the Airfield itself staying held until slice M6-GH2;
+/// (M6-GA) the Factory's Artillery Rig, and each of its two types, which the other's vehicle deploy leads into
+/// (`UnitDef::vehicle_deploy`).
 const LIVE: &[(ObjectKind, ObjectKind)] = &[
     (ObjectKind::Barracks, ObjectKind::DroneOperator),
     (ObjectKind::DroneOperator, ObjectKind::OperatorDrone),
@@ -148,11 +150,15 @@ const LIVE: &[(ObjectKind, ObjectKind)] = &[
     (ObjectKind::Factory, ObjectKind::Raptor),
     (ObjectKind::Factory, ObjectKind::Twister),
     (ObjectKind::Airfield, ObjectKind::Hornet),
+    (ObjectKind::Factory, ObjectKind::ArtilleryRig),
+    (ObjectKind::ArtilleryRig, ObjectKind::ArtilleryRigDeployed),
+    (ObjectKind::ArtilleryRigDeployed, ObjectKind::ArtilleryRig),
 ];
 
 /// The kinds that some live list makes, each with the kind whose list it is: a constructor's `Constructs` list
 /// (`StructureDef::constructs`), a Beacon's Warp In list, a producer's `Produces` list, a builder's builds, a unit's
-/// deploy, its Riot Shield's two types, a Legionnaire's two forms and (M6-GD) a unit's stock; and the menus of the
+/// deploy, its Riot Shield's two types, a Legionnaire's two forms, (M6-GD) a unit's stock and (M6-GA) the type its
+/// vehicle deploy leads into; and the menus of the
 /// Cults' Recruits and of the Syndicate's Agents, whose builders are their builds' (already listed).
 fn made() -> Vec<(ObjectKind, ObjectKind)> {
     let mut made = Vec::new();
@@ -176,6 +182,7 @@ fn made() -> Vec<(ObjectKind, ObjectKind)> {
                     .flat_map(|c| c.forms.map(|form| (maker, form))),
             );
             made.extend(unit.stock.map(|stock| (maker, stock.item)));
+            made.extend(unit.vehicle_deploy.map(|deploy| (maker, deploy.into)));
         }
     }
     for slot in CONSTRUCT_MENU {
@@ -194,8 +201,8 @@ fn made() -> Vec<(ObjectKind, ObjectKind)> {
 /// T69's rule, for plan decision T84: no live list makes a kind of slice M6-GK's (no `constructs`, `production`,
 /// `builds` or menu entry goes live with the kinds) until its slice makes it live ([`LIVE`]), and the entries that will
 /// are held, each once, in [`PLANNED_RECIPES`]: a GDO maker's, for a kind of slice M6-GK's, every one of them but
-/// those made live, the Outpost (deployed of a Prospector, `factions/gdo/units/prospector.md`), the deployed Rig and
-/// the mine (laid by a Twister), which no recipe makes. Each live kind is made by its maker's list.
+/// those made live, the Outpost (deployed of a Prospector, `factions/gdo/units/prospector.md`) and the mine (laid by a
+/// Twister), which no recipe makes. Each live kind is made by its maker's list.
 #[test]
 fn no_new_kind_is_made_yet() {
     for (maker, kind) in made() {
@@ -226,7 +233,7 @@ fn no_new_kind_is_made_yet() {
     let unmade: Vec<ObjectKind> = (NEW.iter().copied())
         .filter(|kind| !held.contains(kind) && !live.contains(kind))
         .collect();
-    let others = [ObjectKind::Outpost, ObjectKind::ArtilleryRigDeployed, ObjectKind::Mine];
+    let others = [ObjectKind::Outpost, ObjectKind::Mine];
     assert_eq!(unmade, others);
 }
 

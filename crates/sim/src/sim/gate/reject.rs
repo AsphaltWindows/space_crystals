@@ -282,6 +282,15 @@ pub enum Reject {
     /// `factions/gdo/units/hornet.md > AttackAttributes`: "Ammo: **5 missiles**, then it must reload at its assigned
     /// Airfield").
     OutOfAmmo,
+    /// (M6-GA) None of the units of an order that would take them somewhere can move: their types can't
+    /// (`crate::vehicle_deploy::immobile`, plan decision T87: "The deployed kind is immobile by its def";
+    /// `factions/gdo/units/artillery_rig.md > Modes`: "one it can't carry out (e.g. **Move**, since a deployed unit
+    /// can't move)").
+    CannotMove,
+    /// (M6-GA) Every unit of a vehicle deploy deploys already (`crate::vehicle_deploy`;
+    /// `factions/gdo/units/artillery_rig.md > Modes`: "**Undeploy is only available once deployment is complete**";
+    /// "Deploy is available again only once it has").
+    Deploying,
 }
 
 impl fmt::Display for Reject {
@@ -374,6 +383,8 @@ impl fmt::Display for Reject {
             Reject::NotAnAirfield(id) => write!(f, "object {} is no Airfield of the player's in operation", id.0),
             Reject::NoBase => write!(f, "none of the aircraft has an Airfield"),
             Reject::OutOfAmmo => write!(f, "none of the units has ammo left"),
+            Reject::CannotMove => write!(f, "none of the units can move"),
+            Reject::Deploying => write!(f, "every unit deploys already"),
         }
     }
 }

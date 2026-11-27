@@ -16,7 +16,8 @@ impl PanelCommand {
     /// Disciple's Shroud, (M5-N11) a Prayer-mobile's casts, round it and ahead of it
     /// (`factions/cults/units/prayer_mobile.md > Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target)",
     /// "**Suppress** (hotkey **F**, instant, no target)"), (M6-GD) a Drone Operator's Launch Drone, over itself, and
-    /// Build Drone, (M6-GH1) an aircraft's Return to Base, Raise and Lower Shield, Convert, a producer's Train and
+    /// Build Drone, (M6-GH1) an aircraft's Return to Base, (M6-GA) a vehicle's Deploy and Undeploy, where it stands,
+    /// Raise and Lower Shield, Convert, a producer's Train and
     /// Cancel Production, a constructor's
     /// Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the
     /// EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct
@@ -74,7 +75,8 @@ impl PanelCommand {
             | PanelCommand::Shroud
             | PanelCommand::Launch
             | PanelCommand::Buy(_)
-            | PanelCommand::ReturnToBase => false,
+            | PanelCommand::ReturnToBase
+            | PanelCommand::VehicleDeploy(_) => false,
         }
     }
 
@@ -169,7 +171,9 @@ impl PanelCommand {
     /// (`sc_sim::OrderKind::Launch`, plan decision T91: "untargeted and queueable"): Shift+R after a Move launches where
     /// the walk ends. Its Build Drone is an ability (`sc_sim::Ability::Buy`), which keeps the orders as a Riot Shield
     /// does: Shift changes nothing. (M6-GH1) An aircraft's Return to Base is an order too (`sc_sim::OrderKind::ReturnToBase`),
-    /// which Shift queues.
+    /// which Shift queues. (M6-GA) So is a vehicle's Deploy and Undeploy (`sc_sim::OrderKind::VehicleDeploy`;
+    /// `factions/gdo/units/artillery_rig.md > Modes`: "**Queueable**: Shift-Deploy waits until the earlier orders are
+    /// done (e.g. move here, then deploy)").
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -187,7 +191,8 @@ impl PanelCommand {
             | PanelCommand::Shroud
             | PanelCommand::TargetLock
             | PanelCommand::Launch
-            | PanelCommand::ReturnToBase => true,
+            | PanelCommand::ReturnToBase
+            | PanelCommand::VehicleDeploy(_) => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)

@@ -285,4 +285,14 @@ pub enum PanelCommand {
     /// of them has a base ("An unassigned aircraft has no base [...] Return to Base is unavailable until it is
     /// reassigned", `sc_sim::Reject::NoBase`).
     ReturnToBase,
+    /// (M6-GA) A vehicle's R, which leads its type into its pair's other, the one named (`sc_sim::vehicle_deploy`, plan
+    /// decisions T44 and T87; `sc_sim::defs::UnitDef::vehicle_deploy`): the Artillery Rig's "**R: Deploy** (mobile) /
+    /// **R: Undeploy** (deployed)" (`factions/gdo/units/artillery_rig.md > Placeholder stats`), "Deploy" into a type
+    /// that can't move and "Undeploy" into one that can (`sc_sim::vehicle_deploy::immobile`). A vehicle deploy order,
+    /// at once, where each unit stands (`sc_sim::OrderKind::VehicleDeploy`), to every unit of the ActiveGroup, the Rig
+    /// being Groupable ("Groupable true"). Shift queues it, as any unit order ("**Queueable**: Shift-Deploy waits until
+    /// the earlier orders are done"). Greyed while the gate would refuse it: a deploy under way ("**Undeploy is only
+    /// available once deployment is complete**", `sc_sim::Reject::Deploying`), with its progress on its bar
+    /// (`super::PanelSlot::progress`).
+    VehicleDeploy(ObjectKind),
 }

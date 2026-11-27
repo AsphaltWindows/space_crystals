@@ -33,7 +33,7 @@ pub mod syndicate;
 
 use sc_sim::defs::SpellDef;
 use sc_sim::{AreaAbility, ObjectKind};
-use sc_sim::{aircraft, conversion, tether};
+use sc_sim::{aircraft, conversion, tether, vehicle_deploy};
 
 pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
@@ -343,9 +343,11 @@ pub use sc_sim::combat::can_target_ground;
 /// Suppress in F ([`PanelCommand::Cast`], [`cast_slot`]); (M6-GD) a unit whose stock holds drones, the Drone Operator,
 /// Launch Drone in R and Build Drone in F ([`PanelCommand::Launch`], [`PanelCommand::Buy`]: `sc_sim::defs::UnitDef::stock`
 /// whose item is on a leash, `sc_sim::defs::UnitDef::tether`; [`gdo::drone_operator`]); (M6-GH1) an aircraft, one with
-/// ammo (`sc_sim::aircraft::def_of`), the Hornet, Return to Base in F ([`PanelCommand::ReturnToBase`]). These are the
-/// commands the type offers ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a constructor's panel
-/// follows its state ([`state_grid`]).
+/// ammo (`sc_sim::aircraft::def_of`), the Hornet, Return to Base in F ([`PanelCommand::ReturnToBase`]); (M6-GA) a unit
+/// of a type that deploys into another (`sc_sim::defs::UnitDef::vehicle_deploy`), the Artillery Rig, its Deploy or
+/// Undeploy in R ([`PanelCommand::VehicleDeploy`], [`gdo::artillery_rig`]). These are the commands the type offers
+/// ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a constructor's panel follows its state
+/// ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let Some(template) = InterfaceTemplate::of(kind) else {
         return [None; 12];
@@ -379,6 +381,9 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     }
     if aircraft::def_of(kind).is_some() {
         grid[RETURN_TO_BASE_SLOT] = Some(PanelCommand::ReturnToBase);
+    }
+    if let Some(deploy) = vehicle_deploy::def_of(kind) {
+        grid[gdo::artillery_rig::DEPLOY_SLOT] = Some(PanelCommand::VehicleDeploy(deploy.into));
     }
     grid
 }

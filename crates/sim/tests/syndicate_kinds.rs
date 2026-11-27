@@ -273,7 +273,9 @@ fn only_the_debug_spawn_makes_one() {
 /// Plan decision T87's "immobile by its def" (`factions/syndicate/units/laser_battery.md > Deploy (ability)`:
 /// "**Deployed**: **cannot move**"): a deployed Laser Battery, the debug spawn's, ordered to move 4 grid units east,
 /// stays where it is, every frame, and its move ends, failed or idle, its Move order done, with no panic and the
-/// invariants holding throughout.
+/// invariants holding throughout. (M6-GA) The gate refuses the Move, an order the type can't carry out
+/// (`sc_sim::vehicle_deploy::can_take`; `factions/gdo/units/artillery_rig.md > Modes`: "one it can't carry out (e.g.
+/// **Move**, since a deployed unit can't move)"), so the order played is ignored.
 #[test]
 fn a_deployed_laser_battery_ordered_to_move_stays_where_it_is() {
     let start = TilePos::new(6, 8).center();
@@ -295,7 +297,7 @@ fn a_deployed_laser_battery_ordered_to_move_stays_where_it_is() {
                 queue: false
             }
         ),
-        Ok(())
+        Err(Reject::CannotMove)
     );
     t.order_at(2, P1, &[battery], order, false);
     for _ in 0..400 {

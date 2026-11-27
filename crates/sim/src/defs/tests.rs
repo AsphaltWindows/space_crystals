@@ -611,6 +611,21 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
             "{name}: its tether {tether:?}"
         );
     }
+    // (M6-GA) A vehicle deploy (`crate::vehicle_deploy`) leads into a unit type of its faction whose own leads back, a
+    // pair of types (slice M6-GP's site arm will lead a unit into a structure); it takes time, short enough for its
+    // progress in fixed point (`crate::progress`).
+    if let Some(deploy) = unit.vehicle_deploy {
+        let into = deploy.into.def();
+        let back = into.unit.as_ref().and_then(|unit| unit.vehicle_deploy);
+        assert!(
+            back.is_some_and(|back| back.into == def.kind) && into.faction == def.faction,
+            "{name} deploys into {deploy:?}"
+        );
+        assert!(
+            (1..=u32::MAX / crate::economy::RATIO_ONE).contains(&deploy.frames),
+            "{name}: its deploy's frames {deploy:?}"
+        );
+    }
 }
 
 /// Only a plate and a patch share tiles, in either order.

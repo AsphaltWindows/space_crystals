@@ -12,7 +12,7 @@ use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Pa
 use super::world::{Unit, World};
 use super::{
     ActiveOrder, Order, OrderKind, Orders, Target, air_base, assist, attack_ground, build, engage, enter, gather,
-    launch, repair, target_lock, travel, turret,
+    launch, repair, target_lock, travel, turret, vehicle_deploy,
 };
 use crate::deploy;
 use crate::ids::ObjectId;
@@ -190,6 +190,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
                 return Behaviour::Plain;
             }
         }
+        // (M6-GA) A vehicle deploys where it stands (`super::vehicle_deploy`).
+        OrderKind::VehicleDeploy { .. } => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -236,6 +238,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => Behaviour::Plain,
         // (M6-GH1) An aircraft with no base to fly to ends at once (`super::air_base`).
         OrderKind::Rebase(_) | OrderKind::ReturnToBase => Behaviour::Plain,
+        // (M6-GA) Its frames, none done (`super::vehicle_deploy`).
+        OrderKind::VehicleDeploy { .. } => vehicle_deploy::begin(unit),
     }
 }
 
@@ -308,10 +312,14 @@ fn run(
         // (M6-GH1) The flight to its Airfield, over it once its move is no longer under way, or at once without a base
         // (`super::air_base`). Its state, the plain one, is any.
         (OrderKind::Rebase(_) | OrderKind::ReturnToBase, _) => air_base::run(unit),
+        // (M6-GA) Standing while it deploys, which the step right before this phase completes, ending the order
+        // (`super::vehicle_deploy`).
+        (OrderKind::VehicleDeploy { .. }, Behaviour::VehicleDeploy(_)) => vehicle_deploy::run(unit),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
         | (OrderKind::Deploy { .. } | OrderKind::Enter(_) | OrderKind::AttackGround(_), _)
-        | (OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_), _) => true,
+        | (OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_), _)
+        | (OrderKind::VehicleDeploy { .. }, _) => true,
     }
 }

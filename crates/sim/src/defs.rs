@@ -56,7 +56,7 @@ pub use units::{
     AmmoDef, AttackAttrs, AttackType, Augmentable, BlastDomain, ContactStep, ConversionDef, Domain, DropOffChoice,
     FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest, RepairDef, RepairPayment,
     RepairTargets, Resource, ReverseSpeed, RiotShieldDef, StockDef, TargetDomain, TargetLockDef, TargetType, TetherDef,
-    TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
+    TurretAttrs, UnitBase, UnitBaseDef, UnitDef, VehicleDeploy, WorkerDef,
 };
 
 /// The kind registry's macro: from the list of kinds below, each with its def, it makes [`ObjectKind`],

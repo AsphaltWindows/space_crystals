@@ -96,6 +96,12 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
         1,
         "the movement model, which no Augmentation changes",
     ),
+    (
+        "crates/sim/src/vehicle_deploy.rs",
+        MOVEMENT,
+        1,
+        "whether a type can move at all, by its def (plan decision T87), a deployed vehicle's top speed of 0",
+    ),
 ];
 
 /// What the scan leaves out: the definitions, the accessors and the tests.

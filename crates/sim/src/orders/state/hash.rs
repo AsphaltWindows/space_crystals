@@ -299,6 +299,11 @@ impl StateHash for Behaviour {
                     }
                 }
             }
+            // (M6-GA) A new tag, hashed only while a unit deploys.
+            Behaviour::VehicleDeploy(progress) => {
+                h.tag(13);
+                progress.hash(h);
+            }
         }
     }
 }

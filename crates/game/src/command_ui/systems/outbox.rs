@@ -307,5 +307,6 @@ fn finite(kind: OrderKind) -> bool {
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => true,
         OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) | OrderKind::Shroud => true,
         OrderKind::TargetLock(_) | OrderKind::Launch | OrderKind::Rebase(_) | OrderKind::ReturnToBase => true,
+        OrderKind::VehicleDeploy { .. } => true,
     }
 }

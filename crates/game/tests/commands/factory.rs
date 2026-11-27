@@ -1,7 +1,8 @@
 //! The Factory in the client (slice M6-GF; `factions/gdo/structures/factory.md > Placeholder stats`: "Production as
 //! the Barracks (queue 20, refunds, rally). Panel: **Q** Raptor, **W** Twister, **E** Prospector, **R** Artillery Rig
 //! (greyed without Advanced Mechanics), **X** Cancel Production, **C** Set Rally Point"): its panel, Q and W training,
-//! W greyed for want of a Supply (design change 0441), E and R not available yet (slices M6-GP and M6-GA); its default
+//! W greyed for want of a Supply (design change 0441), E not available yet (slice M6-GP), (M6-GA) R greyed without
+//! Advanced Mechanics (the Artillery Rig's training is `artillery_rig_ui`'s); its default
 //! rally point out of side B (design change 0446), which a right-click on it clears (0447); the Deployment Center's
 //! Advanced menu constructing it once a Barracks stands; and a Twister's Attack on a Peacekeeper, an invalid target
 //! ("An Attack on a Peacekeeper is refused, with feedback": its machine gun hits air only), and its R and F, its mines,
@@ -11,7 +12,9 @@
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{ConstructionCommand, Faction};
-use space_crystals::command_ui::feedback::{INVALID_TARGET_TEXT, NO_SUPPLIES_TEXT, NOT_YET_TEXT, TargetFeedback};
+use space_crystals::command_ui::feedback::{
+    INVALID_TARGET_TEXT, NO_SUPPLIES_TEXT, NOT_YET_TEXT, TargetFeedback, requires_text,
+};
 use space_crystals::command_ui::indicators::{Indicator, MOVE_COLOR, RallyIndicator};
 use space_crystals::command_ui::{BuildMenu, ButtonLook, PanelButton, PanelCommand, Planned};
 use space_crystals::hud::command_panel::CommandButton;
@@ -118,12 +121,13 @@ fn constructions(app: &App) -> Vec<(PlayerId, Vec<u32>, ConstructionCommand)> {
 }
 
 /// Selected, the Factory shows the Production template of its recipes: Q Train Raptor, W Train Twister, E Train
-/// Prospector and R Train Artillery Rig, not available yet ("Not available yet" when pressed, nothing sent), X Cancel
+/// Prospector, not available yet ("Not available yet" when pressed, nothing sent), R Train Artillery Rig, greyed
+/// without Advanced Mechanics ("Requires an Advanced Mechanics" when pressed, nothing sent; slice M6-GA), X Cancel
 /// Production, greyed with nothing to cancel, and C Set Rally Point. With no Supply W is greyed and says "Not enough
 /// Supplies" when pressed, sending nothing (design change 0441); Q trains a Raptor for 100 Space Crystals. Given a
 /// Supply, W trains a Twister for 125 Space Crystals and the Supply, and is greyed again.
 #[test]
-fn the_factory_trains_the_raptor_and_the_twister_its_e_and_r_not_available_yet() {
+fn the_factory_trains_the_raptor_and_the_twister_its_e_not_available_yet_and_r_behind_advanced_mechanics() {
     use ButtonLook::{Common, Disabled, Unavailable};
     use PanelCommand::{CancelProduction, SetRallyPoint, Train};
     let mut app = factory_game(1000, 0);
@@ -137,7 +141,7 @@ fn the_factory_trains_the_raptor_and_the_twister_its_e_and_r_not_available_yet()
             (slot(0, 0), c(Train(RAPTOR)), Common, "RR"),
             (slot(0, 1), c(Train(TWISTER)), Disabled, "TR"),
             (slot(0, 2), planned(Planned::Prospector), Unavailable, "PR"),
-            (slot(0, 3), planned(Planned::ArtilleryRig), Unavailable, "ARG"),
+            (slot(0, 3), c(Train(ObjectKind::ArtilleryRig)), Disabled, "ARG"),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Disabled, "Cancel"),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common, "Rally"),
         ]
@@ -149,7 +153,7 @@ fn the_factory_trains_the_raptor_and_the_twister_its_e_and_r_not_available_yet()
     assert_eq!(said(&app), Some(NOT_YET_TEXT));
     pause(&mut app);
     tap(&mut app, &[], KeyR);
-    assert_eq!(said(&app), Some(NOT_YET_TEXT));
+    assert_eq!(said(&app), Some(requires_text(ObjectKind::AdvancedMechanics)));
     assert_eq!(productions(&app), []);
 
     tap(&mut app, &[], KeyQ);

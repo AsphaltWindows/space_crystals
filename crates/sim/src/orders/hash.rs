@@ -113,6 +113,12 @@ impl StateHash for OrderKind {
                 airfield.hash(h);
             }
             OrderKind::ReturnToBase => h.tag(19),
+            // (M6-GA) A new tag, hashed only while a unit carries the order: 21, the Director's (slice M6-CM's order
+            // takes 20, slice M6-SN's 22).
+            OrderKind::VehicleDeploy { into } => {
+                h.tag(21);
+                into.hash(h);
+            }
         }
     }
 }

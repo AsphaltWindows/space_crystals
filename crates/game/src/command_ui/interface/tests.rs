@@ -2,6 +2,7 @@ mod agent;
 mod airfield;
 mod airstrip;
 mod altar;
+mod artillery_rig;
 mod cathedral;
 mod chop_shop;
 mod colonists;

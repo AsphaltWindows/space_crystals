@@ -8,6 +8,7 @@ use crate::augmentation::AugmentOrder;
 use crate::defs::{AreaAbility, ObjectKind, Resource, Tech};
 use crate::economy::ArmyResource;
 use crate::ids::{ObjectId, PlayerId};
+use crate::orders::OrderKind;
 use crate::placement::PlacementCheck;
 use crate::production::Refusal;
 use crate::scenario::BuildingOrientation;
@@ -552,5 +553,13 @@ pub enum SimEvent {
     /// Drone).
     StockBought {
         unit: ObjectId,
+    },
+    /// (M6-GA) `unit`'s vehicle deploy completed in this tick, and its type can't carry out `order`, which was held or
+    /// queued behind it (`crate::vehicle_deploy`; `factions/gdo/units/artillery_rig.md > Modes`: "one it can't carry
+    /// out (e.g. **Move**, since a deployed unit can't move) is **dropped** with the usual unavailable-command
+    /// feedback"): the order is gone from its queue. After its `KindChanged`.
+    OrderDropped {
+        unit: ObjectId,
+        order: OrderKind,
     },
 }

@@ -27,9 +27,9 @@
 //! (M6-GK) The Deployment Center's build menus hold the slots of the eight buildings it doesn't construct yet
 //! (`factions/gdo/structures/deployment_center.md > Two build menus`), each in the game but greyed until its slice makes
 //! its entry live (`super::gdo::deployment_center`): slice M6-GR made the Radar Station and the Defense System live,
-//! slice M6-GF the Factory, Advanced Mechanics and the Industrial Powerplant, and the Factory's panel holds the two
-//! units that later slices have it train, E and R
-//! (`super::gdo::factory`): M6-GP the Prospector, M6-GA the Artillery Rig. The Field Engineer's two are in the game
+//! slice M6-GF the Factory, Advanced Mechanics and the Industrial Powerplant, and the Factory's panel held the two
+//! units that later slices have it train, E and R (`super::gdo::factory`): slice M6-GA made the Artillery Rig live,
+//! and E holds the Prospector until slice M6-GP. The Field Engineer's two are in the game
 //! since M6-GK too, and stay greyed until slice M6-GB. The Twister's R and F hold its mines' two commands, Lay Mine and
 //! Buy Mine, until slice M6-GM (slice M6-GF, `crate::kinds::gdo::twister`).
 
@@ -95,11 +95,10 @@ pub enum Planned {
     SupplyTower,
     Airfield,
     PropulsionLabs,
-    /// (M6-GF) The Factory's E and R (`factions/gdo/structures/factory.md > Placeholder stats`: "**E** Prospector,
-    /// **R** Artillery Rig (greyed without Advanced Mechanics)"), which it trains from slices M6-GP and M6-GA on. Their
-    /// types are in the game (slice M6-GK), so each label is its type's ([`Planned::label`]).
+    /// (M6-GF) The Factory's E (`factions/gdo/structures/factory.md > Placeholder stats`: "**E** Prospector"), which it
+    /// trains from slice M6-GP on. Its type is in the game (slice M6-GK), so its label is its type's ([`Planned::label`]).
+    /// Its R, the Artillery Rig, held its slot too, until slice M6-GA.
     Prospector,
-    ArtilleryRig,
     /// (M6-GF) The Twister's R and F, its mines' commands (`factions/gdo/units/twister.md > Placeholder stats`: "Panel:
     /// BasicCombatUnitInterfaceState plus **R: Lay Mine** (targeted) and **F: Buy Mine**"), slice M6-GM's
     /// (`crate::kinds::gdo::twister`).
@@ -113,7 +112,7 @@ pub enum Planned {
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 32] = [
+    pub const ALL: [Planned; 31] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -142,7 +141,6 @@ impl Planned {
         Planned::Airfield,
         Planned::PropulsionLabs,
         Planned::Prospector,
-        Planned::ArtilleryRig,
         Planned::LayMine,
         Planned::BuyMine,
         Planned::Dragonfly,
@@ -187,7 +185,6 @@ impl Planned {
             Planned::Airfield => "Airfield",
             Planned::PropulsionLabs => "Propulsion Labs",
             Planned::Prospector => "Prospector",
-            Planned::ArtilleryRig => "Artillery Rig",
             Planned::LayMine => "Lay Mine",
             Planned::BuyMine => "Buy Mine",
             Planned::Dragonfly => "Dragonfly",
@@ -208,8 +205,8 @@ impl Planned {
     /// Assembly's "AA", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice M4-G). (M6-SV)
     /// The Vehicle Assembly's units not trained yet are labelled by their types, in the game already (slice M6-SK):
     /// "SBR", "LB" and "STR"; (M6-SD) the Aerospace Assembly's alike, "SPR" and "PRM". (M6-GK) The Deployment Center's
-    /// three, whose types are in the game, have their types' labels; (M6-GF) and so have the Factory's two units not
-    /// trained yet, "PR" and "ARG", and (M6-GH1) the Airfield's Dragonfly, "DY". The Twister's mines' commands by their
+    /// three, whose types are in the game, have their types' labels; (M6-GF) and so has the Factory's unit not trained
+    /// yet, "PR" (the Artillery Rig's "ARG" until slice M6-GA), and (M6-GH1) the Airfield's Dragonfly, "DY". The Twister's mines' commands by their
     /// names' first words, "Lay" and "Buy", as the Drone Operator's Launch Drone is "Launch" (slice M6-GD,
     /// `PanelCommand::label`); not Buy Mine by the mine's tag, as Build Drone is by the drone's, "DRN": "ME" is the
     /// mine type's own, which no placeholder shares.
@@ -243,7 +240,6 @@ impl Planned {
             Planned::Airfield => "AD",
             Planned::PropulsionLabs => "PL",
             Planned::Prospector => "PR",
-            Planned::ArtilleryRig => "ARG",
             Planned::LayMine => "Lay",
             Planned::BuyMine => "Buy",
             Planned::Dragonfly => "DY",
@@ -264,7 +260,6 @@ impl Planned {
                 | Planned::Specter
                 | Planned::Prism
                 | Planned::Prospector
-                | Planned::ArtilleryRig
                 | Planned::Dragonfly
         )
     }

@@ -2,7 +2,8 @@
 //! shown while at least one object is selected. Placeholder text until the panel's art and layout exist: the
 //! selected object's name as the title, and under it what the panel shows of it ([`InfoContent`]):
 //! - **a unit**: its owner and HP; one of the local player's own workers also what it carries and where it delivers
-//!   it ([`worker_lines`], slice M3-J2);
+//!   it ([`worker_lines`], slice M3-J2); (M6-GA) one of the local player's own units that deploys its deploy's progress
+//!   ([`deploy_line`]);
 //! - **a structure** (`core/entities.md > Default InfoPanel for structures`, design change 0105): one of the local
 //!   player's own shows its HP and, in the activity area under it, what it is doing ([`activity`]); another player's,
 //!   or a neutral one, shows its owner ("Neutral") and HP only, never what it is doing. An object that has Shields (the
@@ -38,7 +39,7 @@ use bevy::prelude::*;
 use sc_sim::defs::Resource;
 use sc_sim::economy::Worker;
 use sc_sim::vision::LastKnown;
-use sc_sim::{Object, ObjectKind, PlayerId, ResourceState, Sim, TICKS_PER_SECOND};
+use sc_sim::{Object, ObjectKind, PlayerId, Progress, ResourceState, Sim, TICKS_PER_SECOND, vehicle_deploy};
 
 use super::{LABEL_VH, SectionLabel, TEXT_COLOR, set_text, show_node, text};
 use crate::fog::{LocalSight, Sight};
@@ -241,6 +242,9 @@ fn object_info(sim: &Sim, sight: &Sight, shown: Shown, record: Option<&LastKnown
     if let Some(worker) = owned.and_then(|o| o.worker) {
         body.extend(worker_lines(sim, worker));
     }
+    if let Some((into, progress)) = owned.and_then(vehicle_deploy::under_way) {
+        body.push(deploy_line(into, progress));
+    }
     if let Some(record) = record {
         body.push(format!(
             "Last seen {} ago",
@@ -277,6 +281,19 @@ fn worker_lines(sim: &Sim, worker: Worker) -> Vec<String> {
         lines.push(format!("Drop-off: {}", node.def().name));
     }
     lines
+}
+
+/// (M6-GA) What one of the local player's own units that deploys into `into` shows (`sc_sim::vehicle_deploy::under_way`;
+/// `factions/gdo/units/artillery_rig.md > Modes`: "switching modes takes time"): "Deploying: 50%" into a type that
+/// can't move, "Undeploying: 50%" into one that can (`sc_sim::vehicle_deploy::immobile`), its progress in whole percent
+/// rounded down, 100% only once complete. Placeholder (not in the design: what a deploying unit's panel shows), only
+/// its owner seeing it, as a worker's load.
+pub fn deploy_line(into: ObjectKind, progress: Progress) -> String {
+    let doing = match vehicle_deploy::immobile(into) {
+        true => "Deploying",
+        false => "Undeploying",
+    };
+    format!("{doing}: {}%", progress.percent())
 }
 
 /// The Space Crystals left in the patch under `plate`, a structure that mines (`factions/gdo/economy.md >

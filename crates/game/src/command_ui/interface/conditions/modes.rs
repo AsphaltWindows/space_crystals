@@ -1,10 +1,10 @@
 //! The selected units' modes ([`Modes`]): which of them take no Attack, carry a load, aren't in operation yet, or
-//! (M6-GD) hold still for their drones, and (M6-GH1) which are aircraft, with their bases, and which of those have no
-//! ammo left.
+//! (M6-GD) hold still for their drones, (M6-GH1) which are aircraft, with their bases, and which of those have no
+//! ammo left, and (M6-GA) which deploy, into which type, and which can't move.
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use sc_sim::{ObjectId, ShieldMode, Sim, aircraft, combat, riot_shield, tether};
+use sc_sim::{ObjectId, ObjectKind, ShieldMode, Sim, aircraft, combat, riot_shield, tether, vehicle_deploy};
 
 use crate::selection::Selection;
 
@@ -21,7 +21,13 @@ use crate::selection::Selection;
 /// units hold still for their drones (`sc_sim::tether::holds`: "The Drone Operator **cannot move** while it has a drone
 /// active"), and (M6-GH1) which are aircraft, with their bases (`sc_sim::aircraft`), and which of these have no ammo
 /// left, taking no Attack then (`sc_sim::aircraft::armed`, the gate's `sc_sim::Reject::OutOfAmmo`). Which way a shield
-/// goes is its unit's type (design change 0173), whose panel offers the command that turns it.
+/// goes is its unit's type (design change 0173), whose panel offers the command that turns it. (M6-GA) Which of the
+/// units deploy, and into which type (`sc_sim::vehicle_deploy::under_way`): one takes the orders the type it becomes
+/// will carry out (`factions/gdo/units/artillery_rig.md > Modes`: "the **last order given** [...] is **held**, and it
+/// is the first thing the unit tries once deployment finishes"), the gate's rule (`sc_sim::vehicle_deploy`), so it is
+/// judged as that type ([`Modes::becomes`]); and which of the others can't move (`sc_sim::vehicle_deploy::immobile`: a
+/// deployed Rig, "**cannot move**"), the gate refusing them every order that would move them (`sc_sim::Reject::
+/// CannotMove`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
     /// The units whose type takes no Attack: a Peacekeeper (Shielded), or a unit without a weapon; (M6-GH1) and the
@@ -38,6 +44,10 @@ pub struct Modes {
     bases: BTreeMap<ObjectId, Option<ObjectId>>,
     /// (M6-GH1) Of them, those with no ammo left.
     empty: BTreeSet<ObjectId>,
+    /// (M6-GA) The units that deploy, each with the type it becomes.
+    deploying: BTreeMap<ObjectId, ObjectKind>,
+    /// (M6-GA) The units of a type that can't move, but those that deploy.
+    immobile: BTreeSet<ObjectId>,
 }
 
 impl Modes {
@@ -46,8 +56,13 @@ impl Modes {
         let empty: BTreeSet<ObjectId> = (selection.ids())
             .filter(|&id| sim.object(id).is_some_and(|o| !aircraft::armed(o)))
             .collect();
+        let deploying: BTreeMap<ObjectId, ObjectKind> = (selection.ids())
+            .filter_map(|id| Some((id, vehicle_deploy::under_way(sim.object(id)?)?.0)))
+            .collect();
+        let becomes = |id: ObjectId, kind: ObjectKind| deploying.get(&id).copied().unwrap_or(kind);
         Self {
             held: (selection.members())
+                .map(|(id, kind)| (id, becomes(id, kind)))
                 .filter(|&(_, kind)| kind.def().unit.is_some() && !combat::takes_attack_orders(kind))
                 .map(|(id, _)| id)
                 .chain(empty.iter().copied())
@@ -71,7 +86,47 @@ impl Modes {
                 .map(|o| (o.id, aircraft::base_of(o)))
                 .collect(),
             empty,
+            immobile: (selection.members())
+                .filter(|&(id, kind)| !deploying.contains_key(&id) && vehicle_deploy::immobile(kind))
+                .map(|(id, _)| id)
+                .collect(),
+            deploying,
         }
+    }
+
+    /// (M6-GA) The type `id`, of type `kind`, is judged as: the type it becomes while it deploys, `kind` otherwise.
+    pub fn becomes(&self, id: ObjectId, kind: ObjectKind) -> ObjectKind {
+        self.deploying.get(&id).copied().unwrap_or(kind)
+    }
+
+    /// (M6-GA) Whether `id` deploys.
+    pub fn deploying(&self, id: ObjectId) -> bool {
+        self.deploying.contains_key(&id)
+    }
+
+    /// (M6-GA) The same, with `ids` deploying into `into`, and taking an Attack as `into` does: for the unit tests.
+    pub fn with_deploying(mut self, ids: impl IntoIterator<Item = ObjectId>, into: ObjectKind) -> Self {
+        for id in ids {
+            self.deploying.insert(id, into);
+            self.immobile.remove(&id);
+            match combat::takes_attack_orders(into) {
+                true => self.held.remove(&id),
+                false => self.held.insert(id),
+            };
+        }
+        self
+    }
+
+    /// (M6-GA) Whether `id` is of a type that can't move, and doesn't deploy: the gate refuses it every order that would
+    /// move it (`sc_sim::Reject::CannotMove`).
+    pub fn immobile(&self, id: ObjectId) -> bool {
+        self.immobile.contains(&id)
+    }
+
+    /// (M6-GA) The same, with `ids` of a type that can't move: for the unit tests.
+    pub fn with_immobile(mut self, ids: impl IntoIterator<Item = ObjectId>) -> Self {
+        self.immobile.extend(ids);
+        self
     }
 
     /// (M6-GH1) Whether `id` is an aircraft, and if so the Airfield it is assigned to, if any
@@ -169,6 +224,8 @@ impl FromIterator<(ObjectId, ShieldMode)> for Modes {
             tethered: BTreeSet::new(),
             bases: BTreeMap::new(),
             empty: BTreeSet::new(),
+            deploying: BTreeMap::new(),
+            immobile: BTreeSet::new(),
         }
     }
 }

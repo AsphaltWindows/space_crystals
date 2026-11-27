@@ -116,6 +116,8 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
             OrderKind::Assist(_) | OrderKind::Repair(_) => return None,
             // (M6-GH1) An aircraft's flight to its Airfield ends over it, wherever the Airfield's pads are.
             OrderKind::Rebase(_) | OrderKind::ReturnToBase => return None,
+            // (M6-GA) A vehicle deploy leaves the unit where the orders before it did, as a Hold.
+            OrderKind::VehicleDeploy { .. } => {}
         }
     }
     None

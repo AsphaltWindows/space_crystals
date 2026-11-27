@@ -525,7 +525,7 @@ fn floats_finite(o: &Object) -> bool {
                     OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => true,
                     OrderKind::Enter(_) | OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => true,
                     OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => true,
-                    OrderKind::Rebase(_) | OrderKind::ReturnToBase => true,
+                    OrderKind::Rebase(_) | OrderKind::ReturnToBase | OrderKind::VehicleDeploy { .. } => true,
                 }
         })
     });

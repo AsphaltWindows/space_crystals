@@ -102,7 +102,9 @@ mod probes;
 
 use std::collections::BTreeMap;
 
-use sc_sim::{Constructor, ObjectId, ObjectKind, PlayerId, Progress, RecruitKind, Reject, Sim, combat, stock};
+use sc_sim::{
+    Constructor, ObjectId, ObjectKind, PlayerId, Progress, RecruitKind, Reject, Sim, combat, stock, vehicle_deploy,
+};
 
 use sc_sim::construction::site::BuildPrice;
 
@@ -181,6 +183,9 @@ pub struct Conditions {
     /// (M6-GD) The purchase under way of the first unit of the ActiveGroup that buys one (`sc_sim::stock::Stock::buying`,
     /// a Drone Operator's Build Drone), which F's bar shows ([`Conditions::purchase`]); none while none of them buys.
     purchase: Option<Progress>,
+    /// (M6-GA) The deploy under way of the first unit of the ActiveGroup that deploys (`sc_sim::vehicle_deploy::
+    /// under_way`), which R's bar shows ([`Conditions::deploy`]); none while none of them deploys.
+    deploy: Option<Progress>,
 }
 
 impl Conditions {
@@ -275,6 +280,10 @@ impl Conditions {
         let purchase = (group.iter().flat_map(|group| &group.instances))
             .filter_map(|&id| sim.object(id)?.stock?.buying)
             .next();
+        let deploy = (group.iter().flat_map(|group| &group.instances))
+            .filter_map(|&id| vehicle_deploy::under_way(sim.object(id)?))
+            .map(|(_, progress)| progress)
+            .next();
         Self {
             modes: Modes::of(sim, selection),
             constructor: first.and_then(|o| o.constructor),
@@ -286,6 +295,7 @@ impl Conditions {
             pool,
             stored,
             purchase,
+            deploy,
         }
     }
 
@@ -302,6 +312,7 @@ impl Conditions {
             pool: [0; 4],
             stored: BTreeMap::new(),
             purchase: None,
+            deploy: None,
         }
     }
 
@@ -327,6 +338,18 @@ impl Conditions {
     /// its instances; none while none of them buys.
     pub fn purchase(&self) -> Option<Progress> {
         self.purchase
+    }
+
+    /// (M6-GA) The same, with `deploy` under way in the ActiveGroup: for the unit tests.
+    pub fn deploying(mut self, deploy: Progress) -> Self {
+        self.deploy = Some(deploy);
+        self
+    }
+
+    /// (M6-GA) The deploy under way that a vehicle's R shows on its bar: the first of the ActiveGroup's, in the order of
+    /// its instances; none while none of them deploys.
+    pub fn deploy(&self) -> Option<Progress> {
+        self.deploy
     }
 
     /// The same, with the Drones `drones` returning to the active Egress Node: for the unit tests.
@@ -444,9 +467,11 @@ impl Conditions {
     /// type takes an Attack (`sc_sim::combat::takes_attack_orders`, the gate's rule: a weapon, and no Riot Shield up,
     /// `factions/gdo/units/peacekeeper.md > Riot Shield`: "the player must lower the shield before ordering an
     /// attack"; (M5-N4a) a Disciple has no weapon) and its mode lets it ([`Modes::can_attack`]: design change 0202, a
-    /// Peacekeeper whose shield is on its way down takes one).
+    /// Peacekeeper whose shield is on its way down takes one); (M6-GA) a unit that deploys, as the type it becomes
+    /// ([`Modes::becomes`]: the mobile Rig, which deploys, holds an Attack it carries out deployed).
     pub fn attacks(&self, selection: &Selection) -> bool {
-        (selection.members()).any(|(id, kind)| combat::takes_attack_orders(kind) && self.modes.can_attack(id))
+        (selection.members())
+            .any(|(id, kind)| combat::takes_attack_orders(self.modes.becomes(id, kind)) && self.modes.can_attack(id))
     }
 
     /// Whether the game lets `command` go to its recipients in `selection` now: Attack while one of the selected units
@@ -459,7 +484,9 @@ impl Conditions {
     /// Why the game doesn't let `command` go to its recipients in `selection` now ([`Conditions::allows`]), if it
     /// doesn't: their types, their loads (a Drop Off none of whose recipients carries anything, the gate's
     /// `Reject::NothingToDeliver`), (M6-GD) their drones (a command that would move them while every one of them holds
-    /// still for its drone, the gate's `Reject::DroneOut`), (M6-GH1) their ammo (an Attack or Attack Ground while none
+    /// still for its drone, the gate's `Reject::DroneOut`), (M6-GA) their types again (a Move, a Reverse or a Patrol
+    /// while every one of them is of a type that can't move and doesn't deploy, the gate's `Reject::CannotMove`: a
+    /// deployed Rig), (M6-GH1) their ammo (an Attack or Attack Ground while none
     /// of them has any left, the gate's `Reject::OutOfAmmo`), a pool building's free units (a kind button with none of its kind, which every
     /// entry of its KindMenu would want: `Reject::NoRecruit`), an Altar's (a type or state tile with none, said as the
     /// first state's, Unaugmented, for a type tile), a Temple's key in progress (`Reject::ResearchUnderWay`, which its
@@ -493,6 +520,8 @@ impl Conditions {
                     |held: &dyn Fn(ObjectId) -> bool| !recipients.is_empty() && recipients.iter().all(|&id| held(id));
                 if all(&|id| self.modes.tethered(id)) {
                     Some(WhyUnavailable::Refused(Reject::DroneOut))
+                } else if command != PanelCommand::AttackGround && all(&|id| self.modes.immobile(id)) {
+                    Some(WhyUnavailable::Refused(Reject::CannotMove))
                 } else {
                     // (M6-GH1) An Attack Ground none of whose recipients has ammo left.
                     let empty = command == PanelCommand::AttackGround && all(&|id| self.modes.empty(id));

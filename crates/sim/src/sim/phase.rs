@@ -112,6 +112,10 @@ impl Sim {
         // Modes (`sim/modes.rs`): after the commands, so that a toggle counts from its own tick; before 5a, so that
         // the behaviours, the movement and the combat of the tick all see the mode it leaves.
         self.step_modes(first_new);
+        // (M6-GA) The vehicle deploys under way take a frame, and those done complete (`sim/vehicle_deploy.rs`): after
+        // the Modes step, as T44 has it; before 5a, so that a unit that has deployed acts as its new type from here on,
+        // its held order first.
+        self.step_vehicle_deploys(first_new);
         // Phases 5a–5f, `docs/movement.md > 4`.
         // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
         // The behaviours read the positions and the vision the last tick left (5f).

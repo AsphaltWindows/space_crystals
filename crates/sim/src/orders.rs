@@ -30,7 +30,9 @@
 //! - [`launch`]: a Drone Operator stopping to launch its drone, which the step right after the phase does (slice
 //!   M6-GD, `crate::tether`);
 //! - [`air_base`]: an aircraft flying to its Airfield, a new one it was reassigned to or the one it returns to (slice
-//!   M6-GH1, `crate::aircraft`).
+//!   M6-GH1, `crate::aircraft`);
+//! - [`vehicle_deploy`]: a vehicle standing while it deploys into its pair's other type, which the step right before
+//!   the phase counts and completes (slice M6-GA, `crate::vehicle_deploy`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
@@ -56,6 +58,7 @@ pub mod state;
 mod target_lock;
 mod travel;
 mod turret;
+pub(crate) mod vehicle_deploy;
 pub(crate) mod world;
 
 use std::collections::VecDeque;
@@ -195,6 +198,17 @@ pub enum OrderKind {
     /// flies to its base ([`air_base`]), and slice M6-GH2 lands and rearms it there. Only an aircraft with a base takes
     /// it (the gate): "An unassigned aircraft has no base [...] Return to Base is unavailable until it is reassigned".
     ReturnToBase,
+    /// (M6-GA) `factions/gdo/units/artillery_rig.md > Modes`: "**Deploy is an order, not a mode switch** [...] the
+    /// deploying process is what actually changes the unit: it stays the mobile type until the process completes"
+    /// (plan decisions T44 and T87, `crate::vehicle_deploy`): the unit stands for its type's frames
+    /// (`UnitDef::vehicle_deploy`), then becomes a unit of type `into`, its pair's other type: the Artillery Rig's
+    /// Deploy into the Artillery Rig (Deployed), whose Undeploy is this order into the Artillery Rig. "Queueable":
+    /// Shift queues it behind the unit's orders; "Not cancellable": once it has started, the orders given meanwhile are
+    /// held behind it (`Orders::give`), and checked against the new type as it completes. Only a unit whose type
+    /// deploys into `into` takes it, and not one deploying already (the gate). `into` names the type (a reading: T44's
+    /// order has no payload), so that a Deploy pressed twice doesn't undeploy, and the panel's Deploy and Undeploy are
+    /// two commands.
+    VehicleDeploy { into: ObjectKind },
 }
 
 impl OrderKind {
@@ -215,6 +229,8 @@ impl OrderKind {
             OrderKind::AttackGround(_) | OrderKind::Shroud | OrderKind::Reverse(_) | OrderKind::Launch => None,
             // (M6-GH1) Its base is the aircraft's (`crate::aircraft`), not the order's.
             OrderKind::ReturnToBase => None,
+            // (M6-GA) It names a type, not an object.
+            OrderKind::VehicleDeploy { .. } => None,
         }
     }
 }
@@ -248,6 +264,8 @@ impl Order {
             OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => None,
             // (M6-GH1) The aircraft goes to its Airfield (`air_base`).
             OrderKind::Rebase(_) | OrderKind::ReturnToBase => None,
+            // (M6-GA) The unit deploys where it stands (`vehicle_deploy`).
+            OrderKind::VehicleDeploy { .. } => None,
         }
     }
 
@@ -304,17 +322,35 @@ pub struct Orders {
 impl Orders {
     /// `systems/controls/commands.md > Unit Command`: with Shift (`queue`) the order is appended to the queue;
     /// without, it replaces the whole queue and the current order. Returns `false` if the queue was full and the
-    /// order was dropped. The new order starts in phase 5a.
+    /// order was dropped. The new order starts in phase 5a. (M6-GA) But for a vehicle deploy under way
+    /// ([`Orders::deploying`]), which it can't replace (`factions/gdo/units/artillery_rig.md > Modes`: "**Not
+    /// cancellable** [...] once deploying has started it always runs to completion; Stop doesn't interrupt it"): the
+    /// order goes behind it, and replaces the queue, the order held before it and those queued after that included
+    /// ("the **last order given** (without Shift; each new one replaces the previous) is **held**"), or with Shift
+    /// joins the queue ("Shift-queued orders line up behind it as usual").
     pub fn give(&mut self, order: Order, queue: bool) -> bool {
         if !queue {
             self.queue.clear();
-            self.current = None;
+            if !self.deploying() {
+                self.current = None;
+            }
         }
         if self.queue.len() >= MAX_QUEUED_ORDERS {
             return false;
         }
         self.queue.push_back(order);
         true
+    }
+
+    /// (M6-GA) Whether its current order is a vehicle deploy under way (`crate::vehicle_deploy`): one that has started,
+    /// its frames counted by its behaviour's state. A deploy queued behind other orders hasn't.
+    pub fn deploying(&self) -> bool {
+        (self.current.as_ref()).is_some_and(|active| {
+            matches!(
+                (active.order.kind, &active.state),
+                (OrderKind::VehicleDeploy { .. }, Behaviour::VehicleDeploy(_))
+            )
+        })
     }
 
     /// Whether the unit has no order at all. It may still be fighting or returning by itself ([`Orders::auto`]).

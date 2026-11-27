@@ -467,6 +467,8 @@ impl<'a> Arrival<'a> {
             // death); a drone bought, to its operator's owner, as a unit queued is its producer's.
             SimEvent::DroneLaunched { drone, .. } | SimEvent::DroneFell { drone, .. } => self.object(drone),
             SimEvent::StockBought { unit } => self.owner(unit),
+            // (M6-GA) An order the unit's deploy dropped: its owner's feedback, as an order the gate refused.
+            SimEvent::OrderDropped { unit, .. } => self.owner(unit),
         }
     }
 }

@@ -28,6 +28,8 @@ mod airstrip;
 mod altar;
 #[path = "armory/main.rs"]
 mod armory;
+#[path = "artillery_rig/main.rs"]
+mod artillery_rig;
 #[path = "attack_behind_friends/main.rs"]
 mod attack_behind_friends;
 mod attack_move_leash;
@@ -199,6 +201,8 @@ mod unit_orders;
 mod upgrades;
 #[path = "vehicle_assembly/main.rs"]
 mod vehicle_assembly;
+#[path = "vehicle_deploy/main.rs"]
+mod vehicle_deploy;
 #[path = "vehicles/main.rs"]
 mod vehicles;
 mod vision;
