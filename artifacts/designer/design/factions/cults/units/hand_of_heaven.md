@@ -24,7 +24,7 @@ Reveal: the shared rule applies (core/vision.md > Attacks from outside vision): 
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 64x40 space units (length x width); MaxHP 200; PointArmor 2, FullArmor 2; SightRange 7 grid units (it needs spotters for its full range); Groupable true.
-- SpeedTurnRadiusMovement: MaxSpeed 5 su/frame; Acceleration 0.5 su/frame²; Deceleration 1 su/frame²; SpeedToTurnRadiusRatio 8 (turns in place when stopped).
+- SpeedTurnRadiusMovement: MaxSpeed 5 su/frame; Acceleration 0.5 su/frame²; Deceleration 1 su/frame²; TrackWidth 30 su; ReverseMaxSpeed 2.5 (Q0153; spins about 19° a frame when stopped, can't turn at full speed).
 - Turret: TurnAngle **20°** total; TurnRate 4°/frame.
 - Attack: Damage **600** total over the circle (AoEDamage; a 3x3 building wholly inside takes it all, a lone 24x24 infantry about 12, so it is a siege weapon, poor against spread or moving units); AoERadius **96 su (1.5 GU)**; Range **14 grid units**; MinRange **4 grid units**; ProjectileSpeed **8 su/frame** (a full-range shot flies about 7 s); AimDuration **48** frames (3 s); FiringDuration 2; CooldownDuration **4**; ReloadDuration **96** (6 s): one missile per 150 frames, about 9.4 s.
 - Cost: Chop Shop, 3 Recruits, **150 Space Crystals, 480 frames (30 s)**.

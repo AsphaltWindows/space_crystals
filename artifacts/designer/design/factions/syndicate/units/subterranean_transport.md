@@ -35,7 +35,7 @@ Brings it back to its above-ground mode. **It can't surface on top of a building
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 72x48 space units; MaxHP 300; PointArmor 3, FullArmor 3; SightRange 5 grid units; TunnelSpaceCost 3.
-- Above ground as a TrackedVehicle: MaxSpeed 4.5 su/frame; underground MaxSpeed 3.5.
+- Above ground as a TrackedVehicle: MaxSpeed 4.5 su/frame; Acceleration 0.4; Deceleration 1; TrackWidth 36 su; ReverseMaxSpeed 2.25 (designer placeholders, 2026-11-26; Q0153: the Laser Battery's handling; spins about 14.3° a frame); underground MaxSpeed 3.5.
 - **Burrow and Surface: 48 frames** each.
 - **Capacity 4** infantry (user, 2026-11-27: **4 heavy infantry, e.g. 4 Guards**; Syndicate infantry are Heavy Infantry).
 - **Loading**: right-click the transport with infantry selected (Enter); it must be above ground. **Unloading**: **F: Unload All** (above ground only; they come out around it).
