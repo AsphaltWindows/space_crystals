@@ -460,6 +460,7 @@ No commands: Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT).
 |---|---|---|---|
 | Q | Plain | Plain Recruits | opens a menu |
 | Q → Q | SKR | Build Seeker |  |
+| Q → W | HOH | Build Hand of Heaven |  |
 | Q → A | Rel. | Release |  |
 | W | Const. | Constitution Recruits | opens a menu, the same as Q's |
 | E | Metab. | Metabolism Recruits | opens a menu, the same as Q's |
