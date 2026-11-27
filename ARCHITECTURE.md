@@ -4090,9 +4090,11 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   records to add.
 - **Rules** (`selection/rules.rs`, pure and unit tested): map clicks, boxes, portrait clicks, control group keys and
   Tab on a `ControlState`, under the Constraints: another player's object or a resource is only ever selected alone,
-  and any click on one selects it alone (design change 0048). On an own unit a click selects it, Shift toggles it,
-  Ctrl or a double-click selects its type on screen, and Ctrl + Shift adds that type (0052). A box selects what its
-  tiers give, and Shift + box adds that (0049). The add inputs all go through `ControlState::add_to_selection`: they
+  and any click on one selects it alone (design change 0048). On an own object, a unit or (slice M5-N7, design change
+  0410) a building, a click selects it, Shift toggles it, Ctrl or a double-click selects its type on screen, and Ctrl
+  + Shift adds that type (0052); "its type" is its SelectionGroup's (`Selectables::own_on_screen` by `GroupType`), so
+  an unfinished building takes only the unfinished ones of its kind, and units and buildings may mix. A box selects
+  what its tiers give, and Shift + box adds that (0049). The add inputs all go through `ControlState::add_to_selection`: they
   remove nothing and add nothing the Constraints forbid, so they do nothing while another player's or a neutral
   object is selected (0053). A plain click on empty ground or an empty box clears the selection; a modified click
   there or an empty Shift + box changes nothing (0051). Control groups take only own objects: Assign and Add with
