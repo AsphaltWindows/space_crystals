@@ -29,7 +29,6 @@
 ## Open Director Questions
 
 - Q0186 (non-blocking?): Attack on a target a weapon can't hit.
-- Q0181 (non-blocking): SeparationRadius for five air units without one.
 - Q0182 (non-blocking): four GDO numbers the docs don't give.
 - Q0184 (non-blocking): Assault Bike at close range.
 - Q0183 (non-blocking): idle vehicles stall a Tunnel's exit (5 Bikes ejected, 2 come out).
