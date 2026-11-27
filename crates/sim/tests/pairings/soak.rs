@@ -187,8 +187,8 @@ struct Tally {
     destroyed: u32,
     evacuated: u32,
     refunded: u32,
-    /// Casts, by ability: Health regeneration, Energy regeneration, Inspire, Suppress.
-    casts: [u32; 4],
+    /// Casts, by ability: Health regeneration, Energy regeneration, Inspire, Suppress, Scan.
+    casts: [u32; 5],
     shrouds: u32,
     crushed: u32,
     /// Unit ticks spent holding fire, and buffs that ended as their time was up.
@@ -222,10 +222,10 @@ impl Tally {
     }
 
     fn summary(&self) -> String {
-        let [health, energy, inspire, suppress] = self.casts;
+        let [health, energy, inspire, suppress, scan] = self.casts;
         format!(
             "{} Armories destroyed, {} units evacuated, {} trainings refunded; casts: {health} Health regeneration, \
-             {energy} Energy regeneration, {inspire} Inspire, {suppress} Suppress; {} Shrouds; {} buffs ended on time; \
+             {energy} Energy regeneration, {inspire} Inspire, {suppress} Suppress, {scan} Scan; {} Shrouds; {} buffs ended on time; \
              {} unit ticks suppressed; {} crushed; {} attacks, {} deaths; {} Glider ticks off the map, at most {:.0} su",
             self.destroyed,
             self.evacuated,

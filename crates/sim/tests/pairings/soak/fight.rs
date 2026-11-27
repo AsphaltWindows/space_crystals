@@ -295,6 +295,7 @@ impl Fight {
                         AreaAbility::EnergyRegeneration => 1,
                         AreaAbility::Inspire => 2,
                         AreaAbility::Suppress => 3,
+                        AreaAbility::Scan => 4,
                     };
                     tally.casts[i] += 1;
                 }
