@@ -27,7 +27,7 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
-- **Q0164–Q0172** (all non-blocking, Director builds placeholders): 164 Bunker/Tent; 165 Phantom air doors; 166 Subterranean Transport; 167 Smoke; 168 Prism; 169 GDO Supplies/Supply Chopper; 170 Sparrow orders during takeoff.
+- **Q0165–Q0172** (all non-blocking, Director builds placeholders): 165 Phantom air doors; 166 Subterranean Transport; 167 Smoke; 168 Prism; 169 GDO Supplies/Supply Chopper; 170 Sparrow orders during takeoff.
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends

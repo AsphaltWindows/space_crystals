@@ -17,7 +17,7 @@ Works like the Cults Garrison (factions/cults/structures/garrison.md), except as
 - **Protection**: units inside cannot be targeted and take no damage while the Bunker stands.
 - **Evacuation on destruction**: when the Bunker is destroyed, everyone inside comes out alive around its footprint.
 - Units inside are not consumed and still count toward Unit Control.
-- **No abilities from inside**: units inside the Bunker cannot use their abilities (e.g. a Drone Operator cannot launch drones, a Rocketman cannot use Target Lock, a Peacekeeper cannot raise its Riot Shield). They only fire their normal weapons.
+- **No abilities from inside**: units inside the Bunker cannot use their abilities (e.g. a Drone Operator cannot launch drones, a Rocketman cannot use Target Lock, a Peacekeeper cannot raise its Riot Shield). They only fire their normal weapons. **A shielded Peacekeeper lowers its shield on entering** (user, 2026-11-26; Q0164): the normal 6-frame toggle, after which it fires from inside like any occupant; it comes out unshielded.
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Size 2x2; SymmetryType AAAB with **one door on side B** (as the Cults Garrison); MaxHP 500; PointArmor 2, FullArmor 8; SightRange 6 grid units; Groupable true; Power 0.
