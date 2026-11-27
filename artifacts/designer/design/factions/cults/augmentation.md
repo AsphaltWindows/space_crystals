@@ -11,7 +11,7 @@ The two Augmentations are **Enhanced Constitution** and **Improved Metabolism** 
 Augmentation effects are expressed in two kinds of increments:
 
 - **Constitution increment**: +10 MaxHP; +1 melee Damage (unarmed units only)
-- **Metabolism increment**: **+0.5 space units/frame MaxSpeed** (placeholder); for unarmed units also **−1 frame of FiringDuration** per increment (placeholder; FiringDuration never below 2 frames; a negative increment adds 1 frame).
+- **Metabolism increment** (user, 2026-11-27; Q0180; replaces +0.5 su/frame and −1 frame of FiringDuration): **+15% movement speed** (MaxSpeed); for unarmed units also **+15% attack speed**. Increments **add up**: a unit's Metabolism percentage is 15% × its net Metabolism increments, from **−45%** (−3) to **+90%** (+6). A buff such as Inspire then **multiplies** on top (factions/cults/units/prayer_mobile.md). How attack speed becomes frames: systems/combat.md > AttackSpeed. MaxSpeed needs no rounding (e.g. a Recruit at +90%: 4 × 1.9 = 7.6 su/frame).
 
 Increments can be negative. A negative increment applies the opposite effect (e.g. −1 Constitution increment = −10 MaxHP, and −1 melee Damage for unarmed units).
 

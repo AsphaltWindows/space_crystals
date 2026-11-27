@@ -28,7 +28,7 @@
 
 ## Open Director Questions
 
-- Q0180 (non-blocking): Inspire faster attack: rounding to frames, which phase, 2-frame floor.
+- Q0186 (non-blocking?): Attack on a target a weapon can't hit.
 - Q0181 (non-blocking): SeparationRadius for five air units without one.
 - Q0182 (non-blocking): four GDO numbers the docs don't give.
 - Q0184 (non-blocking): Assault Bike at close range.

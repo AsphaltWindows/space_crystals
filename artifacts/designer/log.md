@@ -2423,3 +2423,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0185: illusions show parent's live energy (0452).
 - Q0178: braking crushers crush (1b), crush gives no alert (2a) — 0453.
 - Q0179: back-off to MinRange+1 GU for all units; can't-aim → reposition (explicit) / leash (auto); step 4 hull-aim from docs — 0454.
+- Q0180: Metabolism ±15%/increment additive (attack + movement), Inspire ×1.25 multiplicative (both), new combat.md > AttackSpeed frame rule — 0455.

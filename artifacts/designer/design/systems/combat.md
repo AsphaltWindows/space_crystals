@@ -60,6 +60,12 @@ The main delay between attacks. The unit may engage in other behavior unrelated 
 ### TurretSourceActions - Turning
 ### TurretSourceBaseActions - Moving, Turning
 
+## AttackSpeed
+(user, 2026-11-27; Q0180) Some effects change a unit's **attack speed** (attacks per second): the Cults' Metabolism increments (factions/cults/augmentation.md) and Inspire (factions/cults/units/prayer_mobile.md). The same rules apply to **movement speed** (MaxSpeed), which needs no rounding.
+- **Combining**: augmentation percentages **add** (each Metabolism increment ±15%); a buff (Inspire ×1.25) then **multiplies** the result. Factor = (1 + 0.15 × Metabolism increments) × (1.25 if inspired).
+- **Frames**: the new attack cycle = base cycle (Aim + Firing + Cooldown + Reload) ÷ factor, **rounded once, to the nearest frame** (halves up). The phases then share the new cycle **in proportion** to their base lengths. **Minimums**: FiringDuration never below **2 frames**; Aim, Cooldown and Reload never below **1 frame** (designer's reading, so no phase disappears); when a phase is at its minimum, the others take on the rest of the change. The shortest cycle is therefore 5 frames. How the rounding inside the phases is shared out is the Director's call, as long as they sum to the rounded cycle.
+- **Example** (Recruit, base 2/8/1/1 = 12 frames): Metabolism −3 → 22 (inspired 17); −1 → 14 (11); 0 → 12 (10); +2 → 9 (7); +4 → 8 (6); +6 → 6 (5).
+
 ## AttackTarget
 The target of an attack action. Constrained by AttackType: FullyConnected and HeadDisjointed require UnitTarget, TailDisjointed and DoublyDisjointed accept both.
 
