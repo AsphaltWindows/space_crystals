@@ -317,7 +317,10 @@ pub(crate) fn step(
         if failed {
             events.push(SimEvent::MoveFailed { unit: o.id });
         }
-        if turned > 0.0 {
+        // (M5-V2) A model that turns by its speed has no TurnRate to spend (`turn_rate` 0: FixedTurnRadiusMovement,
+        // GliderMovement): its turn is no part of the budget, and phase 5e's aim, which has none either, isn't left
+        // a budget overdrawn by it.
+        if turned > 0.0 && turn_rate(movement) > 0.0 {
             scratch.turns.0.push((o.id, turned));
         }
         // Out of the doorway: from now on the building blocks the unit like everything else, for good (design

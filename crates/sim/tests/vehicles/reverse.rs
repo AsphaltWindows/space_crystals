@@ -96,23 +96,26 @@ fn a_reverse_at_full_speed_brakes_first() {
 }
 
 /// Only units that can back up take a Reverse: the Guard among the units keeps the order it had; given to Guards
-/// alone it is refused, `Reject::CannotReverse`.
+/// alone it is refused, `Reject::CannotReverse`. So is it given to a Hand of Heaven alone: a TrackedVehicle has
+/// CanReverse, but backs up only once slice M5-V3 builds its SpeedTurnRadiusMovement (design change 0417).
 #[test]
 fn only_units_that_can_reverse_take_the_order() {
     let mut t = flat(24, 10)
         .spawn(SEEKER, Some(P1), SpawnAt::Point(centre(12, 5)))
         .spawn(ObjectKind::Guard, Some(P1), SpawnAt::Point(centre(5, 5)))
+        .spawn(ObjectKind::HandOfHeaven, Some(P1), SpawnAt::Point(centre(18, 5)))
         .start();
-    let alone = PlayerCommand {
+    let alone = |id: u32| PlayerCommand {
         player: P1,
         command: Command::Order {
-            units: vec![ObjectId(2)],
+            units: vec![ObjectId(id)],
             kind: OrderKind::Reverse(centre(3, 5)),
             queue: false,
         },
     };
     t.step();
-    assert_eq!(t.sim().validate(&alone), Err(Reject::CannotReverse));
+    assert_eq!(t.sim().validate(&alone(2)), Err(Reject::CannotReverse));
+    assert_eq!(t.sim().validate(&alone(3)), Err(Reject::CannotReverse));
     reverse_to(&mut t, 2, &[1, 2], centre(8, 5));
     t.run(2);
     assert_eq!(t.status(1), MoveStatus::Moving, "the Seeker backs up");

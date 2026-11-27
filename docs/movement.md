@@ -961,7 +961,8 @@ the probe, yielding requests and the stuck clock are the shared ones.
   2. **Turn** towards the step wanted by at most `|speed| / MinimumTurnRadius`, this tick's speed
      (`systems/combat.md > LocomotionOrientationConstraints[FixedTurnRadiusMovement]`); none while Stationary or
      Stopping. The aim in phase 5e has no TurnRate of its own (`movement::turn_rate` is 0): only the drive turns the
-     unit. A Silhouette turns as far as it stays free (`World::turn`).
+     unit, and its turn isn't noted in the budget (`movement::Turns`, as a Glider's), which would leave the aim a
+     negative one to turn by. A Silhouette turns as far as it stays free (`World::turn`).
   3. **Displacement**: the speed along the heading halfway through the turn (each tick the chord of its arc: a turn
      at full lock lies on a circle of MinimumTurnRadius, 0.04 su wider at the Seeker's 8 su), the whole move if it
      is free, else per axis (`World::shuffle`).

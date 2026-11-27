@@ -55,7 +55,10 @@ pub(crate) struct Chased {
 
 /// (G) The one turn budget of a tick (`docs/movement.md > 6.3`): a unit turns at most its [`turn_rate`] per tick in
 /// all. Phase 5d notes here the angle it turned each unit, and phase 5e's Aiming turns a unit only by what is left
-/// of the budget (`combat::step`). By ascending id; a unit that didn't turn isn't listed.
+/// of the budget (`combat::step`). By ascending id; a unit that didn't turn isn't listed, nor (M5-V2) one whose model
+/// turns it by its speed ([`turn_rate`] 0: a Glider, a FixedTurnRadiusMovement unit), which has no budget to spend.
+/// Listed, it would leave its aim a negative budget, which `math::turn_toward` spends as a positive one: the aim of a
+/// base would turn it in place by as much again.
 ///
 /// Transient, not state: 5d writes it afresh and 5e reads it within the same tick, so it never outlives the tick. A
 /// save between two ticks has none of it to keep, and the state hash nothing to cover: it follows from the state the
