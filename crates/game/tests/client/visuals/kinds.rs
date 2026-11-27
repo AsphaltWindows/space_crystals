@@ -277,8 +277,9 @@ fn a_popup_turret_is_an_outline_while_lowered_and_its_barrel_comes_out_as_it_ris
 
 /// Slice M5-U1: a unit with a turret (the Seeker's: all the way round, 12° a frame; `object_render::turret`) carries a
 /// barrel on its body, turned to its turret's facing, which turns on the base's: idle, the Seeker engages a Drone of
-/// player 2's due south of it, in range, and its turret turns to it while its base goes on facing east. Its square body
-/// stays axis-aligned and its facing tick points east; its barrel points south.
+/// player 2's due south of it, in range, and its turret turns to it while its base goes on facing east. Its body, which
+/// turns with its facing as its Silhouette does (slice M5-V1: 56 × 40), faces east, its facing tick drawn on it (no
+/// `FacingTick` of its own); its barrel points south.
 #[test]
 fn a_units_turret_barrel_turns_on_its_base() {
     let mut app = headless_app(scenarios::empty(16, 12));
@@ -331,11 +332,10 @@ fn a_units_turret_barrel_turns_on_its_base() {
         "the barrel points south: {}",
         front(transform)
     );
-    let mut ticks = app.world_mut().query::<(&FacingTick, &Transform)>();
-    let tick = ticks.iter(app.world()).find(|(t, _)| t.0 == seeker).map(|(_, t)| *t);
+    let mut ticks = app.world_mut().query::<&FacingTick>();
     assert!(
-        front(&tick.expect("a square's tick")).distance(Vec3::X) < 1e-3,
-        "its tick east"
+        !ticks.iter(app.world()).any(|t| t.0 == seeker),
+        "its tick is on its body, which turns"
     );
 }
 

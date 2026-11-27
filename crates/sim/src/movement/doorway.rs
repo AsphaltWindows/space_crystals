@@ -13,7 +13,6 @@ use crate::ids::ObjectId;
 use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
 use crate::production::{Doorway, EnergyDoorway};
-use crate::shape::Shape;
 use crate::units::Tick;
 
 /// (M3-D2) How short of where it comes clear of a portal's footprint a unit's step may end and still take it out
@@ -50,9 +49,18 @@ pub(super) fn leave(
         stand(mover);
         return;
     }
+    let from = *facing;
     let turn = math::turn_toward(facing, math::wrap_angle(math::vector_angle(to)), turn_rate(movement));
     *turned = turn.angle;
-    if !turn.done {
+    // (M5-V1) A Silhouette that turns with the facing turns only as far as it stays free (`World::turn`). A turn cut
+    // short is a blocked move (design change 0035): its velocity is zeroed, and the unit takes its step out all the
+    // same, in the shape it turned to (`follow::creep_on`).
+    let turn_made = world.turn(*pos, from, *facing);
+    if turn_made.cut {
+        *facing = turn_made.facing;
+        *turned = math::wrap_angle(turn_made.facing - from).abs();
+        mover.momentum = Vec2::ZERO;
+    } else if !turn.done {
         stand(mover);
         mover.orientation = Orientation::Turning(out);
         return;
@@ -87,7 +95,11 @@ pub(super) fn leave(
     } else {
         Locomotion::Moving
     };
-    mover.orientation = Orientation::Maintaining;
+    mover.orientation = if turn_made.cut {
+        Orientation::Turning(out)
+    } else {
+        Orientation::Maintaining
+    };
     mover.blocked_ticks = if moved.forward {
         0
     } else {
@@ -140,7 +152,9 @@ pub(super) fn emerge(
     if let MoveGoal::Object { reach, .. } = mover.goal {
         match chased {
             None => mover.finish(MoveStatus::TargetLost),
-            Some(chased) if Shape::rect(*pos, half).gap(&chased.shape) <= reach => mover.finish(MoveStatus::Arrived),
+            Some(chased) if world.body().shape_at(*pos).gap(&chased.shape) <= reach => {
+                mover.finish(MoveStatus::Arrived)
+            }
             Some(_) => {}
         }
     }

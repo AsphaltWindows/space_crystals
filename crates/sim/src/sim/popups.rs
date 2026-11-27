@@ -27,14 +27,17 @@ use crate::network;
 use crate::object::Object;
 use crate::paths::{self, box_overlaps_rect};
 use crate::popup::{self, PopUp};
+use crate::shape::Shape;
 use crate::tunnel;
 
 /// The box of `o` if it is a unit that stands on the ground: what keeps a turret under it from rising (design change
-/// 0296 point 3; air units fly over it, as they block no placement: design change 0094).
+/// 0296 point 3; air units fly over it, as they block no placement: design change 0094). (M5-V1) The bounding box of
+/// its shape (`Shape::bound_half`), a turned Silhouette's for one that turns with its facing, as invariant I2 tests it.
 fn ground_box(o: &Object) -> Option<(Vec2, Vec2)> {
     let def = o.def();
     let unit = def.unit.as_ref()?;
-    (unit.base_def().domain == Domain::Ground).then(|| Some((o.pos, def.half_extents()?)))?
+    def.silhouette()?;
+    (unit.base_def().domain == Domain::Ground).then(|| (o.pos, Shape::of(o).bound_half()))
 }
 
 impl Sim {

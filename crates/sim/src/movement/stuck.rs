@@ -127,8 +127,9 @@ fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
 }
 
 /// `systems/controls/command_behaviors.md > MovingToLocation > Occupied target location` (design changes 0026 and
-/// 0169): whether the unit at `pos`, blocked by `blocker` this tick, counts as arrived. It is within
-/// `OCCUPIED_ARRIVAL_GU` (3 grid units) of its destination, and the unit in its way isn't moving and won't move for it.
+/// 0169): whether the unit at `pos` (its shape `shape` there), blocked by `blocker` this tick, counts as arrived. It
+/// is within `OCCUPIED_ARRIVAL_GU` (3 grid units) of its destination, and the unit in its way isn't moving and won't
+/// move for it.
 /// - **An object goal** (`systems/controls/command_behaviors.md > MovingToObject > Completion`, "Blocked near the
 ///   target"; design changes 0032, 0033 and 0169): the same rule and radius, measured as the gap between the unit's
 ///   shape and the object's (`chased`). What reaching it means is the behaviour's: a followed unit is waited for, a
@@ -149,7 +150,7 @@ fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
 ///   (`orders::gather::legs::return_leg`).
 fn target_is_occupied(
     pos: Vec2,
-    half: Vec2,
+    shape: Shape,
     mover: &Mover,
     chased: Option<&Chased>,
     blocker: Option<&Body>,
@@ -161,7 +162,7 @@ fn target_is_occupied(
     };
     let distance = match (mover.goal, chased) {
         (MoveGoal::Point(_), _) => pos.distance(mover.path.last().copied().unwrap_or(pos)),
-        (MoveGoal::Object { .. }, Some(chased)) => Shape::rect(pos, half).gap(&chased.shape),
+        (MoveGoal::Object { .. }, Some(chased)) => shape.gap(&chased.shape),
         (MoveGoal::Object { .. }, None) | (MoveGoal::None, _) => return false,
     };
     if !blocker.stationary || yields_to(blocker, owner, mover.group) || distance > gu(OCCUPIED_ARRIVAL_GU) {
@@ -245,7 +246,7 @@ pub(super) fn after_move(
         mover.last_progress = mover.last_progress.max(ahead.min(tick));
     }
     let me = world.body();
-    if target_is_occupied(pos, me.half, mover, chased, blocker, me.owner, tick) {
+    if target_is_occupied(pos, me.shape_at(pos), mover, chased, blocker, me.owner, tick) {
         mover.finish(MoveStatus::Arrived);
         return false;
     }
@@ -338,6 +339,7 @@ mod tests {
             owner: Some(PlayerId(1)),
             pos: Vec2::new(140.0, 96.0),
             half: Vec2::splat(18.0),
+            oriented: None,
             velocity: Vec2::ZERO,
             heading: Vec2::ZERO,
             stationary: true,
@@ -354,8 +356,8 @@ mod tests {
         mover.follow(vec![pos, goal], goal, 0);
         mover.blocked_ticks = JAMMED_TICKS;
         let arrived = |mover: &Mover| {
-            let (half, owner) = (Vec2::splat(18.0), Some(PlayerId(1)));
-            target_is_occupied(pos, half, mover, None, Some(&blocker), owner, 40)
+            let (shape, owner) = (Shape::rect(pos, Vec2::splat(18.0)), Some(PlayerId(1)));
+            target_is_occupied(pos, shape, mover, None, Some(&blocker), owner, 40)
         };
         assert!(arrived(&mover));
         mover.press_on();
@@ -371,6 +373,7 @@ mod tests {
             owner: Some(PlayerId(1)),
             pos: Vec2::new(x, y),
             half: Vec2::splat(18.0),
+            oriented: None,
             velocity: Vec2::ZERO,
             heading: Vec2::ZERO,
             stationary: true,

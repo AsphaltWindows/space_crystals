@@ -239,11 +239,19 @@ pub fn check_layout(
 }
 
 /// The half extents of the box of a ground unit of `kind` (`docs/movement.md > 3`); `None` for anything else, air
-/// and underground units included, which never block placement (design change 0094).
+/// and underground units included, which never block placement (design change 0094). (M5-V1) A Silhouette that turns
+/// with its facing (`defs::ObjectDef::silhouette_turns`) keeps a footprint off the square it reaches at any facing,
+/// half its diagonal around its centre: the check knows no facing ([`Occupant`]), and a footprint mustn't cover the
+/// unit however it lies (invariant I2 tests the bounding box of the turned Silhouette, `shape::Shape::bound_half`).
 fn ground_half_extents(kind: ObjectKind) -> Option<Vec2> {
     let def = kind.def();
     let unit = def.unit.as_ref()?;
-    (unit.base_def().domain == Domain::Ground)
-        .then(|| def.half_extents())
-        .flatten()
+    let half = def
+        .half_extents()
+        .filter(|_| unit.base_def().domain == Domain::Ground)?;
+    Some(if def.silhouette_turns() {
+        Vec2::splat(half.length())
+    } else {
+        half
+    })
 }

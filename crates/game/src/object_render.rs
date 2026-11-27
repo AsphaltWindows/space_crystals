@@ -282,7 +282,8 @@ fn drawn_kind(object: &Object) -> ObjectKind {
     sc_sim::conversion::form(object)
 }
 
-/// Whether a visual of `kind` turns with its object's facing: only a unit's round body does (`units::body_turns`).
+/// Whether a visual of `kind` turns with its object's facing: only a unit's round body does, and (slice M5-V1) one
+/// whose Silhouette turns with the facing (`units::body_turns`).
 /// Structures and map resources are drawn as placed, whatever their facing (a structure that was a unit keeps the
 /// unit's: `Sim::change_kind`).
 fn body_turns(kind: ObjectKind) -> bool {

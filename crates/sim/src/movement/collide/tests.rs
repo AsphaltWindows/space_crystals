@@ -27,6 +27,7 @@ fn a_unit_going_round_on_its_lean_side_never_steps_back() {
         owner: None,
         pos,
         half: Vec2::splat(half),
+        oriented: None,
         velocity: Vec2::ZERO,
         heading: Vec2::ZERO,
         stationary: id == 2,
@@ -63,6 +64,7 @@ fn a_unit_going_round_on_its_lean_side_never_steps_back() {
             door: None,
             lanes: &mut lanes,
             counters: &mut counters,
+            mine: bodies[0],
         };
         let d = (target - pos).clamp_length_max(4.0);
         let moved = world.resolve(pos, d, None, &mut mover, tick, &mut Vec::new());
@@ -84,6 +86,7 @@ fn a_unit_inside_another_walks_out_unhindered_and_is_blocked_once_apart() {
         owner: None,
         pos,
         half: Vec2::splat(half),
+        oriented: None,
         velocity: Vec2::ZERO,
         heading: Vec2::ZERO,
         stationary: id == 2,
@@ -113,10 +116,11 @@ fn a_unit_inside_another_walks_out_unhindered_and_is_blocked_once_apart() {
             door: None,
             lanes: &mut lanes,
             counters: &mut counters,
+            mine: bodies[0],
         };
         world.resolve(pos, d, None, mover, tick, &mut Vec::new())
     };
-    let inside = |pos: Vec2| overlaps(pos, Vec2::splat(12.0), &guard);
+    let inside = |pos: Vec2| overlaps(&body(1, pos, 12.0), pos, &guard);
     // Out to the east, 4 su a tick: 30 su apart is touching, from 6 su west of the Guard's centre.
     let east = Vec2::new(4.0, 0.0);
     let mut tick = 100;

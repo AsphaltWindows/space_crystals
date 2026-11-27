@@ -1,41 +1,91 @@
 //! The shapes distances are measured between — `systems/combat.md > AttackAttributes > Range Measurement` (design
-//! change 0031), `systems/controls/command_behaviors.md > MovingToObject > Proximity` (design change 0032).
+//! change 0031), `systems/controls/command_behaviors.md > MovingToObject > Proximity` (design change 0032) — and,
+//! (M5-V1) the shape a unit whose Silhouette turns collides with.
 //!
 //! Range, MinRange and proximity are measured **edge to edge**: the shortest distance between two objects' shapes,
 //! the gap between them. A unit's shape is its Silhouette (`systems/units.md > Unit > Silhouette`), a structure's
 //! or map resource's its footprint.
 //!
-//! **Axis-aligned for now.** Design change 0033 makes Silhouettes rotate with the unit's facing
-//! (`systems/units.md > UnitCollision > Silhouette Rotation`); that waits for the vehicles milestone, with oriented
-//! collision. Until then a [`Shape`] is an axis-aligned rectangle, like the collision box (`docs/movement.md > 3`).
-//! Everything that measures goes through [`Shape`]'s constructors and methods, and [`Shape::silhouette`] already
-//! takes the facing, so oriented boxes change this module only.
+//! **Oriented Silhouettes** (slice M5-V1, plan decision T78; design change 0033,
+//! `systems/units.md > UnitCollision > Silhouette Rotation`: "A unit's Silhouette **rotates with its facing** [...]
+//! Collision, crushing, range measurement and proximity all use the rotated shape"). A Silhouette that isn't square
+//! (`ObjectDef::silhouette_turns`: the Cults' vehicles) turns with its unit's facing: its length (`w`) lies along
+//! the facing, its width (`h`) across it, so "facing east it is wide and flat". A square one stays an axis-aligned
+//! rectangle, as it always was: turned, it would differ by at most a few space units, while every golden and every
+//! measured crowd would move (T78; the approximation is `docs/movement.md` gap G6). Footprints are whole tiles, and
+//! axis-aligned. The geometry, with only + − × ÷ and square roots (the facing's sine and cosine come from
+//! `crate::math`, so it is the same on every machine):
+//! - **Overlap**: the separating-axis test on the four edge directions of the two rectangles ([`Shape::overlaps`]),
+//!   strictly, so touching is free (`docs/movement.md > 3`).
+//! - **The gap**: 0 if they overlap, else the least distance from a corner of one to the other ([`Shape::gap`]):
+//!   between two convex shapes apart, the nearest points are always a corner and an edge.
+//! - **Tile work** (vision, the grids, the footprints a unit keeps off) takes the shape's bounding box
+//!   ([`Shape::bounds`], [`Shape::bound_half`]): exact against a wall's straight face, wider at a corner. Only the
+//!   blocked tiles a unit may not overlap (invariant I2) are tested against the shape itself, by its bounding box
+//!   first ([`Shape::clear_on`], [`Shape::tile_contact`]): a path cuts a corner by less than a turned Silhouette's
+//!   box, but not by less than the Silhouette.
+//! - **The sweep** of a moving shape against a standing one ([`Shape::sweep`]): the separating-axis test along the
+//!   move, for collision (`movement::space`).
+//!
+//! Two axis-aligned rectangles take the arithmetic they always did, so nothing square moves by a rounding. Everything
+//! that measures goes through [`Shape`]'s constructors and methods, and [`Shape::silhouette`] takes the facing. So the
+//! promise of the axis-aligned days, "oriented boxes change this module only", held for measurement: range,
+//! proximity and the occupied target changed here alone. It doesn't hold for collision, which tested boxes of its
+//! own: the movement step (`movement::space`), the invariants (`testing::invariants`), the debug teleport and the
+//! spots units are put on or kept off (`sim::gate`, `placement`, `sim::popups`, `sim::producers`) now ask a unit's
+//! [`Shape`] too (`docs/movement.md > 3`).
 
 use glam::Vec2;
 
 use crate::defs::ObjectKind;
 use crate::map::Map;
+use crate::math;
+use crate::nav::{self, NavGrid};
 use crate::object::{Object, Placement};
-use crate::units::SU_PER_GU;
+use crate::units::{SU_PER_GU, TilePos};
 
-/// An object's shape on the map, space units: a rectangle (axis-aligned for now, see the module docs).
+/// An object's shape on the map, space units: a rectangle, axis-aligned or (M5-V1) turned with its unit's facing (see
+/// the module docs).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Shape {
     centre: Vec2,
-    /// Half its width and height.
+    /// Half its width and height; for an oriented shape half its length, along `axis`, and half its width, across it.
     half: Vec2,
+    /// (M5-V1) The direction of its length, a unit vector, if it is oriented: a Silhouette that turns, at its unit's
+    /// facing. `None` for an axis-aligned rectangle.
+    axis: Option<Vec2>,
 }
 
 impl Shape {
     /// The axis-aligned rectangle around `centre` with half extents `half`.
     pub fn rect(centre: Vec2, half: Vec2) -> Self {
-        Self { centre, half }
+        Self {
+            centre,
+            half,
+            axis: None,
+        }
     }
 
-    /// The Silhouette of a unit of `kind` at `pos`, facing `facing` (radians). The facing is ignored until
-    /// Silhouettes rotate (design change 0033, the vehicles milestone); a kind without a Silhouette is a point.
-    pub fn silhouette(kind: ObjectKind, pos: Vec2, _facing: f32) -> Self {
-        Self::rect(pos, kind.def().half_extents().unwrap_or(Vec2::ZERO))
+    /// (M5-V1) The rectangle around `centre` whose length lies along the unit vector `axis`: `half` is half its length
+    /// and half its width.
+    pub fn oriented(centre: Vec2, half: Vec2, axis: Vec2) -> Self {
+        Self {
+            centre,
+            half,
+            axis: Some(axis),
+        }
+    }
+
+    /// The Silhouette of a unit of `kind` at `pos`, facing `facing` (radians): (M5-V1) turned with the facing if it
+    /// isn't square (`ObjectDef::silhouette_turns`), else axis-aligned. A kind without a Silhouette is a point.
+    pub fn silhouette(kind: ObjectKind, pos: Vec2, facing: f32) -> Self {
+        let def = kind.def();
+        let half = def.half_extents().unwrap_or(Vec2::ZERO);
+        if def.silhouette_turns() {
+            Self::oriented(pos, half, math::facing_vector(facing))
+        } else {
+            Self::rect(pos, half)
+        }
     }
 
     /// The footprint of a tile-based object: its whole tiles.
@@ -66,24 +116,215 @@ impl Shape {
         self.centre
     }
 
+    /// (M5-V1) The same shape, with its centre at `centre`.
+    pub fn at(&self, centre: Vec2) -> Self {
+        Self { centre, ..*self }
+    }
+
+    /// (M5-V1) The half extents of the axis-aligned box around the shape ([`bounding_half`]): its own for an
+    /// axis-aligned rectangle.
+    pub fn bound_half(&self) -> Vec2 {
+        match self.axis {
+            Some(axis) => bounding_half(self.half, axis),
+            None => self.half,
+        }
+    }
+
     /// The corners `(lo, hi)` of the axis-aligned box around the shape: for what works on tiles (vision).
     pub fn bounds(&self) -> (Vec2, Vec2) {
-        (self.centre - self.half, self.centre + self.half)
+        let half = self.bound_half();
+        (self.centre - half, self.centre + half)
+    }
+
+    /// (M5-V1) Whether the two shapes overlap: strictly, so touching is free (`docs/movement.md > 3`). Two
+    /// axis-aligned rectangles by the box test (`paths::boxes_overlap`); else by the separating-axis test on the edge
+    /// directions of both, along each of which their halves' projections must reach past the distance between their
+    /// centres.
+    pub fn overlaps(&self, other: &Shape) -> bool {
+        if self.axis.is_none() && other.axis.is_none() {
+            let apart = (self.centre - other.centre).abs();
+            return apart.x < self.half.x + other.half.x && apart.y < self.half.y + other.half.y;
+        }
+        let between = other.centre - self.centre;
+        (self.axes_with(other).into_iter()).all(|n| between.dot(n).abs() < self.radius(n) + other.radius(n))
     }
 
     /// `systems/combat.md > Range Measurement`: the shortest distance between this shape and `other`, the gap between
-    /// their edges. 0 when they touch or overlap.
+    /// their edges. 0 when they touch or overlap. (M5-V1) With an oriented shape: 0 if they overlap
+    /// ([`Shape::overlaps`]), else the least distance from a corner of either to the other ([`Shape::distance_to`]).
     pub fn gap(&self, other: &Shape) -> f32 {
-        let apart = (self.centre - other.centre).abs() - (self.half + other.half);
-        apart.max(Vec2::ZERO).length()
+        if self.axis.is_none() && other.axis.is_none() {
+            let apart = (self.centre - other.centre).abs() - (self.half + other.half);
+            return apart.max(Vec2::ZERO).length();
+        }
+        if self.overlaps(other) {
+            return 0.0;
+        }
+        let from_mine = self.corners().map(|corner| other.distance_to(corner));
+        let from_theirs = other.corners().map(|corner| self.distance_to(corner));
+        from_mine.into_iter().chain(from_theirs).fold(f32::INFINITY, f32::min)
     }
 
     /// `systems/combat.md > Range Measurement` (ground-location targets): the shortest distance from this shape to
-    /// `point`; 0 inside it.
+    /// `point`; 0 inside it. (M5-V1) An oriented shape measures `point` in its own frame, along its length and across.
     pub fn distance_to(&self, point: Vec2) -> f32 {
-        let apart = (self.centre - point).abs() - self.half;
+        let apart = self.local(point).abs() - self.half;
         apart.max(Vec2::ZERO).length()
     }
+
+    /// (M5-V1) The shape moving along `d` against `other`, which stands (collision, `movement::space::contact`): the
+    /// part of `d` travelled when the two first overlap (`0..1`), and the edge direction of the two they meet on, the
+    /// one along which their projections come to overlap last. `None` if they never overlap on the way. As for
+    /// [`Shape::overlaps`], touching is free: a shape sliding along another, or leaving it, isn't in contact; one
+    /// already inside meets it at 0. The separating-axis test along the move: on each edge direction the two overlap
+    /// for an interval of the move, and they meet where the last of those intervals begins, if it does before the
+    /// first ends (the slab test of `movement::space::sweep`, on four axes).
+    pub fn sweep(&self, d: Vec2, other: &Shape) -> Option<(f32, Vec2)> {
+        if d == Vec2::ZERO {
+            return None;
+        }
+        let r = self.centre - other.centre;
+        let (mut t_in, mut t_out) = (0.0_f32, 1.0_f32);
+        // The axis entered last, and when.
+        let mut met: Option<(f32, Vec2)> = None;
+        for n in self.axes_with(other) {
+            let reach = self.radius(n) + other.radius(n);
+            let (r, d) = (r.dot(n), d.dot(n));
+            if d == 0.0 {
+                if r.abs() >= reach {
+                    return None;
+                }
+                continue;
+            }
+            let (t0, t1) = ((-reach - r) / d, (reach - r) / d);
+            let (near, far) = if t0 < t1 { (t0, t1) } else { (t1, t0) };
+            if met.is_none_or(|(entered, _)| near > entered) {
+                met = Some((near, n));
+            }
+            t_in = t_in.max(near);
+            t_out = t_out.min(far);
+        }
+        if t_in >= t_out {
+            return None;
+        }
+        met.map(|(_, n)| (t_in, n))
+    }
+
+    /// (M5-V1) Whether the shape overlaps no solid tile of `grid` and lies inside the map: invariant I2's test
+    /// (`docs/movement.md > 3`). An axis-aligned rectangle by its box (`nav::box_clear`). An oriented one by its
+    /// bounding box first, which settles it where that is clear, else by the separating-axis test against each solid
+    /// tile the box overlaps, the tiles off the map among them: exact, so a turned Silhouette is clear of a corner
+    /// that its edge clears, as on a path that cuts the corner.
+    pub fn clear_on(&self, grid: &NavGrid) -> bool {
+        let half = self.bound_half();
+        if nav::box_clear(grid, half, self.centre) {
+            return true;
+        }
+        if self.axis.is_none() || !self.centre.is_finite() {
+            return false;
+        }
+        let (first, last) = tiles_overlapped(self.centre - half, self.centre + half);
+        (first.y..=last.y).all(|y| {
+            (first.x..=last.x).all(|x| {
+                let tile = TilePos::new(x, y);
+                !grid.is_solid(tile) || !self.overlaps(&Shape::tile(tile))
+            })
+        })
+    }
+
+    /// (M5-V1) The part of `d` (`0..1`) the shape travels before it first enters a solid tile of `grid`, the tiles
+    /// off the map among them: the earliest [`Shape::sweep`] against each solid tile its bounding box overlaps on the
+    /// way. 0 if it is in one already, `None` if it enters none. Exact, for a shape of any orientation.
+    pub fn tile_contact(&self, d: Vec2, grid: &NavGrid) -> Option<f32> {
+        if !(self.centre.is_finite() && d.is_finite()) {
+            return Some(0.0);
+        }
+        if d == Vec2::ZERO {
+            return (!self.clear_on(grid)).then_some(0.0);
+        }
+        let half = self.bound_half();
+        let (lo, hi) = (self.centre - half, self.centre + half);
+        let (first, last) = tiles_overlapped(lo.min(lo + d), hi.max(hi + d));
+        let mut earliest: Option<f32> = None;
+        for y in first.y..=last.y {
+            for x in first.x..=last.x {
+                let tile = TilePos::new(x, y);
+                if !grid.is_solid(tile) {
+                    continue;
+                }
+                if let Some((t, _)) = self.sweep(d, &Shape::tile(tile)) {
+                    earliest = Some(earliest.map_or(t, |e| e.min(t)));
+                }
+            }
+        }
+        earliest
+    }
+
+    /// (M5-V1) Tile `tile`'s square.
+    fn tile(tile: TilePos) -> Self {
+        let half = Vec2::splat(SU_PER_GU / 2.0);
+        Self::rect(tile.corner() + half, half)
+    }
+
+    /// Its edge directions, unit vectors: along its length and across it (`x` and `y` for an axis-aligned one).
+    fn edges(&self) -> (Vec2, Vec2) {
+        match self.axis {
+            Some(u) => (u, Vec2::new(-u.y, u.x)),
+            None => (Vec2::X, Vec2::Y),
+        }
+    }
+
+    /// The four axes of the separating-axis test between it and `other`: the edge directions of both.
+    fn axes_with(&self, other: &Shape) -> [Vec2; 4] {
+        let ((a, b), (c, d)) = (self.edges(), other.edges());
+        [a, b, c, d]
+    }
+
+    /// Half its extent along the unit vector `n`: how far its projection on `n` reaches from its centre's.
+    fn radius(&self, n: Vec2) -> f32 {
+        let (u, v) = self.edges();
+        self.half.x * u.dot(n).abs() + self.half.y * v.dot(n).abs()
+    }
+
+    /// `point` in its own frame, from its centre: along its length and across it.
+    fn local(&self, point: Vec2) -> Vec2 {
+        let r = point - self.centre;
+        match self.axis {
+            Some(u) => Vec2::new(r.dot(u), r.y * u.x - r.x * u.y),
+            None => r,
+        }
+    }
+
+    /// Its four corners.
+    fn corners(&self) -> [Vec2; 4] {
+        let (u, v) = self.edges();
+        let (along, across) = (u * self.half.x, v * self.half.y);
+        [
+            self.centre + along + across,
+            self.centre + along - across,
+            self.centre - along - across,
+            self.centre - along + across,
+        ]
+    }
+}
+
+/// (M5-V1) The first and the last tile (by row and column) that the open box `lo..hi` overlaps: touching a tile's
+/// border isn't overlapping it (as `nav::box_clear` counts them).
+fn tiles_overlapped(lo: Vec2, hi: Vec2) -> (TilePos, TilePos) {
+    let first = TilePos::containing(lo);
+    let last = TilePos::new(
+        ((hi.x / SU_PER_GU).ceil() as i32 - 1).max(first.x),
+        ((hi.y / SU_PER_GU).ceil() as i32 - 1).max(first.y),
+    );
+    (first, last)
+}
+
+/// (M5-V1) The half extents of the axis-aligned box around a rectangle with half extents `half` whose length lies
+/// along the unit vector `axis`: `(|cos| hl + |sin| hw, |sin| hl + |cos| hw)`. Facing along an axis it is `half`
+/// itself, on its side `half` swapped; at 45°, a 56x40 Silhouette's is 67.9 su square.
+pub fn bounding_half(half: Vec2, axis: Vec2) -> Vec2 {
+    let (c, s) = (axis.x.abs(), axis.y.abs());
+    Vec2::new(c * half.x + s * half.y, s * half.x + c * half.y)
 }
 
 /// `systems/combat.md > AttackAttributes > Range Measurement`: the gap between two shapes ([`Shape::gap`]).
@@ -92,82 +333,4 @@ pub fn gap(a: &Shape, b: &Shape) -> f32 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::defs::Footprint;
-    use crate::units::{TilePos, gu};
-
-    fn unit(kind: ObjectKind, x: f32, y: f32) -> Shape {
-        Shape::silhouette(kind, Vec2::new(x, y), 0.0)
-    }
-
-    #[test]
-    fn the_gap_runs_between_the_nearest_edges() {
-        // A Peacekeeper (24 su) and a Guard (36 su), centres 100 su apart: 100 − 12 − 18.
-        let (pk, guard) = (
-            unit(ObjectKind::Peacekeeper, 0.0, 0.0),
-            unit(ObjectKind::Guard, 100.0, 0.0),
-        );
-        assert_eq!(pk.gap(&guard), 70.0);
-        assert_eq!(gap(&guard, &pk), 70.0, "the same from both sides");
-        // Past each other's corners: 3-4-5 between the corners.
-        let diagonal = unit(ObjectKind::Guard, 30.0 + 30.0, 30.0 + 40.0);
-        assert_eq!(pk.gap(&diagonal), 50.0);
-        // Overlapping on one axis, the other alone counts.
-        assert_eq!(pk.gap(&unit(ObjectKind::Guard, 5.0, 50.0)), 20.0);
-        // Touching and overlapping shapes have no gap.
-        assert_eq!(pk.gap(&unit(ObjectKind::Guard, 30.0, 0.0)), 0.0);
-        assert_eq!(pk.gap(&unit(ObjectKind::Guard, 10.0, 3.0)), 0.0);
-    }
-
-    /// Design change 0031's Verification: a unit attacking a 4x4 structure stops 5 tiles from its wall, not from
-    /// its centre, and a big attacker's own body doesn't eat into its range. No structure can be attacked yet, so
-    /// this checks the measure on a 4x4 footprint.
-    #[test]
-    fn a_footprint_is_measured_from_its_wall() {
-        let big = Shape::footprint(&Placement::new(TilePos::new(10, 10), Footprint::Tiles { w: 4, h: 4 }));
-        assert_eq!(big.centre(), Vec2::new(gu(12.0), gu(12.0)));
-        assert_eq!(big.bounds(), (Vec2::splat(gu(10.0)), Vec2::splat(gu(14.0))));
-        // A Peacekeeper whose east edge is 5 tiles west of the west wall.
-        let pk = unit(ObjectKind::Peacekeeper, gu(5.0) - 12.0, gu(12.0));
-        assert_eq!(pk.gap(&big), gu(5.0));
-        assert_eq!(
-            big.gap(&pk),
-            gu(5.0),
-            "and the big shape reaches as far from its own wall"
-        );
-        // Along the wall the gap stays the same; past its corner it grows.
-        assert_eq!(
-            unit(ObjectKind::Peacekeeper, gu(5.0) - 12.0, gu(10.5)).gap(&big),
-            gu(5.0)
-        );
-        assert!(unit(ObjectKind::Peacekeeper, gu(5.0) - 12.0, gu(9.0)).gap(&big) > gu(5.0));
-        // Melee is a gap of about 0: touching the wall.
-        assert_eq!(unit(ObjectKind::Peacekeeper, gu(10.0) - 12.0, gu(11.0)).gap(&big), 0.0);
-    }
-
-    #[test]
-    fn a_point_is_measured_from_the_shapes_edge() {
-        let guard = unit(ObjectKind::Guard, 100.0, 100.0);
-        assert_eq!(guard.distance_to(Vec2::new(100.0, 100.0)), 0.0, "inside");
-        assert_eq!(guard.distance_to(Vec2::new(118.0, 90.0)), 0.0, "on its edge");
-        assert_eq!(guard.distance_to(Vec2::new(168.0, 100.0)), 50.0);
-        assert_eq!(
-            guard.distance_to(Vec2::new(100.0 - 18.0 - 3.0, 100.0 - 18.0 - 4.0)),
-            5.0
-        );
-    }
-
-    #[test]
-    fn an_objects_shape_is_its_footprint_or_its_silhouette() {
-        let patch = Placement::new(TilePos::new(2, 3), Footprint::Tiles { w: 1, h: 1 });
-        assert_eq!(
-            Shape::footprint(&patch).bounds(),
-            (Vec2::new(128.0, 192.0), Vec2::new(192.0, 256.0))
-        );
-        assert_eq!(
-            unit(ObjectKind::Peacekeeper, 50.0, 60.0).bounds(),
-            (Vec2::new(38.0, 48.0), Vec2::new(62.0, 72.0))
-        );
-    }
-}
+mod tests;

@@ -1,8 +1,8 @@
-//! I1, no two units of a layer with hard collision overlap, with its exceptions ([`may_overlap`]).
+//! I1, no two units of a layer with hard collision overlap, with its exceptions ([`may_overlap`]). (M5-V1) A unit's
+//! shape is its Silhouette as it lies (`shape::Shape`): one that turns with its facing is turned, and two shapes
+//! overlap by the separating-axis test, strictly, as in the movement step (`docs/movement.md > 3`).
 
 use std::collections::BTreeMap;
-
-use glam::Vec2;
 
 use super::{Seen, Violation};
 use crate::defs::Domain;
@@ -10,7 +10,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::object::Object;
 use crate::orders::gather;
-use crate::paths::boxes_overlap;
+use crate::shape::Shape;
 use crate::sim::Sim;
 
 /// The units that came onto the map in this tick overlapping others, as the tick's events tell (I1's exceptions 3
@@ -80,10 +80,10 @@ fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>, arriva
         let (Some(was_a), Some(was_b)) = (before.get(&a.id), before.get(&b.id)) else {
             return false;
         };
-        let (Some(a_half), Some(b_half)) = (a.def().half_extents(), b.def().half_extents()) else {
+        let (Some(was_a), Some(was_b)) = (seen_shape(a, was_a), seen_shape(b, was_b)) else {
             return false;
         };
-        boxes_overlap(was_a.pos, a_half, was_b.pos, b_half)
+        was_a.overlaps(&was_b)
     };
     let evacuated = arrivals.evacuated;
     (gathered(a) && gathered(b))
@@ -93,28 +93,42 @@ fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>, arriva
         || arrivals.together(a.id, b.id)
 }
 
+/// (M5-V1) The shape of unit `o` where the checker saw it a tick earlier: its Silhouette at the position and facing it
+/// had then (`Shape::silhouette`). `None` for an object without one.
+fn seen_shape(o: &Object, seen: &Seen) -> Option<Shape> {
+    o.def().silhouette()?;
+    Some(Shape::silhouette(o.kind, seen.pos, seen.facing))
+}
+
+/// The units of `domain`'s layer with their shapes, `shape` of each (`None` leaves it out), each with the low x of its
+/// bounding box, by that: a shape only meets those whose box begins before its own ends.
+fn by_low_x(sim: &Sim, domain: Domain, shape: impl Fn(&Object) -> Option<Shape>) -> Vec<(f32, Shape, &Object)> {
+    let mut boxes: Vec<(f32, Shape, &Object)> = sim
+        .objects()
+        .filter_map(|o| {
+            let in_layer = o.def().unit.as_ref()?.base_def().domain == domain;
+            let shape = shape(o).filter(|_| in_layer)?;
+            Some((shape.bounds().0.x, shape, o))
+        })
+        .collect();
+    boxes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.2.id.cmp(&b.2.id)));
+    boxes
+}
+
 /// The units whose box overlapped another unit's of their layer a tick earlier, by what the checker saw then: those
-/// that may be moving off it now, if they are idle (design change 0126).
+/// that may be moving off it now, if they are idle (design change 0126). (M5-V1) Their shapes as they lay then.
 pub(super) fn overlapped_before(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) -> Vec<ObjectId> {
     let mut found = Vec::new();
     for domain in [Domain::Ground, Domain::Underground] {
-        let mut boxes: Vec<(f32, Vec2, Vec2, ObjectId)> = sim
-            .objects()
-            .filter_map(|o| {
-                let def = o.def();
-                let half = def.half_extents()?;
-                let pos = before.get(&o.id)?.pos;
-                (def.unit.as_ref()?.base_def().domain == domain).then_some((pos.x - half.x, pos, half, o.id))
-            })
-            .collect();
-        boxes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.3.cmp(&b.3)));
-        for (i, &(_, a, a_half, a_id)) in boxes.iter().enumerate() {
-            for &(low, b, b_half, b_id) in &boxes[i + 1..] {
-                if low >= a.x + a_half.x {
+        let boxes = by_low_x(sim, domain, |o| seen_shape(o, before.get(&o.id)?));
+        for (i, (_, a, a_unit)) in boxes.iter().enumerate() {
+            let high = a.bounds().1.x;
+            for (low, b, b_unit) in &boxes[i + 1..] {
+                if *low >= high {
                     break;
                 }
-                if boxes_overlap(a, a_half, b, b_half) {
-                    found.extend([a_id, b_id]);
+                if a.overlaps(b) {
+                    found.extend([a_unit.id, b_unit.id]);
                 }
             }
         }
@@ -124,25 +138,19 @@ pub(super) fn overlapped_before(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) ->
     found
 }
 
-/// I1: no two units of a layer overlap, but for the exceptions of [`may_overlap`].
+/// I1: no two units of a layer overlap, but for the exceptions of [`may_overlap`]. (M5-V1) Their shapes
+/// (`Shape::of`): a Silhouette that turns with its facing as it lies, by the separating-axis test (`Shape::overlaps`).
 pub(super) fn no_overlaps(sim: &Sim, before: &BTreeMap<ObjectId, Seen>, arrivals: &Arrivals) -> Result<(), Violation> {
     for domain in [Domain::Ground, Domain::Underground] {
-        // (low x, position, half extents, the unit), by low x: a unit only meets those starting before its high x.
-        let mut boxes: Vec<(f32, Vec2, Vec2, &Object)> = sim
-            .objects()
-            .filter_map(|o| {
-                let def = o.def();
-                let half = def.half_extents()?;
-                (def.unit.as_ref()?.base_def().domain == domain).then_some((o.pos.x - half.x, o.pos, half, o))
-            })
-            .collect();
-        boxes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.3.id.cmp(&b.3.id)));
-        for (i, &(_, a, a_half, a_unit)) in boxes.iter().enumerate() {
-            for &(low, b, b_half, b_unit) in &boxes[i + 1..] {
-                if low >= a.x + a_half.x {
+        let boxes = by_low_x(sim, domain, |o| o.def().silhouette().map(|_| Shape::of(o)));
+        for (i, &(_, a, a_unit)) in boxes.iter().enumerate() {
+            let high = a.bounds().1.x;
+            for &(low, b, b_unit) in &boxes[i + 1..] {
+                if low >= high {
                     break;
                 }
-                if boxes_overlap(a, a_half, b, b_half) && !may_overlap(a_unit, b_unit, before, arrivals) {
+                if a.overlaps(&b) && !may_overlap(a_unit, b_unit, before, arrivals) {
+                    let (a, b) = (a.centre(), b.centre());
                     return Err(Violation {
                         invariant: "I1",
                         message: format!("#{} at {a} and #{} at {b} overlap", a_unit.id.0, b_unit.id.0),

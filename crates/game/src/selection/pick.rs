@@ -8,7 +8,9 @@
 
 use bevy::math::{Rect, Vec2};
 use sc_sim::vision::LastKnown;
-use sc_sim::{Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId, SU_PER_GU, Sim, VisibilityState};
+use sc_sim::{
+    Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId, SU_PER_GU, Shape, Sim, VisibilityState,
+};
 
 use super::GroupType;
 use crate::coords::drawn_at_height;
@@ -94,7 +96,11 @@ impl Selectable {
                 ..Self::placed(object.id, object.kind, relation, p, map)
             };
         }
-        let half = object.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0));
+        // (M5-V1) A Silhouette that turns with the facing is picked by the box around it as it lies.
+        let half = match object.def().half_extents() {
+            Some(_) => Shape::of(object).bound_half(),
+            None => Vec2::splat(SU_PER_GU / 4.0),
+        };
         let drawn = drawn_at_height(pos, body_height(map, object.kind, pos, None));
         Self {
             id: object.id,

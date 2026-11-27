@@ -294,11 +294,18 @@ impl ObjectDef {
         }
     }
 
-    /// Half a unit's Silhouette: the half extents of its collision box, axis-aligned for now (`docs/movement.md >
-    /// 3`; design change 0033 makes Silhouettes rotate with the facing, which waits for the vehicles milestone).
-    /// `None` for tile-based types.
+    /// Half a unit's Silhouette (`docs/movement.md > 3`): half its length and half its width, its collision box facing
+    /// east; (M5-V1) one that turns with the facing ([`ObjectDef::silhouette_turns`]) lies along the unit's facing
+    /// (`shape::Shape::silhouette`). `None` for tile-based types.
     pub fn half_extents(&self) -> Option<Vec2> {
         self.silhouette().map(|s| s / 2.0)
+    }
+
+    /// (M5-V1) Whether its Silhouette turns with its unit's facing (`systems/units.md > UnitCollision > Silhouette
+    /// Rotation`, design change 0033): a Silhouette that isn't square, its length along the facing. A square one stays
+    /// axis-aligned (plan decision T78, `docs/movement.md` gap G6).
+    pub fn silhouette_turns(&self) -> bool {
+        matches!(self.footprint, Footprint::Silhouette { w, h } if w != h)
     }
 
     /// A tile-based type's size in the default orientation, `(w, h)` tiles; `None` for units.

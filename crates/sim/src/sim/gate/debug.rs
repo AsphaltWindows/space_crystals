@@ -11,9 +11,10 @@ use crate::defs::{Domain, ObjectKind};
 use crate::ids::ObjectId;
 use crate::nav;
 use crate::object::{Object, Placement};
-use crate::paths::{blocking, blocking_footprint, box_overlaps_rect, boxes_overlap};
+use crate::paths::{blocking, blocking_footprint, box_overlaps_rect};
 use crate::player::Banks;
 use crate::scenario::place_spawn;
+use crate::shape::Shape;
 use crate::sim::{Reject, Sim};
 use crate::tunnel;
 
@@ -114,7 +115,10 @@ impl Sim {
 
     /// `docs/movement.md > 3`: a unit of `kind` placed at `pos` keeps the invariants: its box is clear of blocked
     /// tiles and blocking footprints and inside the map, and overlaps no other unit of its layer (`moving` is the
-    /// unit itself, when it is teleported). Other kinds pass.
+    /// unit itself, when it is teleported). Other kinds pass. (M5-V1) Its shape and theirs are their Silhouettes as
+    /// they lie (`Shape::silhouette`: a teleported unit keeps its facing, a spawned one faces east), tested against
+    /// the tiles as the movement step tests them (`Shape::clear_on`), against this tick's footprints by its bounding
+    /// box.
     ///
     /// The tiles are its grid's (slice M5-Z2, `paths`, *Which grids*); for a spawn of the first unit of its class,
     /// whose grid the game builds only once it is in (`Sim::apply_command`), the grid it will build, made for the
@@ -129,7 +133,9 @@ impl Sim {
         let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) else {
             return Ok(());
         };
-        let half = silhouette / 2.0;
+        let facing = moving.and_then(|id| self.objects.get(&id)).map_or(0.0, |o| o.facing);
+        let shape = Shape::silhouette(kind, pos, facing);
+        let half = shape.bound_half();
         let base = unit.base_def();
         if let Some(class) = base.nav_class() {
             let size = nav::size_class(silhouette);
@@ -142,7 +148,7 @@ impl Sim {
                     &built
                 }
             };
-            if !nav::box_clear(grid, half, pos) {
+            if !shape.clear_on(grid) {
                 return Err(Reject::Blocked);
             }
         }
@@ -157,10 +163,10 @@ impl Sim {
             return Err(Reject::Blocked);
         }
         if base.domain.hard_collision()
-            && let Some(other) = self.objects.values().find(|o| {
-                Some(o.id) != moving
-                    && in_layer(o, base.domain).is_some_and(|other| boxes_overlap(pos, half, o.pos, other))
-            })
+            && let Some(other) = self
+                .objects
+                .values()
+                .find(|o| Some(o.id) != moving && in_layer(o, base.domain).is_some_and(|other| shape.overlaps(&other)))
         {
             return Err(Reject::Occupied(other.id));
         }
@@ -186,20 +192,18 @@ impl Sim {
         let Some(rect) = blocking_footprint(kind, placement, self.nav.nav().rules()) else {
             return Ok(());
         };
-        match self
-            .objects
-            .values()
-            .find(|o| in_layer(o, Domain::Ground).is_some_and(|half| box_overlaps_rect(o.pos, half, rect)))
-        {
+        match self.objects.values().find(|o| {
+            in_layer(o, Domain::Ground).is_some_and(|shape| box_overlaps_rect(shape.centre(), shape.bound_half(), rect))
+        }) {
             Some(unit) => Err(Reject::Occupied(unit.id)),
             None => Ok(()),
         }
     }
 }
 
-/// The half extents of `o`'s box if it is a unit of `domain`'s layer (`docs/movement.md > 6.1`).
-fn in_layer(o: &Object, domain: Domain) -> Option<Vec2> {
+/// `o`'s shape if it is a unit of `domain`'s layer (`docs/movement.md > 6.1`): its Silhouette, (M5-V1) as it lies.
+fn in_layer(o: &Object, domain: Domain) -> Option<Shape> {
     let def = o.def();
     let unit = def.unit.as_ref()?;
-    (unit.base_def().domain == domain).then(|| def.half_extents()).flatten()
+    (unit.base_def().domain == domain && def.silhouette().is_some()).then(|| Shape::of(o))
 }
