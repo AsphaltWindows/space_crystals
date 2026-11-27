@@ -203,10 +203,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   back): their names and lists stay `&'static str` and `&'static [T]`, which the deserializer leaks once
   (`defs/leak.rs`), so the defs stay `Copy` (the Director accepted this for the playtest loader). A unit type also
   has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`, `systems/units.md`): its `UnitBase`, whose `static UnitBaseDef`
-  holds the base's domain, movement model and flags (turret, crushable, …), the attributes of that movement model
-  (`MovementAttrs`, `defs/units/movement_attrs.rs` since slice M5-V3), and its turret, attack and costs. Its box is
-  its silhouette (`ObjectDef::half_extents`). Armour (`ObjectDef::armor`, an `Armor` of PointArmor and FullArmor) is
-  the same for units and structures; map resources have `Armor::NONE`.
+  holds the base's domain, movement model and flags (turret, crushable, (M5-V4) crushes, …), the attributes of that
+  movement model (`MovementAttrs`, `defs/units/movement_attrs.rs` since slice M5-V3), and its turret, attack and
+  costs. Its box is its silhouette (`ObjectDef::half_extents`). Armour (`ObjectDef::armor`, an `Armor` of PointArmor
+  and FullArmor) is the same for units and structures; map resources have `Armor::NONE`.
 - **Structures** (`defs/structures.rs`, `defs/gdo/`; `factions/gdo/structures/`, `factions/gdo/economy.md`): the
   GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
   `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
