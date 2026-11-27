@@ -65,6 +65,7 @@ impl UnitDef {
         target_lock: None,
         stock: None,
         tether: None,
+        air_door_ticks: 0,
     };
 }
 

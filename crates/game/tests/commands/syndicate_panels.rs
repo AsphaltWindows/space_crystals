@@ -19,7 +19,7 @@ use space_crystals::input::ControlGroup;
 use space_crystals::placement::TunnelAreaOverlay;
 
 use super::*;
-use KeyCode::{ControlLeft, Digit1, Escape, KeyE, KeyQ, KeyR, KeyW, KeyX, KeyZ};
+use KeyCode::{ControlLeft, Digit1, Escape, KeyE, KeyF, KeyQ, KeyR, KeyW, KeyX, KeyZ};
 
 const P1: PlayerId = PlayerId(1);
 const AGENT: ObjectKind = ObjectKind::Agent;
@@ -231,11 +231,13 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
         ])
     );
     assert_eq!(counts_drawn(&mut app), eject_counts(["0", "0", "0"]));
-    // Slice M6-SK's: greyed, saying why (a Tier 1 Tunnel lets no vehicle out, nor an aircraft while there are no air
-    // doors), and refused.
-    tap(&mut app, &[], KeyR);
-    assert_eq!(feedback(&app), Some("This Tunnel's tier is too low"));
-    assert_eq!(interface(&app), InterfaceState::EjectMenu);
+    // Slice M6-SK's: greyed, saying why (a Tier 1 Tunnel lets no vehicle out, nor (M6-SD) an aircraft, whose air
+    // doors are a Tier 3 Tunnel's), and refused.
+    for key in [KeyR, KeyF] {
+        tap(&mut app, &[], key);
+        assert_eq!(feedback(&app), Some("This Tunnel's tier is too low"), "{key:?}");
+        assert_eq!(interface(&app), InterfaceState::EjectMenu);
+    }
     tap(&mut app, &[], KeyQ);
     assert_eq!(feedback(&app), Some("None in the Tunnel Network"));
     assert_eq!(interface(&app), InterfaceState::EjectMenu);

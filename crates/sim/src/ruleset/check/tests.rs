@@ -66,7 +66,8 @@ fn numbers_keep_their_signs() {
 
 /// The bounds of `defs/tests.rs` beyond the signs: a recipe's time and a technology's, a Recruitment Area that
 /// covers its Hall, an air unit's SeparationRadius beyond its Silhouette, a default rally point out of its building
-/// (a field the signs don't take: it isn't structure), (M6-GD) a stock's purchase time and its start.
+/// (a field the signs don't take: it isn't structure), (M6-GD) a stock's purchase time and its start, (M6-SD) an
+/// aircraft's time at an air door.
 #[test]
 fn numbers_stay_within_the_defs_bounds() {
     let longest = |r: &mut Ruleset| {
@@ -126,6 +127,27 @@ fn numbers_stay_within_the_defs_bounds() {
             stock(r).start = 3;
         }),
         None
+    );
+    // (M6-SD) The Phantom's rise and descent at an air door: as long as a recipe at most.
+    let door = |ticks| {
+        move |r: &mut Ruleset| {
+            r.defs
+                .get_mut(ObjectKind::Phantom)
+                .unit
+                .as_mut()
+                .unwrap()
+                .air_door_ticks = ticks;
+        }
+    };
+    assert_eq!(
+        checked(&door(LONGEST_RECIPE + 1)),
+        Some(("Phantom", "air_door_ticks", "must be at most 65535 ticks"))
+    );
+    assert_eq!(checked(&door(LONGEST_RECIPE)), None);
+    assert_eq!(
+        checked(&door(0)),
+        Some(("Phantom", "air_door_ticks", "must be positive")),
+        "the sign's rule"
     );
 }
 

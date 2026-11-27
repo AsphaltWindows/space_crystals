@@ -100,6 +100,8 @@ pub fn entry_path(building: &Object) -> Option<EntryPath> {
         outward,
         spot: side_middle(placement, outward),
         standoff: rules().tuning.holding.entry_standoff_su,
+        // (M6-SD) No building that holds units takes an air unit in.
+        air_door: None,
     })
 }
 

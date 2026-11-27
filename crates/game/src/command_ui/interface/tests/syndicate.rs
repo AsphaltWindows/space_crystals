@@ -1,7 +1,8 @@
 //! The Syndicate's panels as plain data (slice M4-J2; design changes 0257 and 0260): the Tunnel's letters, its
 //! EjectMenu with its counts and its greyed tiles, the Hideout's letters, its Guard and its Grenadier behind their
-//! prerequisites (slices M4-K and M4-U), each greyed with why, (M6-SV) the Vehicle Assembly's letters, and the
-//! Grenadier's combat grid with its Attack Ground (slice M4-U). The ExpandMenu's are `super::expansions`'.
+//! prerequisites (slices M4-K and M4-U), each greyed with why, (M6-SV) the Vehicle Assembly's letters, (M6-SD) the
+//! Aerospace Assembly's and the Forge's none, and the Grenadier's combat grid with its Attack Ground (slice M4-U). The
+//! ExpandMenu's are `super::expansions`'.
 
 use std::collections::BTreeSet;
 
@@ -18,6 +19,8 @@ const AGENT: ObjectKind = ObjectKind::Agent;
 const GRENADIER: ObjectKind = ObjectKind::Grenadier;
 const VEHICLE_ASSEMBLY: ObjectKind = ObjectKind::VehicleAssembly;
 const BIKE: ObjectKind = ObjectKind::AssaultBike;
+const AEROSPACE_ASSEMBLY: ObjectKind = ObjectKind::AerospaceAssembly;
+const PHANTOM: ObjectKind = ObjectKind::Phantom;
 
 /// What the panel's `slot` says when pressed greyed out, if it is.
 fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
@@ -120,7 +123,8 @@ fn the_tunnels_upgrade_is_greyed_with_the_gates_reason() {
 /// with the gate's reason; a tile ejects at once and leaves the menu open (0300, answering Q0086 point 3: "the
 /// panel **stays in the EjectMenu**"); Z goes back to DefaultState. Slice M6-SK's seven units take R to C, after the
 /// Grenadier (`factions/syndicate/units/README.md > Files`: "then the vehicles and aircraft in production-building
-/// order"), each greyed with its 0, as none is ever inside until its slice (plan decision T84).
+/// order"), each greyed with its 0, as none is ever inside until its slice (plan decision T84); (M6-SD) a Phantom
+/// inside, F is greyed for the tier below Tier 3, whose air exit door it goes out by (plan decision T96).
 #[test]
 fn the_eject_menu_shows_the_network_in_grid_order_with_counts() {
     use ButtonLook::{Back, Common, Disabled};
@@ -180,7 +184,7 @@ fn the_eject_menu_shows_the_network_in_grid_order_with_counts() {
     // Design change 0288 point 1: while every Agent only just walked in, its tile is greyed, and says so; a Tunnel
     // whose tier doesn't let a type out greys it too ("visible but greyed out (disabled)").
     let in_transit = Conditions::default()
-        .with_network([(AGENT, 1), (GUARD, 1)])
+        .with_network([(AGENT, 1), (GUARD, 1), (PHANTOM, 2)])
         .refusing(Eject(AGENT), Reject::InTransit(AGENT))
         .refusing(
             Eject(GUARD),
@@ -188,10 +192,22 @@ fn the_eject_menu_shows_the_network_in_grid_order_with_counts() {
                 tunnel: id(1),
                 kind: Some(GUARD),
             },
+        )
+        .refusing(
+            Eject(PHANTOM),
+            Reject::NoTransit {
+                tunnel: id(1),
+                kind: Some(PHANTOM),
+            },
         );
     let menu = panel(&tunnel, InterfaceState::EjectMenu, &in_transit);
     assert_eq!(why_text(&menu, slot(0, 0)), Some("Still in transit"));
     assert_eq!(why_text(&menu, slot(0, 1)), Some("This Tunnel's tier is too low"));
+    assert_eq!(why_text(&menu, slot(1, 3)), Some("This Tunnel's tier is too low"));
+    assert_eq!(
+        menu.get(slot(1, 3)).map(|s| (s.look, s.count)),
+        Some((Disabled, Some(2)))
+    );
     assert_eq!(
         menu.get(slot(0, 0)).map(|s| (s.look, s.count)),
         Some((Disabled, Some(1)))
@@ -354,6 +370,64 @@ fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
         InterfaceTemplate::of(VEHICLE_ASSEMBLY),
         Some(InterfaceTemplate::Production)
     );
+}
+
+/// `factions/syndicate/structures/aerospace_assembly.md > Placeholder stats` (slice M6-SD): "Panel: **Q** Phantom,
+/// **W** Specter, **E** Prism, **X** Cancel Production, **C** Set Rally Point". Q is its recipe, which trains a
+/// Phantom, greyed while the gate refuses it for want of its prerequisite ("**Phantom** (requires an Optics Lab)":
+/// `Reject::Requires`); W and E hold the units it doesn't train yet (slices M6-SA and M6-SP), not available ("Not
+/// available yet"), each labelled and named by its type; C awaits the rally point's target. The Forge has no panel
+/// (`factions/syndicate/structures/forge.md`: "No commands for now (prerequisite only)").
+#[test]
+fn the_aerospace_assembly_has_q_w_e_x_and_c() {
+    use ButtonLook::{Common, Disabled, Unavailable};
+    use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
+    let assembly = Selection::new([(id(1), AEROSPACE_ASSEMBLY)]);
+    let no_lab = Conditions::default().refusing(Train(PHANTOM), Reject::Requires(ObjectKind::OpticsLab));
+    let shown_panel = panel(&assembly, InterfaceState::DefaultState, &no_lab);
+    let c = PanelButton::Command;
+    assert_eq!(
+        shown(&shown_panel),
+        [
+            (slot(0, 0), c(Train(PHANTOM)), Disabled),
+            (slot(0, 1), c(P(Planned::Specter)), Unavailable),
+            (slot(0, 2), c(P(Planned::Prism)), Unavailable),
+            (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Common),
+            (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common),
+        ]
+    );
+    let labels: Vec<&str> = shown_panel.slots().filter_map(|(_, s)| s.map(|s| s.label())).collect();
+    assert_eq!(labels, ["PHM", "SPR", "PRM", "Cancel", "Rally"]);
+    let names: Vec<String> = shown_panel
+        .slots()
+        .filter_map(|(slot, _)| shown_panel.name(slot))
+        .collect();
+    assert_eq!(names[..3], ["Train Phantom", "Train Specter", "Train Prism"]);
+    assert_eq!(why_text(&shown_panel, slot(0, 0)), Some("Requires an Optics Lab"));
+    assert_eq!(press(&shown_panel, slot(0, 0)), SlotPress::Nothing);
+    for slot in [slot(0, 1), slot(0, 2)] {
+        assert_eq!(why_text(&shown_panel, slot), Some("Not available yet"));
+        assert_eq!(press(&shown_panel, slot), SlotPress::Nothing);
+    }
+    assert_eq!(
+        press(&shown_panel, CommandSlot::RALLY_POINT),
+        SlotPress::AwaitTarget(SetRallyPoint)
+    );
+    // An Optics Lab owned: Q trains Phantoms.
+    let with_lab = panel(&assembly, InterfaceState::DefaultState, &Conditions::default());
+    assert_eq!(with_lab.get(slot(0, 0)).map(|s| (s.look, s.why)), Some((Common, None)));
+    assert_eq!(
+        press(&with_lab, slot(0, 0)),
+        SlotPress::Produce(Train(PHANTOM), ProductionCommand::Train(PHANTOM))
+    );
+    assert_eq!(
+        InterfaceTemplate::of(AEROSPACE_ASSEMBLY),
+        Some(InterfaceTemplate::Production)
+    );
+    let forge = Selection::new([(id(2), ObjectKind::Forge)]);
+    let none = panel(&forge, InterfaceState::DefaultState, &Conditions::default());
+    assert_eq!(shown(&none), []);
+    assert_eq!(InterfaceTemplate::of(ObjectKind::Forge), None);
 }
 
 /// `factions/syndicate/units/grenadier.md > ObjectInterfaceState: BasicCombatUnitInterfaceState` (slice M4-U): the

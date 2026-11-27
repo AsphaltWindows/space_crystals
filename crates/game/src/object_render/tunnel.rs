@@ -14,8 +14,10 @@
 //!   deliver.
 //! - **Tier 3**, "two horizontal circular sliding doors, one for flying units entering and one for flying units
 //!   exiting": two split discs on the roof "over the matching path halves" (design change 0251 point 11), the exit's
-//!   on the half nearer B and the entry's on the half nearer D, set back towards the back wall so that they cover
-//!   neither the paths nor the tag. Slice M4-C gives them their roles.
+//!   on the half nearer B and the entry's on the half nearer D, where the sim lets aircraft out and in (slice M6-SD:
+//!   `sc_sim::network::Paths::air_exit`, `Paths::air_entry`, `Tunnel::air_door_offset_su` either side of the centre,
+//!   halfway between Sides A and C), each the size of the sim's door (`Tunnel::air_door_radius_su`), clear of the
+//!   paths, the hatches and the tag.
 //!
 //! The tag in the middle names the tier (`crate::kinds::object_label`); nothing here covers it.
 
@@ -68,9 +70,9 @@ const HATCH_FRAME_SU: f32 = 4.0;
 const HATCH_FRAME: Color = Color::srgb(0.09, 0.10, 0.12);
 const CRYSTAL_HATCH: Color = Color::srgb(0.36, 0.90, 0.98);
 const SUPPLY_HATCH: Color = Color::srgb(0.85, 0.55, 0.13);
-/// The Tier 3 air doors: their radius, how far apart their centres are, and their colours.
-const DOOR_SU: f32 = 20.0;
-const DOOR_SPACING_SU: f32 = 64.0;
+/// The Tier 3 air doors: their rim's width, and their colours. Where they lie and how big they are is the sim's
+/// (module docs).
+const DOOR_RIM_SU: f32 = 4.0;
 const DOOR_RIM: Color = Color::srgb(0.10, 0.11, 0.13);
 const DOOR: Color = Color::srgb(0.48, 0.52, 0.58);
 
@@ -89,10 +91,12 @@ pub(super) fn draw(mesh: &mut ColorMesh, look: TunnelLook, half: Vec2) {
     }
     if look.tier >= 3
         && let (Some(n), Some(exit), Some(entry)) =
-            (facing(SideLetter::C), facing(SideLetter::B), facing(SideLetter::D))
+            (facing(SideLetter::A), facing(SideLetter::B), facing(SideLetter::D))
     {
+        // The sim's doors, the centre's offsets turned to the view's axes as the sides are (`sc_sim::network::Paths`).
+        let offset = sc_sim::rules().tuning.tunnel.air_door_offset_su;
         for towards in [exit, entry] {
-            air_door(mesh, n * reach(n) * 0.5 + towards * DOOR_SPACING_SU / 2.0, n);
+            air_door(mesh, towards * offset, n);
         }
     }
 }
@@ -140,30 +144,48 @@ fn hatch(mesh: &mut ColorMesh, center: Vec2, n: Vec2, color: Color) {
     mesh.segment(center - seam, center + seam, 3.0, LOOK_Z + 0.002, HATCH_FRAME);
 }
 
-/// A round sliding door on the roof centred on `center`: a rimmed disc, split along `n`.
+/// A round sliding door on the roof centred on `center`, the sim's door's size (`Tunnel::air_door_radius_su`): a rimmed
+/// disc, split along `n`, from Side A to Side C.
 fn air_door(mesh: &mut ColorMesh, center: Vec2, n: Vec2) {
+    let radius = sc_sim::rules().tuning.tunnel.air_door_radius_su;
     let disc = |radius: f32| -> Vec<Vec2> {
         (0..20)
             .map(|i| center + Vec2::from_angle(i as f32 * std::f32::consts::TAU / 20.0) * radius)
             .collect()
     };
-    mesh.polygon(&disc(DOOR_SU), LOOK_Z, DOOR_RIM);
-    mesh.polygon(&disc(DOOR_SU - 4.0), LOOK_Z + 0.001, DOOR);
-    let seam = n * (DOOR_SU - 4.0);
+    mesh.polygon(&disc(radius), LOOK_Z, DOOR_RIM);
+    mesh.polygon(&disc(radius - DOOR_RIM_SU), LOOK_Z + 0.001, DOOR);
+    let seam = n * (radius - DOOR_RIM_SU);
     mesh.segment(center - seam, center + seam, 2.0, LOOK_Z + 0.002, DOOR_RIM);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sc_sim::network::Paths;
     use sc_sim::{Rotation, TilePos};
 
-    fn look(tier: u8, rotation: Rotation) -> Option<TunnelLook> {
-        let placement = Placement {
+    fn placed(rotation: Rotation) -> Placement {
+        Placement {
             rotation,
             ..Placement::new(TilePos::new(0, 0), ObjectKind::Tunnel.def().footprint)
+        }
+    }
+
+    fn look(tier: u8, rotation: Rotation) -> Option<TunnelLook> {
+        TunnelLook::of(ObjectKind::Tunnel, Some(TunnelState::at(tier)), Some(&placed(rotation)))
+    }
+
+    /// The points of the mesh drawn for a Tier `tier` Tunnel turned by `rotation`, over a body reaching 115 su.
+    fn drawn(tier: u8, rotation: Rotation) -> Vec<Vec2> {
+        let mut mesh = ColorMesh::triangles();
+        draw(&mut mesh, look(tier, rotation).unwrap(), Vec2::splat(115.0));
+        let mesh = mesh.into_mesh();
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(points)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("no positions");
         };
-        TunnelLook::of(ObjectKind::Tunnel, Some(TunnelState::at(tier)), Some(&placement))
+        points.iter().map(|p| Vec2::new(p[0], p[1])).collect()
     }
 
     /// Design change 0224: a Tunnel's look follows its tier and its sides; nothing else has one.
@@ -190,21 +212,11 @@ mod tests {
     }
 
     /// Design change 0248: unturned, with A on top, the hatches are on Sides B (east) and D (west), and Side C, the
-    /// back wall at the bottom, has no mark; Side A's paths lie on its halves towards B and D, and the air doors over
-    /// the same halves (0251 point 11), towards C.
+    /// back wall at the bottom, has no mark; Side A's paths lie on its halves towards B and D, and (M6-SD) the air
+    /// doors over the same halves (0251 point 11), across the middle, clear of the paths and the hatches.
     #[test]
     fn the_hatches_are_on_sides_b_and_d() {
-        let half = Vec2::splat(115.0);
-        let drawn = |tier| {
-            let mut mesh = ColorMesh::triangles();
-            draw(&mut mesh, look(tier, Rotation::R0).unwrap(), half);
-            let mesh = mesh.into_mesh();
-            let Some(bevy::mesh::VertexAttributeValues::Float32x3(points)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION)
-            else {
-                panic!("no positions");
-            };
-            points.iter().map(|p| Vec2::new(p[0], p[1])).collect::<Vec<_>>()
-        };
+        let drawn = |tier| drawn(tier, Rotation::R0);
         for tier in [1, 3] {
             let points = drawn(tier);
             let any = |test: &dyn Fn(Vec2) -> bool| points.iter().any(|&p| test(p));
@@ -223,8 +235,8 @@ mod tests {
             );
             assert!(!any(&|p| p.y > 100.0 && p.x.abs() > 60.0), "A's paths only");
         }
-        // Towards C, between the hatches.
-        let door = |p: &Vec2| p.y < -30.0 && p.x.abs() < 60.0;
+        // Across the middle, between the paths' inner ends and the hatches.
+        let door = |p: &Vec2| p.y.abs() <= 24.5 && (27.5..=76.5).contains(&p.x.abs());
         let doors = |points: &[Vec2]| points.iter().filter(|p| door(p)).count();
         assert_eq!(
             (doors(&drawn(1)), doors(&drawn(3)) > 0),
@@ -234,5 +246,34 @@ mod tests {
         let door_on = |points: &[Vec2], east: bool| points.iter().any(|p| door(p) && (p.x > 10.0) == east);
         let t3 = drawn(3);
         assert!(door_on(&t3, true) && door_on(&t3, false), "one door over each half");
+    }
+
+    /// (M6-SD) The air doors are drawn where the sim lets aircraft out and in (`Paths::air_exit`, `Paths::air_entry`),
+    /// each disc's rim at the sim's door radius (`Tunnel::air_door_radius_su`) round its centre, however the Tunnel is
+    /// turned: the sim's offsets from the footprint's centre, its +y south turned to the view's +y north.
+    #[test]
+    fn the_air_doors_are_drawn_where_the_sim_has_them() {
+        let radius = sc_sim::rules().tuning.tunnel.air_door_radius_su;
+        for rotation in [Rotation::R0, Rotation::R90, Rotation::R180, Rotation::R270] {
+            let placement = placed(rotation);
+            let paths = Paths::of(ObjectKind::Tunnel, &placement).unwrap();
+            let view = |p: Vec2| {
+                let from_centre = p - placement.center();
+                Vec2::new(from_centre.x, -from_centre.y)
+            };
+            let points = drawn(3, rotation);
+            for door in [paths.air_exit, paths.air_entry] {
+                let centre = view(door);
+                let rim = (points.iter()).filter(|p| (p.distance(centre) - radius).abs() < 0.01);
+                assert!(rim.count() >= 20, "{rotation:?}: a door round {centre}");
+            }
+            let none = drawn(2, rotation);
+            assert!(
+                !none
+                    .iter()
+                    .any(|p| (p.distance(view(paths.air_exit)) - radius).abs() < 0.01),
+                "{rotation:?}: no door below Tier 3"
+            );
+        }
     }
 }

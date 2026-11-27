@@ -1,4 +1,5 @@
-//! The Forge — `factions/syndicate/structures/forge.md` (design change 0367's placeholders; slice M6-SK).
+//! The Forge — `factions/syndicate/structures/forge.md` (design change 0367's placeholders; slice M6-SK: its numbers;
+//! slice M6-SD: a Tier 2 Tunnel builds it).
 
 use crate::defs::structures::{ExpansionDef, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
@@ -6,9 +7,10 @@ use crate::player::Faction;
 
 /// `factions/syndicate/structures/forge.md`: the "Syndicate facility for developing advanced alloys and materials", an
 /// underground expansion behind a Vehicle Assembly, and a prerequisite only ("No commands for now (prerequisite
-/// only)"): the Subterranean Transport's and the Aerospace Assembly's. Its numbers only (slice M6-SK, plan decision
-/// T84, by T69's rule): no Tunnel builds one yet ([`FORGE_EXPANSION`], kept out of its def, for slice M6-SD), so its
-/// ExpandMenu entry stays `Planned`. Its numbers are the design's "Placeholder stats".
+/// only)"): the Subterranean Transport's and the Aerospace Assembly's. Its numbers came with slice M6-SK (plan decision
+/// T84, by T69's rule); slice M6-SD makes it live: a Tier 2 Tunnel builds it ([`FORGE_EXPANSION`], its ExpandMenu
+/// entry its kind), and it does nothing but stand, and regenerate as every expansion does. Its numbers are the
+/// design's "Placeholder stats".
 pub(crate) const FORGE: ObjectDef = ObjectDef {
     kind: ObjectKind::Forge,
     name: "Forge",
@@ -34,7 +36,7 @@ pub(crate) const FORGE: ObjectDef = ObjectDef {
         power: 0,
         production: None,  // No commands for now (prerequisite only)
         underground: true, // Entity Type - Structure Type (Underground)
-        expansion: None,   // with slice M6-SD: [`FORGE_EXPANSION`]
+        expansion: Some(FORGE_EXPANSION),
         // TechPrerequisite - player owns at least one Vehicle Assembly (anywhere in the Tunnel Network)
         requires: &[ObjectKind::VehicleAssembly],
         ..StructureDef::NONE
@@ -42,8 +44,7 @@ pub(crate) const FORGE: ObjectDef = ObjectDef {
     ..ObjectDef::NONE
 };
 
-/// The Forge's construction by a Tunnel (`StructureDef::expansion`), for slice M6-SD to make live.
-#[cfg_attr(not(test), expect(dead_code, reason = "slice M6-SD: a Tunnel builds the Forge"))]
+/// The Forge's construction by a Tunnel (`StructureDef::expansion`, slice M6-SD): "Tier Requirement - 2".
 pub(crate) const FORGE_EXPANSION: ExpansionDef = ExpansionDef {
     tier: 2,     // Tier Requirement - 2
     cost: 200,   // Cost 200 Space Crystals
@@ -59,7 +60,8 @@ mod tests {
     use crate::defs::syndicate::tests::assert_expansion;
 
     /// The stat block (design change 0367): an underground structure, 2×2, MaxHP 400, the expansions' 6 / 24, behind a
-    /// Vehicle Assembly, with no commands; a Tier 2 Tunnel's for 200 Space Crystals in 480 frames.
+    /// Vehicle Assembly, with no commands; a Tier 2 Tunnel's for 200 Space Crystals in 480 frames, live since slice
+    /// M6-SD.
     #[test]
     fn the_forge_follows_the_design() {
         let expansion = ExpansionDef {
@@ -70,5 +72,10 @@ mod tests {
         };
         assert_expansion(ObjectKind::Forge, "Forge", 2, 400.0, &[ObjectKind::VehicleAssembly]);
         assert_eq!(FORGE_EXPANSION, expansion);
+        let structure = ObjectKind::Forge.def().structure.as_ref().unwrap();
+        assert_eq!(
+            (structure.expansion, structure.production.as_ref()),
+            (Some(expansion), None)
+        );
     }
 }

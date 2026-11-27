@@ -126,14 +126,14 @@ fn tracked_turn_noted(movement: &MovementAttrs, turned: f32, momentum: Vec2) -> 
 /// Phase 5d (`docs/movement.md > 4`): builds the spatial grids from **all** units, this tick's spawns included
 /// (they are obstacles, though not moved), then moves every unit before `first_new`, in id order, updating the
 /// grid at each commit. A unit whose attack holds its base (`combat::may_move`, `combat::may_turn`) stands and
-/// keeps its goal. An idle unit asked to make way takes its sidestep in its turn, like any move
-/// (`yielding::sidestep`); the sidesteps asked for in this tick are noted when every unit has moved
-/// (`yielding::apply`) and begin in the next. (M4-S2) A lowered pop-up turret that wants to rise asks its owner's idle
-/// units over its footprint the same way (`yielding::make_way`). The angle each unit turned goes to [`Turns`], for phase 5e.
-/// (M5-N1a) Each moves by its movement numbers as its Augmentations make them, at its owner's levels in `research`.
-/// (M5-V4) A crusher whose move crushes passes through the crushable enemies in its way and kills those it overlaps
-/// or sweeps (`crush`): they make no move of their own after it, and their `SimEvent::Crushed` come once every unit
-/// has moved. Returns them, for the removal path.
+/// keeps its goal, and so (M6-SD) does an aircraft rising out of an air door (`Mover::rises`). An idle unit asked to
+/// make way takes its sidestep in its turn, like any move (`yielding::sidestep`); the sidesteps asked for in this tick
+/// are noted when every unit has moved (`yielding::apply`) and begin in the next. (M4-S2) A lowered pop-up turret that
+/// wants to rise asks its owner's idle units over its footprint the same way (`yielding::make_way`). The angle each
+/// unit turned goes to [`Turns`], for phase 5e. (M5-N1a) Each moves by its movement numbers as its Augmentations make
+/// them, at its owner's levels in `research`. (M5-V4) A crusher whose move crushes passes through the crushable enemies
+/// in its way and kills those it overlaps or sweeps (`crush`): they make no move of their own after it, and their
+/// `SimEvent::Crushed` come once every unit has moved. Returns them, for the removal path.
 #[expect(
     clippy::too_many_arguments,
     reason = "phase 5d's state, in the parts of the sim it reads and writes"
@@ -212,9 +212,12 @@ pub(crate) fn step(
         if o.id >= first_new || scratch.crushed.iter().any(|crush| crush.victim == me) {
             continue;
         }
+        // (M6-SD) An aircraft rising out of an air door holds still, keeping its goal, until its rise is over
+        // (`Mover::rises`).
+        let rising = o.mover.as_mut().is_some_and(Mover::rises);
         // `systems/combat.md > UnitBaseSource`: while its attack aims, fires or cools down, a unit's base neither
         // moves nor turns (the attack turns it while aiming, in phase 5e).
-        let held = !combat::may_move(o) || !combat::may_turn(o);
+        let held = rising || !combat::may_move(o) || !combat::may_turn(o);
         let mover = o.mover.as_mut().expect("units have movers");
         let base = unit.base_def();
         let layer = layer_of(base.domain);

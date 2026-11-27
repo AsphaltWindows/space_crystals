@@ -275,9 +275,9 @@ fn run(
             Some((_, site)) => build::run(&site, state, unit),
             None => true,
         },
-        // The walk into the entry path; the step right after this phase takes the unit into the network or ends the
-        // order (`Sim::step_entries`).
-        (OrderKind::Enter(_), Behaviour::Enter(state)) => enter::run(state, unit),
+        // The walk into the entry path, or (M6-SD) an air unit's flight to the air entry door; the step right after
+        // this phase takes the unit into the network or ends the order (`Sim::step_entries`).
+        (OrderKind::Enter(target), Behaviour::Enter(state)) => enter::run(target, state, unit, world),
         // (M4-O) The walk into range and the shots, until another order (design change 0293).
         (OrderKind::AttackGround(at), Behaviour::AttackGround(state)) => attack_ground::run(unit, at, state, world),
         // (M5-E) Building from its spot; the site's completion or removal ends the order (`assist`).

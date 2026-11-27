@@ -501,9 +501,9 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | W → E | CP | Build Chemical Plant | place it |
 | W → R | VT | Build Vault | greyed: "Not available yet" |
 | W → A | VA | Build Vehicle Assembly | place it; Requires a Chemical Plant; needs a Tier 2 Tunnel |
-| W → S | FE | Build Forge | greyed: "Not available yet" |
+| W → S | FE | Build Forge | place it; Requires a Vehicle Assembly; needs a Tier 2 Tunnel |
 | W → D | NC | Build Null Chamber | greyed: "Not available yet" |
-| W → F | AA | Build Aerospace Assembly | greyed: "Not available yet" |
+| W → F | AA | Build Aerospace Assembly | place it; Requires a Forge; needs a Tier 3 Tunnel |
 | W → X | OC | Build Orbital Command | greyed: "Not available yet" |
 | W → C | LT | Build Laser Turret | place it; Requires an Optics Lab |
 | E | Eject | Eject | opens a menu |
@@ -550,7 +550,21 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 
 **Before it is finished:** X Cancel Construction, C Set Rally Point.
 
-No commands: Subterranean Transport (STR), Subterranean Transport (Burrowed) (STB), Prism (PRM), Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT), Vault (VT), Forge (FE), Null Chamber (NC), Aerospace Assembly (AA), Orbital Command (OC).
+#### Aerospace Assembly (AA)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | PHM | Train Phantom | Requires an Optics Lab |
+| W | SPR | Train Specter | greyed: "Not available yet" |
+| E | PRM | Train Prism | greyed: "Not available yet" |
+| X | Cancel | Cancel Production |  |
+| C | Rally | Set Rally Point | click a target |
+
+**Right-click** sets its rally point, on the ground or on an object; on the building itself, it clears it.
+
+**Before it is finished:** X Cancel Construction, C Set Rally Point.
+
+No commands: Subterranean Transport (STR), Subterranean Transport (Burrowed) (STB), Prism (PRM), Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT), Vault (VT), Forge (FE), Null Chamber (NC), Orbital Command (OC).
 
 ## Cults
 

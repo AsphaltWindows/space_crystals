@@ -37,10 +37,16 @@ fn validate(t: &TestSim, command: Command) -> Result<(), Reject> {
     t.sim().validate(&PlayerCommand { player: P1, command })
 }
 
-/// The Director's decision for slice M4-C, and the plan's acceptance: "An air test unit is refused at every tier,
-/// since M4 has no air doors." The Syndicate has no air unit yet, so a Peacekeeper on a Hover Craft base stands in.
+/// (M6-SD) "Tier 3+: Air units (Hover Craft, Glider)", by the air doors since slice M6-SD (it was the Director's
+/// decision for slice M4-C that "An air test unit is refused at every tier, since M4 has no air doors"): an air unit
+/// passes at Tier 3 alone, whatever its type, a Peacekeeper on a Hover Craft base standing in, which takes no time at
+/// the doors (`UnitDef::air_door_ticks` 0, the plan's D46). Below Tier 3 its Enter alone and its Eject are refused
+/// ([`NoTransit::Tier`]) and its default command on the Tunnel is a Move; at Tier 3 they are taken and its default
+/// command is Enter. Ordered in with a Guard, it flies to the air entry door, 52 su west of the Tunnel's centre, and
+/// goes in at once there, the Guard by the entry path; ejected, it comes out over the air exit door, 52 su east, in the
+/// tick it is ejected, and the Guard out of the exit path in the same tick.
 #[test]
-fn an_air_unit_is_refused_at_every_tier() {
+fn an_air_unit_passes_only_at_tier_3_by_the_air_doors() {
     let _flyer = TestDef::unit(ObjectKind::Peacekeeper, |unit| unit.base = UnitBase::HoverCraft);
     let mut t = base().start();
     t.without_auto_targeting()
@@ -53,46 +59,86 @@ fn an_air_unit_is_refused_at_every_tier() {
         kind: OrderKind::Enter(TUNNEL),
         queue: false,
     };
-    let eject = Command::Tunnel {
+    let eject = |kind| Command::Tunnel {
         tunnel: TUNNEL,
-        command: TunnelCommand::Eject {
-            kind: ObjectKind::Peacekeeper,
-        },
+        command: TunnelCommand::Eject { kind },
     };
     for tier in 1..=3 {
         t.debug_at(t.sim().tick() + 1, DebugCommand::SetTier { id: TUNNEL, tier });
         t.step();
         let tunnel = t.sim().object(TUNNEL).unwrap();
-        // At Tier 3 the table lists Air; the missing air doors refuse it all the same.
         let lists_air = crate::tunnel::tier_def(tunnel).unwrap().admits(UnitBase::HoverCraft);
         assert_eq!(lists_air, tier == 3);
-        assert_eq!(
-            network::admits(tunnel, ObjectKind::Peacekeeper),
-            Err(NoTransit::Air),
-            "Tier {tier}"
-        );
+        let passes = if tier == 3 { Ok(()) } else { Err(NoTransit::Tier) };
+        assert_eq!(network::admits(tunnel, ObjectKind::Peacekeeper), passes, "Tier {tier}");
         assert_eq!(network::admits(tunnel, ObjectKind::Guard), Ok(()));
         let refused = Reject::NoTransit {
             tunnel: TUNNEL,
             kind: None,
         };
-        assert_eq!(validate(&t, enter(&[flyer])), Err(refused), "Tier {tier}");
+        let alone = if tier == 3 { Ok(()) } else { Err(refused) };
+        assert_eq!(validate(&t, enter(&[flyer])), alone, "Tier {tier}");
         assert_eq!(validate(&t, enter(&[flyer, guard])), Ok(()), "the Guard takes it");
         let refused = Reject::NoTransit {
             tunnel: TUNNEL,
             kind: Some(ObjectKind::Peacekeeper),
         };
-        assert_eq!(validate(&t, eject.clone()), Err(refused), "Tier {tier}");
-        // Its default command on the Tunnel is a Move to it, never Enter.
+        if tier < 3 {
+            assert_eq!(
+                validate(&t, eject(ObjectKind::Peacekeeper)),
+                Err(refused),
+                "Tier {tier}"
+            );
+        }
         let default = t.sim().default_order(flyer, Target::Object(TUNNEL));
-        assert_eq!(default, Some(OrderKind::Move(Target::Object(TUNNEL))), "Tier {tier}");
+        let expected = if tier == 3 {
+            OrderKind::Enter(TUNNEL)
+        } else {
+            OrderKind::Move(Target::Object(TUNNEL))
+        };
+        assert_eq!(default, Some(expected), "Tier {tier}");
     }
-    // Ordered in with the Guard at Tier 3, the flyer stays where it is.
+    let paths = Paths::of_object(t.sim().object(TUNNEL).unwrap()).unwrap();
+    assert_eq!(
+        (paths.air_entry, paths.air_exit),
+        (Vec2::new(844.0, 768.0), Vec2::new(948.0, 768.0))
+    );
     t.at(t.sim().tick() + 1, P1, enter(&[flyer, guard]));
-    t.run(120);
+    let went_in = |t: &TestSim, unit| {
+        t.events().iter().find_map(|(tick, e)| match *e {
+            SimEvent::EnteredNetwork { unit: u, tunnel } if u == unit && tunnel == TUNNEL => Some(*tick),
+            _ => None,
+        })
+    };
+    while went_in(&t, flyer).is_none() || went_in(&t, guard).is_none() {
+        assert!(t.sim().tick() < 400, "both go in");
+        t.step();
+    }
     let inside: Vec<ObjectId> = t.sim().network(P1).map(|held| held.object.id).collect();
-    assert_eq!(inside, [guard]);
-    assert_eq!(t.pos(2), Vec2::new(866.0, 560.0));
+    assert_eq!(inside, [flyer, guard]);
+    let last = t.sim().held_unit(flyer).unwrap().object.pos;
+    assert!(
+        network::over_door(paths.air_entry, last),
+        "in by the air entry door, from {last}"
+    );
+    // Out again, past the transit delay: each of its own lane, in the same tick.
+    let out = t.sim().tick() + 40;
+    t.at(out, P1, eject(ObjectKind::Peacekeeper));
+    t.at(out, P1, eject(ObjectKind::Guard));
+    t.run_until(out);
+    let left: Vec<ObjectId> = (t.events().iter())
+        .filter_map(|(tick, e)| match *e {
+            SimEvent::LeftNetwork { unit, .. } if *tick == out => Some(unit),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(left, [guard, flyer], "the ground lane, then the air lane");
+    assert_eq!(t.pos(2), paths.air_exit, "over the air exit door");
+    assert_eq!(
+        t.sim().object(flyer).unwrap().mover.as_ref().unwrap().rise,
+        None,
+        "no rise: its type takes none"
+    );
 }
 
 /// Design change 0249: "An Agent keeps its load." Plan decision T30: a unit taken off the map and put back is the

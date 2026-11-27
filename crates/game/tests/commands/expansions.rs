@@ -18,7 +18,7 @@ use space_crystals::object_render::SiteProgress;
 use space_crystals::placement::{PlacementGhost, TunnelAreaOverlay};
 
 use super::*;
-use KeyCode::{Escape, KeyA, KeyC, KeyQ, KeyR, KeyW, KeyX, KeyZ};
+use KeyCode::{Escape, KeyA, KeyC, KeyD, KeyF, KeyQ, KeyR, KeyS, KeyW, KeyX, KeyZ};
 
 const P1: PlayerId = PlayerId(1);
 const HIDEOUT: ObjectKind = ObjectKind::Hideout;
@@ -156,9 +156,10 @@ fn placing_hideout() -> InterfaceState {
 
 /// Design change 0291's verification, "The ExpandMenu shows nine expansion slots and then the turret": W opens it
 /// (design change 0257), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice M4-K), the Vehicle
-/// Assembly in A (slice M6-SV), greyed by its gate: this Tunnel is at Tier 1 ("Tier Requirement - 2"), the five
-/// expansions not in the game yet greyed in R and S to X, Z being Back, and the Laser Turret in C (slice M4-S2), greyed
-/// by its gate with its prerequisite: this player owns no Optics Lab. A greyed entry says why and leaves the menu open;
+/// Assembly in A (slice M6-SV), the Forge in S and the Aerospace Assembly in F (slice M6-SD), each greyed by its gate:
+/// this Tunnel is at Tier 1 ("Tier Requirement - 2", "- 3"), the three expansions not in the game yet greyed in R, D
+/// and X, Z being Back, and the Laser Turret in C (slice M4-S2), greyed by its gate with its prerequisite: this player
+/// owns no Optics Lab. A greyed entry says why and leaves the menu open;
 /// Z goes back to DefaultState, and so does Escape. A right-click does the Tunnel's, nothing, and the menu stays open
 /// (design change 0400: "right-click **doesn't reset a menu**").
 #[test]
@@ -177,16 +178,27 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
             (slot(0, 2), c(Expand(CHEMICAL_PLANT)), Common),
             (slot(0, 3), c(P(Vault)), Unavailable),
             (slot(1, 0), c(Expand(VEHICLE_ASSEMBLY)), ButtonLook::Disabled),
-            (slot(1, 1), c(P(Forge)), Unavailable),
+            (slot(1, 1), c(Expand(ObjectKind::Forge)), ButtonLook::Disabled),
             (slot(1, 2), c(P(NullChamber)), Unavailable),
-            (slot(1, 3), c(P(AerospaceAssembly)), Unavailable),
+            (
+                slot(1, 3),
+                c(Expand(ObjectKind::AerospaceAssembly)),
+                ButtonLook::Disabled
+            ),
             (CommandSlot::BACK, PanelButton::Back, Back),
             (slot(2, 1), c(P(OrbitalCommand)), Unavailable),
             (slot(2, 2), c(Expand(TURRET)), ButtonLook::Disabled),
         ]
     );
     let optics_lab = requires_text(OPTICS_LAB);
-    for (key, says) in [(KeyR, NOT_YET_TEXT), (KeyA, TIER_TOO_LOW_TEXT), (KeyC, optics_lab)] {
+    for (key, says) in [
+        (KeyR, NOT_YET_TEXT),
+        (KeyA, TIER_TOO_LOW_TEXT),
+        (KeyS, TIER_TOO_LOW_TEXT),
+        (KeyD, NOT_YET_TEXT),
+        (KeyF, TIER_TOO_LOW_TEXT),
+        (KeyC, optics_lab),
+    ] {
         tap(&mut app, &[], key);
         assert_eq!(said(&app), Some(says), "{key:?}");
         assert_eq!(interface(&app), InterfaceState::ExpandMenu);

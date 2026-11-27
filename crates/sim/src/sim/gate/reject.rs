@@ -127,8 +127,8 @@ pub enum Reject {
     /// `crate::holding::holds`), or the target of a Tunnel command isn't a Tunnel in operation.
     NotATunnel(ObjectId),
     /// The Tunnel's tier lets none of the units an Enter names into the network, or not a unit of the kind an Eject
-    /// names out of it (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`); no air unit
-    /// passes yet (`tuning::tunnel::Tunnel::air_doors`).
+    /// names out of it (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`): (M6-SD) an air
+    /// unit below Tier 3, whose air doors it goes through.
     NoTransit { tunnel: ObjectId, kind: Option<ObjectKind> },
     /// An Eject for a kind of which the player has no unit in the Tunnel Network that isn't queued to come out
     /// already (`factions/syndicate/tunnel_menus.md > EjectMenu`: "each click reserves a specific unit").

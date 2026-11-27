@@ -8,6 +8,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::ids::ObjectId;
+use crate::progress::Progress;
 use crate::units::Tick;
 
 /// An enemy a unit engages on its own (`> AttackingObject` as a sub-behaviour of idle auto-targeting and of
@@ -286,7 +287,17 @@ pub enum RepairWork {
 pub struct Enter {
     /// The unit's walk to the entry path is over, wherever it ended: the step right after phase 5a takes the unit
     /// into the structure being entered if it got there, and ends the order if it didn't (`Sim::step_entries`).
+    /// (M6-SD) Never set for an air unit, whose flight to the air entry door goes on until it is in
+    /// (`orders::enter`).
     pub walked: bool,
+    /// (M6-SD) An air unit's descent into the air entry door (design change 0431: "it **descends** into the entry door
+    /// [...] over **16 frames (1 s)**", `UnitDef::air_door_ticks`): the ticks of it done. It stays on the map
+    /// meanwhile, an air target, flying on to the door's centre, and goes in once the descent is over, wherever a push
+    /// of the air units' separation left it (`Sim::step_entries`). A new order ends the Enter and its descent with it:
+    /// **Placeholder (not in the design: an order during the descent)**. Left out of files and of the hash while
+    /// `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub descent: Option<Progress>,
 }
 
 /// (M4-O) The state of an Attack Ground order (`orders::attack_ground`).

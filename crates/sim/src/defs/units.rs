@@ -131,6 +131,12 @@ pub struct UnitDef {
     /// (M6-GD) Its leash and battery, for a unit its launcher keeps on a leash (plan decision T91, `crate::tether`):
     /// the operator's drone. `None` for every other type.
     pub tether: Option<TetherDef>,
+    /// (M6-SD) How long the unit takes to rise out of a Tier 3 Tunnel's air exit door, and to descend into its air
+    /// entry door, ticks (`Mover::rise`, `orders::state::Enter::descent`): the Phantom's 16
+    /// (`factions/syndicate/units/phantom.md > Placeholder stats`, design change 0431: "it **descends** into the entry
+    /// door and **rises** out of the exit door over **16 frames (1 s) each**"). 0 for every other type: an air unit
+    /// with none comes out at once, and goes in once it is over the door (the plan's D46).
+    pub air_door_ticks: u32,
 }
 
 /// (M6-GD) A unit's stock (plan decision T89, `crate::stock`): items it carries, buys one at a time and spends one at a

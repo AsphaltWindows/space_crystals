@@ -411,7 +411,8 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
 /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`, the Rocketman in W and the Field Engineer in
 /// E, the slots the design gives them (slices M5-K and M5-N9, `PanelTemplate::trains`); the Robo Portal trains the
 /// Drone in Q, the Bio Portal the Sabre Legionnaire, and their units not in the game yet hold their slots (design
-/// change 0124: the Robo Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; `gathering` has their panel).
+/// change 0124: the Robo Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; `gathering` has their panel);
+/// (M6-SD) the Aerospace Assembly trains the Phantom in Q, the Specter and the Prism holding W and E (`syndicate`).
 #[test]
 fn every_producer_gets_the_production_panel_of_its_recipes() {
     use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
@@ -455,6 +456,10 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
     assert_eq!(
         grid(ObjectKind::BioPortal),
         produces(ObjectKind::SabreLegionnaire, &[Planned::Lancer, Planned::PsionicUnit])
+    );
+    assert_eq!(
+        grid(ObjectKind::AerospaceAssembly),
+        produces(ObjectKind::Phantom, &[Planned::Specter, Planned::Prism])
     );
     let labels = [PK, ObjectKind::Drone, ObjectKind::SabreLegionnaire].map(|unit| Train(unit).label());
     assert_eq!(labels, ["PK", "DR", "SL"]);

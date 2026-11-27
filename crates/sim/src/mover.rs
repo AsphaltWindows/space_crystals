@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::ObjectId;
 use crate::nav::PathGroup;
+use crate::progress::Progress;
 use crate::ruleset::rules;
 use crate::units::{Tick, TilePos};
 
@@ -256,6 +257,14 @@ pub struct Mover {
     /// order has it (`defs::UnitDef::can_reverse`). Left out of files and of the hash while unset (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "is_false")]
     pub reverses: bool,
+    /// (M6-SD) An aircraft's rise out of a Tier 3 Tunnel's air exit door (`crate::network`; design change 0431: "it
+    /// **rises** out of the exit door over **16 frames (1 s)**", `UnitDef::air_door_ticks`): the ticks of it done. It
+    /// holds still meanwhile, keeping its goal ([`Mover::rises`], `movement::step`), an air unit on the map that may be
+    /// hit and may fire, and the movement step clears it in its last tick, in which the unit moves. Neither a new leg
+    /// nor a stop ends it, as neither ends a takeoff run ([`Takeoff`]). Left out of files and of the hash while `None`
+    /// (`mover/hash.rs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rise: Option<Progress>,
     /// (M5-N10) A point its behaviour asks the unit to turn toward in place in this tick, standing: the
     /// OrientationChannel's Turning, "rotating toward a target position" (`systems/controls/action_channels.md >
     /// OrientationChannel`). The hull aim of a unit whose turret's arc is narrower than its targets need
@@ -318,6 +327,7 @@ impl Default for Mover {
             strafe: None,
             takeoff: None,
             reverses: false,
+            rise: None,
             turn_to: None,
         }
     }

@@ -10,15 +10,28 @@
 //! to a building's path with its pool full (design change 0347 point 2, `factions/cults/structures/README.md >
 //! Entering pool buildings`: "a unit arriving when the building is full has its Enter **end** and idles beside the
 //! building (the normal Failure rule)"), with a `SimEvent::EnterFailed`.
+//!
+//! (M6-SD) **Descending** ([`Sim::fly_in`], plan decision T96): an air unit goes in by a Tier 3 Tunnel's air entry
+//! door instead, once its centre is over the door (`orders::enter`, the plan's D46): it descends into it for its
+//! type's `UnitDef::air_door_ticks` (design change 0431: "it **descends** into the entry door [...] over **16 frames
+//! (1 s)** [...], and it can be hit during both **as an air unit**"), on the map meanwhile, and leaves the map once the
+//! descent is over. The door lets one aircraft begin its descent every `Tunnel::air_door_interval_ticks` (design change
+//! 0251: "one aircraft per 8 frames [...] (the same rate for the air entry door)"), the first in id order of those over
+//! it, so that two may be descending at once, as two may be rising out of the exit door.
 
+use glam::Vec2;
+
+use crate::economy::RATIO_ONE;
 use crate::events::SimEvent;
 use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
-use crate::network::{self, EntryPath, Place};
+use crate::network::{self, EntryPath, Paths, Place};
 use crate::orders::OrderKind;
-use crate::orders::state::Behaviour;
+use crate::orders::state::{Behaviour, Enter};
+use crate::progress::Progress;
 use crate::shape::Shape;
 use crate::sim::{Reject, Sim};
+use crate::tunnel::TunnelState;
 
 impl Sim {
     /// The gate for `OrderKind::Enter(target)` (`systems/controls/commands.md > Enter`: "Order the unit to enter an own
@@ -60,21 +73,98 @@ impl Sim {
 
     /// The entries' step, right after phase 5a and before 5b (module docs; `ARCHITECTURE.md > Tick pipeline`): each
     /// unit from before this tick (`first_new`) whose current order is an Enter, in id order, goes in if it has walked
-    /// into its target's entry path, and loses the order if it can't go on.
+    /// into its target's entry path, and loses the order if it can't go on; (M6-SD) an air unit descends by its air
+    /// entry door ([`Sim::fly_in`]).
     pub(in crate::sim) fn step_entries(&mut self, first_new: ObjectId) {
-        let entering: Vec<(ObjectId, ObjectId, bool)> = self
+        let entering: Vec<(ObjectId, ObjectId, Enter, bool)> = self
             .objects
             .range(..first_new)
             .filter_map(|(&id, o)| {
                 let active = o.orders.as_ref()?.current.as_ref()?;
                 match (active.order.kind, &active.state) {
-                    (OrderKind::Enter(target), Behaviour::Enter(state)) => Some((id, target, state.walked)),
+                    (OrderKind::Enter(target), Behaviour::Enter(state)) => {
+                        Some((id, target, *state, network::uses_air_doors(o.kind)))
+                    }
                     _ => None,
                 }
             })
             .collect();
-        for (unit, target, walked) in entering {
-            self.arrive_at_entry(unit, target, walked);
+        for (unit, target, state, flies) in entering {
+            if flies {
+                self.fly_in(unit, target, state);
+            } else {
+                self.arrive_at_entry(unit, target, state.walked);
+            }
+        }
+    }
+
+    /// (M6-SD) Unit `unit`, an air unit (`network::uses_air_doors`), is on an Enter order to `target` in `state`
+    /// (module docs, `orders::enter`):
+    /// - **The target doesn't suit it** (it stands, is its owner's and lets the unit in, [`network::admits`]: a Tunnel
+    ///   in operation at Tier 3, the tier it had before an upgrade under way): "the Enter order ends and the unit
+    ///   idles" (`SimEvent::EnterFailed`), where it is, descending or not.
+    /// - **It descends**: one more tick of its descent; the descent over, it goes into the network
+    ///   (`SimEvent::EnteredNetwork`).
+    /// - **Its centre is over the air entry door** (`network::over_door`, at its `network::door_spot`) **and the door
+    ///   is free**
+    ///   ([`TunnelState::door_free`]): its descent begins, and the door is taken for its interval
+    ///   (`TunnelState::air_in`). A type that takes no time at the doors (`UnitDef::air_door_ticks` 0) goes in at
+    ///   once (the plan's D46).
+    /// - Otherwise it flies on to the door, or waits over it for its turn.
+    fn fly_in(&mut self, unit: ObjectId, target: ObjectId, state: Enter) {
+        let Some(o) = self.objects.get(&unit) else {
+            return;
+        };
+        let suits = self.objects.get(&target).filter(|target| {
+            target.owner.is_some() && target.owner == o.owner && network::admits(target, o.kind).is_ok()
+        });
+        let (Some(paths), Some(tunnel)) = (
+            suits.and_then(Paths::of_object),
+            suits.and_then(|target| target.tunnel.as_ref()),
+        ) else {
+            self.end_entry(unit, target, false);
+            return;
+        };
+        if let Some(mut descent) = state.descent {
+            if descent.step(RATIO_ONE) {
+                self.go_in(unit, target);
+            } else {
+                self.descend(unit, descent);
+            }
+            return;
+        }
+        let half = o.def().half_extents().unwrap_or(Vec2::ZERO);
+        let door = network::door_spot(&self.map, paths.air_entry, half);
+        if !network::over_door(door, o.pos) || !TunnelState::door_free(tunnel.air_in, self.tick) {
+            return;
+        }
+        let ticks = o.def().unit.as_ref().map_or(0, |unit| unit.air_door_ticks);
+        if let Some(tunnel) = self.objects.get_mut(&target).and_then(|o| o.tunnel.as_mut()) {
+            tunnel.air_in = Some(self.tick);
+        }
+        if ticks == 0 {
+            self.go_in(unit, target);
+        } else {
+            self.descend(unit, Progress::new(ticks));
+        }
+    }
+
+    /// (M6-SD) Air unit `unit`'s Enter descends, `descent` of it done (`Enter::descent`).
+    fn descend(&mut self, unit: ObjectId, descent: Progress) {
+        let active = (self.objects.get_mut(&unit))
+            .and_then(|o| o.orders.as_mut())
+            .and_then(|orders| orders.current.as_mut());
+        if let Some(active) = active
+            && let Behaviour::Enter(state) = &mut active.state
+        {
+            state.descent = Some(descent);
+        }
+    }
+
+    /// Unit `unit` goes into the network by `tunnel` (`SimEvent::EnteredNetwork`).
+    fn go_in(&mut self, unit: ObjectId, tunnel: ObjectId) {
+        if self.take_off_map(unit, Place::Network, true) {
+            self.events.push(SimEvent::EnteredNetwork { unit, tunnel });
         }
     }
 
@@ -103,11 +193,7 @@ impl Sim {
             (suits.and_then(EntryPath::of_object).zip(half)).is_some_and(|(path, half)| path.reached(o.pos, half));
         let building = suits.is_some_and(|target| holding::holds(target).is_some());
         match (reached, building) {
-            (true, false) => {
-                if self.take_off_map(unit, Place::Network, true) {
-                    self.events.push(SimEvent::EnteredNetwork { unit, tunnel: target });
-                }
-            }
+            (true, false) => self.go_in(unit, target),
             (true, true) if self.room(target) > 0 => {
                 if self.take_off_map(unit, Place::Building(target), true) {
                     self.events.push(SimEvent::EnteredBuilding { unit, building: target });

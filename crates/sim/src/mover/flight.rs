@@ -1,7 +1,7 @@
 //! (M5-H1) What a Glider's mover keeps of its flight from tick to tick (plan decision T81): the point it circles
 //! ([`Mover::orbit`]) and its strafing run ([`Strafe`]); (M5-N7) its takeoff run along a runway ([`Takeoff`]). The
 //! movement step flies it (`movement::glider`); its speed is its [`Mover::momentum`], as a DragMovement unit's velocity
-//! is.
+//! is. (M6-SD) And an aircraft's rise out of a Tunnel's air exit door ([`Mover::rise`], [`Mover::rises`]).
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,21 @@ pub enum Pass {
 }
 
 impl Mover {
+    /// (M6-SD) One tick of the unit's rise out of an air door ([`Mover::rise`]), in the movement step: whether it still
+    /// rises in this tick, and so holds still. The rise's last tick ends it, and in that tick the unit moves: a rise of
+    /// 16 ticks, begun as the unit came out (after the movement step of its tick), holds it in the next 15 and lets it
+    /// move in the 16th.
+    pub fn rises(&mut self) -> bool {
+        let Some(rise) = &mut self.rise else {
+            return false;
+        };
+        if rise.step(crate::economy::RATIO_ONE) {
+            self.rise = None;
+            return false;
+        }
+        true
+    }
+
     /// A Glider's leg that just began ([`Mover::go_to`]) is a strafing run at its goal, flying on past it to `range`
     /// space units ([`Strafe`]), from a turn toward it. The behaviours' strafing passes (`orders::engage`,
     /// `orders::attack_ground`); a new leg and a stop end it.

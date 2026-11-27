@@ -1,4 +1,5 @@
-//! The Phantom — `factions/syndicate/units/phantom.md` (design change 0367's placeholders; slice M6-SK).
+//! The Phantom — `factions/syndicate/units/phantom.md` (design change 0367's placeholders; slice M6-SK: its numbers;
+//! slice M6-SD: the Aerospace Assembly trains it, and it rises out of and descends into a Tier 3 Tunnel's air doors).
 
 use crate::defs::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, TargetDomain, TargetType, TurretAttrs, UnitBase,
@@ -10,9 +11,10 @@ use crate::player::Faction;
 
 /// `factions/syndicate/units/phantom.md`: the "Syndicate **hovering aircraft**", whose "**red laser** [...] hits
 /// **both air and ground**. **Relatively manoeuvrable.**": "**Comparable to the Guard** [...] but **somewhat squishier
-/// for its cost**, and **faster**". Its numbers only (slice M6-SK, plan decision T84, by T69's rule): it flies by its
-/// DragMovement and fires from its turret as any HoverCraft does, and nothing makes one yet: the Aerospace Assembly
-/// trains it behind an Optics Lab with slice M6-SD, which brings the air doors it rises out of and descends into. Its
+/// for its cost**, and **faster**". It flies by its DragMovement and fires from its turret as any HoverCraft does. Its
+/// numbers came with slice M6-SK (plan decision T84, by T69's rule); slice M6-SD makes it live: the Aerospace Assembly
+/// trains it behind an Optics Lab, into the Tunnel Network, and it comes out of a Tier 3 Tunnel's air exit door and
+/// goes in by its air entry door (`crate::network`), rising and descending there for [`UnitDef::air_door_ticks`]. Its
 /// numbers are the design's "Placeholder stats".
 pub(crate) const PHANTOM: ObjectDef = ObjectDef {
     kind: ObjectKind::Phantom,
@@ -73,6 +75,11 @@ pub(crate) const PHANTOM: ObjectDef = ObjectDef {
         // Silhouette", and the Phantom's isn't given: **Placeholder (Q0181)**, its Silhouette's side and 8 su, as each
         // radius the design gives is (the Sparrow's and the Dragonfly's 48 for 40, the Specter's 64 for 56).
         separation_radius: Some(52.0),
+        // "**At the air doors** (designer placeholder, 2026-11-26; Q0165, following "rises vertically"): it
+        // **descends** into the entry door and **rises** out of the exit door over **16 frames (1 s) each**, as a
+        // Hornet lands and takes off at the Airfield, and it can be hit during both **as an air unit**" (design change
+        // 0431).
+        air_door_ticks: 16,
         ..UnitDef::NONE
     }),
     ..ObjectDef::NONE
@@ -89,7 +96,8 @@ mod tests {
     /// A 44×44 HoverCraft, in the air, MaxHP 70, PointArmor 1, FullArmor 1, SightRange 8, Groupable, TunnelSpaceCost
     /// 2; DragMovement to a top speed of 9 su a frame, turning 10° a frame (Q0154); a 75° turret turning 8° a frame; a
     /// red laser that can't miss, at air and ground, 12 damage up to 5 grid units every 16 frames, 12 a second before
-    /// armor; its SeparationRadius a placeholder of 52 su, more than its Silhouette (Q0181).
+    /// armor; its SeparationRadius a placeholder of 52 su, more than its Silhouette (Q0181); 16 frames to rise out of
+    /// an air door and to descend into one (design change 0431).
     #[test]
     fn the_phantom_follows_the_design() {
         let def = ObjectKind::Phantom.def();
@@ -140,6 +148,7 @@ mod tests {
         assert_eq!(timings(&attack), ((2, 1, 3, 10), 16), "12 damage a second");
         assert_eq!(unit.separation_radius, Some(52.0), "Q0181");
         assert!(52.0 > def.silhouette().unwrap().max_element());
+        assert_eq!(unit.air_door_ticks, 16, "0431");
         assert_eq!(
             (
                 unit.tunnel_space_cost,

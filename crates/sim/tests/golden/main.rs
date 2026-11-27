@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): twenty-seven small games, defined below and in
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): twenty-eight small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
 //! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
@@ -26,8 +26,9 @@
 //! three Assault Bikes out of the Tunnel Network, shelling a group of Guards), `drones.rs` (a Drone Operator trained for
 //! a Supply, and its four drones' four ends), `defense.rs` (a Radar Station's scans, and a Defense System's two
 //! Missile Turrets against a Sparrow raid, at low Power and then full), `factory.rs` (a Factory's two Raptors and two
-//! Twisters parking round its rally point, then fighting Recruits and Sparrows) and below (the Riot Shield game), and
-//! every test is below.
+//! Twisters parking round its rally point, then fighting Recruits and Sparrows), `syndicate_air.rs` (an Aerospace
+//! Assembly's three Phantoms out of a Tier 3 Tunnel's air exit door, rising, fighting a Sparrow and two Peacekeepers,
+//! and back in by its air entry door) and below (the Riot Shield game), and every test is below.
 
 mod air;
 mod altar;
@@ -45,6 +46,7 @@ mod prayer_mobile;
 mod shrine;
 mod shroud;
 mod syndicate;
+mod syndicate_air;
 mod syndicate_vehicles;
 mod temple;
 mod units;
@@ -297,4 +299,9 @@ fn golden_gdo_defense() {
 #[test]
 fn golden_gdo_vehicles() {
     golden("gdo_vehicles", factory::gdo_vehicles);
+}
+
+#[test]
+fn golden_syndicate_air() {
+    golden("syndicate_air", syndicate_air::syndicate_air);
 }

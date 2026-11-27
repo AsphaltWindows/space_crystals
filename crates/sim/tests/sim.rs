@@ -18,6 +18,8 @@ mod agent_gathering;
 mod agent_supplies;
 #[path = "air/main.rs"]
 mod air;
+#[path = "air_doors/main.rs"]
+mod air_doors;
 #[path = "airstrip/main.rs"]
 mod airstrip;
 #[path = "altar/main.rs"]

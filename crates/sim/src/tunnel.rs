@@ -32,12 +32,13 @@ use crate::hash::{StateHash, StateHasher};
 use crate::network::Eject;
 use crate::object::Object;
 use crate::transform::follow_max;
+use crate::units::Tick;
 
 /// The tier a Tunnel starts at: Tier 1, the base (`factions/syndicate/tunnels.md > Tunnel > Tiers`).
 pub const BASE_TIER: u8 = 1;
 
 /// A Tunnel's state (plan decision T39): its tier, from 1 to the number of its table's tiers (3), its eject queue
-/// (slice M4-C) and its one operation (slice M4-F).
+/// (slice M4-C), its one operation (slice M4-F) and (M6-SD) when an aircraft last passed each of its air doors.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TunnelState {
     pub tier: u8,
@@ -53,16 +54,37 @@ pub struct TunnelState {
     /// hash while `None`, so that the states without one are as they were.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation: Option<Operation>,
+    /// (M6-SD) The tick the last aircraft came out of the Tunnel's air exit door (`crate::network`; design change
+    /// 0251: "the door has its own **exit rate: one aircraft per 8 frames**"): the next comes out
+    /// `Tunnel::air_door_interval_ticks` after it at the soonest. Left out of files and of the hash while `None`, so
+    /// that the states of games in which no aircraft passes a door are as they were.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub air_out: Option<Tick>,
+    /// (M6-SD) The tick the last aircraft began its descent into the Tunnel's air entry door ("the same rate for the
+    /// air entry door"): the next begins `Tunnel::air_door_interval_ticks` after it at the soonest. Left out of files
+    /// and of the hash while `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub air_in: Option<Tick>,
 }
 
 impl TunnelState {
-    /// A Tunnel at `tier` with nothing queued to come out and no operation.
+    /// A Tunnel at `tier` with nothing queued to come out, no operation, and no aircraft through its doors yet.
     pub fn at(tier: u8) -> Self {
         Self {
             tier,
             eject: Vec::new(),
             operation: None,
+            air_out: None,
+            air_in: None,
         }
+    }
+
+    /// (M6-SD) Whether the air door an aircraft last passed in tick `last` (`TunnelState::air_out`,
+    /// `TunnelState::air_in`) lets the next through in `tick`: `Tunnel::air_door_interval_ticks` after it, or at once
+    /// if none has passed it.
+    pub fn door_free(last: Option<Tick>, tick: Tick) -> bool {
+        let interval = crate::ruleset::rules().tuning.tunnel.air_door_interval_ticks;
+        last.is_none_or(|last| tick >= last.saturating_add(interval))
     }
 
     /// The tier whose Tunnel Area the Tunnel holds against the others (slice M4-G): its tier, but during an upgrade the
@@ -125,7 +147,13 @@ pub(crate) fn set_tier(o: &mut Object, tier: u8) -> bool {
 
 impl StateHash for TunnelState {
     fn hash(&self, h: &mut StateHasher) {
-        let TunnelState { tier, eject, operation } = self;
+        let TunnelState {
+            tier,
+            eject,
+            operation,
+            air_out,
+            air_in,
+        } = self;
         tier.hash(h);
         // Only while something is queued, so that a Tunnel without a queue hashes as before the queue existed.
         if !eject.is_empty() {
@@ -136,6 +164,16 @@ impl StateHash for TunnelState {
         if let Some(operation) = operation {
             h.tag(2);
             operation.hash(h);
+        }
+        // (M6-SD) And for the air doors, each under a tag of its own: games in which no aircraft passes one hash as
+        // before the fields existed.
+        if let Some(tick) = air_out {
+            h.tag(3);
+            tick.hash(h);
+        }
+        if let Some(tick) = air_in {
+            h.tag(4);
+            tick.hash(h);
         }
     }
 }
@@ -283,6 +321,37 @@ mod tests {
         assert_ne!(hash(upgrading(0, 2)), hash(upgrading(1, 2)));
         assert_ne!(hash(upgrading(0, 2)), hash(upgrading(0, 3)));
         assert_ne!(hash(upgrading(7, 2)), hash(building(7)));
+        // (M6-SD) The air doors' last aircraft, each while there was one, apart from each other.
+        let out = TunnelState {
+            air_out: Some(40),
+            ..TunnelState::at(3)
+        };
+        let into = TunnelState {
+            air_in: Some(40),
+            ..TunnelState::at(3)
+        };
+        assert_ne!(hash(out.clone()), hash(TunnelState::at(3)));
+        assert_ne!(hash(into.clone()), hash(TunnelState::at(3)));
+        assert_ne!(hash(out.clone()), hash(into));
+        let later = TunnelState {
+            air_out: Some(41),
+            ..out.clone()
+        };
+        assert_ne!(hash(out), hash(later));
+    }
+
+    /// (M6-SD) Design change 0251: "one aircraft per 8 frames (0.5 s), placeholder (the same rate for the air entry
+    /// door)": a door an aircraft passed in tick 40 lets the next through from tick 48; one none has passed, at once.
+    #[test]
+    fn an_air_door_lets_one_aircraft_through_every_8_frames() {
+        assert!(TunnelState::door_free(None, 0));
+        assert!(!TunnelState::door_free(Some(40), 40));
+        assert!(!TunnelState::door_free(Some(40), 47));
+        assert!(TunnelState::door_free(Some(40), 48));
+        assert!(
+            TunnelState::door_free(Some(u32::MAX - 1), u32::MAX),
+            "no overflow at the last tick"
+        );
     }
 
     /// Slice M4-G: the Tunnel Area a Tunnel holds is its tier's, but during an upgrade the target tier's.

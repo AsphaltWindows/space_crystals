@@ -21,7 +21,9 @@
 //! spell's, Shroud, from slice M5-N4a until slice M5-N4b (`super::super::PanelCommand::Shroud`).
 //! Slice M6-SV made the ExpandMenu's Vehicle Assembly live (`super::super::PanelCommand::Expand`), and its panel holds
 //! the three units that later slices have it train, W, E and R (`super::syndicate::vehicle_assembly`), each until its
-//! slice: M6-SB the Shadebringer, M6-SL the Laser Battery, M6-ST1 the Subterranean Transport.
+//! slice: M6-SB the Shadebringer, M6-SL the Laser Battery, M6-ST1 the Subterranean Transport. Slice M6-SD made the
+//! Forge and the Aerospace Assembly live, and the Aerospace Assembly's panel holds the two units that later slices have
+//! it train, W and E (`super::syndicate::aerospace_assembly`): M6-SA the Specter, M6-SP the Prism.
 //! (M6-GK) The Deployment Center's build menus hold the slots of the eight buildings it doesn't construct yet
 //! (`factions/gdo/structures/deployment_center.md > Two build menus`), each in the game but greyed until its slice makes
 //! its entry live (`super::gdo::deployment_center`): slice M6-GR made the Radar Station and the Defense System live,
@@ -36,9 +38,9 @@
 /// Constructs List`), and so is the rest of it (Q0043); a unit's stats, cost and time are TBD
 /// (`factions/colonists/units/scout.md`, `factions/colonists/units/lancer.md`; the psionic unit has no section yet).
 /// The Syndicate's are the ExpandMenu's entries that aren't in the game yet (slice M4-F:
-/// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions; and (M6-SV) the Vehicle Assembly's units that it
-/// doesn't train yet. The Cults' were the Construct menus' buildings the Recruits didn't build yet (slice M5-J1:
-/// `sc_sim::defs::ConstructEntry::Planned`, by name), until slice M5-N6.
+/// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions; and (M6-SV) the Vehicle Assembly's and (M6-SD) the
+/// Aerospace Assembly's units that they don't train yet. The Cults' were the Construct menus' buildings the Recruits
+/// didn't build yet (slice M5-J1: `sc_sim::defs::ConstructEntry::Planned`, by name), until slice M5-N6.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -66,15 +68,19 @@ pub enum Planned {
     Shadebringer,
     LaserBattery,
     SubterraneanTransport,
+    /// (M6-SD) The Aerospace Assembly's W and E (`factions/syndicate/structures/aerospace_assembly.md > Placeholder
+    /// stats`: "Panel: **Q** Phantom, **W** Specter, **E** Prism"), which it trains from slices M6-SA and M6-SP on.
+    /// Their types are in the game (slice M6-SK), so each label is its type's ([`Planned::label`]).
+    Specter,
+    Prism,
     /// The ExpandMenu's expansions not in the game yet (`factions/syndicate/structures/README.md > Tech Tree
     /// Overview`; design change 0291: "**all nine expansions** are always listed, in the Tech Tree table's order, each
     /// holding its slot"), in the table's order: the sim's `sc_sim::defs::EXPAND_MENU` names them
     /// ([`Planned::expansion`]). The Optics Lab and the Chemical Plant, which were the first two, are in the game
-    /// (slice M4-K), and so is the Vehicle Assembly, between the Vault and the Forge (slice M6-SV).
+    /// (slice M4-K), and so are the Vehicle Assembly, after the Vault (slice M6-SV), and the Forge and the Aerospace
+    /// Assembly, either side of the Null Chamber (slice M6-SD).
     Vault,
-    Forge,
     NullChamber,
-    AerospaceAssembly,
     OrbitalCommand,
     /// (M5-N9) The Field Engineer's Construct menu's buildings (`factions/gdo/units/field_engineer.md > Placeholder
     /// stats`: "**A** Construct (a menu: **Q** Bunker, **W** First Aid Tent, both greyed until designed; **Z** back)"),
@@ -121,10 +127,10 @@ impl Planned {
         Planned::Shadebringer,
         Planned::LaserBattery,
         Planned::SubterraneanTransport,
+        Planned::Specter,
+        Planned::Prism,
         Planned::Vault,
-        Planned::Forge,
         Planned::NullChamber,
-        Planned::AerospaceAssembly,
         Planned::OrbitalCommand,
         Planned::Bunker,
         Planned::FirstAidTent,
@@ -165,10 +171,10 @@ impl Planned {
             Planned::Shadebringer => "Shadebringer",
             Planned::LaserBattery => "Laser Battery",
             Planned::SubterraneanTransport => "Subterranean Transport",
+            Planned::Specter => "Specter",
+            Planned::Prism => "Prism",
             Planned::Vault => "Vault",
-            Planned::Forge => "Forge",
             Planned::NullChamber => "Null Chamber",
-            Planned::AerospaceAssembly => "Aerospace Assembly",
             Planned::OrbitalCommand => "Orbital Command",
             Planned::Bunker => "Bunker",
             Planned::FirstAidTent => "First Aid Tent",
@@ -192,13 +198,14 @@ impl Planned {
     /// Engineer's: "FAT" the First Aid Tent, and "BKR" the Bunker, as the Seeker's "SKR", its first and last letters,
     /// "BR", being the Barracks'. An entry's type takes
     /// its label with it into the game (the Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the
-    /// Gunworks' "GS", the Garrison's "GA", the Vehicle Assembly's "VA", `crate::kinds`), and a command its own: the
-    /// Tunnel's Upgrade's "Upgr." (slice M4-G). (M6-SV) The Vehicle Assembly's units not trained yet are labelled by
-    /// their types, in the game already (slice M6-SK): "SBR", "LB" and "STR". (M6-GK) The Deployment Center's three,
-    /// whose types are in the game, have their types' labels; (M6-GF) and so have the Factory's two units not trained
-    /// yet, "PR" and "ARG". The Twister's mines' commands by their names' first words, "Lay" and "Buy", as the Drone
-    /// Operator's Launch Drone is "Launch" (slice M6-GD, `PanelCommand::label`); not Buy Mine by the mine's tag, as
-    /// Build Drone is by the drone's, "DRN": "ME" is the mine type's own, which no placeholder shares.
+    /// Gunworks' "GS", the Garrison's "GA", the Vehicle Assembly's "VA", (M6-SD) the Forge's "FE" and the Aerospace
+    /// Assembly's "AA", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice M4-G). (M6-SV)
+    /// The Vehicle Assembly's units not trained yet are labelled by their types, in the game already (slice M6-SK):
+    /// "SBR", "LB" and "STR"; (M6-SD) the Aerospace Assembly's alike, "SPR" and "PRM". (M6-GK) The Deployment Center's
+    /// three, whose types are in the game, have their types' labels; (M6-GF) and so have the Factory's two units not
+    /// trained yet, "PR" and "ARG". The Twister's mines' commands by their names' first words, "Lay" and "Buy", as the
+    /// Drone Operator's Launch Drone is "Launch" (slice M6-GD, `PanelCommand::label`); not Buy Mine by the mine's tag,
+    /// as Build Drone is by the drone's, "DRN": "ME" is the mine type's own, which no placeholder shares.
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -218,10 +225,10 @@ impl Planned {
             Planned::Shadebringer => "SBR",
             Planned::LaserBattery => "LB",
             Planned::SubterraneanTransport => "STR",
+            Planned::Specter => "SPR",
+            Planned::Prism => "PRM",
             Planned::Vault => "VT",
-            Planned::Forge => "FE",
             Planned::NullChamber => "NC",
-            Planned::AerospaceAssembly => "AA",
             Planned::OrbitalCommand => "OC",
             Planned::Bunker => "BKR",
             Planned::FirstAidTent => "FAT",
@@ -246,6 +253,8 @@ impl Planned {
                 | Planned::Shadebringer
                 | Planned::LaserBattery
                 | Planned::SubterraneanTransport
+                | Planned::Specter
+                | Planned::Prism
                 | Planned::Prospector
                 | Planned::ArtilleryRig
         )
@@ -258,14 +267,7 @@ impl Planned {
 
     /// Whether it is an expansion of the Tunnel's ExpandMenu.
     pub fn is_expansion(self) -> bool {
-        matches!(
-            self,
-            Planned::Vault
-                | Planned::Forge
-                | Planned::NullChamber
-                | Planned::AerospaceAssembly
-                | Planned::OrbitalCommand
-        )
+        matches!(self, Planned::Vault | Planned::NullChamber | Planned::OrbitalCommand)
     }
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy

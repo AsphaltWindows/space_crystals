@@ -249,9 +249,15 @@ impl StateHash for Behaviour {
                 h.tag(7);
                 walk.hash(h);
             }
-            Behaviour::Enter(Enter { walked }) => {
+            Behaviour::Enter(Enter { walked, descent }) => {
                 h.tag(8);
                 walked.hash(h);
+                // (M6-SD) Only while an air unit descends, under a tag of its own: an Enter without one hashes as
+                // before the field existed.
+                if let Some(descent) = descent {
+                    h.tag(1);
+                    descent.hash(h);
+                }
             }
             Behaviour::AttackGround(AttackGround {
                 moving,

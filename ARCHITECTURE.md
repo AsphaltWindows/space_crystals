@@ -659,10 +659,23 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   facing the wall as it drives in (`orders::enter`, `EntryPath::reached` on `Shape::bound_half`); a square
   Silhouette's is its own, so infantry is as it was. `network::admits(tunnel,
   kind)` is the one tier rule (`factions/syndicate/tunnels.md > Transit Tier Requirements`; the tier a Tunnel has, which
-  an upgrade leaves until it completes, 0249); **air units pass nowhere in M4** (`tuning::tunnel::Tunnel::air_doors`, whose doc
-  holds the rule to come with the first Syndicate air unit, design changes 0250 and 0251). `tunnel::area::parent`
+  an upgrade leaves until it completes, 0249). `tunnel::area::parent`
   derives an expansion's parent Tunnel (plan decision T32: the owner's Tunnel whose Tunnel Area, `tunnel::area::of`,
   fully contains it; `Sim::parent_tunnel`).
+- **The air doors** (slice M6-SD, plan decision T96; `factions/syndicate/tunnels.md > Tunnel > Look by tier`: "Aircraft
+  use these doors, not the Side A paths"): an air unit passes at Tier 3 alone (`network::uses_air_doors`), through two
+  roof points, `Paths::air_entry` and `Paths::air_exit`, `Tunnel::air_door_offset_su` from the Tunnel's centre towards
+  Side D and Side B, over the entry and the exit path's halves, turning and flipping with it (the client draws them
+  there). **In**: its Enter flies it to the entry door (`orders::enter`); once its centre is over it
+  (`network::over_door`, `Tunnel::air_door_radius_su`) the door lets it descend for its type's `UnitDef::air_door_ticks`
+  (design change 0431: the Phantom's 16), on the map, an air target, and it goes in (`Sim::fly_in`, `Enter::descent`).
+  **Out**: an eject queue has two lanes, its ground units out of Side A's exit path and its air units out of the exit
+  door (`Sim::eject_air`), each lane in its order and neither waiting for the other; an aircraft appears over the door,
+  inside the map (`Map::clamp_box`), its order given at once, and rises for its `air_door_ticks`, holding still
+  (`Mover::rise`, the shape of `Mover::takeoff`; hashed and saved only while set, as `Enter::descent` and the doors'
+  clocks). Each door lets one aircraft through every `Tunnel::air_door_interval_ticks` (design change 0251's 8;
+  `TunnelState::air_out`, `TunnelState::air_in`). `network::door_lift` is how far up out of a door a unit is, which the
+  client draws (`object_render/flight.rs`). Tests: `tests/air_doors/`, the golden `syndicate_air`.
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
   a Beacon warping in a building, a Legionnaire converting its weapon, a Peacekeeper raising or lowering its Riot
   Shield) stays the same object, its id included.
@@ -3094,8 +3107,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
     rally's order, or with none circling 2 grid units past the `toward` end (`Mover::orbit`,
     `tuning::air::Air::runway_circle_past_gu`). `exit_rule` gives such a building its holder's exit, so its ejected and
     released units, and the door arrows, use the side doorway as any pool building's.
-  - **No doorway: into the Tunnel Network** (slice M4-C, `ExitRule::Network`, the Hideout's, and (M6-SV) the
-    Vehicle Assembly's;
+  - **No doorway: into the Tunnel Network** (slice M4-C, `ExitRule::Network`, the Hideout's, (M6-SV) the
+    Vehicle Assembly's and (M6-SD) the Aerospace Assembly's, whose aircraft come out by the air exit door;
     `factions/syndicate/structures/README.md > Rally Point Behavior`, design changes 0252 and 0253;
     `Sim::release_into_network`): the finished unit comes into the game held in its owner's network
     (`SimEvent::UnitProduced` without a `Spawned`), with no transit delay, and nothing ever holds the release up.
@@ -4018,6 +4031,19 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   behind it shot down, the turret turned round; an Attack on a Peacekeeper refused); with
   `sim/producers/tests.rs` (T100's exit spot for a 64 × 48 box) and, in the client,
   `crates/game/tests/commands/factory.rs`.
+- **Air door tests** (slice M6-SD) are `crates/sim/tests/air_doors/`, under the invariants and the held store's
+  checks after every tick: `building` (the Forge and the Aerospace Assembly, each refused a tier lower and without its
+  prerequisite, their prices, frames and armour), `production` (the Phantom into the network behind an Optics Lab,
+  and its rally's auto-eject by the air exit door, its 16 ticks' rise holding still), `out` (the two lanes: five
+  Phantoms one every 8 ticks while Guards walk out of Side A, two rising at once, a rising one hit as an air target),
+  `entering` (a right-click's Enter by the air entry door, the descent hit as an air target, the door's rate, an
+  order or a lost Tunnel during it), `tiers` (each tier's refusals and right-clicks for a Guard, a Bike and a
+  Phantom, an upgrade to Tier 3 admitting none until it completes, the aircraft stranded), `edge` (a Tier 3 Tunnel
+  against each edge), `phantom` (its laser on a Peacekeeper and a Sparrow) and `saves` (mid-rise and mid-descent, and
+  the replay). A door's offset tuned past the map's edge is `tests/rules.rs`'s, the bound on `air_door_ticks`
+  `ruleset/check/tests.rs`'s. In the client, `command_ui/interface/tests/syndicate.rs` (the AA's Q, W, E, X and C,
+  the Phantom's F greyed by tier), the ExpandMenu's tests above (its S and F), `object_render/tunnel.rs` (the doors
+  drawn where the sim has them) and `object_render/flight.rs` (the rise and the descent drawn).
 - **Upgrade tests** (slice M4-G) are `crates/sim/tests/upgrades/`, under O1 after every tick: `costs` (2 then 4, 3
   then 6, a Tier 3 Tunnel in the Tier 2 price, two started together, 0232's refunds in either order, and the books
   over random starts and cancels), `blocked` (an own neighbour, an enemy's site and Tunnel by the truth, Mountain and
@@ -4178,7 +4204,8 @@ these.
   players (*Vision > Hidden objects*), so only their owner and the fog-less views draw them. **The Tunnel's look**
   (`object_render/tunnel.rs`, design changes 0224, 0248 and 0251) follows its tier and its sides as placed
   (`TunnelLook`, part of the `MeshKey`): Side A's two paths, ragged at Tier 1 and paved from Tier 2, a hatch on Sides
-  B (crystals' cyan) and D (Supplies' amber), none on C, and the Tier 3 air doors over the paths' halves; its tag
+  B (crystals' cyan) and D (Supplies' amber), none on C, and the Tier 3 air doors over the paths' halves, where the
+  sim has them and its size (`Paths::air_exit`, `Paths::air_entry`, `Tunnel::air_door_radius_su`); its tag
   names its tier (T1 to T3, `kinds::object_label`), to enemies too (design change 0258), a record's the tier last seen.
   **A site** (`Object::is_site`, slice M4-J1; `object_render/site.rs`, a placeholder) is drawn by being one, whatever
   its kind (`MeshKey::site`), on the surface or underground (an expansion's outline, slice M4-F): its footprint tinted
@@ -5427,8 +5454,9 @@ unchecked.
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
-  `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs` and
-  `main.rs`, the recording and the comparison in `harness.rs`): twenty-seven games, a 3v3 duel, a 40-unit
+  `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs`,
+  `syndicate_air.rs` and `main.rs`, the recording and the comparison in `harness.rs`): twenty-eight games, a 3v3 duel,
+  a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
   fire and lower them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1
@@ -5440,7 +5468,8 @@ unchecked.
   M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
   M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below),
   `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
-  M6-GD, below), `gdo_defense` (slice M6-GR, below) and `gdo_vehicles` (slice M6-GF, below), are blessed as replays
+  M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below) and `syndicate_air` (slice
+  M6-SD, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5557,7 +5586,15 @@ unchecked.
   2 Supplies) a Factory trains two Raptors and two Twisters, which drive out of side B and park round its default
   rally point, the first on it and each other at the free spot nearest it (design change 0451), then attack-move onto
   four Recruits and two Sparrows: the Raptors' missiles kill the Recruits, the Twisters' machine guns, which hit air
-  alone, the Sparrows, all six down by 1:33. The
+  alone, the Sparrows, all six down by 1:33. In `syndicate_air` (to 1:33.75, on an open test map, debug commands on for
+  player 1's Tier 3 and its 725 Space Crystals) a Tunnel expands a Forge behind its Vehicle Assembly while its Aerospace
+  Assembly, behind an Optics Lab, trains three Phantoms into the Tunnel Network: the first two, with no rally point, are
+  ejected together and come out over the air exit door 8 ticks apart, rising there for 16 ticks, the two at once for 8;
+  a surface rally point set then auto-ejects the third in the tick it is finished (`during`: each out over the door, its
+  rise begun). They AttackMove onto two of the GDO's Peacekeepers on Hold, whose attacks can't reach them, and a
+  Sparrow, which lands the only hit on them, and kill all three with their Universal lasers; sent home, each flies to
+  the air entry door and descends into it for 16 ticks, the door letting one down every 8 at most, two at once, and all
+  three end inside. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -5972,7 +6009,8 @@ examples, and against M5 (the Cults) by slice M5-Mb: M5's slices had added the C
    sides, so a new portal needs no code; see *Production*). `defs_are_consistent` checks that the letters name the
    type's sides.
    A doorway with a rally point gives the new unit its own right-click order at release (`orders::resolution`).
-   `ExitRule::Network` is a producer with no doorway (the Hideout, slice M4-C; the Vehicle Assembly, M6-SV): its
+   `ExitRule::Network` is a producer with no doorway (the Hideout, slice M4-C; the Vehicle Assembly, M6-SV; the
+   Aerospace Assembly, M6-SD): its
    units go into the held store
    (item 15), and a rally point brings them out of a Tunnel. `ExitRule::Runway` is a holder's that trains aircraft
    (the Airstrip, slice M5-N7): they take off along the runway between its two sides, its ground units leaving by

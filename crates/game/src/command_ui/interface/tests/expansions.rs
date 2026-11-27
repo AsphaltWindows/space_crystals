@@ -14,6 +14,8 @@ const HIDEOUT: ObjectKind = ObjectKind::Hideout;
 const OPTICS_LAB: ObjectKind = ObjectKind::OpticsLab;
 const CHEMICAL_PLANT: ObjectKind = ObjectKind::ChemicalPlant;
 const VEHICLE_ASSEMBLY: ObjectKind = ObjectKind::VehicleAssembly;
+const FORGE: ObjectKind = ObjectKind::Forge;
+const AEROSPACE_ASSEMBLY: ObjectKind = ObjectKind::AerospaceAssembly;
 const TURRET: ObjectKind = ObjectKind::LaserTurret;
 
 /// What the panel's `slot` says when pressed greyed out, if it is.
@@ -24,9 +26,10 @@ fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
 /// Design change 0291's verification, "The ExpandMenu shows nine expansion slots and then the turret": the Tech Tree's
 /// expansions in its order take Q, W, E, R, A, S, D, F and X (design change 0257: "entries take the grid slots in order
 /// (Q, W, E, R, A, S, …)", Z being Back), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice
-/// M4-K), the Vehicle Assembly in A (slice M6-SV), the five not in the game yet greyed, and the Laser Turret the
-/// tenth, C (slice M4-S2), greyed by its gate with its prerequisite while the player owns no Optics Lab. Each says
-/// what it builds and, greyed, why; Q, W, E and A enter their placements, and Z goes back to DefaultState.
+/// M4-K), the Vehicle Assembly in A (slice M6-SV), the Forge in S and the Aerospace Assembly in F (slice M6-SD), the
+/// three not in the game yet greyed, and the Laser Turret the tenth, C (slice M4-S2), greyed by its gate with its
+/// prerequisite while the player owns no Optics Lab. Each says what it builds and, greyed, why; Q, W, E, A, S and F
+/// enter their placements, and Z goes back to DefaultState.
 #[test]
 fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     use ButtonLook::{Back, Common, Unavailable};
@@ -43,9 +46,9 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
             (slot(0, 2), c(Expand(CHEMICAL_PLANT)), Common),
             (slot(0, 3), c(P(Vault)), Unavailable),
             (slot(1, 0), c(Expand(VEHICLE_ASSEMBLY)), Common),
-            (slot(1, 1), c(P(Forge)), Unavailable),
+            (slot(1, 1), c(Expand(FORGE)), Common),
             (slot(1, 2), c(P(NullChamber)), Unavailable),
-            (slot(1, 3), c(P(AerospaceAssembly)), Unavailable),
+            (slot(1, 3), c(Expand(AEROSPACE_ASSEMBLY)), Common),
             (CommandSlot::BACK, PanelButton::Back, Back),
             (slot(2, 1), c(P(OrbitalCommand)), Unavailable),
             (slot(2, 2), c(Expand(TURRET)), Common),
@@ -81,6 +84,9 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     assert_eq!(press(&menu, slot(0, 2)), SlotPress::AwaitExpansion(CHEMICAL_PLANT));
     assert_eq!(press(&menu, slot(0, 3)), SlotPress::Nothing);
     assert_eq!(press(&menu, slot(1, 0)), SlotPress::AwaitExpansion(VEHICLE_ASSEMBLY));
+    assert_eq!(press(&menu, slot(1, 1)), SlotPress::AwaitExpansion(FORGE));
+    assert_eq!(press(&menu, slot(1, 2)), SlotPress::Nothing);
+    assert_eq!(press(&menu, slot(1, 3)), SlotPress::AwaitExpansion(AEROSPACE_ASSEMBLY));
     assert_eq!(press(&menu, slot(2, 2)), SlotPress::AwaitExpansion(TURRET));
     // The turret's own gate greys it (slice M4-S2): its Optics Lab, as the Agent's D says it.
     let no_lab = Conditions::default().refusing(Expand(TURRET), Reject::Requires(OPTICS_LAB));
@@ -92,26 +98,38 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     assert_eq!(why_text(&without_a_lab, slot(2, 2)), Some("Requires an Optics Lab"));
     assert_eq!(press(&without_a_lab, slot(2, 2)), SlotPress::Nothing);
     // (M6-SV) The Vehicle Assembly's gate greys it the same way: a Tier 1 Tunnel ("Tier Requirement - 2"), and no
-    // Chemical Plant owned ("TechPrerequisite - player owns at least one Chemical Plant").
-    let expand = Expand(VEHICLE_ASSEMBLY);
-    for (reject, says) in [
+    // Chemical Plant owned ("TechPrerequisite - player owns at least one Chemical Plant"); (M6-SD) and the Forge's
+    // and the Aerospace Assembly's theirs: a Tunnel below Tier 2 or 3, and no Vehicle Assembly or Forge owned.
+    let tier = |kind, tier| (Reject::TierRequirement { kind, tier }, "This Tunnel's tier is too low");
+    let gates = [
+        (slot(1, 0), VEHICLE_ASSEMBLY, tier(VEHICLE_ASSEMBLY, 2)),
         (
-            Reject::TierRequirement {
-                kind: VEHICLE_ASSEMBLY,
-                tier: 2,
-            },
-            "This Tunnel's tier is too low",
+            slot(1, 0),
+            VEHICLE_ASSEMBLY,
+            (Reject::Requires(CHEMICAL_PLANT), "Requires a Chemical Plant"),
         ),
-        (Reject::Requires(CHEMICAL_PLANT), "Requires a Chemical Plant"),
-    ] {
+        (slot(1, 1), FORGE, tier(FORGE, 2)),
+        (
+            slot(1, 1),
+            FORGE,
+            (Reject::Requires(VEHICLE_ASSEMBLY), "Requires a Vehicle Assembly"),
+        ),
+        (slot(1, 3), AEROSPACE_ASSEMBLY, tier(AEROSPACE_ASSEMBLY, 3)),
+        (
+            slot(1, 3),
+            AEROSPACE_ASSEMBLY,
+            (Reject::Requires(FORGE), "Requires a Forge"),
+        ),
+    ];
+    for (slot, kind, (reject, says)) in gates {
         let refused = panel(
             &tunnel,
             InterfaceState::ExpandMenu,
-            &Conditions::default().refusing(expand, reject),
+            &Conditions::default().refusing(Expand(kind), reject),
         );
-        assert_eq!(refused.get(slot(1, 0)).map(|s| s.look), Some(ButtonLook::Disabled));
-        assert_eq!(why_text(&refused, slot(1, 0)), Some(says), "{reject:?}");
-        assert_eq!(press(&refused, slot(1, 0)), SlotPress::Nothing);
+        assert_eq!(refused.get(slot).map(|s| s.look), Some(ButtonLook::Disabled));
+        assert_eq!(why_text(&refused, slot), Some(says), "{reject:?}");
+        assert_eq!(press(&refused, slot), SlotPress::Nothing);
     }
     assert_eq!(press(&menu, CommandSlot::BACK), SlotPress::Back);
     assert_eq!(InterfaceState::ExpandMenu.back(&tunnel), InterfaceState::DefaultState);

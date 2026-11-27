@@ -110,6 +110,7 @@ impl StateHash for Mover {
             strafe,
             takeoff,
             reverses,
+            rise,
             // (M5-N10) Set in phase 5a and taken in 5d of the same tick: never set between ticks.
             turn_to: _,
         } = self;
@@ -192,6 +193,12 @@ impl StateHash for Mover {
         // field existed.
         if *reverses {
             h.tag(9);
+        }
+        // (M6-SD) Likewise only while an aircraft rises out of an air door: games without one hash as before the field
+        // existed.
+        if let Some(rise) = rise {
+            h.tag(10);
+            rise.hash(h);
         }
     }
 }

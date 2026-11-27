@@ -15,10 +15,15 @@
 //! before the run's end and rises evenly from there to its flight's height at the end ([`object_lift`]), its shadow
 //! under it all the way. Placeholder (Q0001): where on the run it lifts off. The shots at it and the bursts on it are
 //! drawn at its flight's height meanwhile, as before (`crate::combat_effects`, [`flight_lift`]).
+//!
+//! (M6-SD) An aircraft rising out of a Tier 3 Tunnel's air exit door, or descending into its air entry door
+//! (`sc_sim::network::door_lift`; design change 0431: "it **descends** into the entry door and **rises** out of the
+//! exit door over **16 frames (1 s) each**"), is drawn on the door at the bottom of it and at its flight's height at
+//! the top, evenly by the sim's whole ticks in between ([`object_lift`]), its shadow under it all the way.
 
 use bevy::prelude::*;
 use sc_sim::defs::Domain;
-use sc_sim::{Map, Object, ObjectId, ObjectKind};
+use sc_sim::{Map, Object, ObjectId, ObjectKind, network};
 
 use super::{ObjectVisual, object_height};
 use crate::coords::{DrawLayer, lift};
@@ -50,9 +55,15 @@ pub fn flight_lift(kind: ObjectKind, look: &LookTuning) -> f32 {
 
 /// (M5-N11) How far above the ground under it `o`, drawn at `pos`, is drawn, in terrain levels: an air unit's flight
 /// ([`flight_lift`]); on its takeoff run, none until `LookTuning::lift_off_su` before the run's end, then rising
-/// evenly to all of it at the end (module docs); nothing for anything else.
+/// evenly to all of it at the end (module docs); (M6-SD) at an air door, the share of its rise or of what is left of
+/// its descent (`network::door_lift`); nothing for anything else.
 pub fn object_lift(o: &Object, pos: Vec2, look: &LookTuning) -> f32 {
     let flight = flight_lift(o.kind, look);
+    if let Some(share) = network::door_lift(o)
+        && flight > 0.0
+    {
+        return flight * share;
+    }
     match o.mover.as_ref().and_then(|mover| mover.takeoff) {
         Some(takeoff) if flight > 0.0 => {
             let left = (takeoff.end - pos).dot(takeoff.along);
@@ -183,5 +194,57 @@ mod tests {
         let mut militant = t.sim().object(ObjectId(2)).expect("a Militant").clone();
         militant.mover.as_mut().expect("a mover").takeoff = Some(takeoff);
         assert_eq!(object_lift(&militant, Vec2::new(100.0, 300.0), &LOOK), 0.0);
+    }
+
+    /// (M6-SD) Design change 0431: a Phantom rising out of an air door over its 16 frames is drawn on the door with
+    /// none of them done, at half its flight's height with 8 done, and at all of it once risen; descending into the
+    /// entry door, at all of it with none done and at a quarter with 12 done.
+    #[test]
+    fn a_phantom_rising_out_of_an_air_door_and_descending_into_one_is_drawn_rising_and_sinking() {
+        use sc_sim::economy::RATIO_ONE;
+        use sc_sim::orders::state::Enter;
+        use sc_sim::orders::{ActiveOrder, Behaviour, Order, OrderGroup, OrderKind};
+        use sc_sim::progress::Progress;
+        use sc_sim::testing::ScenarioBuilder;
+        use sc_sim::{Faction, PlayerId, SpawnAt};
+        let p1 = PlayerId(1);
+        let t = ScenarioBuilder::new(&vec![".".repeat(16); 12].join("\n"))
+            .faction(p1, Faction::Syndicate)
+            .spawn(ObjectKind::Phantom, Some(p1), SpawnAt::Point(Vec2::new(300.0, 300.0)))
+            .start();
+        let phantom = t.sim().object(ObjectId(1)).expect("a Phantom");
+        let flight = LOOK.flight_lift_levels;
+        assert_eq!(object_lift(phantom, phantom.pos, &LOOK), flight, "in flight");
+        let done = |ticks: u32| Progress {
+            elapsed: ticks * RATIO_ONE,
+            total: 16,
+        };
+        let lift_rising = |ticks| {
+            let mut rising = phantom.clone();
+            rising.mover.as_mut().expect("a mover").rise = Some(done(ticks));
+            object_lift(&rising, rising.pos, &LOOK)
+        };
+        assert_eq!(
+            [lift_rising(0), lift_rising(8), lift_rising(15)],
+            [0.0, flight / 2.0, flight * 15.0 / 16.0]
+        );
+        let lift_descending = |ticks| {
+            let mut descending = phantom.clone();
+            let orders = descending.orders.as_mut().expect("orders");
+            orders.current = Some(ActiveOrder {
+                order: Order {
+                    kind: OrderKind::Enter(ObjectId(9)),
+                    group: OrderGroup(0),
+                    slot: None,
+                },
+                since: 1,
+                state: Behaviour::Enter(Enter {
+                    walked: false,
+                    descent: Some(done(ticks)),
+                }),
+            });
+            object_lift(&descending, descending.pos, &LOOK)
+        };
+        assert_eq!([lift_descending(0), lift_descending(12)], [flight, flight / 4.0]);
     }
 }

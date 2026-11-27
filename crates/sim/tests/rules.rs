@@ -6,7 +6,7 @@
 //! One duel throughout, `combat_duel.rs`'s: a Peacekeeper (id 1, player 1) and a Guard (id 2, player 2), 160 su apart,
 //! ordered to attack each other in tick 2. On the built-in rules the Guard wins, taking the Peacekeeper's 50 HP in
 //! three hits of 17, the last in tick 54, while the Peacekeeper lands three hits of 9 (its Damage 10, the Guard's
-//! Armor 1).
+//! Armor 1). (M6-SD) And a Tunnel's air doors tuned past the map's edge, which the built-in numbers never put there.
 
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
@@ -14,8 +14,9 @@ use sc_sim::defs::{AttackAttrs, MovementAttrs, UnitBase};
 use sc_sim::ruleset::RuleField;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
-    Command, DebugCommand, Footprint, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, Replay,
-    Ruleset, Sim, SimConfig, SimEvent, Tick, TickInputs, Vec2, energy,
+    Command, DebugCommand, Faction, Footprint, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId,
+    Reject, Replay, Ruleset, SU_PER_GU, Sim, SimConfig, SimEvent, SpawnAt, Tick, TickInputs, TilePos, TunnelCommand,
+    Vec2, energy, network,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -344,4 +345,91 @@ fn rules_that_change_more_than_numbers_are_refused() {
 
     let off = Sim::new(&ScenarioBuilder::new(MAP).config(SimConfig::default()).build());
     assert_eq!(check(&off, &numbers), Err(Reject::DebugDisabled));
+}
+
+/// (M6-SD) A Tunnel's air doors tuned past the map's edge (the brief: "A Tunnel by the map's edge may put its exit
+/// door's Phantom partly off the map [...] it never ends up placed off it"; `systems/units.md > Air Collision > Map
+/// edge`: "HoverCraft stay inside the map"): with `Tunnel::air_door_offset_su` at 200 su, from 52, a door lies 72 su
+/// beyond its Tunnel's footprint, and an aircraft goes in and comes out at the nearest point at which its box lies on
+/// the map (`network::door_spot`). Player 1's two Tier 3 Tunnels on a 40 × 24 map, unturned: one against the east edge,
+/// its air exit door (towards Side B) at x = 2632, past the edge at 2560, and one against the west edge, its air entry
+/// door (towards Side D) at x = -72. A Phantom right-clicks the west one: it flies to the entry door's spot, its half
+/// of 22 su from the edge, descends there for its 16 frames and goes in; ejected at the east one once its transit is
+/// over, it comes out at the exit door's spot, 22 su from the east edge, and rises there. Its box is on the map in
+/// every tick.
+#[test]
+fn air_doors_tuned_past_the_map_s_edge_keep_the_aircraft_on_the_map() {
+    let _one = one_at_a_time();
+    let mut rules = Ruleset::builtin();
+    rules.tuning.tunnel.air_door_offset_su = 200.0;
+    let (east, west, phantom) = (ObjectId(1), ObjectId(2), ObjectId(3));
+    let map = format!("{}\n", ".".repeat(40)).repeat(24);
+    let mut t = ScenarioBuilder::new(&map)
+        .faction(P1, Faction::Syndicate)
+        .faction(P2, Faction::Syndicate)
+        .spawn(ObjectKind::Tunnel, Some(P1), SpawnAt::Tile(TilePos::new(36, 10)))
+        .spawn(ObjectKind::Tunnel, Some(P1), SpawnAt::Tile(TilePos::new(0, 10)))
+        .start();
+    t.without_auto_targeting()
+        .debug_at(1, set_rules(&rules))
+        .debug_at(1, DebugCommand::SetTier { id: east, tier: 3 })
+        .debug_at(1, DebugCommand::SetTier { id: west, tier: 3 })
+        .spawn_unit_at(1, ObjectKind::Phantom, P1, Vec2::new(1280.0, 768.0))
+        .run_until(2);
+    assert_eq!(*t.sim().rules(), rules);
+    let doors = |t: &TestSim, id| network::Paths::of_object(t.sim().object(id).expect("a Tunnel")).unwrap();
+    let (exit, entry) = (doors(&t, east).air_exit, doors(&t, west).air_entry);
+    assert_eq!((exit, entry), (Vec2::new(2632.0, 768.0), Vec2::new(-72.0, 768.0)));
+    let size = Vec2::new(40.0, 24.0) * SU_PER_GU;
+    let on_the_map = |o: &Object| {
+        let half = o.def().half_extents().expect("a Silhouette");
+        o.pos.cmpge(half).all() && o.pos.cmple(size - half).all()
+    };
+    assert_eq!(
+        t.sim().default_order(phantom, sc_sim::Target::Object(west)),
+        Some(OrderKind::Enter(west))
+    );
+    t.order_at(3, P1, &[phantom], OrderKind::Enter(west), false);
+    let mut descended_at = None;
+    while t.sim().held_unit(phantom).is_none() {
+        assert!(t.sim().tick() < 600, "the Phantom goes in");
+        t.step();
+        let Some(o) = t.sim().object(phantom) else { continue };
+        assert!(on_the_map(o), "tick {}: {}", t.sim().tick(), o.pos);
+        if descended_at.is_none() && network::door_lift(o).is_some() {
+            descended_at = Some((t.sim().tick(), o.pos));
+        }
+    }
+    let (began, at) = descended_at.expect("a descent");
+    assert!(
+        at.distance(Vec2::new(22.0, 768.0)) <= 24.0,
+        "over the door's spot: {at}"
+    );
+    assert_eq!(t.sim().tick(), began + 16, "16 frames down");
+    let out = t.sim().tick() + network::rules().transit_delay + 1;
+    let eject = Command::Tunnel {
+        tunnel: east,
+        command: TunnelCommand::Eject {
+            kind: ObjectKind::Phantom,
+        },
+    };
+    t.at(out, P1, eject).run_until(out);
+    let o = t.sim().object(phantom).expect("out");
+    assert_eq!(o.pos, Vec2::new(2538.0, 768.0), "its box against the east edge");
+    for _ in 0..16 {
+        let o = t.sim().object(phantom).expect("out");
+        assert!(o.mover.as_ref().is_some_and(|mover| mover.rise.is_some()), "rising");
+        assert!(
+            on_the_map(o) && o.pos == Vec2::new(2538.0, 768.0),
+            "tick {}: {}",
+            t.sim().tick(),
+            o.pos
+        );
+        t.step();
+    }
+    let o = t.sim().object(phantom).expect("out");
+    assert!(
+        o.mover.as_ref().is_some_and(|mover| mover.rise.is_none()) && on_the_map(o),
+        "risen"
+    );
 }

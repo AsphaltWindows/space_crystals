@@ -246,7 +246,8 @@ fn the_rule_on_abilities_and_targets() {
         follow
     );
     // An own Tunnel (slice M4-C, `systems/controls/commands.md > Enter`): Enter for a unit its tier lets in, after a
-    // loaded worker's Drop Off there; never for an air unit, whatever the tier lists (no air doors in M4).
+    // loaded worker's Drop Off there; (M6-SD) an air unit's at Tier 3 alone, by the air doors (plan decision T96:
+    // "Enter on an own Tier 3 Tunnel for an air unit"), a Move to it below.
     let enter = OrderKind::Enter(ObjectId(5));
     let tunnel = |transit, drop_off| Aimed {
         transit,
@@ -277,7 +278,13 @@ fn the_rule_on_abilities_and_targets() {
         transit: Transit::Air,
         ..infantry
     };
-    assert_eq!(resolve(flyer, Aim::Object(tunnel(tier_3, false))), follow);
+    assert_eq!(resolve(flyer, Aim::Object(tunnel(tier_3, false))), enter);
+    let tier_2 = &[Transit::Infantry, Transit::Vehicles][..];
+    assert_eq!(
+        resolve(flyer, Aim::Object(tunnel(tier_2, false))),
+        follow,
+        "an air unit at Tier 2"
+    );
     let p = Vec2::new(1.0, 2.0);
     assert_eq!(resolve(drone(true), Aim::Ground(p)), OrderKind::Move(Target::Point(p)));
     // A Supply Delivery Station (slice M4-I, `factions/syndicate/units/agent.md > Right-Click Resolution`: "Supply

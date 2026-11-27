@@ -1,12 +1,13 @@
 //! Slice M6-SK's kinds through the gate (plan decision T84, design change 0367): the Syndicate's six other expansions
 //! and its seven other units, with the Laser Battery's and the Subterranean Transport's second types, are in the game,
 //! and no player makes one, each kept out until its slice by T69's rule, but the Vehicle Assembly and the Assault Bike,
-//! live since slice M6-SV (`tests/vehicle_assembly`). No Tunnel builds one of the five other expansions, a Tier 3 one
-//! with the bank, the place and every prerequisite included; no building trains one of the other units, the Vehicle
-//! Assembly training the Assault Bike alone and the Aerospace Assembly nothing yet; no Tunnel ejects one, none being
-//! inside; and only the debug spawn, with debug commands on, makes one, each then an object of its kind that works, a
-//! unit moving when ordered to. A deployed Laser Battery, immobile by its def (plan decision T87), stays where it is
-//! when ordered to move, and its move ends.
+//! live since slice M6-SV (`tests/vehicle_assembly`), and the Forge, the Aerospace Assembly and the Phantom, live since
+//! slice M6-SD (`tests/air_doors`). No Tunnel builds one of the three other expansions, a Tier 3 one with the bank, the
+//! place and every prerequisite included; no building trains one of the other units, the Vehicle Assembly training
+//! the Assault Bike alone and the Aerospace Assembly the Phantom alone; no Tunnel ejects one, none being inside; and
+//! only the debug spawn, with debug commands on, makes one, each then an object of its kind that works, a unit moving
+//! when ordered to. A deployed Laser Battery, immobile by its def (plan decision T87), stays where it is when ordered
+//! to move, and its move ends.
 //!
 //! Every test runs under the invariants of `TestSim`.
 
@@ -18,31 +19,21 @@ use sc_sim::{
 
 const P1: PlayerId = PlayerId(1);
 
-/// The five expansions still out of play, in the Tech Tree's order (`factions/syndicate/structures/README.md`): the six
-/// but the Vehicle Assembly (slice M6-SV).
-const EXPANSIONS: [ObjectKind; 5] = [
-    ObjectKind::Vault,
-    ObjectKind::Forge,
-    ObjectKind::NullChamber,
-    ObjectKind::AerospaceAssembly,
-    ObjectKind::OrbitalCommand,
-];
+/// The three expansions still out of play, in the Tech Tree's order (`factions/syndicate/structures/README.md`): the
+/// six but the Vehicle Assembly (slice M6-SV), the Forge and the Aerospace Assembly (slice M6-SD).
+const EXPANSIONS: [ObjectKind; 3] = [ObjectKind::Vault, ObjectKind::NullChamber, ObjectKind::OrbitalCommand];
 
-/// The eight unit types still out of play, each unit's second type after its first
-/// (`factions/syndicate/units/README.md`): the nine but the Assault Bike (slice M6-SV).
-const UNITS: [ObjectKind; 8] = [
+/// The seven unit types still out of play, each unit's second type after its first
+/// (`factions/syndicate/units/README.md`): the nine but the Assault Bike (slice M6-SV) and the Phantom (slice M6-SD).
+const UNITS: [ObjectKind; 7] = [
     ObjectKind::Shadebringer,
     ObjectKind::LaserBattery,
     ObjectKind::LaserBatteryDeployed,
     ObjectKind::SubterraneanTransport,
     ObjectKind::SubterraneanTransportBurrowed,
-    ObjectKind::Phantom,
     ObjectKind::Specter,
     ObjectKind::Prism,
 ];
-
-/// The air units among [`UNITS`], which no Tunnel lets through until the air doors (`Tunnel::air_doors`).
-const AIR: [ObjectKind; 3] = [ObjectKind::Phantom, ObjectKind::Specter, ObjectKind::Prism];
 
 /// Player 1's Tunnel in [`full_base`], on tiles (4, 8) to (7, 11), at Tier 3: its area is (0, 4) to (11, 15).
 const T1: ObjectId = ObjectId(1);
@@ -51,7 +42,7 @@ const H1: ObjectId = ObjectId(2);
 /// Player 1's Vehicle Assembly in [`full_base`], a debug spawn: the Forge's prerequisite, and a producer of the
 /// Assault Bike alone.
 const VA: ObjectId = ObjectId(5);
-/// Player 1's Aerospace Assembly in [`full_base`], a debug spawn.
+/// Player 1's Aerospace Assembly in [`full_base`], a debug spawn, a producer of the Phantom alone (slice M6-SD).
 const AA: ObjectId = ObjectId(7);
 /// A free place in [`T1`]'s Tier 3 area for a 3 × 3 or a 2 × 2: (8, 8) to (10, 10).
 const FREE: TilePos = TilePos::new(8, 8);
@@ -78,7 +69,7 @@ fn gate(t: &TestSim, command: Command) -> Result<(), Reject> {
     t.sim().validate(&PlayerCommand { player: P1, command })
 }
 
-/// Player 1 plays the Syndicate on a flat 40 × 20 map with every prerequisite of the five expansions and of the eight
+/// Player 1 plays the Syndicate on a flat 40 × 20 map with every prerequisite of the three expansions and of the seven
 /// units' recipes, and 10 000 Space Crystals: the Tunnel [`T1`] at Tier 3 and the Hideout [`H1`], then, debug spawns
 /// in its area from tick 1, which has run, an Optics Lab (3), a Chemical Plant (4), the Vehicle Assembly [`VA`], a
 /// Forge (6), the Aerospace Assembly [`AA`], a Vault (8) and an Orbital Command (9). Auto-targeting is off.
@@ -121,7 +112,7 @@ fn full_base() -> TestSim {
     t
 }
 
-/// "Expand" (`factions/syndicate/tunnel_menus.md > ExpandMenu`): no Tunnel builds one of the five, none having an
+/// "Expand" (`factions/syndicate/tunnel_menus.md > ExpandMenu`): no Tunnel builds one of the three, none having an
 /// expansion's tier, cost and time in its def until its slice: the gate refuses each Expand
 /// ([`Reject::CannotConstruct`]) at a Tier 3 Tunnel with every prerequisite, 10 000 Space Crystals and a free place in
 /// its area, where it takes the Optics Lab's; and the command, sent anyway, starts nothing.
@@ -156,12 +147,12 @@ fn no_tunnel_builds_one_of_the_new_expansions() {
 }
 
 /// Producing (`core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`): no building trains one of the
-/// eight. Sent to the Hideout with the Vehicle Assembly and the Aerospace Assembly, with every recipe's prerequisite
+/// seven. Sent to the Hideout with the Vehicle Assembly and the Aerospace Assembly, with every recipe's prerequisite
 /// and 10 000 Space Crystals, a Train of each is refused as no producer's recipe ([`Reject::CannotProduce`]), where
-/// the Hideout takes the Guard's and the Vehicle Assembly the Assault Bike's (slice M6-SV); sent to the Vehicle
-/// Assembly alone, as not its recipe, the Shadebringer's, the Laser Battery's and the Subterranean Transport's waiting
-/// for their slices; sent to the Aerospace Assembly alone, as no producer at all ([`Reject::NoProducers`]): it produces
-/// nothing until slice M6-SD.
+/// the Hideout takes the Guard's, the Vehicle Assembly the Assault Bike's (slice M6-SV) and the Aerospace Assembly the
+/// Phantom's (slice M6-SD); sent to the Vehicle Assembly alone, as not its recipe, the Shadebringer's, the Laser
+/// Battery's and the Subterranean Transport's waiting for their slices; sent to the Aerospace Assembly alone, as not
+/// its recipe either, the Specter's and the Prism's waiting for slices M6-SA and M6-SP.
 #[test]
 fn no_building_trains_one_of_the_new_units() {
     let t = full_base();
@@ -180,6 +171,11 @@ fn no_building_trains_one_of_the_new_units() {
         Ok(()),
         "the Vehicle Assembly's Assault Bike"
     );
+    assert_eq!(
+        gate(&t, train(every.clone(), ObjectKind::Phantom)),
+        Ok(()),
+        "the Aerospace Assembly's Phantom"
+    );
     for kind in UNITS {
         assert_eq!(
             gate(&t, train(every.clone(), kind)),
@@ -191,14 +187,17 @@ fn no_building_trains_one_of_the_new_units() {
             Err(Reject::CannotProduce(kind)),
             "{kind:?}"
         );
-        assert_eq!(gate(&t, train(vec![AA], kind)), Err(Reject::NoProducers), "{kind:?}");
+        assert_eq!(
+            gate(&t, train(vec![AA], kind)),
+            Err(Reject::CannotProduce(kind)),
+            "{kind:?}"
+        );
     }
 }
 
-/// "Eject" (`factions/syndicate/tunnel_menus.md > EjectMenu`): no Tunnel ejects one of the eight, none being in the
-/// network. At the Tier 3 Tunnel, which lets vehicles through, a ground unit's Eject is refused as none inside
-/// ([`Reject::NotInNetwork`]: its tile's count is 0); an air unit's as no transit, there being no air doors yet
-/// (`Tunnel::air_doors`, [`Reject::NoTransit`]).
+/// "Eject" (`factions/syndicate/tunnel_menus.md > EjectMenu`): no Tunnel ejects one of the seven, none being in the
+/// network. At the Tier 3 Tunnel, which lets vehicles through and (slice M6-SD) aircraft by its air doors, each Eject
+/// is refused as none inside ([`Reject::NotInNetwork`]: its tile's count is 0), the Specter's and the Prism's too.
 #[test]
 fn no_tunnel_ejects_one_of_the_new_units() {
     let t = full_base();
@@ -207,19 +206,11 @@ fn no_tunnel_ejects_one_of_the_new_units() {
             tunnel: T1,
             command: TunnelCommand::Eject { kind },
         };
-        let refused = if AIR.contains(&kind) {
-            Reject::NoTransit {
-                tunnel: T1,
-                kind: Some(kind),
-            }
-        } else {
-            Reject::NotInNetwork(kind)
-        };
-        assert_eq!(gate(&t, eject), Err(refused), "{kind:?}");
+        assert_eq!(gate(&t, eject), Err(Reject::NotInNetwork(kind)), "{kind:?}");
     }
 }
 
-/// Where [`only_the_debug_spawn_makes_one`] spawns each of the thirteen on a flat 64 × 16 map: an expansion on the
+/// Where [`only_the_debug_spawn_makes_one`] spawns each of the ten on a flat 64 × 16 map: an expansion on the
 /// tiles of row 1, 5 tiles apart, a unit at the centre of a tile of row 9, 4 tiles apart.
 fn spawn_at(i: usize, kind: ObjectKind) -> SpawnAt {
     let i = i as i32;
@@ -230,7 +221,7 @@ fn spawn_at(i: usize, kind: ObjectKind) -> SpawnAt {
     }
 }
 
-/// The editor's debug spawn makes each of the thirteen (`DebugCommand::Spawn`), and nothing else does: with debug
+/// The editor's debug spawn makes each of the ten (`DebugCommand::Spawn`), and nothing else does: with debug
 /// commands off, the gate refuses each ([`Reject::DebugDisabled`]); on, each comes into the game, player 1's, of its
 /// kind at its full MaxHP. Each unit but the deployed Laser Battery then moves when ordered to: 200 frames on, it is
 /// nearer its goal, 4 grid units south, by a grid unit at least, the Prism's slow drift included.
@@ -262,7 +253,7 @@ fn only_the_debug_spawn_makes_one() {
         .filter(|o| o.mover.is_some() && o.kind != ObjectKind::LaserBatteryDeployed)
         .map(|o| (o.id, o.pos + Vec2::new(0.0, gu(4.0))))
         .collect();
-    assert_eq!(mobile.len(), 7);
+    assert_eq!(mobile.len(), 6);
     for &(id, goal) in &mobile {
         t.order_at(2, P1, &[id], OrderKind::Move(Target::Point(goal)), false);
     }

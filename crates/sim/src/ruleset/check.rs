@@ -16,7 +16,8 @@
 //!   Silhouette's longer side (`systems/units.md > Air Collision`: "Must be larger than the unit's Silhouette"); a
 //!   default rally point lies out of its building (`ProductionDef::default_rally`, which isn't structure, so the
 //!   signs don't take it); (M6-GD) a stock's purchase takes at most [`LONGEST_RECIPE`] ticks, as a recipe, and a unit
-//!   starts with at most its stock's max (`UnitDef::stock`).
+//!   starts with at most its stock's max (`UnitDef::stock`); (M6-SD) so does an aircraft's rise and descent at an air
+//!   door (`UnitDef::air_door_ticks`), counted in fixed point as well (`Mover::rise`, `orders::state::Enter::descent`).
 
 use super::structure::{Skeleton, variant_name};
 use super::{RuleField, Ruleset};
@@ -129,6 +130,14 @@ fn def_bounds(kind: ObjectKind, def: &ObjectDef) -> Option<Invalid> {
         if stock.start > stock.max {
             return invalid("start", "must be at most the stock's max");
         }
+    }
+    // (M6-SD) The rise out of an air door and the descent into one count their progress in fixed point too.
+    if def
+        .unit
+        .as_ref()
+        .is_some_and(|unit| unit.air_door_ticks > LONGEST_RECIPE)
+    {
+        return invalid("air_door_ticks", "must be at most 65535 ticks");
     }
     None
 }

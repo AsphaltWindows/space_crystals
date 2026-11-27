@@ -13,6 +13,15 @@
 //! waiting rule: a unit heading for the entry path moves like any unit [...]; if the way is genuinely blocked, the
 //! normal Failure rule applies".
 //!
+//! (M6-SD) **An air unit** flies to the centre of the Tunnel's air entry door instead (`network::EntryPath::air_door`,
+//! plan decision T96: "An air unit's Enter flies it to the entry door"; `factions/syndicate/tunnels.md > Tunnel > Look
+//! by tier`: "Aircraft use these doors, not the Side A paths"), by the movement every air unit has. Once its centre is
+//! over the door (`network::over_door`; the plan's D46: "it is taken in once it is over the door"), the door lets it
+//! descend in its turn (`Sim::step_entries`), and it flies on to the door's centre as it does. Aircraft collide with
+//! nothing, so no Failure rule ends its flight: one that comes to rest off the door before its descent (pushed off by
+//! the air units' soft separation while it waits its turn, `movement::air`, or given up by the stuck rule while they
+//! keep it off) flies back to it. **Placeholder (not in the design: an aircraft waiting its turn at the entry door)**.
+//!
 //! The behaviour only walks, and never completes the order itself: the step right after phase 5a does
 //! (`Sim::step_entries`), by taking the unit off the map once it has walked in, or by ending the order of a unit
 //! whose walk ended short of the path or whose target no longer suits it, with the events and the removal a
@@ -23,6 +32,7 @@ use glam::Vec2;
 use crate::ids::ObjectId;
 use crate::math;
 use crate::mover::{MoveGoal, MoveStatus};
+use crate::network;
 use crate::shape::Shape;
 
 use super::state::Enter;
@@ -32,9 +42,12 @@ use super::world::{Unit, World};
 /// against the wall. With no such Tunnel or building it stands, and its walk is over at once. (M6-SV) Its box is the
 /// one it has driving in, facing the wall: a vehicle's Silhouette turned with it (slice M5-V1, `Shape::silhouette`),
 /// so that a Bike's walk ends 28 su from a north- or south-facing side, its length against it, where it can stand; a
-/// square Silhouette's is its own.
+/// square Silhouette's is its own. (M6-SD) An air unit heads for the centre of a Tunnel's air entry door
+/// ([`air_door`]).
 pub(super) fn begin(target: ObjectId, unit: &mut Unit, world: &World) -> Enter {
-    if let Some(path) = world.entry_path(target)
+    if let Some(door) = air_door(target, unit, world) {
+        unit.mover.go_to(MoveGoal::Point(door), None, world.tick);
+    } else if let Some(path) = world.entry_path(target)
         && unit.kind.def().silhouette().is_some()
     {
         let facing = math::vector_angle(-path.outward);
@@ -45,10 +58,28 @@ pub(super) fn begin(target: ObjectId, unit: &mut Unit, world: &World) -> Enter {
 }
 
 /// One tick of the walk. It is over once the move ended, whatever its outcome (`MoveStatus::Arrived`, `Failed`: the
-/// normal Failure rule, design change 0247). Never complete (module docs).
-pub(super) fn run(state: &mut Enter, unit: &Unit) -> bool {
-    if unit.mover.status != MoveStatus::Moving {
-        state.walked = true;
+/// normal Failure rule, design change 0247). (M6-SD) An air unit's flight never is: at rest off the air entry door
+/// before its descent, it flies back (module docs). Never complete (module docs).
+pub(super) fn run(target: ObjectId, state: &mut Enter, unit: &mut Unit, world: &World) -> bool {
+    if unit.mover.status == MoveStatus::Moving {
+        return false;
+    }
+    match air_door(target, unit, world) {
+        None => state.walked = true,
+        Some(door) => {
+            if state.descent.is_none() && !network::over_door(door, unit.pos) {
+                unit.mover.go_to(MoveGoal::Point(door), None, world.tick);
+            }
+        }
     }
     false
+}
+
+/// (M6-SD) Where at the air entry door `unit` flies to for an Enter on `target`: an air unit's, at a Tunnel
+/// (`network::uses_air_doors`, `network::EntryPath::air_door`), the door's centre, inside the map
+/// (`network::door_spot`); `None` for a ground unit, and at a building that holds units.
+fn air_door(target: ObjectId, unit: &Unit, world: &World) -> Option<Vec2> {
+    let door = world.entry_path(target)?.air_door?;
+    let half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO);
+    network::uses_air_doors(unit.kind).then(|| network::door_spot(world.map, door, half))
 }
