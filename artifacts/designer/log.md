@@ -2396,3 +2396,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0165 answered from docs + placeholder: Phantom 16 f descend/rise, air target (0431).
 - Q0166 (user: 1a, 2a, 3c): Transport rules (0432).
 - Q0167 (user: 1a, 2a): smoke reveals attackers; blocks Scan inside (0433).
+- Q0168 answered from docs + placeholders: Prism panel, Thrust queueable, orders held during launch (0434).
