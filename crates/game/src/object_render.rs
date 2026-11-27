@@ -111,6 +111,11 @@ struct MeshKey {
     /// design change 0360: a turret that lost its Tunnel is down for good, and seen by everyone); an owned turret is
     /// seen by others only while it isn't lowered, and so remembered.
     lowered: bool,
+    /// (M6-CM) Whether the object is an illusion of the local player's (`sc_sim::mirage`), which its owner alone sees
+    /// as one ([`illusion_color`]; `factions/cults/units/disciple.md > Spells > Mirage`: "**Seen by the owner**: they
+    /// **look different on the screen**"; "**Seen by enemies**: exactly like a Disciple"). The debug player switch
+    /// (F2) changes it, which makes the visual anew.
+    illusion: bool,
 }
 
 impl MeshKey {
@@ -130,6 +135,7 @@ impl MeshKey {
             site: false,
             tunnel: TunnelLook::of(kind, tunnel, placement),
             lowered: false,
+            illusion: false,
         }
     }
 
@@ -139,13 +145,14 @@ impl MeshKey {
         underground(self.kind) || self.lowered
     }
 
-    /// The live `object`'s, in the form it is in ([`drawn_kind`]).
-    fn of_object(object: &Object) -> Self {
+    /// The live `object`'s, in the form it is in ([`drawn_kind`]), as the local player `viewer` sees it.
+    fn of_object(object: &Object, viewer: PlayerId) -> Self {
         let placement = object.placement.as_ref();
         Self {
             transforming: object.is_transforming(),
             site: object.is_site(),
             lowered: sc_sim::popup::is_lowered(object),
+            illusion: object.owner == Some(viewer) && sc_sim::mirage::is_illusion(object),
             ..Self::of(drawn_kind(object), object.owner, placement, object.tunnel.clone())
         }
     }
@@ -321,11 +328,13 @@ fn visual_mesh(key: MeshKey) -> Mesh {
         site,
         tunnel,
         lowered,
+        illusion,
     } = key;
-    let color = match (transforming, site) {
-        (true, _) => transforming_color(player_color(owner)),
-        (false, true) => site::site_color(player_color(owner)),
-        (false, false) => player_color(owner),
+    let color = match (transforming, site, illusion) {
+        (true, ..) => transforming_color(player_color(owner)),
+        (false, true, _) => site::site_color(player_color(owner)),
+        (false, false, true) => illusion_color(player_color(owner)),
+        (false, false, false) => player_color(owner),
     };
     match size {
         Some((w, h)) => {
@@ -358,6 +367,16 @@ const TRANSFORMING_TINT: Srgba = Srgba::rgb(0.62, 0.96, 1.0);
 /// Warp In looks; the design gives none.
 pub fn transforming_color(color: Color) -> Color {
     color.to_srgba().mix(&TRANSFORMING_TINT, 0.5).into()
+}
+
+/// (M6-CM) The pale lilac that an own illusion's colour turns towards.
+const ILLUSION_TINT: Srgba = Srgba::rgb(0.93, 0.86, 1.0);
+
+/// (M6-CM) The colour of an illusion of the local player's ([`MeshKey::illusion`]), from its owner's `color`: most of
+/// the way to a pale lilac, a washed-out Disciple. Placeholder (not in the design, which says only that "they **look
+/// different on the screen**", `factions/cults/units/disciple.md > Spells > Mirage`; Q0001's art direction).
+pub fn illusion_color(color: Color) -> Color {
+    color.to_srgba().mix(&ILLUSION_TINT, 0.65).into()
 }
 
 /// Player colours, by player number: those of the editor's slots, whose players they are by default.

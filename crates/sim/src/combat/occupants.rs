@@ -7,8 +7,9 @@
 //! - **When** ([`step`]): in phase 5e, right after the units' and the structures' own attacks: each operational
 //!   building whose occupants fire, in id order, its units in the pool's order (`Sim::held_in`: longest inside first).
 //! - **Their sequence**: each runs its own `AttackState`, which it keeps while inside and loses as it leaves
-//!   (`Sim::put_on_map`; a Disciple, whose type has no attack, has one only while inside), through the phases every
-//!   attack shares (`super::phases`), from the building: its footprint,
+//!   (`Sim::put_on_map`: one whose type has no attack has one only while inside, none so far, a Disciple firing
+//!   nothing since design change 0450), through the phases every attack shares (`super::phases`), from the building:
+//!   its footprint,
 //!   its elevation, its owner and its owner's vision (`super::phases::Shooter::occupant`), firing in any direction, as a
 //!   structure does. Range and MinRange are measured from the footprint's edge ("**Range** is measured **from the
 //!   Garrison's edge** (its footprint), including a Gunner's MinRange"), and the shots leave from the footprint's edge
@@ -20,10 +21,13 @@
 //!   building's SightRange is part of, and to which the units inside add nothing, being off the map ("Units inside see
 //!   with the Garrison's SightRange").
 //! - **Weapons** ([`weapon`]): a stand-in's attack for the kinds that fire another kind's, as the stand-in type's def
-//!   has it ("a Recruit or Disciple inside attacks with the Militant's AttackAttributes"; "**Augmentations don't change
-//!   the borrowed attack**"), else the unit's own weapon (`super::weapon`, (M5-N1a) with its Augmentations', which
-//!   leave an armed unit's as it is), with the Range bonus of its kind ("**Militants and Gunners** inside get **+1
-//!   grid unit of Range**"). "**No spells from inside**": an attack is all they use.
+//!   has it ("a Recruit inside attacks with the Militant's AttackAttributes"; "**Augmentations don't change the
+//!   borrowed attack**"), else the unit's own weapon (`super::weapon`, (M5-N1a) with its Augmentations', which leave an
+//!   armed unit's as it is), with the Range bonus of its kind ("**Militants and Gunners** inside get **+1 grid unit of
+//!   Range**"). "**No spells from inside**": an attack is all they use. (M6-CM) "a **Disciple or illusion inside
+//!   doesn't attack**" (design change 0450, replacing "Disciples fire as Militants"): with no stand-in and no weapon
+//!   of its own, it has none to fire, so it fires nothing and threatens nothing ([`Threats`]): a Garrison holding only
+//!   Disciples and illusions is no threat.
 //! - **Revealed** (`core/vision.md > Attacks from outside vision`): a unit inside that hits an object of a player who
 //!   doesn't see it reveals the building it fires from ([`building_of`]), where its shots come from.
 //! - **Seen as a threat** ([`Threats`]; slice M5-S2b, design change 0377, answering Q0139): "enemies' target scans treat
@@ -210,8 +214,8 @@ pub(super) fn step(
         };
         // (M5-N11) One suppressed before it went in holds its fire in here too (`crate::suppress`).
         let holds_fire = suppress::holds_fire(&held.object);
-        // A unit whose type has no attack (the Disciple) fires its stand-in's with a sequence of its own while inside,
-        // which it loses as it leaves (`Sim::put_on_map`).
+        // A unit whose type has no attack would fire its stand-in's with a sequence of its own while inside, which it
+        // loses as it leaves (`Sim::put_on_map`): none so far, the Disciple firing nothing (design change 0450).
         let Object { attack, facing, .. } = &mut held.object;
         let state = attack.get_or_insert_with(AttackState::default);
         let sight = building.owner.and_then(|owner| vision.player(owner));

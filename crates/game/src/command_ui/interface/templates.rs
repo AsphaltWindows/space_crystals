@@ -33,7 +33,7 @@ pub mod syndicate;
 
 use sc_sim::defs::SpellDef;
 use sc_sim::{AreaAbility, ObjectKind};
-use sc_sim::{aircraft, conversion, tether, vehicle_deploy};
+use sc_sim::{aircraft, conversion, mirage, tether, vehicle_deploy};
 
 pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
@@ -345,7 +345,8 @@ pub use sc_sim::combat::can_target_ground;
 /// whose item is on a leash, `sc_sim::defs::UnitDef::tether`; [`gdo::drone_operator`]); (M6-GH1) an aircraft, one with
 /// ammo (`sc_sim::aircraft::def_of`), the Hornet, Return to Base in F ([`PanelCommand::ReturnToBase`]); (M6-GA) a unit
 /// of a type that deploys into another (`sc_sim::defs::UnitDef::vehicle_deploy`), the Artillery Rig, its Deploy or
-/// Undeploy in R ([`PanelCommand::VehicleDeploy`], [`gdo::artillery_rig`]). These are the commands the type offers
+/// Undeploy in R ([`PanelCommand::VehicleDeploy`], [`gdo::artillery_rig`]); (M6-CM) a unit that casts Mirage, the
+/// Disciple, Mirage in F ([`PanelCommand::Mirage`], `sc_sim::mirage::def_of`). These are the commands the type offers
 /// ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a constructor's panel follows its state
 /// ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
@@ -385,12 +386,21 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     if let Some(deploy) = vehicle_deploy::def_of(kind) {
         grid[gdo::artillery_rig::DEPLOY_SLOT] = Some(PanelCommand::VehicleDeploy(deploy.into));
     }
+    if mirage::def_of(kind).is_some() {
+        grid[MIRAGE_SLOT] = Some(PanelCommand::Mirage);
+    }
     grid
 }
 
 /// (M6-GH1) `factions/gdo/units/hornet.md > AttackAttributes`: "Panel: BasicCombatUnitInterfaceState plus **F: Return to
 /// Base**" (`factions/gdo/structures/airfield.md > Returning and rearming`: "hotkey **F**, placeholder").
 const RETURN_TO_BASE_SLOT: usize = 7;
+
+/// (M6-CM) `factions/cults/units/disciple.md > Placeholder stats`: "ObjectInterfaceState:
+/// BasicCombatUnitInterfaceState, plus **R: Shroud** and **F: Mirage**"
+/// (`factions/cults/units/disciple.md > Placeholder stats > Mirage numbers`: "hotkey **F** (designer placeholders,
+/// 2026-11-27; W is the panel's Reverse slot)").
+const MIRAGE_SLOT: usize = 7;
 
 /// `systems/controls/interface.md > CommandPanel > Standard Slot Assignments` (design changes 0397 and 0399): "**A:
 /// Attack, on every unit** (user, 2026-11-27): Attack is always in slot **A**, whichever group is in focus, so the

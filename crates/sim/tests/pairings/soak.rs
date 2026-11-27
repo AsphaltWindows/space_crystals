@@ -20,7 +20,8 @@
 //! (`watch`):
 //! - **Unit Control** (T65: "the sum of the Cults usages plus the orphans equals the Cults units alive"): for each
 //!   Cults player, their Halls' usages and their orphaned points (`Lineages`) are the Unit Control costs of their
-//!   units, on the map and held, and of their Halls' Recruits in production, and the HUD's figure (`Sim::army_cap`).
+//!   units, on the map and held, but (M6-CM) for their illusions, and of their Halls' Recruits in production, and the
+//!   HUD's figure (`Sim::army_cap`).
 //! - **Held units** (T65: "held units are only in buildings that exist"): a unit held in a building is in one that is
 //!   on the map, holds units, and is its owner's; one held at a site, in a site.
 //! - **Sites** (T65: "a site's progress is never above its total").
@@ -190,6 +191,8 @@ struct Tally {
     /// Casts, by ability: Health regeneration, Energy regeneration, Inspire, Suppress, Scan.
     casts: [u32; 5],
     shrouds: u32,
+    /// (M6-CM) Mirages cast.
+    mirages: u32,
     crushed: u32,
     /// Unit ticks spent holding fire, and buffs that ended as their time was up.
     suppressed: u64,
@@ -212,6 +215,7 @@ impl Tally {
             *mine += theirs;
         }
         self.shrouds += other.shrouds;
+        self.mirages += other.mirages;
         self.crushed += other.crushed;
         self.suppressed += other.suppressed;
         self.ended += other.ended;
@@ -225,12 +229,13 @@ impl Tally {
         let [health, energy, inspire, suppress, scan] = self.casts;
         format!(
             "{} Armories destroyed, {} units evacuated, {} trainings refunded; casts: {health} Health regeneration, \
-             {energy} Energy regeneration, {inspire} Inspire, {suppress} Suppress, {scan} Scan; {} Shrouds; {} buffs ended on time; \
+             {energy} Energy regeneration, {inspire} Inspire, {suppress} Suppress, {scan} Scan; {} Shrouds; {} Mirages; {} buffs ended on time; \
              {} unit ticks suppressed; {} crushed; {} attacks, {} deaths; {} Glider ticks off the map, at most {:.0} su",
             self.destroyed,
             self.evacuated,
             self.refunded,
             self.shrouds,
+            self.mirages,
             self.ended,
             self.suppressed,
             self.crushed,

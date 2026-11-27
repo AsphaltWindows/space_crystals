@@ -155,8 +155,8 @@ impl Sim {
     /// of an exit doorway, `Sim::doorway_spot`, slice M5-F1). Returns whether there was such a held unit. (M5-N2) It
     /// comes out with no attack under way: one that fired from inside (`combat::occupants`, plan decision T72: "A held
     /// object keeps it, and leaving clears it") drops its target and its sequence, as every unit held had at
-    /// [`Sim::take_off_map`], and a unit without a weapon of its own (a Disciple, which fired its stand-in's) the
-    /// sequence it had inside.
+    /// [`Sim::take_off_map`], and a unit without a weapon of its own that fired a stand-in's the sequence it had inside
+    /// (none since design change 0450, under which a Disciple fires nothing from inside).
     pub(super) fn put_on_map(&mut self, id: ObjectId, pos: Vec2, facing: Vec2) -> bool {
         let Some(Held { mut object, .. }) = self.held.remove(&id) else {
             return false;
@@ -175,16 +175,22 @@ impl Sim {
     /// The held units `ids` leave the game (`factions/syndicate/tunnels.md > Losing Tunnels > Stranded units`: "any
     /// unit inside the Tunnel Network that can no longer exit through any remaining Tunnel [...] is destroyed"; slice
     /// M4-H calls it), each with a `SimEvent::Removed`, in id order; an eject queue that reserved one lets it go.
+    /// (M6-CM) A Disciple's illusions go with it, those held too and those on the map after it, through the removal
+    /// path (`Sim::illusions_of`, `crate::mirage`).
     pub(super) fn remove_held(&mut self, ids: &[ObjectId]) {
+        let (illusions, held_illusions) = self.illusions_of(ids);
         let mut gone: Vec<ObjectId> = ids.to_vec();
+        gone.extend(held_illusions);
         gone.sort_unstable();
         gone.dedup();
         gone.retain(|id| self.held.remove(id).is_some());
-        if gone.is_empty() {
-            return;
+        if !gone.is_empty() {
+            self.events.extend(gone.iter().map(|&id| SimEvent::Removed(id)));
+            self.forget_references(&gone);
         }
-        self.events.extend(gone.iter().map(|&id| SimEvent::Removed(id)));
-        self.forget_references(&gone);
+        if !illusions.is_empty() {
+            self.remove_objects(&illusions);
+        }
     }
 
     /// Defeat-time cleanup (plan decision T30), right after the defeat check: the units held for a defeated player

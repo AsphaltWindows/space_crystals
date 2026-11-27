@@ -469,6 +469,10 @@ impl<'a> Arrival<'a> {
             SimEvent::StockBought { unit } => self.owner(unit),
             // (M6-GA) An order the unit's deploy dropped: its owner's feedback, as an order the gate refused.
             SimEvent::OrderDropped { unit, .. } => self.owner(unit),
+            // (M6-CM) A Mirage names its illusions, which only their owner may tell from Disciples
+            // (`factions/cults/units/disciple.md > Spells > Mirage`: "enemies can't tell them apart"): to the caster's
+            // owner alone. Everyone else sees Disciples come, by their `SimEvent::Spawned`.
+            SimEvent::Mirage { disciple, .. } => self.owner(disciple),
         }
     }
 }

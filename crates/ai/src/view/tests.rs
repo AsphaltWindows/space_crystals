@@ -1,6 +1,7 @@
 //! The View's fog rule (`core/game_rules.md > Computer players (playtest tool)`: "a computer player sees only what its
 //! own objects see and remembers what it has seen ... It never sees the whole map"): a View never shows an object of
-//! another player that its player neither sees nor remembers, and shows every one it does.
+//! another player that its player neither sees nor remembers, and shows every one it does; (M6-CM) and an enemy's
+//! illusions are Disciples to it.
 
 use sc_sim::testing::TestSim;
 const FOG_DELAY_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.fog_delay_ticks;
@@ -175,4 +176,46 @@ fn every_player_knows_every_start() {
         Some(100),
         "the GDO's Starting Conditions"
     );
+}
+
+/// (M6-CM) An enemy's illusions are Disciples to a computer player (`factions/cults/units/disciple.md > Spells >
+/// Mirage`: "**Seen by enemies**: exactly like a Disciple, on the map and when selected; enemies can't tell them
+/// apart"; plan: no leak of the illusion flag, its parent or its Unit Control to an enemy, the computer players' View
+/// included). Player 1's Disciple casts Mirage under player 2's eyes: player 2's View shows five Disciples, each the
+/// parent's record but for its id and its place, and nothing else of them; player 1's own View has its illusions as
+/// its own objects, as they are.
+#[test]
+fn an_enemy_s_illusions_are_disciples_to_a_computer_player() {
+    use sc_sim::testing::ScenarioBuilder;
+    use sc_sim::{Ability, Faction, ObjectId, SpawnAt};
+    let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
+        .faction(P1, Faction::Cults)
+        .faction(P2, Faction::Cults)
+        .spawn(ObjectKind::Disciple, Some(P1), SpawnAt::Point(Vec2::new(400.0, 400.0)))
+        .spawn(ObjectKind::Militant, Some(P2), SpawnAt::Point(Vec2::new(600.0, 400.0)))
+        .start();
+    t.ability_at(1, P1, &[ObjectId(1)], Ability::Mirage);
+    t.run(2);
+    let illusions: Vec<ObjectId> = (3..=6).map(ObjectId).collect();
+    for &id in &illusions {
+        let o = t.sim().object(id).expect("an illusion");
+        assert_eq!((o.kind, o.illusion_of), (ObjectKind::Disciple, Some(ObjectId(1))));
+    }
+    let view = View::new(t.sim(), P2, &[]);
+    let known = view.known();
+    let parent = known.iter().find(|k| k.id == ObjectId(1)).expect("the parent in sight");
+    assert_eq!(known.len(), 5, "the parent and its four illusions: {known:?}");
+    for &id in &illusions {
+        let k = known.iter().find(|k| k.id == id).expect("an illusion in sight");
+        let as_parent = Known {
+            id,
+            pos: k.pos,
+            ..parent.clone()
+        };
+        assert_eq!(k, &as_parent, "a Disciple like its parent");
+        assert_eq!(k.kind, ObjectKind::Disciple);
+    }
+    let own = View::new(t.sim(), P1, &[]);
+    let own_illusions = own.own().filter(|o| o.illusion_of == Some(ObjectId(1))).count();
+    assert_eq!(own_illusions, 4, "its owner's own objects, as they are");
 }

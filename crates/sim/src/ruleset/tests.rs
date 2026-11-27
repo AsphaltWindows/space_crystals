@@ -337,3 +337,63 @@ fn a_chamber_is_structure_and_its_numbers_live() {
         change("Hideout", "chamber")
     );
 }
+
+/// (M6-CM) The Disciple's Mirage (`crate::mirage`): its numbers apply live (its cost, its count of illusions, their
+/// offset and the damage they take; the search for a blocked spot's and the cloud's linger, tunables); having it, a
+/// spell of a unit's (`SpellDef::Mirage`), is structure.
+#[test]
+fn a_mirage_is_structure_and_its_numbers_live() {
+    use crate::defs::{MirageDef, SpellDef};
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    let change = |entry, field| Some(RuleField { entry, field });
+    fn disciple(rules: &mut Ruleset) -> &mut UnitDef {
+        rules.defs.get_mut(ObjectKind::Disciple).unit.as_mut().unwrap()
+    }
+    let mirage = *ObjectKind::Disciple
+        .def()
+        .unit
+        .as_ref()
+        .unwrap()
+        .mirage()
+        .expect("the Disciple casts it");
+    let other = MirageDef {
+        cost: 60.0,
+        illusions: 3,
+        offset: 1.5,
+        damage_taken: 3.0,
+    };
+    let with = |spells: &[SpellDef], mirage: Option<MirageDef>| -> &'static [SpellDef] {
+        let kept = spells.iter().filter(|spell| spell.mirage().is_none()).copied();
+        Vec::leak(kept.chain(mirage.map(SpellDef::Mirage)).collect())
+    };
+    assert_eq!(
+        changed(&|r| disciple(r).spells = with(disciple(r).spells, Some(other))),
+        None,
+        "its numbers"
+    );
+    assert_eq!(
+        changed(&|r| {
+            let spells = &mut r.tuning.spells;
+            (
+                spells.linger,
+                spells.mirage_search_step_su,
+                spells.mirage_search_radius_gu,
+            ) = (0, 4.0, 5.0);
+        }),
+        None,
+        "the tunables"
+    );
+    assert_eq!(
+        changed(&|r| disciple(r).spells = with(disciple(r).spells, None)),
+        change("Disciple", "spells")
+    );
+    assert_eq!(
+        changed(&|r| unit(r).spells = with(&[], Some(mirage))),
+        change("Peacekeeper", "spells")
+    );
+}

@@ -10,7 +10,8 @@
 //!   Suppress first it waits at home until it can, then drives to the meeting point;
 //! - their **Shrine**, spawned with the Recruits that charge it (`EnergyRegen::PerUnitInside`), casts Health
 //!   regeneration on their army and Energy regeneration on their casters, in turn;
-//! - their **Disciples** channel Shroud with enemies near, and the GDO's **Rocketmen** lock on.
+//! - their **Disciples** channel Shroud with enemies near, (M6-CM) the first of each player's casting Mirage once
+//!   first, its illusions mirroring its channels from then on; and the GDO's **Rocketmen** lock on.
 //!
 //! Each command is one the gate takes as the game stands before its step, a caster's one a tick.
 
@@ -18,8 +19,8 @@ use std::collections::BTreeMap;
 
 use sc_sim::buffs;
 use sc_sim::{
-    AreaAbility, Command, DebugCommand, Faction, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Rng,
-    SU_PER_GU, Sim, SimEvent, SpawnAt, TICKS_PER_SECOND, Target, Tick, TilePos, Vec2,
+    Ability, AreaAbility, Command, DebugCommand, Faction, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand,
+    PlayerId, Rng, SU_PER_GU, Sim, SimEvent, SpawnAt, TICKS_PER_SECOND, Target, Tick, TilePos, Vec2,
 };
 
 use super::Tally;
@@ -84,6 +85,8 @@ pub(super) struct Fight {
     next: BTreeMap<ObjectId, AreaAbility>,
     /// How many times each Hand of Heaven has crossed the meeting point.
     crossings: BTreeMap<ObjectId, u32>,
+    /// (M6-CM) The Disciples that have cast Mirage.
+    mirrored: Vec<ObjectId>,
     /// The tick each Disciple last channelled Shroud from.
     channelled: BTreeMap<ObjectId, Tick>,
 }
@@ -106,6 +109,7 @@ impl Fight {
             suppressed: Vec::new(),
             next: BTreeMap::new(),
             crossings: BTreeMap::new(),
+            mirrored: Vec::new(),
             channelled: BTreeMap::new(),
         }
     }
@@ -156,6 +160,7 @@ impl Fight {
             let shrine = self.shrines.get(&player).copied();
             let mut attackers = Vec::new();
             let mut charging = Vec::new();
+            let decoy = army.iter().find(|o| o.kind == Disciple).map(|o| o.id);
             for o in &army {
                 let current = (o.orders.as_ref())
                     .and_then(|orders| orders.current.as_ref())
@@ -196,6 +201,22 @@ impl Fight {
                     attackers.push(o.id);
                 }
                 match o.kind {
+                    // (M6-CM) The first Disciple casts Mirage once, with an enemy near, as soon as it can.
+                    Disciple
+                        if Some(o.id) == decoy
+                            && !self.mirrored.contains(&o.id)
+                            && nearest_enemy(sim, player, o.pos, SHROUD_RANGE).is_some()
+                            && sim
+                                .validate(&PlayerCommand {
+                                    player,
+                                    command: mirage(o.id),
+                                })
+                                .is_ok() =>
+                    {
+                        if give(mirage(o.id)) {
+                            self.mirrored.push(o.id);
+                        }
+                    }
                     Disciple
                         if current != Some(OrderKind::Shroud)
                             && (self.channelled.get(&o.id)).is_none_or(|&at| tick >= at + SHROUD_GAP)
@@ -300,6 +321,7 @@ impl Fight {
                     tally.casts[i] += 1;
                 }
                 SimEvent::ShroudStarted { .. } => tally.shrouds += 1,
+                SimEvent::Mirage { .. } => tally.mirages += 1,
                 SimEvent::Attacked { .. } => tally.attacks += 1,
                 SimEvent::Died { .. } | SimEvent::Crushed { .. } => tally.deaths += 1,
                 _ => {}
@@ -378,6 +400,14 @@ fn cast(caster: ObjectId, ability: AreaAbility, at: Vec2) -> Command {
         casters: vec![caster],
         ability,
         at,
+    }
+}
+
+/// (M6-CM) `caster`'s Mirage (`Ability::Mirage`).
+fn mirage(caster: ObjectId) -> Command {
+    Command::Ability {
+        units: vec![caster],
+        ability: Ability::Mirage,
     }
 }
 

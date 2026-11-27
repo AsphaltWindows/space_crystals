@@ -17,7 +17,7 @@ impl PanelCommand {
     /// (`factions/cults/units/prayer_mobile.md > Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target)",
     /// "**Suppress** (hotkey **F**, instant, no target)"), (M6-GD) a Drone Operator's Launch Drone, over itself, and
     /// Build Drone, (M6-GH1) an aircraft's Return to Base, (M6-GA) a vehicle's Deploy and Undeploy, where it stands,
-    /// Raise and Lower Shield, Convert, a producer's Train and
+    /// (M6-CM) a Disciple's Mirage ("An **instant** spell"), Raise and Lower Shield, Convert, a producer's Train and
     /// Cancel Production, a constructor's
     /// Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the
     /// EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct
@@ -76,7 +76,8 @@ impl PanelCommand {
             | PanelCommand::Launch
             | PanelCommand::Buy(_)
             | PanelCommand::ReturnToBase
-            | PanelCommand::VehicleDeploy(_) => false,
+            | PanelCommand::VehicleDeploy(_)
+            | PanelCommand::Mirage => false,
         }
     }
 
@@ -108,7 +109,8 @@ impl PanelCommand {
     /// (`factions/cults/units/disciple.md > Placeholder stats`), the Disciple being Ungroupable, so that the
     /// ActiveGroup is the one Disciple Tabbed to. So does a Shrine's cast (slice M5-N5), which spends that Shrine's
     /// energy: "Groupable **false** (user, 2026-11-26; Q0118: each press casts from one Shrine)"
-    /// (`factions/cults/structures/shrine.md > Placeholder stats`).
+    /// (`factions/cults/structures/shrine.md > Placeholder stats`). So does (M6-CM) a Disciple's Mirage, its F, which
+    /// spends that Disciple's energy: one cast a press, as its Shroud.
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -140,6 +142,7 @@ impl PanelCommand {
                 | PanelCommand::ReleaseOf(..)
                 | PanelCommand::ReleaseOne(_)
                 | PanelCommand::Shroud
+                | PanelCommand::Mirage
                 | PanelCommand::Cast(_)
         )
     }
@@ -173,7 +176,8 @@ impl PanelCommand {
     /// does: Shift changes nothing. (M6-GH1) An aircraft's Return to Base is an order too (`sc_sim::OrderKind::ReturnToBase`),
     /// which Shift queues. (M6-GA) So is a vehicle's Deploy and Undeploy (`sc_sim::OrderKind::VehicleDeploy`;
     /// `factions/gdo/units/artillery_rig.md > Modes`: "**Queueable**: Shift-Deploy waits until the earlier orders are
-    /// done (e.g. move here, then deploy)").
+    /// done (e.g. move here, then deploy)"). (M6-CM) A Disciple's Mirage is an ability (`sc_sim::Ability::Mirage`), cast
+    /// at once: Shift changes nothing (**Placeholder (not in the design: Shift's meaning for an instant spell)**).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -228,7 +232,8 @@ impl PanelCommand {
             | PanelCommand::Researching(_)
             | PanelCommand::ReleaseOne(_)
             | PanelCommand::Cast(_)
-            | PanelCommand::Buy(_) => false,
+            | PanelCommand::Buy(_)
+            | PanelCommand::Mirage => false,
         }
     }
 }

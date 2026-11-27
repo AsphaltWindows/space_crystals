@@ -643,6 +643,7 @@ No commands: Subterranean Transport (STR), Subterranean Transport (Burrowed) (ST
 | R | Shroud | Shroud | Shift queues |
 | S | Patrol | Patrol | click a target; Shift queues |
 | D | AtkGnd | Attack Ground | click a target; Shift queues; greyed: "Not available for this unit" |
+| F | Mirage | Mirage |  |
 | X | Stop | Stop | Shift queues |
 
 #### Seeker (SKR)

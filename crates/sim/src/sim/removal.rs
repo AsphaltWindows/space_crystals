@@ -32,7 +32,10 @@ impl Sim {
     /// whose patch is removed from under it (a debug command) mines nothing from then on. (M6-GD) An operator takes its
     /// drone along, which falls without exploding (`factions/gdo/units/drone_operator.md > Drone limits — how a drone
     /// ends`: "Its **operator dies**"; `Sim::drones_of`), and an operator whose drone goes is free. (M6-GH1) An
-    /// Airfield's aircraft are unassigned as it goes (`crate::aircraft`).
+    /// Airfield's aircraft are unassigned as it goes (`crate::aircraft`). (M6-CM) A Disciple takes its illusions along,
+    /// which vanish with no death, those held in a building too (`factions/cults/units/disciple.md > Spells > Mirage`:
+    /// "an illusion lasts until it **dies**, its **parent dies**, or the parent **casts Mirage again** [...]. An
+    /// illusion inside a Garrison when it ends simply vanishes"; `Sim::illusions_of`).
     ///
     /// A producer's whole queue is refunded as if cancelled, a finished unit waiting inside for the doorway included
     /// (design changes 0084 and 0085, `Sim::refund_production`); of the army cap it frees what its unit in production
@@ -82,6 +85,10 @@ impl Sim {
         );
         // (M6-GD) An operator takes its drone along, which falls (`Sim::drones_of`, `crate::tether`).
         gone.extend(self.drones_of(ids));
+        // (M6-CM) A Disciple takes its illusions along, which vanish (`Sim::illusions_of`, `crate::mirage`): those on
+        // the map with it, those held in a building once everything else has gone.
+        let (illusions, held_illusions) = self.illusions_of(ids);
+        gone.extend(illusions);
         gone.sort_unstable();
         gone.dedup();
         // The units inside the buildings that go (`sim/holding/evacuation.rs`): first, with a finished training taken
@@ -115,6 +122,8 @@ impl Sim {
         // What the Tunnels leave behind (`factions/syndicate/tunnels.md > Losing Tunnels`, `sim/tunnels.rs`): their
         // expansions neutral, their unfinished ones destroyed, and the network units stranded.
         self.lose_tunnels(&tunnels);
+        // (M6-CM) "An illusion inside a Garrison when it ends simply vanishes" (`crate::mirage`).
+        self.remove_held(&held_illusions);
     }
 
     /// The reference cleanup of a removal, without its effects of a death (plan decision T30): every object, and

@@ -11,8 +11,8 @@ use super::shroud as channel;
 use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Patrol};
 use super::world::{Unit, World};
 use super::{
-    ActiveOrder, Order, OrderKind, Orders, Target, air_base, assist, attack_ground, build, engage, enter, gather,
-    launch, repair, target_lock, travel, turret, vehicle_deploy,
+    ActiveOrder, Order, OrderGroup, OrderKind, Orders, Target, air_base, assist, attack_ground, build, engage, enter,
+    gather, launch, repair, target_lock, travel, turret, vehicle_deploy,
 };
 use crate::deploy;
 use crate::ids::ObjectId;
@@ -31,6 +31,13 @@ use crate::{aircraft, combat, conversion, riot_shield, tether};
 /// snapshot, `world`, taken from `objects` just before: the positions the last tick left and the vision of its phase
 /// 5f. (M5-N4b) Returns the units that channel Shroud as the phase leaves them, in id order, for their clouds
 /// (`crate::shroud::Clouds::update`).
+///
+/// (M6-CM) An illusion mirrors its parent's channel (`crate::mirage`: "when the parent Disciple **starts channelling
+/// Shroud**, its illusions **play the same channelling animation**"), the parent, made before it, having had its turn:
+/// a channel that started in this phase gives the illusion a Shroud order of its own, in place of its orders ("An
+/// illusion that is moving or busy when the parent starts channelling stops and plays the animation too"), which ends
+/// when its parent channels no more (`super::shroud`). Placeholder (not in the design): an illusion made in the tick its
+/// parent starts channelling, which has no turn in it, doesn't mirror that channel.
 pub(crate) fn update(
     objects: &mut BTreeMap<ObjectId, Object>,
     first_new: ObjectId,
@@ -55,9 +62,21 @@ pub(crate) fn update(
         // (M5-H1) Where it counts as being, as the snapshot has the others (`World::new`): a Glider past the map's edge
         // at the nearest edge tile. Its flight reads its true position (`movement::glider`).
         let pos = o.map_pos(world.map);
+        // (M6-CM) Its parent's channel, for an illusion: the parent's turn came first.
+        let parent_channel = o
+            .illusion_of
+            .map(|parent| (channelling.iter()).find(|m: &&Member| m.id == parent).map(|m| m.since));
         let (Some(orders), Some(mover)) = (&mut o.orders, &mut o.mover) else {
             continue;
         };
+        if parent_channel.flatten() == Some(world.tick) {
+            let mirror = Order {
+                kind: OrderKind::Shroud,
+                group: OrderGroup(0),
+                slot: None,
+            };
+            orders.give(mirror, false);
+        }
         let mut unit = Unit {
             id: o.id,
             owner: o.owner,
@@ -74,6 +93,7 @@ pub(crate) fn update(
             base,
             worker: o.worker.as_mut(),
             energy: o.energy.as_mut(),
+            mirrors: parent_channel.map(|channel| channel.is_some()),
         };
         reach.begin_unit();
         update_unit(orders, &mut unit, world, &mut claims, reach);

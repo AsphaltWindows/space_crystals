@@ -295,4 +295,12 @@ pub enum PanelCommand {
     /// available once deployment is complete**", `sc_sim::Reject::Deploying`), with its progress on its bar
     /// (`super::PanelSlot::progress`).
     VehicleDeploy(ObjectKind),
+    /// (M6-CM) The Disciple's F (`factions/cults/units/disciple.md > Placeholder stats`: "ObjectInterfaceState:
+    /// BasicCombatUnitInterfaceState, plus **R: Shroud** and **F: Mirage**"; `> Spells > Mirage`: "An **instant**
+    /// spell: the Disciple creates **4 illusions** of itself"): its cast, at once (`sc_sim::Ability::Mirage`), by the one
+    /// Disciple of the ActiveGroup, the Disciple being Ungroupable, as its Shroud. An ability, which Shift doesn't queue:
+    /// **Placeholder (not in the design: Shift's meaning for an instant spell)**, as a Riot Shield's. Greyed while the
+    /// gate would refuse it: below its 50 energy (`sc_sim::Reject::NotEnoughEnergy`: "**50 energy**"), or for an illusion
+    /// (`sc_sim::Reject::IllusionsCantCast`: "**No spells**: illusions can't cast"), whose R is greyed alike.
+    Mirage,
 }

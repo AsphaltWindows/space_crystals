@@ -105,7 +105,8 @@ fn random_id(rng: &mut Rng, sim: &Sim) -> ObjectId {
 }
 
 /// An order to a few ids, often the issuing player's units, sometimes anyone's or none; one in six raises or
-/// lowers their Riot Shields instead. (M5-N4b) One in twelve is a Shroud, which the Disciples among them channel.
+/// lowers their Riot Shields instead (or buys, or (M6-CM) casts Mirage). (M5-N4b) One in twelve is a Shroud, which the
+/// Disciples among them channel.
 fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
     let own: Vec<ObjectId> = sim
         .objects()
@@ -121,9 +122,11 @@ fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
     if rng.below(6) == 0 {
         let raise = rng.below(2) == 0;
         // (M6-GD) A Buy in place of a Riot Shield for a group whose first unit's id is a multiple of 3, so that the
-        // stream of random numbers stays the same.
+        // stream of random numbers stays the same; (M6-CM) a Mirage in place of a raise for one whose first unit's id
+        // leaves 1 by 3, which the Disciples among them cast.
         let ability = match units.first() {
             Some(unit) if unit.0.is_multiple_of(3) => Ability::Buy,
+            Some(unit) if unit.0 % 3 == 1 && raise => Ability::Mirage,
             _ => Ability::RiotShield { raise },
         };
         return Command::Ability { units, ability };
@@ -445,7 +448,8 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::DroneLaunched { .. }
                 | SimEvent::DroneFell { .. }
                 | SimEvent::StockBought { .. }
-                | SimEvent::OrderDropped { .. } => {}
+                | SimEvent::OrderDropped { .. }
+                | SimEvent::Mirage { .. } => {}
             }
         }
         unit_steps += sim

@@ -195,7 +195,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (slice M6-GR) for a caster waiting out an ability's cooldown, the Radar Station, `cooldown` (a `Progress`,
   `cooldown.rs`; see *Combat > Scan and cooldowns*); (slice M6-GH1) for an aircraft that rearms at an Airfield, the
   Hornet, `aircraft` (`AircraftState`, `aircraft.rs`: its ammo and the Airfield it is assigned to, hashed under tag 14
-  and saved only while set; see *Production > The Airfield*).
+  and saved only while set; see *Production > The Airfield*); (slice M6-CM) for an illusion, `illusion_of` (the
+  Disciple whose Mirage made it, `mirage.rs`, hashed under tag 15 and saved only while set; see *Combat > Mirage*).
   The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
@@ -1318,9 +1319,10 @@ ticks spent in it. Hashed and serialized like all state.
   or gains a pool (`energy::after_change`), and regenerates in `Phase::Energy` (`energy::step`) up to its maximum,
   whoever owns it, a unit held inside a building too (Placeholder: "It regenerates naturally over time" names no
   exception). Hashed (tag 7) and saved only while set, so that a save from before loads with none and a game without
-  a pool hashes as it did. Spending is the spells' (Shroud's drain, slice M5-N4b; the Shrine's casts, M5-N5). The
-  client reads it in points (`energy::of`): the energy bar and the InfoPanel's line. E1 (*Movement and collision >
-  Invariants*) holds it within the pool.
+  a pool hashes as it did. Spending is the spells' (Shroud's drain, slice M5-N4b; the Shrine's casts, M5-N5;
+  Mirage's cost, M6-CM). The client reads it in points (`energy::of`): the energy bar and the InfoPanel's line, through
+  `Sim::energy_shown`, which for an illusion, which has no pool, is its parent's, live (design change 0452). E1
+  (*Movement and collision > Invariants*) holds it within the pool.
 - **Buffs** (`buffs.rs`, `defs/cults/abilities.rs`, `sim/casts.rs`; slice M5-N5, plan decisions T75 and T76;
   `factions/cults/structures/shrine.md > Abilities`): an area ability (`AreaAbility`, the Shrine's two, Q Health
   regeneration and W Energy regeneration; its numbers an `AbilityDef`: cost, radius, duration, the kinds it affects,
@@ -1594,14 +1596,17 @@ ticks spent in it. Hashed and serialized like all state.
   turret units passing each other) runs as `projectiles_perf` does.
 - **Units that fire from inside a building** (`combat/occupants.rs`, plan decision T72; slice M5-N2, the Garrison,
   `factions/cults/structures/garrison.md > Garrisoning`): **`StructureDef::occupants_fire: Option<OccupantFire {
-  stand_in, range_bonus_gu, bonus_for }>`**, the Garrison's: the Recruit and the Disciple fire the Militant's
-  AttackAttributes, the Militant and the Gunner their own (`combat::weapon`) with **+1 grid unit of Range**
+  stand_in, range_bonus_gu, bonus_for }>`**, the Garrison's: the Recruit fires the Militant's AttackAttributes
+  ((M6-CM) design change 0450: "**Disciples and illusions don't fire** from inside", so the Disciple, which has no
+  weapon, has no stand-in either, and a Garrison holding only Disciples and illusions fires nothing and is no threat),
+  the Militant and the Gunner their own (`combat::weapon`) with **+1 grid unit of Range**
   (`OccupantFire::weapon_kind`, `range_bonus`; `occupants::weapon` returns the attack as fired, owned, so the
   stand-in's is the Militant's def as it is: "Augmentations don't change the borrowed attack"). In 5e, after every
   object's own attack (`occupants::firing`, then `occupants::step`, a Garrison in operation from before the tick, its
-  units by `(building, since, id)`), each unit inside runs its own `AttackState` (it keeps the one it had, the
-  Disciple, whose type has none, one made for it) with a **`Shooter::occupant`**: the Garrison's footprint, elevation,
-  owner and vision, firing any way as a structure does, its id the unit's (its hits and events name the unit). Its
+  units by `(building, since, id)`), each unit inside runs its own `AttackState` (it keeps the one it had; one whose
+  type has none would have one made for it, none since 0450) with a **`Shooter::occupant`**: the Garrison's
+  footprint, elevation, owner and vision, firing any way as a structure does, its id the unit's (its hits and events
+  name the unit). Its
   target is **picked as a structure's** (`structures::pick`, T49's rule reused: kept while valid and in range,
   threatening first, then the smallest gap, then the id; none while auto-targeting is off), so each picks its own.
   Range and MinRange are measured from the footprint, as a structure's are (`targeting::reaches` on its shape), so a
@@ -1619,12 +1624,12 @@ ticks spent in it. Hashed and serialized like all state.
   building's units can mix today), and both snapshots add it to the building's own threat (`World::with_occupants` in
   5a, `Targets::with_occupants` in 5e), so a scan still reads one `threat` a target (tests:
   `combat/occupants/tests/threat.rs`, 0377's Verification among them, and `combat/structures/tests.rs`). Leaving clears
-  the unit's attack (`Sim::put_on_map`, a Disciple's made one gone). Tests: `combat/occupants/tests.rs` (the weapons,
-  the muzzle) and
-  `tests/garrison/fire.rs`, `tests/garrison/protection.rs` (0319's "A Garrison with 4 Militants fires at range 5":
-  4.9 grid units off the footprint hit, 5.1 never; the stand-ins at 4 with an augmented Recruit's blow unchanged;
-  the Gunner's band from the edge; no fire while empty; each its own target; no damage inside, a Grenadier's blasts
-  on the footprint included).
+  the unit's attack (`Sim::put_on_map`, a made one gone). Tests: `combat/occupants/tests.rs` (the weapons, the muzzle)
+  and `tests/garrison/fire.rs`, `tests/garrison/protection.rs` (0319's "A Garrison with 4 Militants fires at range 5":
+  4.9 grid units off the footprint hit, 5.1 never; the stand-in at 4 with an augmented Recruit's blow unchanged;
+  the Gunner's band from the edge; no fire while empty; (M6-CM) 0450's Verification, Disciples inside firing nothing
+  and a Recruit with them the Militant's attack, illusions nothing, `tests/mirage/garrison.rs`; each its own target;
+  no damage inside, a Grenadier's blasts on the footprint included).
   - **Measured** (`tests/garrisons_perf.rs`, ignored, release): ten full Garrisons, forty inside, under ten waves of
     30 Peacekeepers walking down the lane between their rows (all 300 killed, 5430 shots from inside): a mean of
     0.064 ms and a p99 of 0.12 ms a whole tick, the combat phase's 0.018 ms (0.007 ms and 0.003 ms with nothing in
@@ -1640,10 +1645,16 @@ ticks spent in it. Hashed and serialized like all state.
   regeneration going on, and the channel ends when the pool can't pay, at a Stop or any other order, or with the unit
   (`SimEvent::ShroudStarted`, `ShroudEnded`). **`Sim::clouds`** (`shroud::Clouds`) keeps the clouds: each a connected
   component of the channelling units' circles (touching or overlapping), with its buffer and its timer, updated at the
-  end of 5a and again at the end of the tick (*Tick pipeline*). A cloud whose members change (a channel's end, a
-  split, a join, a new channel joining it) releases its buffer over its own circles as they were, and the clouds that
-  follow start empty. In 5e, while there is a cloud, **`damage::absorb`** takes off the tick's list each hit on an
-  object whose centre is under a cloud, by an anti-ground attack (`hits_domain(Ground)`: ground and underground
+  end of 5a and again at the end of the tick (*Tick pipeline*). (Slice M6-CM) **A channel's circle lingers**: a channel
+  that ends, for any reason, its unit's death included, leaves its circle where it was for `Spells::linger` ticks, 24
+  (design change 0448: "the cloud **stays for 1.5 s (24 frames, placeholder)** and keeps absorbing as usual"; a
+  Placeholder), a member of its cloud as any other (`shroud::Member::until`, the tick it vanishes in, hashed under a
+  sub-tag of its own only while set), which joins, splits, absorbs and releases as any; a channel whose circle moves
+  under it (a debug teleport, new rules) goes on, its old circle replaced, not lingering. A cloud whose members change
+  (a circle's vanishing, a split, a join, a new channel joining it) releases its buffer over its own circles as they
+  were, and the clouds that follow start empty. In 5e, while there is a cloud, **`damage::absorb`** takes off the
+  tick's list each hit on an object whose centre is under a cloud, by an anti-ground attack (`hits_domain(Ground)`:
+  ground and underground
   targets; an air unit's hits stay, slice M5-H1's to test), whose attack doesn't leave from under the same cloud
   (`damage::Origins`, where each attack left, kept only while there is a cloud; Placeholder: a projectile's launch
   point, judged as it lands), into the cloud's buffer at its raw damage; the first starts the 8-tick timer
@@ -1656,10 +1667,13 @@ ticks spent in it. Hashed and serialized like all state.
   is the cloud's first member). Hashed under tag 3 of `Sim::state_hash` and saved only while there is a cloud or a
   buffer waiting, so that a game without Shroud hashes as before; C1 (*Movement and collision > Invariants*) holds the
   clouds to the channels. Without a cloud none of it runs. Tests: `tests/shroud/` (absorption, the clouds, the
-  channel, their state through splits and joins, a replay and a save, and what an absorbed hit and a release reveal)
-  and the golden `cults_shroud` (*Replays and golden hashes*); a 3x3 building wholly under a circle,
-  which no Disciple can stand in, is a unit test's (`combat/damage/tests.rs`). The client draws the clouds
-  (`shroud_view`, *Client architecture > Visuals*) and puts the spell in the Disciple's R.
+  channel, (M6-CM) the linger after a Stop and after a death, 0448's Verification step 8, their state through splits
+  and joins, a replay and a save, and what an absorbed hit and a release reveal) and the golden `cults_shroud`
+  (*Replays and golden hashes*; slice M6-CM's linger moved it, and only it: with `Spells::linger` at 0 it gives its
+  old hashes); a 3x3 building wholly under a circle, which no Disciple can stand in, is a unit test's
+  (`combat/damage/tests.rs`). The client draws the clouds (`shroud_view`, *Client architecture > Visuals*), a
+  lingering circle as any, (M6-CM) the channelling stance (`shroud_view::stance`), and puts the spell in the
+  Disciple's R.
   - **Measured** (`tests/shroud_perf.rs`, ignored, release): eight Disciples, four clouds of two circles, over sixty
     Militants under the fire of forty (711 ticks, 236 releases, 3540 hits, none killed): over six runs, a mean of
     0.032 to 0.047 ms and a p99 of 0.067 to 0.10 ms a whole tick, the combat phase's 0.010 to 0.014 ms (p99 0.04 to
@@ -1668,6 +1682,42 @@ ticks spent in it. Hashed and serialized like all state.
     (slice M5-S2b's build), interleaved, 12 and 8 rounds: medians of 0.358 and 0.360 ms a whole tick for
     `structures_perf` (its combat phase 0.026 ms on either side), 0.475 and 0.472 ms for `movement_perf` (load
     average 0.9 to 1.0).
+- **Mirage** (`mirage.rs`, `sim/mirage.rs`, `orders/run.rs`, `orders/shroud.rs`; slice M6-CM, design change 0448 with
+  0450's and 0452's; `factions/cults/units/disciple.md > Spells > Mirage`): the Disciple's second spell
+  (`SpellDef::Mirage`, its `MirageDef`: the cost, 50; the illusions, 4; their offset, 1 grid unit; the damage they
+  take, twice), an **`Ability::Mirage`** the gate takes of a unit of a type that casts it with the energy
+  (`Reject::NotEnoughEnergy`) and no illusion (`Reject::IllusionsCantCast`, which refuses an illusion's Shroud too).
+  **`Sim::cast_mirage`** casts it at once in the commands phase: it spends the cost, ends a Shroud channel under way
+  (its circle lingers), removes the old set and makes the new one north, east, south and west of the Disciple
+  (`mirage::compass`), a blocked spot's illusion at the first free point of the rings round it (Placeholder:
+  `Spells::mirage_search_step_su`, 8, apart out to `mirage_search_radius_gu`, 3; none made without one), each a new
+  object of the Disciple's kind and owner, with its HP, its Augmentations (so its MaxHP and its speed) and its facing,
+  idle, with no energy, and **`Object::illusion_of`** the Disciple's id (`SimEvent::Mirage`, told to its owner only,
+  after the illusions' `Spawned`). **An illusion is a Disciple**: its kind is its parent's, so every path that shows
+  an enemy a Disciple (the map, the InfoPanel, the computer players' `View`, every other event) shows one of an
+  illusion with no masking code, and what the link makes of it is read where each rule is: `mirage::damage_taken`
+  doubles the HP each hit takes, a release's share too (`combat::damage::apply`); `recruitment::Lineages` gives it no
+  Unit Control; it has no `Object::energy`, and `Sim::energy_shown` is its parent's, wherever the parent is (0452);
+  the Altar, a building that augments, doesn't take it in (`mirage::admitted`: the gate's `Reject::NotAccepted`, the
+  right-click's `Aimed::refuses_illusions`); a Garrison does, and it fires nothing there, as a Disciple doesn't (0450);
+  a buff affects it as a Disciple. **Mirroring** (`orders::run::update`): in 5a, its parent having had its turn (an
+  illusion's id is above its parent's), an illusion whose parent's channel started in this phase takes a Shroud order
+  of its own in place of its orders ("An illusion that is moving or busy when the parent starts channelling stops
+  and plays the animation too"): it stands as a channel does, drains nothing and casts no circle (`shroud::member`
+  leaves it out), completes once its parent channels no more, and ends at a Stop or an order of its own. Placeholder:
+  an illusion made in the tick its parent's channel starts doesn't mirror it. **How illusions end**: by death, as any
+  unit; with the parent, whose removal (`Sim::remove_objects`, `Sim::remove_held`, `Sim::illusions_of`) takes them
+  along, those held too, each with a `Removed` and no death; and at a recast. M1 (*Movement and collision >
+  Invariants*) holds the links. Hashed under tag 15 and saved only while set, so that a game without illusions hashes
+  as before. Tests: `tests/mirage/` (0448's Verification but step 8, which is `tests/shroud/linger.rs`'s; 0450's
+  step 3; 0452's three steps; the Altar, the Shrine, a save and a replay), `tests/garrison/fire.rs` (0450's first two
+  steps), the golden `cults_mirage` (a cast, two illusions dying of double damage, a recast, the parent's death
+  taking its new set along), the fuzz's Mirages, the soak's (each player's first Disciple casts one,
+  `tests/pairings/soak/fight.rs`) and the structure test (`ruleset/tests.rs`). The client puts the spell in the
+  Disciple's F (`PanelCommand::Mirage`); its owner sees an illusion washed out, on the map (`MeshKey::illusion`,
+  keyed on the local player) and in the SelectionPanel's portraits, and named "Disciple (illusion)", its R and F
+  greyed ("Illusions can't cast"), and every other player a
+  Disciple (`crates/game/tests/commands/mirage.rs`; the computer players', `crates/ai/src/view/tests.rs`).
 - **HeadDisjointed and Target Lock** (`combat/projectiles/homing.rs`, `combat/target_lock.rs`,
   `orders/target_lock.rs`; slice M5-K, design change 0356; `systems/combat.md > HeadDisjointed`,
   `factions/gdo/units/rocketman.md > Target Lock`): a HeadDisjointed attack launches a projectile of the store with a
@@ -2553,14 +2603,19 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   bank wraps below 0 or past its top in a tick (it changes by less than half its range, but by a `SetResources` of the
   tick); A1 (`augmentations`): only an augmentable kind has an Augmentation, and (M5-N3) only a neutral unit keeps
   research, a defeated player's (`Object::kept_research`); (M5-N4a) E1 (`energy`): every object,
-  on the map or held, has energy exactly when its kind has a pool, at most its maximum; (M5-N3) T1 (`research`):
+  on the map or held, has energy exactly when its kind has a pool and (M6-CM) it is no illusion, at most its maximum;
+  (M5-N3) T1 (`research`):
   techs come only from completed research: a player holds a technology only with its previous level, none is both
   completed and queued, nor queued twice or at two structures, and each queued one is offered by its structure's type
   (`StructureDef::research`), at a structure with an owner who has its previous level; (M5-N4b) C1 (`clouds`): every
-  cloud member is a live unit channelling Shroud in the channel it names, each unit that channels is in exactly one
-  cloud, a cloud's circles are connected and two clouds never touch, and a buffer is never below 0, its timer running
-  while it holds anything and never past due; (M5-N5) F1 (`buffs`): no object, on the map or held, holds two buffs of
-  an ability, each ends within its ability's duration from now, and only a kind the ability affects holds it;
+  cloud member that channels is a live unit channelling Shroud in the channel it names, (M6-CM) every lingering one
+  vanishes within `Spells::linger` ticks, at the tick it said the tick before (its time only runs down), each unit
+  that channels is in exactly one cloud, a cloud's circles are connected and two clouds never touch, and a buffer is
+  never below 0, its timer running while it holds anything and never past due; (M5-N5) F1 (`buffs`): no object, on
+  the map or held, holds two buffs of an ability, each ends within its ability's duration from now, and only a kind
+  the ability affects holds it; (M6-CM) M1 (`illusions`): an illusion's parent is in the game, on the map or held,
+  made before it, no illusion, of its type, a type that casts Mirage; a parent has no more illusions than its Mirage
+  makes; an illusion has no lineage;
   (M5-V2) W1 (`momentum`): a FixedTurnRadiusMovement unit turns in a tick by at most the speed it can have in it (its
   momentum and one tick's acceleration) over its MinimumTurnRadius, never in place; (M5-V3) S1 (`momentum`): a
   SpeedTurnRadiusMovement unit turns in a tick by at most the tread law's rate at the slowest speed it can have in it
@@ -2571,7 +2626,8 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   the map (`TestSim::ascii`: units as letters, with a legend). The check is on by default; `check_invariants(false)`
   turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
   step, as the golden games do (`tests/golden/harness.rs`). The fuzz's games (`tests/robustness.rs`, the seed sweep's)
-  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1, F1, G1): V1 and K1, which
+  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1, F1, G1, M1): V1
+  and K1, which
   rebuild the vision and the planning grids, would take the sweep from 5 s to 26 s.
 
 ## Economy
@@ -4024,10 +4080,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   taking the area minimum 8 ticks later, fire from under the same cloud in full, a grenade judged by where it was
   thrown from, a release without direction, a lowered turret protected and taking its share; `clouds.rs`: two
   Disciples 5 grid units apart sharing a buffer and a third 8 away not, a channel between two clouds releasing both,
-  a Stop releasing a joined pair's buffer over both circles; `channel.rs`: damage not ending a channel and a new
-  order ending it, a full pool running dry 711 ticks on and the 10 energy to start again, a queued Shroud ending at
-  once below 10; `state.rs`: clouds splitting and merging phase by phase in a replay that reproduces its hash, the
-  clouds saved and loaded and left out while there are none), each tick checking the invariants, C1 among them. The
+  a Stop releasing a joined pair's buffer over both circles (since slice M6-CM as the stopped one's lingering circle
+  vanishes); `channel.rs`: damage not ending a channel and a new order ending it, the circle lingering where it was
+  as its Disciple walks off, a full pool running dry 711 ticks on and the 10 energy to start again, a queued Shroud
+  ending at once below 10; (M6-CM) `linger.rs`: 0448's Verification step 8, a circle lingering 24 ticks after a Stop
+  and after its Disciple's death, absorbing a shot meanwhile and releasing it as it vanishes; `state.rs`: clouds
+  splitting and merging phase by phase in a replay that reproduces its hash, the clouds saved and loaded and left out
+  while there are none), each tick checking the invariants, C1 among them. The
   golden `cults_shroud` is a battle under the clouds, and the ignored `shroud_perf.rs` times eight Disciples over
   sixty units under fire (*Combat > Shroud*).
 - **Armory tests** (slice M5-F2) are `crates/sim/tests/armory/` (`training.rs`: Q pays 20 and a Militant comes out
@@ -4315,8 +4374,10 @@ these.
   upright on a body that turns: `units::upright_tags`, chained after `place_object_visuals`, gives it the inverse of
   its visual's rotation. Every type's short label (`kinds::short_label`) is its own, and none is a
   planned unit's or building's button label (`Planned::label`: the Scout's is "ST", the patch's "SC"); a unit test
-  checks it. One mesh per `MeshKey` (kind, owner, a structure's size as placed, and
-  whether it is transforming) is shared, and one tick mesh per kind. A visual whose object is drawn otherwise now
+  checks it. One mesh per `MeshKey` (kind, owner, a structure's size as placed, whether it is transforming, and
+  (slice M6-CM) whether it is an illusion of the local player's, which its owner alone sees washed out towards a
+  pale lilac, `illusion_color`, a placeholder; any other player's looks a Disciple's) is shared, and one tick mesh
+  per kind. A visual whose object is drawn otherwise now
   (its `MeshKey` changed: a kind changed in place, `SimEvent::KindChanged`; a transformation began or ended; a
   defeated player's unit turned neutral) is despawned with its children and made anew (`ObjectVisuals` keeps the
   key each was made from). A transforming object, a building being warped in, is tinted half way to a pale cyan
@@ -4432,8 +4493,14 @@ these.
   `TEXELS_PER_TILE` texels to a tile's edge, each as opaque as the circles cover it, so the edges are smooth. The
   mesh is rebuilt when the box changes, the texture written in place when what it shows changes, and a new texture
   made only when the box's size changes (*Bevy 0.20: verify, don't recall*); hidden, with nothing computed, while no
-  cloud or flash shows. Colours and lengths are placeholders (Q0001). Tests: `shroud_view/tests.rs` (the texels),
-  `tests/combat/shroud.rs` (each player's Visible tiles, the release's flash).
+  cloud or flash shows. (Slice M6-CM) A lingering circle is drawn as any, and **the channelling stance**
+  (`shroud_view/stance.rs`) marks each unit that stands channelling (`sc_sim::shroud::stands_channelling`: a Disciple
+  channelling, and its illusions mirroring it, which have no cloud) with a ring of its own at its feet, to every
+  player who sees the unit, the two alike, so that only the cloud tells them apart (0448: "so a watching enemy can
+  tell which one is real while it channels"; a placeholder for the animation, Q0001). Colours
+  and lengths are placeholders (Q0001). Tests: `shroud_view/tests.rs` (the texels, the stance's rings),
+  `tests/combat/shroud.rs` (each player's Visible tiles, the release's flash, (M6-CM) the circle lingering where it
+  was after a Stop).
 - **Fog of war** (`fog.rs`, `core/vision.md`): `Sight` (`fog/sight.rs`) says what the local player is shown: its own
   objects, and everything on its Visible tiles (`Sight::sees`); on Explored tiles the terrain and the player's records
   of the structures and resources it saw there, in their last-known state, never the live objects (`Sight::remembered`,
@@ -5607,8 +5674,8 @@ unchecked.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
   `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs`,
-  `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs` and `main.rs`, the recording and the comparison in
-  `harness.rs`): thirty games, a 3v3 duel,
+  `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs`, `mirage.rs` and `main.rs`, the recording and the
+  comparison in `harness.rs`): thirty-one games, a 3v3 duel,
   a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5622,8 +5689,8 @@ unchecked.
   M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below),
   `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
   M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below), `syndicate_air` (slice
-  M6-SD, below), `gdo_artillery` (slice M6-GA, below) and `syndicate_null_chamber` (slice M6-SN, below), are blessed
-  as replays
+  M6-SD, below), `gdo_artillery` (slice M6-GA, below), `syndicate_null_chamber` (slice M6-SN, below) and
+  `cults_mirage` (slice M6-CM, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5674,12 +5741,18 @@ unchecked.
   more, its damage kept (`during`); one falls all the same, and the two others kill the Agents. In `cults_shroud` (to
   0:21, on a test map) six Militants hold under three Disciples' circles, and three Guards and a Grenadier attack-move
   onto them: the outer two Disciples, 8 grid units apart, channel Shroud from tick 1; the middle one channels at tick
-  67, which joins the two clouds and releases both buffers at once, each over its own circle, stops at 112, which
-  splits the cloud and releases the joint buffer over its three circles, and joins them again at 148; the outer two
-  run dry at 178, the middle one at 292. While a
+  67, which joins the two clouds and releases both buffers at once, each over its own circle, stops at 112, its
+  circle lingering until 136 (slice M6-CM's linger, which moved this golden and no other), which splits the cloud and
+  releases the joint buffer over its three circles, and joins them again at 148; the outer two run dry at 178, their
+  circles gone at 202, the middle one at 292, gone at 316. While a
   unit is under a cloud every hit on it is a release, and at each of those ticks every buffer goes at once
-  (`during`). Two Guards fall while the clouds are up, and no unit of player 1's; in the open the three Militants in
-  front fall, and the rest kill the last Guard and the Grenadier. In `cults_shrine` (to 1:28, on a test map) eight
+  (`during`). Two Guards fall while the clouds are up, and no unit of player 1's; in the open two of the three
+  Militants in front fall (all three before the linger), and the rest kill the last Guard and the Grenadier. In
+  `cults_mirage` (slice M6-CM, to 1:50.6, on a test map) a Disciple casts Mirage in tick 1 and sends its north and
+  east illusions into two Syndicate Guards' fire, which kills them at ticks 113 and 137, each hit on an illusion twice a
+  Guard's (`during`); back to 50 energy, the Disciple casts again at 1610, which removes the two left (no death) and
+  makes four more, walks into the Guards' fire and dies at 1753, its new illusions removed with it. In
+  `cults_shrine` (to 1:28, on a test map) eight
   Recruits go into a Shrine at tick 1 and charge it 2 energy a second once all are in; three Agents attack-move onto
   three Militants at tick 520, and the middle ones of both sides fall together; at tick 680 the Shrine casts Health
   regeneration over the two Militants left, both wounded: each heals 0.125 HP a tick after the tick's hits for 240

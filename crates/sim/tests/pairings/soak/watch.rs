@@ -149,7 +149,8 @@ fn unit_control(sim: &Sim) {
         let usages: u32 = halls.iter().map(|hall| lineages.usage(hall.id)).sum();
         let orphans = lineages.orphaned(p.id);
         let alive: u32 = everything(sim)
-            .filter(|o| o.owner == Some(p.id))
+            // (M6-CM) An illusion costs none (`sc_sim::mirage`: "They use **no Unit Control**").
+            .filter(|o| o.owner == Some(p.id) && !sc_sim::mirage::is_illusion(o))
             .map(|o| cost(o.kind))
             .sum();
         let producing: u32 = (halls.iter())

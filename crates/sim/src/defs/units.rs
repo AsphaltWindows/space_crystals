@@ -24,7 +24,7 @@ pub use worker::{DropOffChoice, LoadDef, Nearest, RepairDef, RepairPayment, Repa
 
 use serde::{Deserialize, Serialize};
 
-use super::{ObjectKind, Recipe, ShroudDef, SpellDef};
+use super::{MirageDef, ObjectKind, Recipe, ShroudDef, SpellDef};
 
 /// `systems/units.md > TurretAttributes`: only on units whose base can carry a turret (`UnitBaseDef::can_have_turret`),
 /// and a unit of such a base may still have none (design change 0154).
@@ -234,6 +234,11 @@ impl UnitDef {
     /// (M5-N4b) Its Shroud's numbers, if it casts Shroud ([`UnitDef::spells`]).
     pub fn shroud(&self) -> Option<&'static ShroudDef> {
         self.spells.iter().find_map(SpellDef::shroud)
+    }
+
+    /// (M6-CM) Its Mirage's numbers, if it casts Mirage ([`UnitDef::spells`]; `crate::mirage`).
+    pub fn mirage(&self) -> Option<&'static MirageDef> {
+        self.spells.iter().find_map(SpellDef::mirage)
     }
 
     /// (M5-V2) Whether it takes the Reverse order (`systems/controls/commands.md > Reverse`: "Only available to bases

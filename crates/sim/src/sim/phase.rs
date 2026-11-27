@@ -150,8 +150,9 @@ impl Sim {
         // drone has its grid from its first tick; it moves and attacks from the next one, as every new object.
         self.step_launches(first_new);
         // (M5-N4b) The clouds follow the channels as 5a leaves them (`crate::shroud`, plan decision T77): a channel that
-        // started in it protects in this tick's 5e, and one that ended releases its cloud's buffer there.
-        self.clouds.update(channelling, &mut self.events);
+        // started in it protects in this tick's 5e; (M6-CM) one that ended lingers, and a circle whose linger is over
+        // vanishes, its cloud's buffer released there.
+        self.clouds.update(channelling, self.tick, &mut self.events);
         // 5b: the movement below must collide with this tick's obstacles (the true grids), and every unit that came
         // into the game or was queued since the last tick has its grid from here on (slice M5-Z2, `paths`).
         observe(Phase::NavSync);
@@ -185,11 +186,12 @@ impl Sim {
         );
         // (M5-V4) The crushed die in 5d, before 5e (`movement::crush`): they leave through the removal path, the grids
         // follow as after 5e's deaths, and a Disciple's Shroud ends with its death (`shroud::Clouds::settle`), its
-        // buffer released in this tick's 5e.
+        // circle lingering from there (M6-CM; with no linger, its buffer released in this tick's 5e).
         if !crushed.is_empty() {
             self.remove_objects(&crushed);
             paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
-            self.clouds.settle(|id| self.objects.get(&id), &mut self.events);
+            self.clouds
+                .settle(|id| self.objects.get(&id), self.tick, &mut self.events);
         }
         // (M6-GD) The drones whose end comes fall (`sim/drones.rs`, `crate::tether`): after 5d, which moved them past
         // their leash; before 5e, so that a drone that falls attacks nothing in the tick, and the blast of one past its
@@ -316,8 +318,10 @@ impl Sim {
         self.clear_defeated_networks();
         // (M5-N4b) The clouds of the channels that ended since 5a, by a death in 5e or a defeat's cleared orders
         // (`shroud::Clouds::settle`; (M5-V4) a crush in 5d settled them before 5e): after every way a channel ends;
-        // their buffers wait for the next tick's 5e.
-        self.clouds.settle(|id| self.objects.get(&id), &mut self.events);
+        // (M6-CM) their circles linger from there, and those whose linger is over vanish, their buffers waiting for the
+        // next tick's 5e.
+        self.clouds
+            .settle(|id| self.objects.get(&id), self.tick, &mut self.events);
         // 5f: sees the tick's final positions, this tick's new objects included; the fog delays and reveals that end
         // in this tick end (`vision::linger`, `vision::reveal`).
         observe(Phase::Vision);

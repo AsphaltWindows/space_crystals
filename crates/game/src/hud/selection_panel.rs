@@ -150,7 +150,7 @@ pub(super) fn update_selection_panel(
                 ChildOf(panel),
             ))
             .id();
-        spawn_cell_content(&mut commands, entity, *cell, &source.sim);
+        spawn_cell_content(&mut commands, entity, *cell, &source.sim, source.player.0);
         view.entities.push(entity);
     }
     view.cells = cells;

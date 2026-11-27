@@ -21,6 +21,11 @@
 //! - **A new Shroud order** while the unit channels is "any other order" to the channel under way: that one ends and
 //!   the new one starts its own, with its own start check (`crate::shroud`: a member is a channel, the unit and its
 //!   order's start).
+//! - (M6-CM) **An illusion's** Shroud order mirrors its parent's channel (`crate::mirage`, `super::run::update`, which
+//!   gives it): it stands, as a channel does, drains nothing, the illusion having no energy, and casts no cloud
+//!   (`crate::shroud::member`); "all of them stop when the parent's channel ends": it completes in the first tick its
+//!   parent channels no more, and before that, as a channel does, by Stop or another order ("Each illusion's animation
+//!   can be **cancelled individually** (as the channel: Stop or another order)").
 
 use super::world::Unit;
 use crate::defs::UnitDef;
@@ -28,7 +33,11 @@ use crate::energy;
 
 /// One tick of a Shroud order (module docs), `first` in the tick it started: whether it is complete. A unit whose type
 /// casts no Shroud or has no energy pool (only a save edited by hand gives it the order) completes it at once.
+/// (M6-CM) An illusion's completes once its parent's channel has ended ([`Unit::mirrors`]).
 pub(super) fn run(unit: &mut Unit, first: bool) -> bool {
+    if let Some(parent_channels) = unit.mirrors {
+        return !parent_channels;
+    }
     let Some(shroud) = unit.unit_def().and_then(UnitDef::shroud) else {
         return true;
     };

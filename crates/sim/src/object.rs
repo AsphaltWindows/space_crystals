@@ -210,6 +210,16 @@ pub struct Object {
     /// ammo, unassigned: `sim/load.rs`) and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aircraft: Option<AircraftState>,
+    /// (M6-CM) An illusion's parent (`crate::mirage`; `factions/cults/units/disciple.md > Spells > Mirage`): the
+    /// Disciple whose Mirage made it, of its kind, which it vanishes with ("an illusion lasts until it **dies**, its
+    /// **parent dies**, or the parent **casts Mirage again**"). The illusion is an object of its parent's kind, so that
+    /// every enemy sees a Disciple ("exactly like a Disciple, on the map and when selected; enemies can't tell them
+    /// apart"): what this link makes of it (double damage, no Unit Control, no energy and no spell of its own, its
+    /// parent's energy shown, its parent's channel mirrored) is read from it, and only its owner's client shows it.
+    /// `None` for every other object. Optional in files and left out of them while `None`, and hashed only while set,
+    /// so that states saved before it existed load and those without one hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub illusion_of: Option<ObjectId>,
 }
 
 impl Object {

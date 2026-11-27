@@ -80,7 +80,10 @@
 //!
 //! (M5-N4b) A Disciple's R, Shroud (`factions/cults/units/disciple.md > Placeholder stats`), asks the gate for its
 //! Shroud order, unqueued, to the one Disciple of the ActiveGroup: it is greyed below 10 energy
-//! (`Reject::NotEnoughEnergy`: "needs at least **10 energy** to start").
+//! (`Reject::NotEnoughEnergy`: "needs at least **10 energy** to start"). (M6-CM) Its F, Mirage, asks for its
+//! `Command::Ability` alike: greyed below 50 energy
+//! (`factions/cults/units/disciple.md > Placeholder stats > Mirage numbers`: "**50 energy**"); and both are greyed for
+//! an illusion (`Reject::IllusionsCantCast`: "**No spells**: illusions can't cast"), whose panel is a Disciple's.
 //!
 //! (M5-N5) A Shrine's Q and W (`factions/cults/structures/shrine.md > Placeholder stats`) ask the gate for their cast
 //! wherever it would be cast (`Sim::can_cast`): greyed while the Shrine hasn't the energy it costs

@@ -30,7 +30,10 @@ fn energy(sim: &Sim) -> u32 {
 
 /// The Disciple (1) under its own cloud, shot by player 2's Militant (2) from outside it, takes the releases' shares
 /// and channels on; a Move ends its channel in the tick it is given. The Militant fires every 8 ticks, so a shot lands
-/// in each release's tick, before it, and goes with it: a release every 16 ticks, two shots in each.
+/// in each release's tick, before it, and goes with it: a release every 16 ticks, two shots in each. (M6-CM) The cloud
+/// lingers where it was as the Disciple walks off, and vanishes 24 ticks after the Move (design change 0448: "the cloud
+/// **stays for 1.5 s (24 frames, placeholder)** [...]. It stays **where it was** (designer's reading: the Disciple may
+/// walk away meanwhile)").
 #[test]
 fn damage_doesnt_end_the_channel_and_a_new_order_does() {
     let mut t = quiet(
@@ -72,11 +75,21 @@ fn damage_doesnt_end_the_channel_and_a_new_order_does() {
         OrderKind::Move(Target::Point(Vec2::new(400.0, 200.0))),
     );
     t.step();
+    assert_eq!(ended(&t), Some(moved), "the Move ended it at once");
+    let members: Vec<_> = (t.sim().clouds().list().iter())
+        .flat_map(|c| c.members.clone())
+        .collect();
+    assert_eq!(members.len(), 1, "its cloud lingers: {members:?}");
     assert_eq!(
-        (ended(&t), clouds(&t)),
-        (Some(moved), vec![]),
-        "the Move ended it at once"
+        (members[0].at, members[0].until),
+        (Vec2::new(400.0, 400.0), Some(moved + LINGER)),
+        "where it was"
     );
+    t.run_until(moved + LINGER - 1);
+    assert_eq!(clouds(&t), [vec![1]], "a tick before its time");
+    assert!(t.pos(1).y < 400.0 - 40.0, "walking off: {}", t.pos(1));
+    t.step();
+    assert_eq!(clouds(&t), Vec::<Vec<u32>>::new(), "gone 24 ticks after the Move");
 }
 
 /// From full, 200 energy (a save edited to it), the channel pays its drain of 20,480 units a tick, its regeneration of
@@ -110,7 +123,9 @@ fn from_full_a_channel_runs_dry_711_ticks_after_it_starts_and_another_needs_10_e
     }
     assert_eq!(sim.tick(), start + 711, "711 ticks after it started");
     assert_eq!(energy(&sim), 2 * A_TICK, "2,048 left, and the tick's regeneration");
-    assert!(sim.clouds().is_empty());
+    // (M6-CM) Its cloud lingers (design change 0448).
+    let lingering = sim.clouds().list()[0].members[0].until;
+    assert_eq!(lingering, Some(sim.tick() + LINGER), "its cloud lingers");
     let mut accepted = None;
     while accepted.is_none() {
         let ready = energy(&sim) >= 10 * ONE;
@@ -166,7 +181,12 @@ fn a_queued_shroud_that_starts_below_10_energy_ends_at_once() {
     let orders = t.sim().object(ObjectId(1)).unwrap().orders.clone().unwrap();
     assert!(orders.is_idle(), "{orders:?}");
     assert_eq!(energy(t.sim()), 14_336 + A_TICK);
-    assert!(t.sim().clouds().is_empty());
+    // (M6-CM) The first's cloud lingers, the queued one's none.
+    let members: Vec<_> = (t.sim().clouds().list().iter())
+        .flat_map(|c| c.members.clone())
+        .collect();
+    assert_eq!(members.len(), 1, "{members:?}");
+    assert_eq!((members[0].since, members[0].until), (1, Some(178 + LINGER)));
 }
 
 /// Design change 0438's Verification: "A Disciple channelling Shroud, Shift+Move: it keeps channelling until out of
@@ -203,7 +223,11 @@ fn a_shift_queued_move_waits_behind_the_channel_and_a_plain_one_ends_it_at_once(
 
     let mut t = game(false);
     t.run_until(20);
-    assert_eq!((ended(&t), clouds(&t)), (Some(20), vec![]), "the Move ended it at once");
+    assert_eq!(
+        (ended(&t), clouds(&t)),
+        (Some(20), vec![vec![1]]),
+        "the Move ended it at once, (M6-CM) its cloud lingering"
+    );
     t.run_until(30);
     assert!(t.pos(1).y > from.y + 20.0, "walking off: {}", t.pos(1));
 }

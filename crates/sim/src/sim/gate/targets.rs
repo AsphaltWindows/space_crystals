@@ -74,6 +74,8 @@ impl Sim {
                     repair: (o.owner == Some(player) && repair::damage(o, self.research()).is_some()).then_some(o.kind),
                     // (M6-GH1) An own Airfield in operation, which the aircraft are assigned to (`crate::aircraft`).
                     airfield: o.owner == Some(player) && aircraft::is_airfield(o),
+                    // (M6-CM) Such a building that refuses illusions (`crate::mirage`: the Altar).
+                    refuses_illusions: !accepts.is_empty() && crate::mirage::refuses_illusions(o.kind),
                 })
             }
             TargetView::Remembered { .. } => {
@@ -93,6 +95,7 @@ impl Sim {
                     site: None,
                     repair: None,
                     airfield: false,
+                    refuses_illusions: false,
                 })
             }
             TargetView::Gone => None,

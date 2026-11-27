@@ -178,6 +178,7 @@ fn the_rule_on_abilities_and_targets() {
         worker: false,
         carrying: false,
         gathers_supplies: false,
+        illusion: false,
         transit: Transit::Infantry,
         aircraft: None,
     };
@@ -188,6 +189,7 @@ fn the_rule_on_abilities_and_targets() {
         worker: true,
         carrying,
         gathers_supplies: false,
+        illusion: false,
         transit: Transit::Vehicles,
         aircraft: None,
     };
@@ -205,6 +207,7 @@ fn the_rule_on_abilities_and_targets() {
         site: None,
         repair: None,
         airfield: false,
+        refuses_illusions: false,
     };
     let follow = OrderKind::Move(Target::Object(ObjectId(5)));
     let attack = OrderKind::Attack(ObjectId(5));
@@ -425,4 +428,31 @@ fn the_rule_on_abilities_and_targets() {
             "{kind:?}"
         );
     }
+    // (M6-CM) An illusion (`sc_sim::mirage`) enters a Garrison as a Disciple does, and follows an Altar, which a
+    // Disciple enters: "Illusions can't be augmented at the Altar themselves" (`factions/cults/units/disciple.md >
+    // Spells > Mirage`).
+    let disciple = Abilities {
+        kind: ObjectKind::Disciple,
+        worker: false,
+        transit: Transit::Infantry,
+        ..drone(false)
+    };
+    let illusion = Abilities {
+        illusion: true,
+        ..disciple
+    };
+    let infantry = &[ObjectKind::Recruit, ObjectKind::Disciple][..];
+    let garrison = Aimed {
+        accepts: infantry,
+        ..object(false, true, Domain::Ground, false, false)
+    };
+    let altar = Aimed {
+        refuses_illusions: true,
+        ..garrison
+    };
+    let enter = OrderKind::Enter(ObjectId(5));
+    assert_eq!(resolve(disciple, Aim::Object(garrison)), enter);
+    assert_eq!(resolve(illusion, Aim::Object(garrison)), enter);
+    assert_eq!(resolve(disciple, Aim::Object(altar)), enter);
+    assert_eq!(resolve(illusion, Aim::Object(altar)), follow);
 }

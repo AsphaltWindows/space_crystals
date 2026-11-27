@@ -1,10 +1,10 @@
 //! The selected units' modes ([`Modes`]): which of them take no Attack, carry a load, aren't in operation yet, or
 //! (M6-GD) hold still for their drones, (M6-GH1) which are aircraft, with their bases, and which of those have no
-//! ammo left, and (M6-GA) which deploy, into which type, and which can't move.
+//! ammo left, (M6-GA) which deploy, into which type, and which can't move, and (M6-CM) which are illusions.
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use sc_sim::{ObjectId, ObjectKind, ShieldMode, Sim, aircraft, combat, riot_shield, tether, vehicle_deploy};
+use sc_sim::{ObjectId, ObjectKind, ShieldMode, Sim, aircraft, combat, mirage, riot_shield, tether, vehicle_deploy};
 
 use crate::selection::Selection;
 
@@ -48,6 +48,9 @@ pub struct Modes {
     deploying: BTreeMap<ObjectId, ObjectKind>,
     /// (M6-GA) The units of a type that can't move, but those that deploy.
     immobile: BTreeSet<ObjectId>,
+    /// (M6-CM) The illusions (`sc_sim::mirage`), which a building that refuses illusions doesn't take in: the Altar. Read
+    /// for a selection its player commands, whose own they are.
+    illusions: BTreeSet<ObjectId>,
 }
 
 impl Modes {
@@ -77,6 +80,9 @@ impl Modes {
             transforming: selection
                 .ids()
                 .filter(|&id| sim.object(id).is_some_and(|o| !o.is_operational()))
+                .collect(),
+            illusions: (selection.ids())
+                .filter(|&id| sim.object(id).is_some_and(mirage::is_illusion))
                 .collect(),
             tethered: (selection.ids())
                 .filter(|&id| sim.object(id).is_some_and(tether::holds))
@@ -164,6 +170,18 @@ impl Modes {
         self
     }
 
+    /// (M6-CM) Whether `id` is an illusion (`sc_sim::mirage`), which the Altar doesn't take in
+    /// (`sc_sim::orders::resolution::Abilities::illusion`).
+    pub fn illusion(&self, id: ObjectId) -> bool {
+        self.illusions.contains(&id)
+    }
+
+    /// (M6-CM) The same, with `ids` illusions: for the unit tests.
+    pub fn with_illusions(mut self, ids: impl IntoIterator<Item = ObjectId>) -> Self {
+        self.illusions.extend(ids);
+        self
+    }
+
     /// Whether `id` is a worker that carries a load.
     pub fn carries(&self, id: ObjectId) -> bool {
         self.loaded.contains(&id)
@@ -226,6 +244,7 @@ impl FromIterator<(ObjectId, ShieldMode)> for Modes {
             empty: BTreeSet::new(),
             deploying: BTreeMap::new(),
             immobile: BTreeSet::new(),
+            illusions: BTreeSet::new(),
         }
     }
 }

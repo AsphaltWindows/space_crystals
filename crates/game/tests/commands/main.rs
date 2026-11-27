@@ -51,7 +51,9 @@
 //! with one Recruit free, the Seeker driving out of side C, and its W, Reverse; slice M5-N11: its E, Build Prayer-mobile,
 //! greyed until a Temple stands): `chop_shop`, on another. The Prayer-mobile (slice M5-N11: R's Inspire and F's
 //! Suppress cast at once, the buffs' marks, the cast's ring and wedge, and the keys greyed without the energy):
-//! `prayer_mobile`, on another.
+//! `prayer_mobile`, on another. The Disciple's Mirage (slice M6-CM: F casting it, the illusions as their owner sees
+//! them, washed out and named "Disciple (illusion)", with their parent's energy and their spells greyed, and as the
+//! other player sees them after F2, Disciples): `mirage`, on another.
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
 //! over Recruits and Militants, the group's placement with its Shift chain, and, slice M5-S4, a Hall placed flush
@@ -101,6 +103,7 @@ mod factory;
 mod field_engineer_ui;
 mod indicators;
 mod minimap;
+mod mirage;
 mod panel;
 mod portals;
 mod prayer_mobile;

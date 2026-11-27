@@ -14,7 +14,7 @@ use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::sim::{Reject, Sim};
 use crate::stock::{self, Unbuyable};
-use crate::{aircraft, combat, conversion, tether, vehicle_deploy};
+use crate::{aircraft, combat, conversion, mirage, tether, vehicle_deploy};
 
 impl Sim {
     /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped. (M6-GA) A unit that
@@ -277,6 +277,9 @@ impl Sim {
     /// energy it needs to start (`defs::SpellDef::needs`, `energy::has`), else [`Reject::NotEnoughEnergy`]: Shroud's
     /// "needs at least **10 energy** to start" (`factions/cults/units/disciple.md > Placeholder stats > Shroud
     /// numbers`). The check of every spell, the Prayer-mobile's to come too (`factions/cults/units/prayer_mobile.md`).
+    /// (M6-CM) Of the units whose type casts it, the illusions don't ([`Reject::IllusionsCantCast`],
+    /// `factions/cults/units/disciple.md > Spells > Mirage`: "**No spells**: illusions can't cast"): Shroud and Mirage
+    /// alike.
     fn check_spell(&self, units: Vec<ObjectId>, is_spell: impl Fn(&SpellDef) -> bool) -> Result<Vec<ObjectId>, Reject> {
         let spell_of = |o: &Object| (o.def().unit.as_ref()).and_then(|unit| unit.spells.iter().find(|s| is_spell(s)));
         let casters: Vec<(&Object, &SpellDef)> = (units.iter())
@@ -285,6 +288,11 @@ impl Sim {
             .collect();
         if casters.is_empty() {
             return Err(Reject::LacksAbility);
+        }
+        let casters: Vec<(&Object, &SpellDef)> =
+            (casters.into_iter()).filter(|(o, _)| !mirage::is_illusion(o)).collect();
+        if casters.is_empty() {
+            return Err(Reject::IllusionsCantCast);
         }
         let ready: Vec<ObjectId> = (casters.into_iter())
             .filter(|(o, spell)| energy::has(o, spell.needs()))
@@ -494,6 +502,8 @@ impl Sim {
             Ability::Convert => conversion::converts_to(o.kind).is_some(),
             // (M6-GD) A unit with a stock (`crate::stock`).
             Ability::Buy => o.stock.is_some(),
+            // (M6-CM) A unit whose type casts Mirage (`crate::mirage`).
+            Ability::Mirage => mirage::def_of(o.kind).is_some(),
         };
         let own = self.own_units(player, units, |_| true)?;
         if own.is_empty() {
@@ -511,6 +521,9 @@ impl Sim {
         }
         let units = match ability {
             Ability::Buy => self.check_buy(player, units)?,
+            // (M6-CM) No illusion, with the energy it costs: "**50 energy**" (`factions/cults/units/disciple.md >
+            // Placeholder stats > Mirage numbers`), as a spell's order is checked.
+            Ability::Mirage => self.check_spell(units, |spell| matches!(spell, SpellDef::Mirage(_)))?,
             Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert => units,
         };
         Ok(Checked::Ability { units, ability })

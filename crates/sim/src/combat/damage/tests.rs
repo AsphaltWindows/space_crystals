@@ -135,6 +135,7 @@ fn target(kind: crate::defs::ObjectKind, shields: f32) -> Object {
         drone: None,
         cooldown: None,
         aircraft: None,
+        illusion_of: None,
     }
 }
 
@@ -203,8 +204,9 @@ fn a_3x3_building_wholly_under_one_circle_takes_about_32_percent_of_a_release() 
         since: 0,
         at: hangar,
         radius: 192.0,
+        until: None,
     };
-    clouds.update(vec![member], &mut events);
+    clouds.update(vec![member], 1, &mut events);
     clouds.absorb(0, 600.0, 3);
     let mut hits = Vec::new();
     release(&mut clouds, &targets, 10, &mut hits, &mut events);

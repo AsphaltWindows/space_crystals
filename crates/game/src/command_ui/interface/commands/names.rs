@@ -32,7 +32,8 @@ impl PanelCommand {
     /// which says what it does (slice M5-K). A Prayer-mobile's casts shorten their names, "Insp." and "Suppr." (slice
     /// M5-N11). A Drone Operator's Launch Drone is its name's first word, "Launch", and its Build Drone the drone's tag,
     /// "DRN", what it makes, as a Train shows its unit's (slice M6-GD). An aircraft's Return to Base is its name's last
-    /// word, "Base", where it goes (slice M6-GH1). A Radar Station's Scan is its name, whole
+    /// word, "Base", where it goes (slice M6-GH1). A Radar Station's Scan is its name, whole, and so is (M6-CM) a
+    /// Disciple's Mirage, "Mirage" (6 letters, as "Shroud")
     /// (slice M6-GR). A vehicle's R is "Deploy", its name, into a type that can't move, and "Undep.", a shortening of
     /// Undeploy, into one that can (`sc_sim::vehicle_deploy::immobile`; slice M6-GA).
     pub fn label(self) -> &'static str {
@@ -94,6 +95,7 @@ impl PanelCommand {
             PanelCommand::ReturnToBase => "Base",
             PanelCommand::VehicleDeploy(into) if vehicle_deploy::immobile(into) => "Deploy",
             PanelCommand::VehicleDeploy(_) => "Undep.",
+            PanelCommand::Mirage => "Mirage",
         }
     }
 
@@ -156,7 +158,8 @@ impl PanelCommand {
             | PanelCommand::Deploy
             | PanelCommand::EjectMenu
             | PanelCommand::Repair
-            | PanelCommand::Shroud => self.label().into(),
+            | PanelCommand::Shroud
+            | PanelCommand::Mirage => self.label().into(),
         }
     }
 

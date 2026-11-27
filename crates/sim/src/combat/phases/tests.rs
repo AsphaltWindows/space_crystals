@@ -65,6 +65,7 @@ fn object(id: ObjectId, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) ->
         drone: None,
         cooldown: None,
         aircraft: None,
+        illusion_of: None,
     }
 }
 

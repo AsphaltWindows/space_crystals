@@ -60,6 +60,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         drone: None,
         cooldown: None,
         aircraft: None,
+        illusion_of: None,
     }
 }
 

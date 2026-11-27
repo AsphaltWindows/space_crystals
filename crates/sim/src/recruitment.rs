@@ -304,8 +304,12 @@ impl Lineages {
             }
             // Design change 0344: "Recruits no Hall produced [...] are orphans from the start": the whole cost of a unit
             // without a lineage, and of a unit trained of several Recruits (slice M5-F2, `Sim::train`: one entry for
-            // each Hall's Recruit) the point of each that no Hall produced.
-            let cost = ArmyResource::CultsUnitControl.cost_of(o.kind);
+            // each Hall's Recruit) the point of each that no Hall produced. (M6-CM) An illusion costs nothing, and has no
+            // lineage (`factions/cults/units/disciple.md > Spells > Mirage`: "They use **no Unit Control**").
+            let cost = match crate::mirage::is_illusion(o) {
+                true => 0,
+                false => ArmyResource::CultsUnitControl.cost_of(o.kind),
+            };
             let unnamed = cost.saturating_sub(u32::try_from(o.lineage.len()).unwrap_or(u32::MAX));
             if let Some(owner) = o.owner.filter(|_| unnamed > 0) {
                 *orphaned.entry(owner).or_default() += unnamed;

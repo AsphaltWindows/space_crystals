@@ -225,6 +225,10 @@ pub const CANNOT_MOVE_TEXT: &str = "Cannot move while deployed";
 /// `factions/gdo/units/artillery_rig.md > Modes`: "**Undeploy is only available once deployment is complete**").
 /// Placeholder (not in the design: the wording).
 pub const DEPLOYING_TEXT: &str = "Still switching modes";
+/// (M6-CM) The message of an illusion's R or F, its spells (`Reject::IllusionsCantCast`;
+/// `factions/cults/units/disciple.md > Spells > Mirage`: "**No spells**: illusions can't cast"). Placeholder wording,
+/// which only the illusion's owner, who commands it, ever reads.
+pub const ILLUSIONS_CANT_CAST_TEXT: &str = "Illusions can't cast";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -389,7 +393,8 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 /// completed, its previous level missing), (M6-GD) a Drone Operator's (its drone out, its stock full, empty or being
 /// filled; Supplies short for the Barracks' R, "a feedback line that names Supplies", design change 0441), (M6-GR) a
 /// Scan's (its station cooling down), (M6-GH1) an Airfield's and its aircraft's (the Airfield full, no base, out of
-/// ammo, not an Airfield), (M6-GA) a vehicle's (it can't move, it deploys already), and placeholders for the others.
+/// ammo, not an Airfield), (M6-GA) a vehicle's (it can't move, it deploys already), (M6-CM) an illusion's spells'
+/// ([`ILLUSIONS_CANT_CAST_TEXT`]), and placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -429,6 +434,7 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::NotAnAirfield(_) => NOT_AN_AIRFIELD_TEXT,
         Reject::CannotMove => CANNOT_MOVE_TEXT,
         Reject::Deploying => DEPLOYING_TEXT,
+        Reject::IllusionsCantCast => ILLUSIONS_CANT_CAST_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

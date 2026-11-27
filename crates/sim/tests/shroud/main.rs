@@ -6,11 +6,13 @@
 //!   was thrown from; a release has no direction; a lowered pop-up turret is protected and takes its share;
 //! - `clouds`: which circles are one cloud and when the buffers go: 5 grid units apart one buffer, 8 apart two; a
 //!   Disciple channelling between two clouds makes both release at once, and then they buffer together; a Stop on one
-//!   of a joined pair releases the shared buffer at once over both circles;
+//!   of a joined pair releases the shared buffer at once over both circles, (M6-CM) as its lingering circle vanishes;
 //! - `channel`: what ends a channel and what starts one: damage doesn't, a new order does, and running dry does, 711
 //!   ticks after it started from full; below 10 energy the gate refuses it, and a queued one that starts below 10 ends
 //!   at once; (M5-N11) a Shift-queued Move waits behind the channel and a plain one ends it at once (design change
 //!   0438's Verification);
+//! - (M6-CM) `linger`: a cloud lingers 24 ticks where it was after a Stop and after its Disciple's death, absorbing a
+//!   shot fired into it then, and releases its buffer as it vanishes (design change 0448's Verification, step 8);
 //! - `state`: a replay with clouds splitting and merging reproduces the hash; the clouds saved and loaded, and hashed
 //!   only while there are any;
 //! - `reveals` (design change 0386): an absorbed shot or blast reveals its unseen attacker to the owner of the object
@@ -23,6 +25,7 @@
 mod absorption;
 mod channel;
 mod clouds;
+mod linger;
 mod reveals;
 mod state;
 
@@ -36,6 +39,9 @@ const DISCIPLE: ObjectKind = ObjectKind::Disciple;
 const MILITANT: ObjectKind = ObjectKind::Militant;
 /// A cloud's radius, space units: "cloud radius **3 grid units** around the Disciple".
 const RADIUS: f32 = 192.0;
+/// (M6-CM) How long a channel's circle stays once it ends, ticks: "the cloud **stays for 1.5 s (24 frames,
+/// placeholder)**" (design change 0448; `sc_sim::tuning::spells`' `linger`).
+const LINGER: Tick = 24;
 
 fn point(x: f32, y: f32) -> SpawnAt {
     SpawnAt::Point(Vec2::new(x, y))

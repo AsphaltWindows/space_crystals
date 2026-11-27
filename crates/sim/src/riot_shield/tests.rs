@@ -52,6 +52,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         drone: None,
         cooldown: None,
         aircraft: None,
+        illusion_of: None,
     }
 }
 

@@ -10,6 +10,10 @@
 //!   circles it went over, as they were (a join's or a split's old cloud too), for `LookTuning::release_ticks`,
 //!   fading, over
 //!   the same Visible tiles.
+//! - (M6-CM) **A lingering circle** (`sc_sim::shroud::Member::until`: "the cloud **stays for 1.5 s (24 frames,
+//!   placeholder)**", design change 0448) is drawn as any other, where its channel was: the sim keeps it in its cloud.
+//! - (M6-CM) **The channelling stance** of a Disciple that channels and of an illusion that mirrors it, alike: a ring
+//!   at the unit's feet ([`stance`]).
 //!
 //! One mesh and one texture, over the box of tiles the clouds and the flashes cover ([`Area`]), never an entity per
 //! cloud or per tile (`ARCHITECTURE.md > Client architecture > Visuals`): the mesh follows the terrain's surface tile
@@ -39,6 +43,7 @@ use crate::tuning::look::LookTuning;
 use crate::viewer_events::{FilterEvents, ViewerEvents};
 use crate::{ClientMode, ClientSystems};
 
+pub mod stance;
 #[cfg(test)]
 mod tests;
 
@@ -58,12 +63,15 @@ impl Plugin for ShroudViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ClientTuning>();
         app.init_resource::<ShroudView>()
-            .add_systems(Startup, spawn_shroud_layer)
+            .add_systems(Startup, (spawn_shroud_layer, stance::spawn_stance_mesh))
             .add_systems(
                 Update,
                 collect_releases.in_set(ClientSystems::SyncSim).after(FilterEvents),
             )
-            .add_systems(Update, update_shroud_layer.in_set(ClientSystems::Present));
+            .add_systems(
+                Update,
+                (update_shroud_layer, stance::update_stance_mesh).in_set(ClientSystems::Present),
+            );
     }
 }
 

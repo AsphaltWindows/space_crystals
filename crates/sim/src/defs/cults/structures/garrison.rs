@@ -8,11 +8,12 @@ use crate::player::Faction;
 use crate::sides::SideLetter;
 
 /// `factions/cults/structures/garrison.md`: "The Cults' defensive structure. Infantry enter the Garrison and fire from
-/// inside it: Recruits and Disciples fire **as if they were Militants** [...], while Militants and Gunners fire their
-/// own weapons. Without units inside, the Garrison does not attack." Its numbers and its site came with slice M5-G2
-/// (plan decision T69), its garrisoning with slice M5-N2 (plan decision T72): who may enter, through its one door
-/// (`StructureDef::holds`), and how they fire from it (`StructureDef::occupants_fire`, `combat::occupants`). Its
-/// numbers are the design's "Placeholder stats".
+/// inside it: Recruits fire **as if they were Militants** [...], while Militants and Gunners fire their own weapons.
+/// Without units inside, the Garrison does not attack." Its numbers and its site came with slice M5-G2 (plan decision
+/// T69), its garrisoning with slice M5-N2 (plan decision T72): who may enter, through its one door
+/// (`StructureDef::holds`), and how they fire from it (`StructureDef::occupants_fire`, `combat::occupants`); (M6-CM)
+/// design change 0450: "**Disciples and illusions don't fire** from inside (user, 2026-11-27): they are only
+/// sheltered". Its numbers are the design's "Placeholder stats".
 pub(crate) const GARRISON: ObjectDef = ObjectDef {
     kind: ObjectKind::Garrison,
     name: "Garrison",
@@ -50,7 +51,8 @@ pub(crate) const GARRISON: ObjectDef = ObjectDef {
             // with each other until they are clear of the footprint".
             exit: ExitRule::AtOnce(SideLetter::B),
             capacity: 4, // GarrisonCapacity - 4 units
-            // `> Garrisoning > Who can enter`: "Recruits, Militants, Gunners, and Disciples".
+            // `> Garrisoning > Who can enter`: "Recruits, Militants, Gunners, and Disciples, and Disciples'
+            // **illusions**", which are Disciples (`crate::mirage`).
             accepts: &[
                 ObjectKind::Recruit,
                 ObjectKind::Militant,
@@ -59,12 +61,11 @@ pub(crate) const GARRISON: ObjectDef = ObjectDef {
             ],
         }),
         occupants_fire: Some(OccupantFire {
-            // `> Garrisoning > Weapons`: "a Recruit or Disciple inside attacks with the Militant's AttackAttributes
-            // (see Militant); Militants and Gunners use their own AttackAttributes".
-            stand_in: &[
-                (ObjectKind::Recruit, ObjectKind::Militant),
-                (ObjectKind::Disciple, ObjectKind::Militant),
-            ],
+            // `> Garrisoning > Weapons`: "a Recruit inside attacks with the Militant's AttackAttributes (see Militant);
+            // a **Disciple or illusion inside doesn't attack** (user, 2026-11-27; replaces "Disciples fire as
+            // Militants"); Militants and Gunners use their own AttackAttributes" (design change 0450): the Disciple,
+            // which has no weapon of its own, has no stand-in either.
+            stand_in: &[(ObjectKind::Recruit, ObjectKind::Militant)],
             // `> Garrisoning > Range bonus`: "**Militants and Gunners** inside get **+1 grid unit of Range** on their
             // attack".
             range_bonus_gu: 1.0,
@@ -98,8 +99,8 @@ mod tests {
     /// 2×2, AAAB, MaxHP 400, PointArmor 2, FullArmor 8 (the building armour rule's n = 2), SightRange 6, Groupable,
     /// behind an Armory, with no attack of its own. Recruits build it from outside for 150 Space Crystals in 400 frames
     /// with one of them, from 10% HP. It holds 4 Recruits, Militants, Gunners and Disciples, in and out at its one
-    /// door, B, everyone out at once; Recruits and Disciples inside fire the Militant's attack, Militants and Gunners
-    /// their own with +1 grid unit of Range.
+    /// door, B, everyone out at once; Recruits inside fire the Militant's attack, Militants and Gunners their own with
+    /// +1 grid unit of Range, and (M6-CM, design change 0450) Disciples nothing: their own attack, none.
     #[test]
     fn the_garrison_follows_the_design() {
         let structure = assert_structure(
@@ -138,9 +139,14 @@ mod tests {
                 (ObjectKind::Militant, 0.0),
                 (ObjectKind::Militant, 1.0),
                 (ObjectKind::Gunner, 1.0),
-                (ObjectKind::Militant, 0.0)
+                (ObjectKind::Disciple, 0.0)
             ],
-            "Recruits and Disciples fire as Militants, without the bonus"
+            "Recruits fire as Militants, without the bonus; Disciples with their own attack (0450)"
+        );
+        assert_eq!(
+            ObjectKind::Disciple.def().unit.as_ref().and_then(|unit| unit.attack),
+            None,
+            "a Disciple's own attack: none, so it doesn't fire from inside"
         );
         let site = structure.site.expect("Recruits build it");
         assert_eq!(

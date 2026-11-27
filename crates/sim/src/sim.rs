@@ -457,6 +457,7 @@ impl Sim {
             // (M6-GH1) Its type's full ammo, unassigned (`crate::aircraft`): the Airfield that releases it assigns it
             // (`Sim::release_unit`).
             aircraft: crate::aircraft::fresh(kind),
+            illusion_of: None,
         };
         if let Some(rally) = crate::production::default_rally(&self.map, &object)
             && let Some(production) = &mut object.production
@@ -517,6 +518,7 @@ mod gate;
 mod holding;
 mod kinds;
 mod load;
+mod mirage;
 mod modes;
 mod navigation;
 mod network;

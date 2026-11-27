@@ -29,7 +29,9 @@
 //!   `factions/cults/structures/README.md > Entering pool buildings`: "a unit arriving when the building is full has
 //!   its Enter **end** and idles beside the building"; design change 0378: "If the building fills up later while the
 //!   Recruits are walking over, the normal Full-building rule applies"), but for one full and damaged that the unit's
-//!   type repairs, which it Repairs (below).
+//!   type repairs, which it Repairs (below). (M6-CM) Not for an illusion at a building that refuses illusions
+//!   ([`Aimed::refuses_illusions`]: the Altar, `factions/cults/units/disciple.md > Spells > Mirage`: "Illusions can't
+//!   be augmented at the Altar themselves", `crate::mirage`), which it follows, an Enter there being certain to fail.
 //! - **An own building under construction** that the unit's type builds from outside gives Assist (slice M5-E;
 //!   `factions/cults/units/recruit.md > Right-Click Resolution`: "In-progress own building → Assist Construction";
 //!   `OrderKind::Assist`), after Enter: an Armory under construction takes no one in (design change 0347 point 4:
@@ -102,6 +104,9 @@ pub struct Abilities {
     /// (M6-GH1) If it is an aircraft that rearms at an Airfield (`crate::aircraft`), the Airfield it is assigned to:
     /// `Some(None)` while it is unassigned. `None` for every other unit.
     pub aircraft: Option<Option<ObjectId>>,
+    /// (M6-CM) It is an illusion (`crate::mirage`), which a building that refuses illusions doesn't take in
+    /// ([`Aimed::refuses_illusions`]). Only its owner, whose unit it is, resolves its default command.
+    pub illusion: bool,
 }
 
 impl Abilities {
@@ -123,6 +128,7 @@ impl Abilities {
             carrying: o.worker.is_some_and(|worker| worker.load > 0),
             gathers_supplies: o.worker.is_some() && worker_def(o.kind).is_some_and(|def| def.supplies.is_some()),
             aircraft: o.aircraft.map(|state| state.base),
+            illusion: crate::mirage::is_illusion(o),
         })
     }
 }
@@ -169,6 +175,9 @@ pub struct Aimed {
     /// (M6-GH1) It is an Airfield of the unit's owner's in operation (`crate::aircraft::is_airfield`), which the
     /// aircraft that rearm at one are assigned to. `false` for anything else.
     pub airfield: bool,
+    /// (M6-CM) It is such a building ([`Aimed::accepts`]) that doesn't take illusions in (`mirage::refuses_illusions`:
+    /// one that augments the units inside, the Altar). `false` for anything else.
+    pub refuses_illusions: bool,
 }
 
 /// What a unit's default command is resolved against.
@@ -245,7 +254,9 @@ impl Rule {
                 // Design change 0378: "An Enter certain to fail is a wasted click", so a full building goes to the
                 // Repair it would get. The Tunnel Network takes everyone the tier lets through.
                 let repairs_instead = target.full && Rule::Repair.order(unit, target).is_some();
-                let pool = target.accepts.contains(&unit.kind) && !repairs_instead;
+                // (M6-CM) Nor is an illusion's at a building that refuses illusions (`crate::mirage`).
+                let refused = unit.illusion && target.refuses_illusions;
+                let pool = target.accepts.contains(&unit.kind) && !repairs_instead && !refused;
                 (network::passes(target.transit, unit.transit) || pool).then_some(OrderKind::Enter(id))
             }
             Rule::Assist => (target.site.is_some_and(|kind| assists(unit.kind, kind))).then_some(OrderKind::Assist(id)),

@@ -170,7 +170,7 @@ pub struct HpBar {
     /// The share of its MaxShields its Shields fill (`Object::shields`), if it has Shields.
     pub shields: Option<f32>,
     /// (M5-N4a) The share of its maximum its energy fills (`sc_sim::energy::of`), if it has an energy pool: a
-    /// Disciple's.
+    /// Disciple's; (M6-CM) an illusion's parent's, live (`sc_sim::Sim::energy_shown`; design change 0452).
     pub energy: Option<f32>,
     /// (M6-GH1) An aircraft's ammo, the rounds it has left and the most it carries (`sc_sim::aircraft`): a Hornet's
     /// missiles, "Ammo: **5 missiles**" (`factions/gdo/units/hornet.md > AttackAttributes`), shown as pips under its
@@ -214,7 +214,10 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
 /// unit's with its Augmentations (`Object::max_hp_with`). (M5-N4a) An object with an energy pool has its energy bar
 /// with its HP bar: Placeholder (not in the design, which says nothing of energy's display: the plan's "an energy bar
 /// under the HP bar"), so shown when the HP bar is, energy short of its maximum not counting as damage. (M6-GH1) An
-/// aircraft's ammo pips alike: shown with its HP bar, ammo short of its maximum not counting as damage.
+/// aircraft's ammo pips alike: shown with its HP bar, ammo short of its maximum not counting as damage. (M6-CM) An
+/// illusion, which has no energy of its own, shows its parent's, live, to every player who sees it
+/// (`sc_sim::Sim::energy_shown`; design change 0452: "an illusion's energy bar and InfoPanel always show its
+/// **parent's current energy**, live"), as a Disciple's bar would.
 ///
 /// (M5-X2) Their sizes and the air units' lift are `tuning`'s (`LookTuning::bar_height` and the next).
 pub fn hp_bars(
@@ -232,7 +235,7 @@ pub fn hp_bars(
             let shields = o.shields.zip(o.max_shields()).filter(|&(_, max)| max > 0.0);
             let damaged = hp < max_hp || shields.is_some_and(|(shields, max)| shields < max);
             let shields = shields.map(|(shields, max)| shields / max);
-            let energy = sc_sim::energy::of(o).map(|(energy, max)| energy / max);
+            let energy = sim.energy_shown(o).map(|(energy, max)| energy / max);
             let bars = (hp / max_hp, (shields, energy));
             let ammo = o.aircraft.zip(sc_sim::aircraft::def_of(o.kind));
             let ammo = ammo.map(|(state, def)| (state.ammo.min(def.max), def.max));

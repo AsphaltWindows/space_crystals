@@ -6,6 +6,7 @@
 //! - `eject`: Eject All lets everyone out through the door at once, passing through each other until they are clear of
 //!   the footprint, idle; the empty Garrison refuses it;
 //! - `fire`: the occupants fire from the footprint: 0319's verification, the stand-in's attack, the Gunner's MinRange,
+//!   (M6-CM) the Disciples' none (0450's verification),
 //!   no attack while empty, each picks its own target;
 //! - `protection`: units inside can't be targeted, nor hit by a blast over the Garrison, and come out alive when it is
 //!   destroyed.

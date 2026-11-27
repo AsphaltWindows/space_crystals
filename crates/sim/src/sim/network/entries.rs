@@ -25,6 +25,7 @@ use crate::economy::RATIO_ONE;
 use crate::events::SimEvent;
 use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
+use crate::mirage;
 use crate::network::{self, EntryPath, Paths, Place};
 use crate::orders::OrderKind;
 use crate::orders::state::{Behaviour, Enter};
@@ -42,7 +43,8 @@ impl Sim {
     /// **can't be entered**"; slice M5-F1). The units it lets in take the order ([`network::admits`]), the others
     /// ignore it; none is [`Reject::NoTransit`] at a Tunnel and [`Reject::NotAccepted`] at a building. A building's
     /// room is judged as a unit gets there, not here (0347 point 2). Any unit of the target's owner may enter, whatever
-    /// faction its type belongs to: only a debug game has others.
+    /// faction its type belongs to: only a debug game has others. (M6-CM) An illusion doesn't go into a building that
+    /// augments (`mirage::admitted`: "Illusions can't be augmented at the Altar themselves").
     pub(in crate::sim) fn check_enter(
         &self,
         player: PlayerId,
@@ -57,7 +59,10 @@ impl Sim {
         if !building && !network::is_exit(object) {
             return Err(Reject::NotATunnel(target));
         }
-        let lets_in = |id: &ObjectId| (self.objects.get(id)).is_some_and(|o| network::admits(object, o.kind).is_ok());
+        let lets_in = |id: &ObjectId| {
+            (self.objects.get(id))
+                .is_some_and(|o| network::admits(object, o.kind).is_ok() && mirage::admitted(object, o))
+        };
         let admitted: Vec<ObjectId> = units.into_iter().filter(lets_in).collect();
         if admitted.is_empty() {
             return Err(match building {
@@ -186,7 +191,10 @@ impl Sim {
             return;
         };
         let suits = self.objects.get(&target).filter(|target| {
-            target.owner.is_some() && target.owner == o.owner && network::admits(target, o.kind).is_ok()
+            target.owner.is_some()
+                && target.owner == o.owner
+                && network::admits(target, o.kind).is_ok()
+                && mirage::admitted(target, o)
         });
         let half = o.def().silhouette().map(|_| Shape::of(o).bound_half());
         let reached =

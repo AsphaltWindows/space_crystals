@@ -122,6 +122,8 @@ mod invariants_state;
 mod known_from_the_start;
 #[path = "losing_tunnels/main.rs"]
 mod losing_tunnels;
+#[path = "mirage/main.rs"]
+mod mirage;
 #[path = "movement_collision/main.rs"]
 mod movement_collision;
 mod movement_crowds;

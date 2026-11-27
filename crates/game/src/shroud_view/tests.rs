@@ -1,5 +1,5 @@
 //! The clouds' texels as plain data: over the Visible tiles only, merged where circles overlap, a release's flash
-//! brighter and fading; and the box they cover.
+//! brighter and fading; and the box they cover. (M6-CM) And the channelling stance's rings.
 
 use super::*;
 
@@ -139,4 +139,46 @@ fn a_release_flashes_over_its_circles_and_fades() {
         0,
         "not over a tile the viewer doesn't see"
     );
+}
+
+/// (M6-CM) The channelling stance (`stance`): a Disciple that channels (1) and the illusions that mirror it (2, 4 and 5)
+/// stand alike, a ring each of the same radius at its feet, to its owner and to the other player alike; an illusion
+/// stopped (3) has none, and once the channel is over none of them has one. The Disciple casts Mirage in tick 1, then
+/// channels once its energy is back to 10.
+#[test]
+fn a_disciple_that_channels_and_its_mirroring_illusions_stand_alike() {
+    use crate::fog::Sight;
+    use sc_sim::testing::ScenarioBuilder;
+    use sc_sim::{Ability, Faction, ObjectId, ObjectKind, OrderKind, SpawnAt};
+    let (p1, p2) = (PlayerId(1), PlayerId(2));
+    let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
+        .faction(p1, Faction::Cults)
+        .faction(p2, Faction::Cults)
+        .spawn(ObjectKind::Disciple, Some(p1), SpawnAt::Point(Vec2::new(400.0, 400.0)))
+        .start();
+    t.ability_at(1, p1, &[ObjectId(1)], Ability::Mirage);
+    t.run(1);
+    let energy = |t: &sc_sim::testing::TestSim| sc_sim::energy::of(t.sim().object(ObjectId(1)).unwrap()).unwrap().0;
+    while energy(&t) < 10.0 {
+        t.step();
+    }
+    let rings =
+        |t: &sc_sim::testing::TestSim, player| stance::stance_rings(t.sim(), &Sight::new(t.sim(), player, false), 1.0);
+    assert!(rings(&t, p1).is_empty(), "none before the channel");
+    let channel = t.sim().tick() + 1;
+    t.order_at(channel, p1, &[ObjectId(1)], OrderKind::Shroud, false);
+    t.order_at(channel + 1, p1, &[ObjectId(3)], OrderKind::Stop, false);
+    t.run(2);
+    let ids = |rings: &[stance::StanceRing]| rings.iter().map(|r| r.id.0).collect::<Vec<_>>();
+    let own = rings(&t, p1);
+    assert_eq!(
+        ids(&own),
+        [1, 2, 4, 5],
+        "the channel and its mirrors, not the one stopped"
+    );
+    assert!(own.iter().all(|r| r.radius == own[0].radius), "alike: {own:?}");
+    assert_eq!(rings(&t, p2), own, "to the other player alike");
+    t.order_at(t.sim().tick() + 1, p1, &[ObjectId(1)], OrderKind::Stop, false);
+    t.run(2);
+    assert!(rings(&t, p1).is_empty(), "all of them stop with the channel");
 }

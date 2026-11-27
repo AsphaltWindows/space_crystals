@@ -562,4 +562,12 @@ pub enum SimEvent {
         unit: ObjectId,
         order: OrderKind,
     },
+    /// (M6-CM) `disciple` cast Mirage (`crate::mirage`): its old illusions vanished, their `Removed` first, and these
+    /// are its new ones, in id order, each after its `Spawned`. Told to its owner only, as only its owner may tell an
+    /// illusion from a Disciple (`factions/cults/units/disciple.md > Spells > Mirage`: "enemies can't tell them
+    /// apart").
+    Mirage {
+        disciple: ObjectId,
+        illusions: Vec<ObjectId>,
+    },
 }

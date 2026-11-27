@@ -11,14 +11,15 @@ use crate::defs::ObjectKind;
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OccupantFire {
     /// The kinds inside that fire another kind's attack, each with that kind (`factions/cults/structures/garrison.md >
-    /// Garrisoning`: "a Recruit or Disciple inside attacks with the Militant's AttackAttributes (see Militant)"). It is
-    /// that kind's attack as its def has it: "**Augmentations don't change the borrowed attack** [...]: a Recruit or
-    /// Disciple inside fires the Militant's attack unchanged".
+    /// Garrisoning`: "a Recruit inside attacks with the Militant's AttackAttributes (see Militant)"). It is that kind's
+    /// attack as its def has it: "**Augmentations don't change the borrowed attack** [...]: a Recruit inside fires the
+    /// Militant's attack unchanged". (M6-CM) A kind without a stand-in or a weapon of its own fires nothing: "a
+    /// **Disciple or illusion inside doesn't attack**" (design change 0450).
     #[serde(deserialize_with = "crate::defs::leak::slice")]
     pub stand_in: &'static [(ObjectKind, ObjectKind)],
     /// The Range bonus, grid units: "**Militants and Gunners** inside get **+1 grid unit of Range** on their attack".
     pub range_bonus_gu: f32,
-    /// The kinds inside that get it: "Recruits and Disciples (firing with the Militant's attack) do not get the bonus".
+    /// The kinds inside that get it: "Recruits (firing with the Militant's attack) do not get the bonus".
     #[serde(deserialize_with = "crate::defs::leak::slice")]
     pub bonus_for: &'static [ObjectKind],
 }

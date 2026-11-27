@@ -94,6 +94,7 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
         base: None,
         worker: None,
         energy: None,
+        mirrors: None,
     };
     update_unit(
         orders,
@@ -214,6 +215,7 @@ fn unit<'a>(mover: &'a mut Mover, attack: Option<&'a mut AttackState>) -> Unit<'
         base: None,
         worker: None,
         energy: None,
+        mirrors: None,
     }
 }
 

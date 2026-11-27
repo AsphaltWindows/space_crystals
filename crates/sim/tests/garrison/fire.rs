@@ -1,7 +1,8 @@
 //! The occupants' fire (`factions/cults/structures/garrison.md`: "Infantry enter the Garrison and fire from inside it:
-//! Recruits and Disciples fire **as if they were Militants** [...], while Militants and Gunners fire their own weapons.
-//! Without units inside, the Garrison does not attack"; `> Garrisoning > Range bonus`, `> Targets`), from its footprint
-//! (`combat::occupants`).
+//! Recruits fire **as if they were Militants** [...], while Militants and Gunners fire their own weapons. Without units
+//! inside, the Garrison does not attack"; `> Garrisoning > Range bonus`, `> Targets`; (M6-CM) design change 0450:
+//! "**Disciples and illusions don't fire** from inside"), from its footprint (`combat::occupants`). The illusions' part
+//! of 0450 is `tests/mirage/`'s.
 //!
 //! The targets are player 2's Recruits holding position, harmless at a distance (a melee attack), each seen by a
 //! "spotter" of player 1's 2 grid units beyond it (a Recruit holding position too), so that what the occupants fire at
@@ -118,15 +119,16 @@ fn a_garrison_with_four_militants_fires_at_range_5() {
     assert_eq!(inside(&t, G1), militants, "they fire from inside");
 }
 
-/// `> Garrisoning > Weapons`: "a Recruit or Disciple inside attacks with the Militant's AttackAttributes (see
-/// Militant)", at "the Militant's normal Range" of 4 grid units, no bonus, and "**Augmentations don't change the
-/// borrowed attack**: a Recruit or Disciple inside fires the Militant's attack unchanged": a Recruit with both
-/// augmentations deals the Militant's 4 a hit (its own blow is 3), a shot every 8 ticks (Aim 2, Firing 2, Cooldown 1,
-/// Reload 3), on a target 3.9 grid units off the footprint, and never on one 4.1 off it. So does a Disciple, whose type
-/// has no attack of its own.
+/// `> Garrisoning > Weapons`: "a Recruit inside attacks with the Militant's AttackAttributes (see Militant)", at "the
+/// Militant's normal Range" of 4 grid units, no bonus, and "**Augmentations don't change the borrowed attack**: a
+/// Recruit inside fires the Militant's attack unchanged": a Recruit with both augmentations deals the Militant's 4 a hit
+/// (its own blow is 3), a shot every 8 ticks (Aim 2, Firing 2, Cooldown 1, Reload 3), on a target 3.9 grid units off
+/// the footprint, and never on one 4.1 off it. (M6-CM) No longer a Disciple, which fires nothing (design change 0450,
+/// [`disciples_inside_dont_fire_and_a_recruit_with_them_does`]).
 #[test]
-fn a_recruit_or_a_disciple_inside_fires_the_militants_attack_unchanged() {
-    for kind in [RECRUIT, DISCIPLE] {
+fn a_recruit_inside_fires_the_militants_attack_unchanged() {
+    {
+        let kind = RECRUIT;
         let mut t = base().start();
         let [unit] = column(&mut t, 1, &[kind], DOOR - Vec2::new(60.0, 0.0))[..] else {
             unreachable!()
@@ -217,6 +219,39 @@ fn an_empty_garrison_does_not_attack() {
     }
     run_for(&mut t, 20);
     assert!(hits_on(&t, near).iter().any(|&(_, attacker, _)| attacker == militant));
+}
+
+/// (M6-CM) Design change 0450's Verification, its first two steps: "Put 2 Disciples in a Garrison near an enemy: the
+/// Garrison doesn't fire. Add a Recruit: it fires (the Militant's attack)." Two Disciples go in, and an enemy 1 grid unit
+/// off the footprint is never shot at; a Recruit joins them, and it alone fires at the enemy, 4 a hit. (The third step,
+/// with illusions in place of the Disciples, is `tests/mirage/`'s.)
+#[test]
+fn disciples_inside_dont_fire_and_a_recruit_with_them_does() {
+    let mut t = base().start();
+    let disciples = fill(&mut t, &[DISCIPLE, DISCIPLE]);
+    let now = t.sim().tick() + 1;
+    let [near] = targets(&mut t, now, &[east(1.0)])[..] else {
+        unreachable!()
+    };
+    run_for(&mut t, 100);
+    assert_eq!(shots(&t), [], "the Disciples don't fire");
+    let recruit = id(next_id(&t));
+    let now = t.sim().tick() + 1;
+    t.spawn_unit_at(now, RECRUIT, P1, DOOR - Vec2::new(60.0, 0.0));
+    t.at(now + 1, P1, enter(&[recruit], G1));
+    while inside(&t, G1).len() < 3 {
+        assert!(t.sim().tick() < now + 100, "going in");
+        step_checked(&mut t);
+    }
+    run_for(&mut t, 40);
+    let hits = hits_on(&t, near);
+    assert!(!hits.is_empty(), "the Recruit fires");
+    assert!(
+        hits.iter()
+            .all(|&(_, attacker, damage)| attacker == recruit && damage == 4.0),
+        "the Recruit alone, the Militant's attack: {hits:?}"
+    );
+    assert!(shots(&t).iter().all(|s| !disciples.contains(&s.1)));
 }
 
 /// `> Targets`: "each unit inside **picks its own target** by the normal targeting rules (as the Laser Turret:

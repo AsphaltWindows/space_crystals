@@ -3,7 +3,8 @@
 //! All): **Q: Train Disciple**, **A: Release** in the kind menu"): Recruits right-clicked into it, a kind of Recruit
 //! first, with the count of its free Recruits inside, then KindMenu\[kind\], whose Q trains a Disciple, the menu staying
 //! open; and the Disciple that comes out: its panel (`factions/cults/units/disciple.md > Placeholder stats`:
-//! "BasicCombatUnitInterfaceState, plus **R: Shroud**"), whose R gives it a Shroud order (slice M5-N4b), its
+//! "BasicCombatUnitInterfaceState, plus **R: Shroud** and **F: Mirage**"; its Mirage is `mirage`'s, slice M6-CM),
+//! whose R gives it a Shroud order (slice M5-N4b), its
 //! InfoPanel's energy, and its right-click on an enemy, a move, as it has no weapon. The panels as plain data are the unit tests' (`command_ui/interface/tests/cathedral.rs`),
 //! the training itself the sim's (`crates/sim/tests/cathedral`), the energy bar `combat`'s.
 
@@ -126,8 +127,8 @@ fn q_q_trains_a_disciple_that_comes_out_with_its_energy() {
     assert_eq!(sc_sim::energy::of(&out), Some((50.0, 200.0)));
     assert_eq!(inside(&app, CATHEDRAL).len(), 1, "the other Recruit stays");
 
-    // The Disciple: BasicCombatUnitInterfaceState, R its Shroud, and no A: it has no weapon, and no selected unit can
-    // attack (design change 0399: "Only when **no** selected unit can attack is A not shown").
+    // The Disciple: BasicCombatUnitInterfaceState, R its Shroud, (M6-CM) F its Mirage, and no A: it has no weapon, and no
+    // selected unit can attack (design change 0399: "Only when **no** selected unit can attack is A not shown").
     select_units(&mut app, &[first_in]);
     assert_eq!(
         buttons(&mut app),
@@ -138,6 +139,7 @@ fn q_q_trains_a_disciple_that_comes_out_with_its_energy() {
             (slot(0, 3), c(PanelCommand::Shroud), Common, None),
             (slot(1, 1), c(Patrol), Common, None),
             (slot(1, 2), c(AttackGround), Unavailable, None),
+            (slot(1, 3), c(PanelCommand::Mirage), Common, None),
             (slot(2, 1), c(Stop), Common, None),
         ]
     );

@@ -209,6 +209,7 @@ impl UnitCapabilities {
                     gathers_supplies: unit.worker.is_some_and(|worker| worker.supplies.is_some()),
                     transit: Transit::of(unit.base),
                     aircraft: modes.aircraft(id),
+                    illusion: modes.illusion(id),
                 }),
         }
     }

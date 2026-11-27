@@ -3,15 +3,17 @@
 //! first, then; README > Choosing Recruits, Release and Eject All): **Q: Train Disciple**, **A: Release** in the kind
 //! menu; **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production**"); the Disciple's the BasicCombatUnit's,
 //! its attack commands greyed or not shown for want of a weapon, and its R, Shroud (`factions/cults/units/disciple.md >
-//! Placeholder stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **R: Shroud**"; slice M5-N4b). Both
-//! in a game: `crates/game/tests/commands/cathedral.rs`.
+//! Placeholder stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **R: Shroud**"; slice M5-N4b), and
+//! (M6-CM) its F, Mirage, both greyed for an illusion. Both in a game: `crates/game/tests/commands/cathedral.rs`.
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Faction, PlayerId, RecruitKind, SpawnAt};
 
 use super::cults::counted;
 use super::*;
-use crate::command_ui::feedback::{NOT_ENOUGH_ENERGY_TEXT, NOT_FOR_TYPE_TEXT, unavailable_text};
+use crate::command_ui::feedback::{
+    ILLUSIONS_CANT_CAST_TEXT, NOT_ENOUGH_ENERGY_TEXT, NOT_FOR_TYPE_TEXT, unavailable_text,
+};
 use crate::command_ui::resolution::{UnitCapabilities, unit_target_order};
 
 const CATHEDRAL: ObjectKind = ObjectKind::Cathedral;
@@ -90,11 +92,13 @@ fn the_cathedral_trains_disciples_from_its_kind_menus() {
 /// one Disciple's channel; Tab to the next)"): two are two groups, a common command goes to both, and R to the one of
 /// the ActiveGroup alone. Below 10 energy R is greyed, "Not enough energy", as the gate refuses it
 /// (`sc_sim::Reject::NotEnoughEnergy`: "needs at least **10 energy** to start"): after a channel that ran the
-/// Disciple's 50 dry.
+/// Disciple's 50 dry. (M6-CM) F is Mirage ("plus **R: Shroud** and **F: Mirage**"), labelled with its name, an ability
+/// at once, which Shift doesn't queue, to the one Disciple of the ActiveGroup as R; available with the Disciple's 50,
+/// "**50 energy**" its cost, and greyed below, "Not enough energy".
 #[test]
 fn the_disciple_greys_its_attack_commands_and_shrouds_with_r() {
     use ButtonLook::{Common, Disabled, Group, Unavailable};
-    use PanelCommand::{AttackGround, HoldPosition, Move, Patrol, Reverse, Shroud, Stop};
+    use PanelCommand::{AttackGround, HoldPosition, Mirage, Move, Patrol, Reverse, Shroud, Stop};
     let player = PlayerId(1);
     let mut t = ScenarioBuilder::new(&vec![".".repeat(16); 16].join("\n"))
         .faction(player, Faction::Cults)
@@ -122,6 +126,7 @@ fn the_disciple_greys_its_attack_commands_and_shrouds_with_r() {
             (slot(0, 3), c(Shroud), Common),
             (slot(1, 1), c(Patrol), Common),
             (slot(1, 2), c(AttackGround), Unavailable),
+            (slot(1, 3), c(Mirage), Common),
             (slot(2, 1), c(Stop), Common),
         ]
     );
@@ -129,19 +134,28 @@ fn the_disciple_greys_its_attack_commands_and_shrouds_with_r() {
     assert_eq!(default.get(slot(1, 0)), None, "no Attack, without a weapon");
     assert_eq!(why(&default, slot(1, 2)), Some(NOT_FOR_TYPE_TEXT), "Attack Ground");
     assert_eq!(why(&default, slot(0, 3)), None, "Shroud, with its 50 energy");
+    assert_eq!(why(&default, slot(1, 3)), None, "Mirage, with its 50 energy");
     let shroud = default.get(slot(0, 3)).unwrap();
     assert_eq!(shroud.label(), "Shroud");
     assert_eq!(default.name(slot(0, 3)).as_deref(), Some("Shroud"));
+    assert_eq!(default.get(slot(1, 3)).unwrap().label(), "Mirage");
+    assert_eq!(default.name(slot(1, 3)).as_deref(), Some("Mirage"));
     assert_eq!(press(&default, slot(1, 0)), SlotPress::Nothing);
     assert_eq!(press(&default, slot(0, 3)), SlotPress::Issue(Shroud, OrderKind::Shroud));
     assert_eq!(press(&default, slot(1, 1)), SlotPress::AwaitTarget(Patrol));
+    assert_eq!(
+        press(&default, slot(1, 3)),
+        SlotPress::UseAbility(Mirage, Ability::Mirage)
+    );
     assert!(Shroud.queues() && Shroud.instance_only() && !Shroud.needs_target());
+    assert!(!Mirage.queues() && Mirage.instance_only() && !Mirage.needs_target());
     let two = Selection::new([(id(1), DISCIPLE), (id(2), DISCIPLE)]);
     assert_eq!(two.groups().len(), 2, "Ungroupable");
     assert!(is_common(&two, Move));
     assert_eq!(recipients(&two, Stop), [id(1), id(2)]);
     assert!(!is_common(&two, Shroud));
     assert_eq!(recipients(&two, Shroud), [id(1)], "one Disciple a press");
+    assert_eq!(recipients(&two, Mirage), [id(1)], "one Disciple a press");
     let both = panel(
         &two,
         InterfaceState::DefaultState,
@@ -158,8 +172,59 @@ fn the_disciple_greys_its_attack_commands_and_shrouds_with_r() {
     assert_eq!(default.get(slot(0, 3)).map(|shown| shown.look), Some(Disabled));
     assert_eq!(why(&default, slot(0, 3)), Some(NOT_ENOUGH_ENERGY_TEXT));
     assert_eq!(press(&default, slot(0, 3)), SlotPress::Nothing);
+    assert_eq!(why(&default, slot(1, 3)), Some(NOT_ENOUGH_ENERGY_TEXT), "Mirage");
+    assert_eq!(press(&default, slot(1, 3)), SlotPress::Nothing);
     let other = Conditions::of(t.sim(), player, &tabbed);
     assert_eq!(other.unavailable(&tabbed, Shroud), None, "the other one has its energy");
+    assert_eq!(other.unavailable(&tabbed, Mirage), None, "the other one has its energy");
+}
+
+/// (M6-CM) An illusion's panel (`factions/cults/units/disciple.md > Spells > Mirage`): its owner commands it "as a
+/// **normal unit**", a Disciple's panel, but "**No spells**: illusions can't cast": R and F greyed, "Illusions can't
+/// cast" (`sc_sim::Reject::IllusionsCantCast`), from a game where Disciple 1 cast Mirage (its illusions 2 to 5).
+/// Another Disciple selected with it keeps its own: its Mirage is its own press (Tab), refused only below 50 energy.
+#[test]
+fn an_illusion_greys_its_spells() {
+    use PanelCommand::{Mirage, Move, Shroud, Stop};
+    let player = PlayerId(1);
+    let mut t = ScenarioBuilder::new(&vec![".".repeat(16); 16].join("\n"))
+        .faction(player, Faction::Cults)
+        .spawn(
+            DISCIPLE,
+            Some(player),
+            SpawnAt::Point(bevy::math::Vec2::new(300.0, 300.0)),
+        )
+        .start();
+    t.ability_at(1, player, &[id(1)], Ability::Mirage);
+    t.run(2);
+    let illusions: Vec<ObjectId> = (2..=5).map(id).collect();
+    for &illusion in &illusions {
+        let o = t.sim().object(illusion).expect("an illusion");
+        assert_eq!((o.kind, o.illusion_of), (DISCIPLE, Some(id(1))));
+    }
+    let one = Selection::new([(id(2), DISCIPLE)]);
+    let conditions = Conditions::of(t.sim(), player, &one);
+    let default = panel(&one, InterfaceState::DefaultState, &conditions);
+    let why = |panel: &Panel, at| panel.get(at).and_then(|shown| shown.why).map(unavailable_text);
+    assert_eq!(why(&default, slot(0, 3)), Some(ILLUSIONS_CANT_CAST_TEXT), "Shroud");
+    assert_eq!(why(&default, slot(1, 3)), Some(ILLUSIONS_CANT_CAST_TEXT), "Mirage");
+    assert_eq!(press(&default, slot(1, 3)), SlotPress::Nothing);
+    for command in [Move, Stop] {
+        assert_eq!(
+            conditions.unavailable(&one, command),
+            None,
+            "{command:?}: a normal unit"
+        );
+    }
+    let parent = Selection::new([(id(1), DISCIPLE)]);
+    let spent = Conditions::of(t.sim(), player, &parent);
+    for command in [Shroud, Mirage] {
+        assert_eq!(
+            spent.unavailable(&parent, command),
+            Some(WhyUnavailable::Refused(Reject::NotEnoughEnergy)),
+            "the parent's {command:?}, its 50 spent"
+        );
+    }
 }
 
 /// A Disciple among armed units (`systems/controls/interface.md > CommandPanel`, design changes 0397 to 0399): beside a

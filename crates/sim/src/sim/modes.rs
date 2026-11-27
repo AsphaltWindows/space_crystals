@@ -28,12 +28,12 @@ impl Ability {
     /// 0198: "The type, and so the SelectionGroup, switches **at the press**"): a Convert flips a Legionnaire's
     /// (`conversion::converts_to`: "Pressing R **flips the unit's target form**"), a raise or a lowering of the Riot
     /// Shield makes a Peacekeeper the type it asks for, if it is the other one (`riot_shield::toggled_kind`). `None`
-    /// for Set Drop-off Location and (M6-GD) a Buy, and for a unit without the ability. What the client shows of a
-    /// press before the sim has it.
+    /// for Set Drop-off Location, (M6-GD) a Buy and (M6-CM) a Mirage, and for a unit without the ability. What the
+    /// client shows of a press before the sim has it.
     pub fn switched_kind(self, kind: ObjectKind) -> Option<ObjectKind> {
         match self {
             Ability::RiotShield { raise } => riot_shield::toggled_kind(kind, raise),
-            Ability::SetDropOff(_) | Ability::Buy => None,
+            Ability::SetDropOff(_) | Ability::Buy | Ability::Mirage => None,
             Ability::Convert => conversion::converts_to(kind),
         }
     }
@@ -45,13 +45,20 @@ impl Sim {
     /// Riot Shield's from where it is, a Legionnaire's keeping the form it has (`conversion::hold_form`: its weapon
     /// and its attack go on as they are) until the Modes step changes it, a conversion that hasn't started and whose
     /// form is the type again being dropped (`conversion::retarget`). A worker's AssignedDropOff changes. (M6-GD) A Buy
-    /// starts each unit's purchase, paid at the press (`Sim::buy`), until its owner's bank can't pay for one.
+    /// starts each unit's purchase, paid at the press (`Sim::buy`), until its owner's bank can't pay for one. (M6-CM) A
+    /// Mirage is each unit's cast (`Sim::cast_mirage`).
     pub(super) fn use_ability(&mut self, units: &[ObjectId], ability: Ability) {
         for &id in units {
+            if ability == Ability::Mirage {
+                self.cast_mirage(id);
+                continue;
+            }
             let Some(o) = self.objects.get_mut(&id) else {
                 continue;
             };
             match ability {
+                // (M6-CM) Cast above, the unit's borrow free for the illusions it makes.
+                Ability::Mirage => {}
                 // `factions/colonists/units/drone.md > Assigned Drop-off`: it "only updates AssignedDropOff"; the
                 // worker's order goes on.
                 Ability::SetDropOff(node) => {

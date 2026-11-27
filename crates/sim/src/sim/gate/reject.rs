@@ -291,6 +291,10 @@ pub enum Reject {
     /// `factions/gdo/units/artillery_rig.md > Modes`: "**Undeploy is only available once deployment is complete**";
     /// "Deploy is available again only once it has").
     Deploying,
+    /// (M6-CM) Every unit of a spell's order or of a Mirage whose type casts it is an illusion (`crate::mirage`;
+    /// `factions/cults/units/disciple.md > Spells > Mirage`: "**No spells**: illusions can't cast"): what greys an
+    /// illusion's R and F. Only its owner, who gives it orders, ever meets it.
+    IllusionsCantCast,
 }
 
 impl fmt::Display for Reject {
@@ -385,6 +389,7 @@ impl fmt::Display for Reject {
             Reject::OutOfAmmo => write!(f, "none of the units has ammo left"),
             Reject::CannotMove => write!(f, "none of the units can move"),
             Reject::Deploying => write!(f, "every unit deploys already"),
+            Reject::IllusionsCantCast => write!(f, "illusions can't cast"),
         }
     }
 }

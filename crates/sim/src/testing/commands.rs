@@ -81,6 +81,10 @@ pub fn every_command() -> Vec<Command> {
         units: units.clone(),
         ability: Ability::Buy,
     });
+    commands.push(Command::Ability {
+        units: units.clone(),
+        ability: Ability::Mirage,
+    });
     commands.extend(
         [
             ConstructionCommand::Construct(ObjectKind::Generator),
@@ -265,7 +269,8 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::VehicleDeploy { .. } => {}
             },
             Command::Ability {
-                ability: Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert | Ability::Buy,
+                ability:
+                    Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert | Ability::Buy | Ability::Mirage,
                 ..
             } => {}
             Command::Production { command, .. } => match command {

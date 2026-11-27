@@ -30,6 +30,7 @@ pub mod holding;
 pub mod ids;
 pub mod map;
 pub mod math;
+pub mod mirage;
 mod movement;
 pub mod mover;
 pub mod nav;

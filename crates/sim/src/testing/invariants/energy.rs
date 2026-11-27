@@ -1,11 +1,12 @@
 //! (M5-N4a) The energy invariant E1 (`Object::energy`, `crate::energy`): an object has energy exactly when its type has
 //! an energy pool (`ObjectDef::energy`), and from 0 to the pool's maximum (`energy::max`; never below 0, being a count
-//! of `energy::ONE`s), a unit held off the map as one on it.
+//! of `energy::ONE`s), a unit held off the map as one on it. (M6-CM) But for an illusion (`crate::mirage`), which never
+//! has energy: "Illusions have no energy of their own".
 
 use super::Violation;
-use crate::energy;
 use crate::object::Object;
 use crate::sim::Sim;
+use crate::{energy, mirage};
 
 /// E1: every object's energy, and every held unit's, is within its type's pool (module docs).
 pub(super) fn energy(sim: &Sim) -> Result<(), Violation> {
@@ -14,10 +15,12 @@ pub(super) fn energy(sim: &Sim) -> Result<(), Violation> {
 
 /// E1 for one object.
 fn within_its_pool(o: &Object) -> Result<(), Violation> {
-    let problem = match (o.energy, energy::max(o.kind)) {
+    let pool = energy::max(o.kind).filter(|_| !mirage::is_illusion(o));
+    let problem = match (o.energy, pool) {
         (None, None) => return Ok(()),
         (Some(energy), Some(max)) if energy <= max => return Ok(()),
         (Some(energy), Some(max)) => format!("has {energy} energy, above its maximum {max}"),
+        (Some(energy), None) if mirage::is_illusion(o) => format!("has {energy} energy, as no illusion has"),
         (Some(energy), None) => format!("has {energy} energy, its type no energy pool"),
         (None, Some(_)) => "has no energy, its type an energy pool".to_string(),
     };
@@ -76,5 +79,13 @@ mod tests {
         let recruit = check_with(saved(), 2, 5.into()).unwrap_err();
         assert_eq!(recruit.invariant, "E1", "{recruit:?}");
         assert!(recruit.message.contains("no energy pool"), "{recruit:?}");
+        // (M6-CM) An illusion has none, a Disciple though it is.
+        let mut json = saved();
+        let objects = json["objects"].as_array_mut().expect("the objects are a list");
+        let disciple = objects.iter_mut().find(|o| o["id"] == 1).expect("in the state");
+        disciple["illusion_of"] = 2.into();
+        let illusion = check_with(json, 1, 5.into()).unwrap_err();
+        assert_eq!(illusion.invariant, "E1", "{illusion:?}");
+        assert!(illusion.message.contains("as no illusion has"), "{illusion:?}");
     }
 }

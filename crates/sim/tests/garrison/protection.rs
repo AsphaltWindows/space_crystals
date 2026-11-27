@@ -95,17 +95,25 @@ fn a_blast_over_the_garrison_hurts_no_one_inside() {
 /// "when the Garrison is destroyed, everyone inside comes out alive inside its former footprint" (F3's evacuation, which
 /// the Garrison shares: `Sim::evacuate`): a Recruit, a Militant, a Gunner and a Disciple, that were firing from inside
 /// (at a target 3 grid units off it), come out at once, at full HP, idle, each with its attack as its type has it,
-/// cleared (plan decision T72: "leaving clears it"): no target, no sequence; the Disciple, which fired the Militant's
-/// from inside, with none at all. A Storage keeps player 1 in the game.
+/// cleared (plan decision T72: "leaving clears it"): no target, no sequence; the Disciple, which fires nothing from
+/// inside ((M6-CM) design change 0450), with none at all. A Storage keeps player 1 in the game.
 #[test]
 fn destroying_the_garrison_evacuates_them_alive() {
     let mut t = base().spawn(ObjectKind::Storage, Some(P1), tile(2, 2)).start(); // 2
     let pool = fill(&mut t, &[RECRUIT, MILITANT, GUNNER, DISCIPLE]);
     let now = t.sim().tick() + 1;
-    targets(&mut t, now, &[Vec2::new(HI.x + 3.0 * GU + HALF.x, DOOR.y)]);
+    let [target] = targets(&mut t, now, &[Vec2::new(HI.x + 3.0 * GU + HALF.x, DOOR.y)])[..] else {
+        unreachable!()
+    };
     run_for(&mut t, 12);
     let firing = (t.events().iter()).filter(|(tick, e)| *tick > now && matches!(e, SimEvent::Attacked { .. }));
     assert!(firing.count() > 0, "they fire from inside");
+    // The target fallen before the Garrison goes, so that none of them takes it up again as it comes out: (M6-CM) the
+    // Disciple no longer fires from inside (design change 0450), and the three others take longer than 12 ticks.
+    while t.sim().object(target).is_some() {
+        assert!(t.sim().tick() < now + 200, "the target falls");
+        step_checked(&mut t);
+    }
     let gone = t.sim().tick() + 1;
     t.debug_at(gone, DebugCommand::Remove { id: G1 });
     run_checked(&mut t, gone);

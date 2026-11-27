@@ -44,6 +44,7 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         drone: None,
         cooldown: None,
         aircraft: None,
+        illusion_of: None,
     }
 }
 

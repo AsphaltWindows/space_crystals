@@ -68,7 +68,9 @@ fn sight_of(app: &App, player: PlayerId) -> Vec<TilePos> {
 /// stands 7 grid units east, its sight of 5 reaching the cloud's east edge. Player 1 sees the whole cloud; player 2,
 /// shown the game as the local player, sees its edge alone, over the tiles Visible to it. Another Militant of player
 /// 2's, 3.6 grid units east of the Disciple, shoots it from outside the cloud, which releases 8 ticks after its first
-/// hit (`sc_sim::shroud`) and flashes for `LookTuning::release_ticks`; with the channel stopped, the layer hides.
+/// hit (`sc_sim::shroud`) and flashes for `LookTuning::release_ticks`. (M6-CM) With the channel stopped, the circle
+/// lingers where it was, shown as it was, for `Spells::linger` ticks (design change 0448: "the cloud **stays for 1.5 s
+/// (24 frames, placeholder)**"), then vanishes; its flash faded, the layer hides.
 #[test]
 fn a_cloud_shows_over_each_player_s_visible_tiles_and_a_release_flashes() {
     let mut app = headless_app();
@@ -153,6 +155,14 @@ fn a_cloud_shows_over_each_player_s_visible_tiles_and_a_release_flashes() {
             queue: false,
         },
     );
+    app.update();
+    let linger = app.world().resource::<SimRes>().rules().tuning.spells.linger;
+    for _ in 1..linger {
+        app.update();
+        assert!(!app.world().resource::<SimRes>().clouds().is_empty(), "lingering");
+        assert!(layer_visible(&mut app));
+        assert_eq!(shown_tiles(&app), own, "where it was, as it was");
+    }
     for _ in 0..space_crystals::tuning::look::BUILTIN.release_ticks + 2 {
         app.update();
     }

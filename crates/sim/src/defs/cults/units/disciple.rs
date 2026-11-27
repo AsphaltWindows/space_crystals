@@ -1,15 +1,18 @@
 //! The Disciple — `factions/cults/units/disciple.md`.
 
 use crate::defs::units::{Augmentable, MovementAttrs, UnitBase, UnitDef};
-use crate::defs::{Armor, Category, EnergyDef, EnergyRegen, Footprint, ObjectDef, ObjectKind, ShroudDef, SpellDef};
+use crate::defs::{
+    Armor, Category, EnergyDef, EnergyRegen, Footprint, MirageDef, ObjectDef, ObjectKind, ShroudDef, SpellDef,
+};
 use crate::math::PI;
 use crate::player::Faction;
 
 /// `factions/cults/units/disciple.md`: "The Cults' spell caster, trained from a single Recruit at the Cathedral". Its
 /// numbers (slice M5-G2, plan decision T69), and since slice M5-N4a its energy pool (`> Energy`: "The Disciple has its
 /// own energy pool, which it spends on its spells. It regenerates naturally over time", `crate::energy`), which the
-/// Cathedral trains it with (`factions/cults/structures/cathedral.md > Training`), and since slice M5-N4b its spell
-/// (`> Spells > Shroud`, `crate::shroud`). Its numbers are the design's "Placeholder stats".
+/// Cathedral trains it with (`factions/cults/structures/cathedral.md > Training`), since slice M5-N4b its first spell
+/// (`> Spells > Shroud`, `crate::shroud`), and since slice M6-CM its second (`> Spells > Mirage`, `crate::mirage`). Its
+/// numbers are the design's "Placeholder stats".
 pub(crate) const DISCIPLE: ObjectDef = ObjectDef {
     kind: ObjectKind::Disciple,
     name: "Disciple",
@@ -49,13 +52,24 @@ pub(crate) const DISCIPLE: ObjectDef = ObjectDef {
         unit_control_cost: Some(1),
         // (M5-N1a) `factions/cults/units/disciple.md > AttackAttributes`: "for Augmentation it is **armed**".
         augmentable: Some(Augmentable { unarmed: false }),
-        // (M5-N4b) `> Spells > Shroud`; Shroud numbers - cloud radius 3 grid units around the Disciple; drains 5 energy
-        // per second; [...] needs at least 10 energy to start
-        spells: &[SpellDef::Shroud(ShroudDef {
-            radius: 3.0,
-            drain: 5.0,
-            needs: 10.0,
-        })],
+        spells: &[
+            // (M5-N4b) `> Spells > Shroud`; Shroud numbers - cloud radius 3 grid units around the Disciple; drains 5
+            // energy per second; [...] needs at least 10 energy to start
+            SpellDef::Shroud(ShroudDef {
+                radius: 3.0,
+                drain: 5.0,
+                needs: 10.0,
+            }),
+            // (M6-CM) `> Spells > Mirage`: "the Disciple creates **4 illusions** of itself"; "illusions take **double
+            // damage from all sources**"; Mirage numbers - **50 energy**; illusions appear **1 grid unit** from the
+            // Disciple's centre (centre to centre) (designer placeholders, 2026-11-27)
+            SpellDef::Mirage(MirageDef {
+                cost: 50.0,
+                illusions: 4,
+                offset: 1.0,
+                damage_taken: 2.0,
+            }),
+        ],
         ..UnitDef::NONE
     }),
     // Energy - MaxEnergy 200; starts at 50; regenerates 0.5 per second
@@ -77,7 +91,8 @@ mod tests {
     /// with SightRange 6, not Groupable (Q0112), and no weapon nor turret; Unit Control 1, the one Recruit it is
     /// trained from; (M5-N4a) its energy pool: "MaxEnergy 200; starts at 50; regenerates 0.5 per second"; (M5-N4b) its
     /// Shroud: "cloud radius **3 grid units** around the Disciple; drains **5 energy per second**; [...] needs at least
-    /// **10 energy** to start".
+    /// **10 energy** to start"; (M6-CM) its Mirage: "**50 energy**", "**4 illusions**", "**1 grid unit** from the
+    /// Disciple's centre", "**double damage**".
     #[test]
     fn the_disciple_follows_the_design() {
         let def = ObjectKind::Disciple.def();
@@ -121,11 +136,24 @@ mod tests {
             drain: 5.0,
             needs: 10.0,
         };
+        let mirage = MirageDef {
+            cost: 50.0,
+            illusions: 4,
+            offset: 1.0,
+            damage_taken: 2.0,
+        };
         assert_eq!(
-            (unit.spells, unit.shroud()),
-            (&[SpellDef::Shroud(shroud)][..], Some(&shroud))
+            (unit.spells, unit.shroud(), unit.mirage()),
+            (
+                &[SpellDef::Shroud(shroud), SpellDef::Mirage(mirage)][..],
+                Some(&shroud),
+                Some(&mirage)
+            )
         );
-        assert_eq!(unit.spells[0].needs(), 10.0);
+        assert_eq!(
+            unit.spells.iter().map(SpellDef::needs).collect::<Vec<_>>(),
+            [10.0, 50.0]
+        );
         let casters = (ObjectKind::ALL.iter())
             .filter(|kind| (kind.def().unit.as_ref()).is_some_and(|unit| !unit.spells.is_empty()));
         assert_eq!(
@@ -136,5 +164,8 @@ mod tests {
         let channels =
             (ObjectKind::ALL.iter()).filter(|kind| kind.def().unit.as_ref().and_then(|u| u.shroud()).is_some());
         assert_eq!(channels.collect::<Vec<_>>(), [&ObjectKind::Disciple], "the one Shroud");
+        let mirages =
+            (ObjectKind::ALL.iter()).filter(|kind| kind.def().unit.as_ref().and_then(|u| u.mirage()).is_some());
+        assert_eq!(mirages.collect::<Vec<_>>(), [&ObjectKind::Disciple], "the one Mirage");
     }
 }

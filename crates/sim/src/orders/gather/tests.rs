@@ -100,6 +100,7 @@ fn with_no_patch_left_a_job_ends_or_delivers_its_load_first() {
             base: None,
             worker: Some(&mut worker),
             energy: None,
+            mirrors: None,
         };
         let (_, mut state) = job(phase);
         let flow = end(&mut state, &unit);

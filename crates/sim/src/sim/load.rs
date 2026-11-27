@@ -136,8 +136,9 @@ impl TryFrom<SimState> for Sim {
             if o.shields.is_none() {
                 o.shields = o.max_shields();
             }
-            // (M5-N4a) One saved before it had energy (`Object::energy`) has its type's start.
-            if o.energy.is_none() {
+            // (M5-N4a) One saved before it had energy (`Object::energy`) has its type's start; (M6-CM) not an illusion,
+            // which has none (`crate::mirage`).
+            if o.energy.is_none() && !crate::mirage::is_illusion(&o) {
                 o.energy = crate::energy::start(o.kind);
             }
             // (M6-GH1) An aircraft saved before it had ammo (`Object::aircraft`, a debug spawn's) has its type's full
@@ -157,7 +158,7 @@ impl TryFrom<SimState> for Sim {
         let mut held = BTreeMap::new();
         for mut unit in held_list {
             // (M5-N4a) The same for a held unit, and (M6-GH1) its ammo.
-            if unit.object.energy.is_none() {
+            if unit.object.energy.is_none() && !crate::mirage::is_illusion(&unit.object) {
                 unit.object.energy = crate::energy::start(unit.object.kind);
             }
             if unit.object.aircraft.is_none() {

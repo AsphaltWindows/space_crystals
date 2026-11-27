@@ -11,26 +11,30 @@ use super::{
 use crate::coords::{facing_to_rotation, lerp_facing};
 use crate::kinds::object_label;
 use crate::shapes::vertex_color_material;
-use crate::sim_driver::{RenderAlpha, SimRes};
+use crate::sim_driver::{LocalPlayer, RenderAlpha, SimRes};
 use crate::tuning::ClientTuning;
 
 /// Spawns a visual for every object without one and despawns visuals whose object is gone, or is drawn otherwise
 /// now ([`MeshKey`]: its kind, owner, size or tint changed), which then get a new one, children included (tag, tick,
 /// Riot Shield, load marker, a finished turret's barrel; a pop-up turret's as it leaves the ground or is down again;
 /// (M5-H1) an air unit's shadow, [`flight`]). A replaced sim (new generation) starts from scratch, because its ids may
-/// repeat the old ones.
+/// repeat the old ones. (M6-CM) The local player's illusions are drawn as such for it alone ([`MeshKey::illusion`]), so
+/// a change of the local player (the debug player switch, F2) makes them anew.
+#[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn sync_object_visuals(
     mut commands: Commands,
     sim: Res<SimRes>,
+    player: Res<LocalPlayer>,
     tuning: Res<ClientTuning>,
     mut visuals: ResMut<ObjectVisuals>,
     mut assets: ResMut<ObjectVisualAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    if !sim.is_changed() {
+    if !sim.is_changed() && !player.is_changed() {
         return;
     }
+    let viewer = player.0;
     let look = &tuning.look;
     let ObjectVisuals {
         by_id,
@@ -47,7 +51,7 @@ pub(super) fn sync_object_visuals(
     by_id.retain(|id, entity| {
         let current = sim
             .object(*id)
-            .is_some_and(|o| made.get(id) == Some(&MeshKey::of_object(o)));
+            .is_some_and(|o| made.get(id) == Some(&MeshKey::of_object(o, viewer)));
         if !current {
             commands.entity(*entity).despawn();
             made.remove(id);
@@ -67,7 +71,7 @@ pub(super) fn sync_object_visuals(
         if by_id.contains_key(&object.id) {
             continue;
         }
-        let key = MeshKey::of_object(object);
+        let key = MeshKey::of_object(object, viewer);
         let drawn = key.kind;
         let mesh = assets
             .meshes

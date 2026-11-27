@@ -1,38 +1,81 @@
-//! (M5-N4b) The cloud invariant C1 (`crate::shroud`, `Sim::clouds`): every cloud member is a live unit channelling
-//! Shroud, in the channel the member names (its order's start, where it stands, its type's radius:
-//! `shroud::member`); every unit that channels is in exactly one cloud; a cloud's members are connected, and two
-//! clouds never touch ("a connected cloud is simply one cloud", `factions/cults/units/disciple.md > Spells > Shroud`);
-//! and a buffer is never below 0, its timer running while it holds anything and never past due.
+//! (M5-N4b) The cloud invariant C1 (`crate::shroud`, `Sim::clouds`): every cloud member that channels is a live unit
+//! channelling Shroud, in the channel the member names (its order's start, where it stands, its type's radius:
+//! `shroud::member`); (M6-CM) every lingering one vanishes after the end of the tick and within `Spells::linger` ticks
+//! of it, at the tick it said the tick before (its time only runs down: [`Lingering`]); no channel is a member twice
+//! (a unit's lingering circle and its new channel's being two); every unit that channels is in exactly one cloud; a
+//! cloud's members are connected, and two clouds never touch ("a connected cloud is simply one cloud",
+//! `factions/cults/units/disciple.md > Spells > Shroud`); and a buffer is never below 0, its timer running while it
+//! holds anything and never past due.
+
+use std::collections::BTreeMap;
 
 use glam::Vec2;
 
 use super::Violation;
 use crate::ids::ObjectId;
+use crate::ruleset::rules;
 use crate::shroud::{self, Cloud};
 use crate::sim::Sim;
+use crate::units::Tick;
 
-/// C1 (module docs).
-pub(super) fn clouds(sim: &Sim) -> Result<(), Violation> {
+/// (M6-CM) What C1 remembers of the tick before: each lingering circle's channel (its unit and its start) and the
+/// tick it vanishes.
+#[derive(Clone, Debug, Default)]
+pub(super) struct Lingering(BTreeMap<(ObjectId, Tick), Tick>);
+
+impl Lingering {
+    /// The lingering circles of `sim`'s clouds.
+    pub(super) fn of(sim: &Sim) -> Self {
+        let members = sim.clouds().list().iter().flat_map(|c| &c.members);
+        Self(members.filter_map(|m| Some(((m.id, m.since), m.until?))).collect())
+    }
+}
+
+/// C1 (module docs), `before` the lingering circles of the tick before.
+pub(super) fn clouds(sim: &Sim, before: &Lingering) -> Result<(), Violation> {
     let broken = |message: String, at: Vec2| Violation {
         invariant: "C1",
         message,
         at,
     };
-    let list = sim.clouds().list();
+    let (list, tick) = (sim.clouds().list(), sim.tick());
+    let last = tick.saturating_add(rules().tuning.spells.linger);
+    let mut channels: Vec<(ObjectId, Tick)> = Vec::new();
     let mut members: Vec<ObjectId> = Vec::new();
     for (i, cloud) in list.iter().enumerate() {
         let at = cloud.members.first().map_or(Vec2::ZERO, |m| m.at);
-        if let Some(problem) = problem(cloud, sim.tick()) {
+        if let Some(problem) = problem(cloud, tick) {
             return Err(broken(format!("cloud {i} {problem}"), at));
         }
         for m in &cloud.members {
-            if sim.object(m.id).and_then(shroud::member) != Some(*m) {
+            channels.push((m.id, m.since));
+            let Some(until) = m.until else {
+                if sim.object(m.id).and_then(shroud::member) != Some(*m) {
+                    return Err(broken(
+                        format!("cloud {i}'s member #{} doesn't channel as it says", m.id.0),
+                        m.at,
+                    ));
+                }
+                members.push(m.id);
+                continue;
+            };
+            if until <= tick || until > last {
                 return Err(broken(
-                    format!("cloud {i}'s member #{} doesn't channel as it says", m.id.0),
+                    format!(
+                        "cloud {i}'s member #{} lingers until tick {until}, at tick {tick}",
+                        m.id.0
+                    ),
                     m.at,
                 ));
             }
-            members.push(m.id);
+            if let Some(&said) = before.0.get(&(m.id, m.since))
+                && said != until
+            {
+                return Err(broken(
+                    format!("cloud {i}'s member #{} lingered until tick {said}, now {until}", m.id.0),
+                    m.at,
+                ));
+            }
         }
         if shroud::components(cloud.members.clone()).len() != 1 {
             return Err(broken(format!("cloud {i}'s circles aren't connected"), at));
@@ -42,9 +85,16 @@ pub(super) fn clouds(sim: &Sim) -> Result<(), Violation> {
             return Err(broken(format!("clouds {i} and {j} touch, which makes them one"), at));
         }
     }
+    channels.sort_unstable();
+    if let Some(twice) = channels.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Err(broken(
+            format!("#{}'s channel is in two clouds", twice[0].0.0),
+            Vec2::ZERO,
+        ));
+    }
     members.sort_unstable();
     if let Some(twice) = members.windows(2).find(|pair| pair[0] == pair[1]) {
-        return Err(broken(format!("#{} is in two clouds", twice[0].0), Vec2::ZERO));
+        return Err(broken(format!("#{} channels twice", twice[0].0), Vec2::ZERO));
     }
     if let Some(m) = (sim.objects().filter_map(shroud::member)).find(|m| members.binary_search(&m.id).is_err()) {
         return Err(broken(format!("#{} channels in no cloud", m.id.0), m.at));
@@ -66,7 +116,7 @@ fn problem(cloud: &Cloud, tick: u32) -> Option<String> {
     if cloud.members.is_empty() {
         return Some("has no member".to_string());
     }
-    if !cloud.members.windows(2).all(|pair| pair[0].id < pair[1].id) {
+    if !(cloud.members.windows(2)).all(|pair| (pair[0].id, pair[0].since) < (pair[1].id, pair[1].since)) {
         return Some("lists its members out of id order".to_string());
     }
     if !(cloud.buffer.is_finite() && cloud.buffer >= 0.0) {
@@ -160,6 +210,47 @@ mod tests {
         broken(
             check_with(saved(), |json| json["clouds"]["clouds"][0]["buffer"] = 4.0.into()),
             "with no release due",
+        );
+    }
+
+    /// (M6-CM) [`saved`] a tick on, Disciple 2 stopped in tick 2: its circle lingers until tick 26.
+    fn lingering() -> serde_json::Value {
+        let mut sim: Sim = serde_json::from_value(saved()).expect("it loads");
+        let stop = Command::Order {
+            units: vec![ObjectId(2)],
+            kind: OrderKind::Stop,
+            queue: false,
+        };
+        let inputs = TickInputs {
+            commands: vec![PlayerCommand {
+                player: P1,
+                command: stop,
+            }],
+        };
+        sim.step(&inputs);
+        Invariants::new(&sim).check(&sim, &inputs).expect("lingering, C1 holds");
+        let members = &sim.clouds().list()[0].members;
+        assert_eq!(members[1].until, Some(26), "{members:?}");
+        serde_json::to_value(&sim).expect("a state serializes")
+    }
+
+    /// (M6-CM) The negative test of the linger: a lingering circle edited to vanish past the linger, or in the tick
+    /// gone, or to another tick than it said the tick before, breaks C1.
+    #[test]
+    fn a_linger_past_its_time_or_moved_breaks_c1() {
+        assert_eq!(check_with(lingering(), |_| {}), Ok(()));
+        let until = |value: u32| {
+            move |json: &mut serde_json::Value| json["clouds"]["clouds"][0]["members"][1]["until"] = value.into()
+        };
+        broken(check_with(lingering(), until(27)), "lingers until tick 27, at tick 2");
+        broken(check_with(lingering(), until(2)), "lingers until tick 2, at tick 2");
+        let sim: Sim = serde_json::from_value(lingering()).expect("it loads");
+        let mut moved = lingering();
+        until(25)(&mut moved);
+        let moved: Sim = serde_json::from_value(moved).expect("the edited state loads");
+        broken(
+            Invariants::new(&sim).check_rules(&moved, &TickInputs::default()),
+            "lingered until tick 26, now 25",
         );
     }
 }

@@ -103,6 +103,9 @@ pub(crate) struct Unit<'a> {
     pub worker: Option<&'a mut Worker>,
     /// (M5-N4b) Its energy pool (`Object::energy`), which a channel drains (`super::shroud`).
     pub energy: Option<&'a mut u32>,
+    /// (M6-CM) For an illusion (`crate::mirage`), whether its parent channels Shroud as this phase leaves it, which
+    /// its own Shroud order mirrors (`super::shroud`); `None` for every other unit.
+    pub mirrors: Option<bool>,
 }
 
 impl<'a> Unit<'a> {

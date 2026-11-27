@@ -93,31 +93,57 @@ fn a_disciple_channelling_between_two_clouds_makes_both_release_at_once_then_the
     assert_eq!(circles, &all, "together");
 }
 
-/// The plan's acceptance, "Stop on one of a joined pair releases the shared buffer at once over both circles":
-/// Disciples 1 and 2, 5 GU apart, buffer a shot of player 2's Militant (4) at player 1's (3); a Stop to 2 in the next
-/// tick ends its channel, and the shared buffer goes in that tick, over both circles, not 8 ticks after the shot. The
-/// cloud of 1 alone goes on, empty.
+/// The plan's acceptance, "Stop on one of a joined pair releases the shared buffer at once over both circles", as
+/// (M6-CM) the linger has it (design change 0448: "when the channel ends [...], the cloud **stays for 1.5 s (24 frames,
+/// placeholder)** and keeps absorbing as usual", and "if a cloud **vanishes** (at the end of its linger) or the
+/// connected cloud splits, the buffer is **released immediately** over the cloud as it was"): Disciples 1 and 2, 5 GU
+/// apart, are one cloud, and player 2's Militant (4) shoots player 1's (3) under 1's circle once, in tick `shot` (a
+/// first game, without the Stop, finds it). A Stop to 2, 20 ticks before the shot, ends its channel; its circle lingers
+/// where it was, the cloud as it was, and the shot is absorbed as without the Stop. 2's circle vanishes 4 ticks after
+/// the shot, and the shared buffer goes in that tick, over both circles, not 8 ticks after the shot. The cloud of 1
+/// alone goes on, empty.
 #[test]
-fn stop_on_one_of_a_joined_pair_releases_the_shared_buffer_at_once_over_both_circles() {
-    let mut t = quiet(
-        flat(20, 14)
-            .spawn(DISCIPLE, Some(P1), point(300.0, 400.0))
-            .spawn(DISCIPLE, Some(P1), point(620.0, 400.0))
-            .spawn(MILITANT, Some(P1), point(300.0, 480.0))
-            .spawn(MILITANT, Some(P2), point(300.0, 700.0))
-            .start(),
-    );
-    order(&mut t, 1, P1, &[1, 2], OrderKind::Shroud);
-    order(&mut t, 2, P2, &[4], OrderKind::Attack(ObjectId(3)));
-    step_until(&mut t, 60, "the shot absorbed", |t| buffer(t, 1) > 0.0);
-    let stop = t.sim().tick() + 1;
-    order(&mut t, stop, P1, &[2], OrderKind::Stop);
-    order(&mut t, stop, P2, &[4], OrderKind::Stop);
-    t.step();
-    let both = vec![Vec2::new(300.0, 400.0), Vec2::new(620.0, 400.0)];
-    assert_eq!(releases(&t), [(stop, both, 4.0)], "at once, as the cloud was");
+fn stop_on_one_of_a_joined_pair_releases_the_shared_buffer_over_both_circles_as_its_circle_vanishes() {
+    let game = |stop: Option<Tick>| {
+        let mut t = quiet(
+            flat(20, 14)
+                .spawn(DISCIPLE, Some(P1), point(300.0, 400.0))
+                .spawn(DISCIPLE, Some(P1), point(620.0, 400.0))
+                .spawn(MILITANT, Some(P1), point(300.0, 480.0))
+                .spawn(MILITANT, Some(P2), point(300.0, 700.0))
+                .start(),
+        );
+        order(&mut t, 1, P1, &[1, 2], OrderKind::Shroud);
+        order(&mut t, 40, P2, &[4], OrderKind::Attack(ObjectId(3)));
+        if let Some(stop) = stop {
+            order(&mut t, stop, P1, &[2], OrderKind::Stop);
+        }
+        step_until(&mut t, 100, "the shot absorbed", |t| buffer(t, 1) > 0.0);
+        let shot = t.sim().tick();
+        order(&mut t, shot + 1, P2, &[4], OrderKind::Stop);
+        (t, shot)
+    };
+    let (_, shot) = game(None);
+    let stop = shot - 20;
+    assert!(stop > 1, "the Stop after the channel started: shot in tick {shot}");
+    let (mut t, again) = game(Some(stop));
+    assert_eq!(again, shot, "absorbed as without the Stop");
     let ended = (stop, SimEvent::ShroudEnded { disciple: ObjectId(2) });
     assert!(t.events().contains(&ended), "the Stop ended its channel");
+    let lingering = t.sim().clouds().list()[0].members[1];
+    assert_eq!((lingering.id, lingering.until), (ObjectId(2), Some(stop + LINGER)));
+    assert_eq!(
+        (clouds(&t), buffer(&t, 1)),
+        (vec![vec![1, 2]], 4.0),
+        "the cloud as it was"
+    );
+    t.run_until(stop + LINGER);
+    let both = vec![Vec2::new(300.0, 400.0), Vec2::new(620.0, 400.0)];
+    assert_eq!(
+        releases(&t),
+        [(stop + LINGER, both, 4.0)],
+        "at once as it vanishes, over the cloud as it was"
+    );
     assert_eq!((clouds(&t), buffer(&t, 1)), (vec![vec![1]], 0.0));
     t.run(20);
     assert_eq!(releases(&t).len(), 1);

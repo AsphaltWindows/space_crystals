@@ -23,12 +23,13 @@ use crate::units::{TilePos, gu};
 const P2: PlayerId = PlayerId(2);
 
 /// Design change 0377: "In target scans, a Garrison is a **threatening** target while any occupant's weapon, as fired
-/// from inside, could attack the scanner's domain. This includes the Militant stand-in for Recruits and Disciples. An
-/// empty Garrison, or one with no weapon that can reach the scanner's domain, is not a threat." What it threatens: the
-/// Militant's TargetDomain, Universal, with a Militant inside, and with a Recruit or a Disciple, who fire the Militant's
-/// attack; Ground with a Gunner alone (no threat to an air scanner); Universal with a Gunner and a Recruit; nothing
-/// while it is empty. A unit held anywhere else, in the Tunnel Network, adds nothing, nor does one in a building that
-/// isn't in the game.
+/// from inside, could attack the scanner's domain. This includes the Militant stand-in for Recruits [...]. An empty
+/// Garrison, or one with no weapon that can reach the scanner's domain, is not a threat." What it threatens: the
+/// Militant's TargetDomain, Universal, with a Militant inside, and with a Recruit, who fires the Militant's attack;
+/// (M6-CM) nothing with a Disciple, who fires nothing (design change 0450: "a **Disciple or illusion inside doesn't
+/// attack**"), alone or with another Disciple, and what the others threaten with others; Ground with a Gunner alone (no
+/// threat to an air scanner); Universal with a Gunner and a Recruit; nothing while it is empty. A unit held anywhere
+/// else, in the Tunnel Network, adds nothing, nor does one in a building that isn't in the game.
 #[test]
 fn a_garrison_threatens_what_its_units_inside_could_attack() {
     let t = objects();
@@ -56,11 +57,8 @@ fn a_garrison_threatens_what_its_units_inside_could_attack() {
     assert_eq!(threat(&[]), None, "empty");
     assert_eq!(threat(&[militant]), Some(Universal), "a Militant");
     assert_eq!(threat(&[recruit]), Some(Universal), "a Recruit, the stand-in's attack");
-    assert_eq!(
-        threat(&[disciple]),
-        Some(Universal),
-        "a Disciple, the stand-in's attack"
-    );
+    assert_eq!(threat(&[disciple]), None, "a Disciple, who fires nothing (0450)");
+    assert_eq!(threat(&[gunner, disciple]), Some(Ground), "a Gunner and a Disciple");
     assert_eq!(threat(&[gunner]), Some(Ground), "a Gunner alone");
     assert_eq!(threat(&[gunner, recruit]), Some(Universal));
     assert_eq!(threat(&[recruit, militant, gunner, disciple]), Some(Universal), "full");

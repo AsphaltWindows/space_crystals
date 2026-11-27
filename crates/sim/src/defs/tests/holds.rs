@@ -48,10 +48,21 @@ pub(super) fn holds_are_consistent(def: &ObjectDef, structure: &StructureDef) {
             .as_ref()
             .unwrap_or_else(|| panic!("{name}: its occupants fire, none inside"));
         assert!(structure.attack.is_none(), "{name}: fires itself and its occupants");
-        for &kind in holds.accepts {
-            let weapon = combat::weapon_of(fire.weapon_kind(kind));
-            assert!(weapon.is_some(), "{name}: {kind:?} inside has nothing to fire");
+        // (M6-CM) A kind inside fires its stand-in's attack, or its own, or nothing (design change 0450: "**Disciples
+        // and illusions don't fire** from inside (user, 2026-11-27): they are only sheltered"): every stand-in has an
+        // attack, and some kind inside fires.
+        for &(kind, stand_in) in fire.stand_in {
+            let weapon = combat::weapon_of(stand_in);
+            assert!(
+                weapon.is_some(),
+                "{name}: {kind:?} inside fires {stand_in:?}'s attack, which has none"
+            );
         }
+        let fires = |kind: ObjectKind| combat::weapon_of(fire.weapon_kind(kind)).is_some();
+        assert!(
+            holds.accepts.iter().any(|&kind| fires(kind)),
+            "{name}: no one inside fires"
+        );
         let named = (fire.stand_in.iter())
             .map(|&(unit, _)| unit)
             .chain(fire.bonus_for.iter().copied());

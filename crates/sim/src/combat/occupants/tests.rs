@@ -46,28 +46,24 @@ fn objects() -> crate::testing::TestSim {
     builder.start()
 }
 
-/// `> Garrisoning > Weapons` and `> Range bonus`: "a Recruit or Disciple inside attacks with the Militant's
-/// AttackAttributes (see Militant); Militants and Gunners use their own AttackAttributes", and "**Militants and
-/// Gunners** inside get **+1 grid unit of Range** on their attack. Recruits and Disciples (firing with the Militant's
-/// attack) do not get the bonus — they fire at the Militant's normal Range": Range 4, 5, 6 and 4; the Gunner's MinRange
-/// of 2 stays, measured from the footprint.
+/// `> Garrisoning > Weapons` and `> Range bonus`: "a Recruit inside attacks with the Militant's AttackAttributes (see
+/// Militant); a **Disciple or illusion inside doesn't attack** (user, 2026-11-27; replaces "Disciples fire as
+/// Militants"); Militants and Gunners use their own AttackAttributes", and "**Militants and Gunners** inside get **+1
+/// grid unit of Range** on their attack. Recruits (firing with the Militant's attack) do not get the bonus": Range 4, 5
+/// and 6, and (M6-CM, design change 0450) no attack for the Disciple; the Gunner's MinRange of 2 stays, measured from
+/// the footprint.
 #[test]
 fn each_kind_fires_its_own_or_the_militants_attack_with_its_bonus() {
     let t = objects();
     let fire = garrison_fire();
     let militant = *weapon_of(ObjectKind::Militant).expect("the Militant's attack");
     let gunner = *weapon_of(ObjectKind::Gunner).expect("the Gunner's attack");
-    let ranged = |attrs: AttackAttrs, range: f32| AttackAttrs { range, ..attrs };
-    let expected = [
-        ranged(militant, 4.0),
-        ranged(militant, 5.0),
-        ranged(gunner, 6.0),
-        ranged(militant, 4.0),
-    ];
+    let ranged = |attrs: AttackAttrs, range: f32| Some(AttackAttrs { range, ..attrs });
+    let expected = [ranged(militant, 4.0), ranged(militant, 5.0), ranged(gunner, 6.0), None];
     for (i, (kind, expected)) in INFANTRY.into_iter().zip(expected).enumerate() {
         let o = t.sim().object(ObjectId(i as u32 + 2)).expect("spawned");
         assert_eq!(o.kind, kind);
-        assert_eq!(weapon(fire, o, Research::NONE), Some(expected), "{kind:?}");
+        assert_eq!(weapon(fire, o, Research::NONE), expected, "{kind:?}");
     }
     assert_eq!(
         weapon(fire, t.sim().object(ObjectId(4)).unwrap(), Research::NONE).map(|a| a.min_range),

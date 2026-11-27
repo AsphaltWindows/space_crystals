@@ -342,6 +342,7 @@ impl StateHash for Object {
             drone,
             cooldown,
             aircraft,
+            illusion_of,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -440,6 +441,11 @@ impl StateHash for Object {
         if let Some(aircraft) = aircraft {
             h.tag(14);
             aircraft.hash(h);
+        }
+        // (M6-CM) The same for an illusion's parent (`crate::mirage`), under a tag of its own: only an illusion has one.
+        if let Some(parent) = illusion_of {
+            h.tag(15);
+            parent.hash(h);
         }
     }
 }

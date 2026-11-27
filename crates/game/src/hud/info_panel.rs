@@ -11,7 +11,10 @@
 //!   the HP line) shows them on the line after its HP, "Shields a / b"; (slice M5-N4a) one that has an energy pool (a
 //!   Disciple, `factions/cults/units/disciple.md > Energy`) its energy on the line after those, "Energy a / b", rounded
 //!   down, so that a spell's threshold is met when the line says it is. Placeholder (not in the design: shown as the
-//!   Shields are, to every player who sees the object). A type's own section adds to that: the
+//!   Shields are, to every player who sees the object). (M6-CM) An illusion's line is its parent's energy, live
+//!   (`sc_sim::Sim::energy_shown`; design change 0452), as a Disciple's would be, and its owner alone reads its name
+//!   as "Disciple (illusion)" (`factions/cults/units/disciple.md > Spells > Mirage`; everyone else reads "Disciple": the
+//!   multi-object panel's group title too, [`info_text`]). A type's own section adds to that: the
 //!   Extraction Plate shows its owner the remaining Space Crystals of the patch under it (`factions/gdo/economy.md >
 //!   ExtractionPlate > InfoPanel`, design change 0099), with the line the patch's own panel has, since a covered patch
 //!   can't be selected on its own (`factions/gdo/economy.md > Selecting a covered patch`). Only its owner (design
@@ -104,10 +107,14 @@ pub fn info_text(sim: &Sim, sight: &Sight, selection: &Selection) -> Option<Info
     }
     let group = selection.active_group()?;
     let name = group.kind().def().name;
+    // (M6-CM) An Ungroupable type's group is one instance: an own illusion's, its owner reads as one.
+    let illusions = !group.instances.is_empty()
+        && (group.instances.iter()).all(|&id| sim.object(id).is_some_and(|o| own_illusion(o, sight.player())));
     Some(InfoContent {
-        title: match group.is_unfinished() {
-            true => format!("{name} (unfinished)"),
-            false => name.to_string(),
+        title: match (group.is_unfinished(), illusions) {
+            (true, _) => format!("{name} (unfinished)"),
+            (false, true) => illusion_name(name),
+            (false, false) => name.to_string(),
         },
         body: vec![
             format!("{} in group", group.instances.len()),
@@ -145,7 +152,7 @@ impl<'a> Shown<'a> {
             max_hp: object.max_hp_with(sim.research()),
             shields: object.shields,
             max_shields: object.max_shields(),
-            energy: sc_sim::energy::of(object),
+            energy: sim.energy_shown(object),
             resource: object.resource.clone(),
             live: Some(object),
         }
@@ -256,10 +263,26 @@ fn object_info(sim: &Sim, sight: &Sight, shown: Shown, record: Option<&LastKnown
         _ => Vec::new(),
     };
     InfoContent {
-        title: def.name.to_string(),
+        title: match shown.live.is_some_and(|o| own_illusion(o, viewer)) {
+            true => illusion_name(def.name),
+            false => def.name.to_string(),
+        },
         body,
         activity,
     }
+}
+
+/// (M6-CM) Whether `o` is an illusion of `viewer`'s (`sc_sim::mirage`), which only its owner can tell from a Disciple
+/// (`factions/cults/units/disciple.md > Spells > Mirage`: "**Seen by enemies**: exactly like a Disciple, on the map and
+/// when selected; enemies can't tell them apart").
+fn own_illusion(o: &Object, viewer: PlayerId) -> bool {
+    o.owner == Some(viewer) && sc_sim::mirage::is_illusion(o)
+}
+
+/// (M6-CM) An illusion's name as its owner reads it, from its type's `name` (`factions/cults/units/disciple.md >
+/// Spells > Mirage`: "their name reads **"Disciple (illusion)"**").
+fn illusion_name(name: &str) -> String {
+    format!("{name} (illusion)")
 }
 
 /// What one of the local player's own workers carries, and where it delivers it (slice M3-J2): "Carrying 8 Space

@@ -11,7 +11,8 @@ use super::*;
 /// that one of player 2's shoots from outside the clouds (9–12). 1 and 3, 7 grid units apart, channel apart; 2,
 /// between them, joins them at [`JOIN`]; 4 joins the three; 2's Stop splits the cloud in two; 3 walks off, which ends
 /// its channel; 1 runs dry in tick 178, its 50 energy spent; 3 channels again farther on, which joins it to 4 again;
-/// and 4's Stop leaves 3's cloud alone.
+/// and 4's Stop leaves 3's cloud alone. (M6-CM) Each channel that ends leaves its circle 24 ticks where it was (design
+/// change 0448), so that each change comes 24 ticks after the end: 2's circle holds the cloud together until tick 124.
 fn splits_and_merges() -> TestSim {
     let mut builder = flat(32, 14);
     for row in [400.0, 480.0, 700.0] {
@@ -47,12 +48,16 @@ fn splits_and_merges() -> TestSim {
     assert_eq!(at(&t, JOIN), holding, "each with a buffer releases it");
     for (tick, expected) in [
         (60, vec![vec![1, 2, 3, 4]]),
-        (100, vec![vec![1], vec![3, 4]]),
-        (130, vec![vec![1], vec![4]]),
-        (177, vec![vec![1], vec![4]]),
-        (178, vec![vec![4]]),
-        (190, vec![vec![3, 4]]),
-        (220, vec![vec![3]]),
+        (100, vec![vec![1, 2, 3, 4]]),
+        (123, vec![vec![1, 2, 3, 4]]),
+        (124, vec![vec![1], vec![3, 4]]),
+        (130, vec![vec![1], vec![3, 4]]),
+        (154, vec![vec![1], vec![4]]),
+        (178, vec![vec![1], vec![4]]),
+        (190, vec![vec![1], vec![3, 4]]),
+        (202, vec![vec![3, 4]]),
+        (220, vec![vec![3, 4]]),
+        (244, vec![vec![3]]),
     ] {
         t.run_until(tick);
         assert_eq!(clouds(&t), expected, "tick {tick}");
@@ -80,7 +85,9 @@ fn a_replay_with_clouds_splitting_and_merging_reproduces_the_hash() {
 
 /// The clouds go into the files only while there are any, and a save loads to the same game, which goes on alike
 /// through its releases; the hash sees a cloud's buffer, and an empty `clouds` in a file is no cloud. A cloud naming
-/// an id the game hasn't given out doesn't load.
+/// an id the game hasn't given out doesn't load. (M6-CM) A lingering circle too: its `until` in the file, and the
+/// game loaded from it goes on alike until it vanishes; the hash sees it; and the files leave it out while the unit
+/// channels.
 #[test]
 fn the_clouds_are_saved_and_loaded_and_left_out_while_there_are_none() {
     let mut t = quiet(
@@ -100,6 +107,8 @@ fn the_clouds_are_saved_and_loaded_and_left_out_while_there_are_none() {
         "{}",
         json["clouds"]
     );
+    let channelling = &json["clouds"]["clouds"][0]["members"][0];
+    assert_eq!(channelling.get("until"), None, "{channelling}");
     let mut loaded: Sim = serde_json::from_value(json.clone()).unwrap();
     assert_eq!(&loaded, t.sim());
     for _ in 0..40 {
@@ -119,6 +128,24 @@ fn the_clouds_are_saved_and_loaded_and_left_out_while_there_are_none() {
     let moved = t.sim().tick() + 1;
     order(&mut t, moved, P1, &[1], OrderKind::Stop);
     order(&mut t, moved, P2, &[2], OrderKind::Stop);
+    t.run(2);
+    let json = file(t.sim());
+    let lingering = &json["clouds"]["clouds"][0]["members"][0];
+    assert_eq!(lingering["until"], serde_json::json!(moved + LINGER), "{lingering}");
+    let mut loaded: Sim = serde_json::from_value(json.clone()).unwrap();
+    assert_eq!(&loaded, t.sim());
+    while !t.sim().clouds().is_empty() {
+        assert!(t.sim().tick() < moved + LINGER, "it vanishes in its tick");
+        t.step();
+        loaded.step(t.replay().inputs.last().unwrap());
+        assert_eq!(loaded.state_hash(), t.sim().state_hash(), "tick {}", t.sim().tick());
+    }
+    assert_eq!(t.sim().tick(), moved + LINGER);
+    let mut later = json.clone();
+    later["clouds"]["clouds"][0]["members"][0]["until"] = serde_json::json!(moved + LINGER + 1);
+    let later: Sim = serde_json::from_value(later).unwrap();
+    let same: Sim = serde_json::from_value(json).unwrap();
+    assert_ne!(later.state_hash(), same.state_hash(), "the hash sees the linger");
     t.run(2);
     assert!(t.sim().clouds().is_empty());
     let mut none = file(t.sim());

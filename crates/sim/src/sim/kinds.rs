@@ -231,6 +231,9 @@ impl Sim {
             cooldown: _,
             // (M6-GH1) Kept: no type of the design gains or loses ammo by a change of kind (`crate::aircraft`).
             aircraft: _,
+            // (M6-CM) Kept: no illusion changes its kind, the Garrison, which trains nothing, being the one building
+            // that takes one in (`crate::mirage`).
+            illusion_of: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

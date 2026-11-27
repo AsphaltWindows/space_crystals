@@ -153,6 +153,11 @@ pub enum Ability {
     /// one item more for its stock (`crate::stock`), paid at the press, over its type's frames. Its orders stay. Refused
     /// while its stock is full, while it buys one, and while its drone is out (design change 0421).
     Buy,
+    /// (M6-CM) `factions/cults/units/disciple.md > Spells > Mirage`: "An **instant** spell: the Disciple creates **4
+    /// illusions** of itself" (`crate::mirage`): each unit pays its cost, ends its Shroud channel ("Casting it cancels
+    /// Shroud") and makes its new illusions, its old ones vanishing. Its other orders stay. Refused for a unit that
+    /// can't pay ("**50 energy**") and for an illusion ("**No spells**: illusions can't cast").
+    Mirage,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

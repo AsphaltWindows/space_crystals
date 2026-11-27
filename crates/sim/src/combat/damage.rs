@@ -23,6 +23,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::math::{self, PI};
+use crate::mirage;
 use crate::network::services;
 use crate::object::Object;
 use crate::riot_shield;
@@ -182,7 +183,7 @@ pub fn directional_multiplier(facing: f32, to_source: Vec2) -> f32 {
 /// Applies the tick's `hits`, in their order (attacker id order), each to the Shields and the HP its target has
 /// then ([`resolve`]), then finds the dead: every object a hit brought to 0 HP or less. All hits count, including
 /// those on a target an earlier hit in the list has already killed. Returns the dead in id order, for the removal
-/// path.
+/// path. (M6-CM) An illusion loses twice the HP ([`mirage::damage_taken`]), which its `SimEvent::Hit` says.
 pub(super) fn apply(
     objects: &mut BTreeMap<ObjectId, Object>,
     hits: &[Hit],
@@ -190,9 +191,15 @@ pub(super) fn apply(
 ) -> Vec<ObjectId> {
     let mut struck = Vec::new();
     for hit in hits {
-        let Some(Object {
+        let Some(o) = objects.get_mut(&hit.target) else {
+            continue;
+        };
+        // (M6-CM) An illusion's "double damage from all sources" (`crate::mirage`): the HP the hit takes, after every
+        // step of `systems/combat.md > DamageModifierOrder`, a release's share too.
+        let factor = mirage::damage_taken(o);
+        let Object {
             hp: Some(hp), shields, ..
-        }) = objects.get_mut(&hit.target)
+        } = o
         else {
             continue;
         };
@@ -200,12 +207,13 @@ pub(super) fn apply(
         if let Some(shields) = shields {
             *shields -= taken.shields;
         }
-        *hp -= taken.hp;
+        let lost = taken.hp * factor;
+        *hp -= lost;
         struck.push(hit.target);
         events.push(SimEvent::Hit {
             attacker: hit.attacker,
             target: hit.target,
-            damage: taken.hp,
+            damage: lost,
             shield_damage: taken.shields,
         });
     }

@@ -1,13 +1,17 @@
 //! A portrait cell's look (placeholders until the portraits' art exists, Q0001): the type's shape in its owner's
-//! colour, round as its placeholder on the map is or square, over its label; dimmed while it transforms.
+//! colour, round as its placeholder on the map is or square, over its label; dimmed while it transforms; (M6-CM) for an
+//! illusion of the viewer's, washed out as on the map (`object_render::illusion_color`;
+//! `factions/cults/units/disciple.md > Spells > Mirage`: "**Seen by the owner**: they **look different on the
+//! screen**"), so that a selection of a Disciple and its illusions tells its owner which portrait is the Disciple. An
+//! object is an illusion from its first tick to its last, so the cells, rebuilt as the selection changes, stay right.
 
 use bevy::prelude::*;
-use sc_sim::ObjectKind;
+use sc_sim::{ObjectKind, PlayerId};
 
 use super::PortraitCell;
 use crate::hud::text;
 use crate::kinds::object_label;
-use crate::object_render::{Look, UnitShape, player_color, transforming_color};
+use crate::object_render::{Look, UnitShape, illusion_color, player_color, transforming_color};
 use crate::sim_driver::SimRes;
 
 const CELL_BACKGROUND: Color = Color::srgb(0.16, 0.18, 0.22);
@@ -46,14 +50,22 @@ pub(super) fn cell_node(at: Vec2, side: f32, active: bool) -> impl Bundle {
     )
 }
 
-/// A cell's shape and label.
-pub(super) fn spawn_cell_content(commands: &mut Commands, cell: Entity, shown: PortraitCell, sim: &SimRes) {
+/// A cell's shape and label, as `viewer` sees them.
+pub(super) fn spawn_cell_content(
+    commands: &mut Commands,
+    cell: Entity,
+    shown: PortraitCell,
+    sim: &SimRes,
+    viewer: PlayerId,
+) {
     match shown {
         PortraitCell::Object {
             id, kind, unfinished, ..
         } => {
             let object = sim.object(id);
             let owner = player_color(object.and_then(|o| o.owner));
+            let own_illusion = object.is_some_and(|o| o.owner == Some(viewer) && sc_sim::mirage::is_illusion(o));
+            let owner = if own_illusion { illusion_color(owner) } else { owner };
             commands.spawn((
                 Node {
                     width: percent(SHAPE_PERCENT),

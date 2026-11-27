@@ -132,6 +132,7 @@ mod tests {
             since: 0,
             at: Vec2::new(x, y),
             radius,
+            until: None,
         }
     }
 

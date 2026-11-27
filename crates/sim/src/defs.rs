@@ -44,7 +44,7 @@ pub use gdo::PLANNED_RECIPES;
 pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
 pub use map::crystal_patch::DEFAULT_STARTING_AMOUNT;
 pub use map::supply_delivery_station::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_SUPPLIES};
-pub use spells::{ShroudDef, SpellDef};
+pub use spells::{MirageDef, ShroudDef, SpellDef};
 pub use structures::{
     AirfieldDef, AugmentRecipe, BuilderGoes, ChamberDef, DropOff, ExitRule, ExpansionDef, HoldsDef, MiningDef,
     OccupantFire, PopUpDef, ProductionDef, Recipe, RecruitmentDef, ResearchDef, SiteDef, SitePrice, StructureDef,

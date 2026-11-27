@@ -1,6 +1,7 @@
 //! Shroud's golden game (slice M5-N4b, `factions/cults/units/disciple.md > Spells > Shroud`): three Disciples shroud
 //! Militants under the fire of Guards and a Grenadier; the middle one's cloud joins the two others', its Stop splits
-//! them, it joins them again, and they run dry.
+//! them once its circle has lingered, it joins them again, and they run dry, their clouds lingering (slice M6-CM,
+//! design change 0448: "the cloud **stays for 1.5 s (24 frames, placeholder)** and keeps absorbing as usual").
 
 use std::cell::RefCell;
 
@@ -18,19 +19,28 @@ const MILITANTS: [u32; 6] = [4, 5, 6, 7, 8, 9];
 const ATTACKERS: [u32; 4] = [10, 11, 12, 13];
 /// Disciple 2 channels in this tick, which joins the two clouds into one, both holding fire.
 const JOIN: Tick = 67;
-/// Disciple 2 is given a Stop in this tick, which splits the cloud, its buffer holding fire.
+/// Disciple 2 is given a Stop in this tick, which ends its channel: its circle lingers.
 const SPLIT: Tick = 112;
+/// (M6-CM) How long a circle lingers once its channel has ended (`Spells::linger`): 24 ticks.
+const LINGER: Tick = 24;
+/// Disciple 2's circle vanishes in this tick, which splits the cloud; its buffer happens to be empty, released on its
+/// timer at tick 126 and nothing absorbed since.
+const SPLIT_GONE: Tick = SPLIT + LINGER;
 /// Disciple 2 channels again in this tick, which joins the two clouds again, both holding fire.
 const REJOIN: Tick = 148;
 /// 1 and 3 run dry in this tick: the 50 energy a Disciple starts with pays 177 ticks of the drain, from tick 1
-/// (`factions/cults/units/disciple.md > Placeholder stats > Shroud numbers`), which leaves 2's cloud alone.
+/// (`factions/cults/units/disciple.md > Placeholder stats > Shroud numbers`); their circles linger.
 const DRY: Tick = 178;
-/// 2 runs dry in this tick, its buffer holding fire.
+/// 1's and 3's circles vanish in this tick, which leaves 2's cloud alone.
+const DRY_GONE: Tick = DRY + LINGER;
+/// 2 runs dry in this tick; its circle lingers.
 const DRY_2: Tick = 292;
-/// Militants 6, 7 and 9, the three left, AttackMove onto the Grenadier in this tick, which has stood out of their
-/// range, shooting Disciple 2.
+/// Militants 6, 7 and 9 AttackMove onto the Grenadier in this tick, which has stood out of their range, shooting
+/// Disciple 2.
 const FINISH: Tick = 310;
-/// The game's last tick: the Grenadier fell at 0:20.5 (tick 328).
+/// 2's circle vanishes in this tick, its buffer holding fire.
+const DRY_2_GONE: Tick = DRY_2 + LINGER;
+/// The game's last tick: the Grenadier fell at 0:20.1 (tick 321; at 0:20.5, tick 328, before the linger).
 const END: Tick = 336;
 
 thread_local! {
@@ -44,17 +54,19 @@ fn clouds(sim: &Sim) -> Vec<(Vec<u32>, f32)> {
     sim.clouds().list().iter().map(|c| (ids(c), c.buffer)).collect()
 }
 
-/// The clouds `tick` has, as their members' ids, and who is under them: the Disciples channelling and the Militants
-/// whose centres are inside their circles.
+/// The clouds `tick` has, as their members' ids, and who is under them: the Disciples channelling, or standing under
+/// their lingering circles, and the Militants whose centres are inside their circles, but for those walking out at
+/// [`FINISH`].
 fn phase(tick: Tick) -> (Vec<Vec<u32>>, Vec<u32>) {
     let apart = (vec![vec![1], vec![3]], vec![1, 3, 4, 5, 8, 9]);
     let joined = (vec![vec![1, 2, 3]], (1..=9).collect());
     match tick {
         ..JOIN => apart,
-        JOIN..SPLIT => joined,
-        SPLIT..REJOIN => apart,
-        REJOIN..DRY => joined,
-        DRY..DRY_2 => (vec![vec![2]], vec![2, 6, 7]),
+        JOIN..SPLIT_GONE => joined,
+        SPLIT_GONE..REJOIN => apart,
+        REJOIN..DRY_GONE => joined,
+        DRY_GONE..FINISH => (vec![vec![2]], vec![2, 6, 7]),
+        FINISH..DRY_2_GONE => (vec![vec![2]], vec![2]),
         _ => (vec![], vec![]),
     }
 }
@@ -65,12 +77,15 @@ fn phase(tick: Tick) -> (Vec<Vec<u32>>, Vec<u32>) {
 /// units apart, theirs don't): the fire at the Militants under them goes into their buffers and comes out 8 frames
 /// later over each cloud's area (`> Spells > Shroud`). At [`JOIN`] Disciple 2, between them, channels too: its circle
 /// overlaps both, which joins the three into one cloud, and each of the two releases its buffer at once over its own
-/// area (design change 0334, Q0113); at [`SPLIT`] its Stop splits the cloud, which releases the joint buffer at once
-/// over its three circles; at [`REJOIN`] it joins them again. At [`DRY`] 1 and 3 run dry, which leaves 2's cloud, over
-/// the Militants behind, and at [`DRY_2`] 2 runs dry. While a unit is under a cloud, every hit on it is a release; at
-/// each of those ticks every buffer goes at once, over its cloud as it was. Two of the Guards fall while the clouds
-/// are up, and no unit of player 1's; in the open, the third Guard and the Grenadier kill the three Militants in front,
-/// and the Guard falls; the Grenadier, the last, has stood out of the holding Militants' range, and falls once they
+/// area (design change 0334, Q0113); at [`SPLIT`] its Stop ends its channel, and its circle lingers (slice M6-CM,
+/// design change 0448), so that the cloud splits at [`SPLIT_GONE`], when it vanishes, which releases the joint buffer at
+/// once over its three circles (empty by then); at [`REJOIN`] it joins them again. At [`DRY`] 1 and 3 run dry, and
+/// their circles vanish at [`DRY_GONE`], which leaves 2's cloud, over the Militants behind; at [`DRY_2`] 2 runs dry,
+/// and its circle vanishes at [`DRY_2_GONE`]. While a unit is under a cloud, every hit on it is a release; at each of
+/// the ticks a cloud changes every buffer goes at once, over its cloud as it was. Two of the Guards fall while the
+/// clouds are up, and no unit of player 1's; in the open, the third Guard and the Grenadier kill two of the three
+/// Militants in front, 5 and 4 (all three before the linger, which kept them under the clouds 24 ticks longer), and
+/// the Guard falls; the Grenadier, the last, has stood out of the holding Militants' range, and falls once 6, 7 and 9
 /// AttackMove onto it at [`FINISH`].
 pub(crate) fn cults_shroud() -> Game {
     let mut builder = (ScenarioBuilder::new(&open(24, 15)))
@@ -120,13 +135,13 @@ pub(crate) fn cults_shroud() -> Game {
                     .filter(|c| c.1 > 0.0)
                     .map(|c| (c.0.len(), c.1))
                     .collect();
-                if [JOIN, SPLIT, REJOIN, DRY, DRY_2].contains(&tick) {
+                if [JOIN, SPLIT_GONE, REJOIN, DRY_GONE, DRY_2_GONE].contains(&tick) {
                     assert_eq!(
                         released, had,
                         "tick {tick}: every buffer goes at once, over its cloud as it was"
                     );
                 }
-                if [JOIN, SPLIT, REJOIN, DRY_2].contains(&tick) {
+                if [JOIN, REJOIN, DRY_2_GONE].contains(&tick) {
                     assert!(!had.is_empty(), "tick {tick}: a buffer holds fire");
                 }
                 *before = now;
@@ -155,8 +170,8 @@ pub(crate) fn cults_shroud() -> Game {
             assert_eq!(alive(&DISCIPLES), DISCIPLES, "the Disciples all stand");
             assert_eq!(
                 alive(&MILITANTS),
-                [6, 7, 9],
-                "the three Militants in front fell in the open"
+                [6, 7, 8, 9],
+                "two of the three Militants in front fell in the open"
             );
         },
     }
