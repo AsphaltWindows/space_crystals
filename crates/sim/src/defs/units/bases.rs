@@ -90,6 +90,13 @@ pub struct UnitBaseDef {
     pub rugged_terrain: bool,
     /// `> Crushable` (`systems/units.md > UnitCollision > Crushing`).
     pub crushable: bool,
+    /// (M5-V4) `systems/units.md > UnitCollision > Crushing`: "Units whose UnitBase can crush (TrackedVehicle, Mech, and
+    /// a **DrillUnit in its above-ground mode** [...]; never underground) crush enemy units whose UnitBase has Crushable =
+    /// true (Light Infantry)" (plan decision T86, `movement::crush`). False for the DrillUnit: it has no above-ground
+    /// mode yet, and underground it never crushes (design change 0419: slice M6-ST1 gives it the mode, and this rule
+    /// with it).
+    #[serde(default)]
+    pub crushes: bool,
     /// `> CanTurnInPlace`.
     pub can_turn_in_place: bool,
     /// `> CanReverse`.
@@ -176,6 +183,7 @@ static LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
     directional_armor: false,
     rugged_terrain: true,
     crushable: true,
+    crushes: false,
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
@@ -193,6 +201,7 @@ static HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
     directional_armor: false,
     rugged_terrain: true,
     crushable: false,
+    crushes: false,
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
@@ -210,6 +219,7 @@ static WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
     directional_armor: true,
     rugged_terrain: false,
     crushable: false,
+    crushes: false,
     can_turn_in_place: false,
     can_reverse: true,
     movement_model: MovementModel::FixedTurnRadius,
@@ -227,6 +237,7 @@ static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
     directional_armor: true,
     rugged_terrain: false,
     crushable: false,
+    crushes: true, // "Units whose UnitBase can crush (TrackedVehicle, ...)"
     can_turn_in_place: true,
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
@@ -244,6 +255,7 @@ static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
     directional_armor: true,
     rugged_terrain: false,
     crushable: false,
+    crushes: false, // only above ground (0419), a mode slice M6-ST1 builds
     can_turn_in_place: true,
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
@@ -266,6 +278,7 @@ static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
     // one (`movement::drag`, slice M3-G).
     rugged_terrain: true,
     crushable: false,
+    crushes: false,
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::Drag,
@@ -283,6 +296,7 @@ static MECH: UnitBaseDef = UnitBaseDef {
     directional_armor: true,
     rugged_terrain: true,
     crushable: false,
+    crushes: true, // "(..., Mech, ...)"
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
@@ -302,6 +316,7 @@ static HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
     directional_armor: false,
     rugged_terrain: false,
     crushable: false,
+    crushes: false,
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::Drag,
@@ -321,6 +336,7 @@ static GLIDER: UnitBaseDef = UnitBaseDef {
     directional_armor: false,
     rugged_terrain: false,
     crushable: false,
+    crushes: false,
     can_turn_in_place: false,
     can_reverse: false,
     movement_model: MovementModel::Glider,

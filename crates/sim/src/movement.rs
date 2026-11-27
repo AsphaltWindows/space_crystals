@@ -1,14 +1,18 @@
-//! Phase 5d, the one movement pipeline — `docs/movement.md > 4`, `> 6`. The only code that writes a unit's `pos`
-//! (besides a debug teleport).
+//! Phase 5d, the one movement pipeline — `docs/movement.md > 4`, `docs/movement.md > 6`. The only code that writes
+//! a unit's `pos` (besides a debug teleport).
 //!
 //! Units move one after another in id order. Each steers at its path's steering waypoint, sweeps its box against
 //! the tiles and the other units of its layer, and commits a position that overlaps nothing that blocks it
-//! ([`space::blocks`]: every unit but the two exceptions of design change 0106); the spatial grid is updated at
-//! each commit, so later units see earlier ones where they now are. "No overlap" therefore holds by construction,
-//! and the id order makes it deterministic (`docs/movement.md > 4`).
+//! ([`space::blocks`]: every unit but the two exceptions of design change 0106 and, (M5-V4), a crusher's crushable
+//! enemies, which it kills); the spatial grid is updated at each commit, so later units see earlier ones where they
+//! now are. "No overlap" therefore holds by construction, and the id order makes it deterministic
+//! (`docs/movement.md > 4`).
 //!
 //! - [`space`]: the spatial grids (one per collision layer), the box sweep, and [`space::blocks`], the single
-//!   filter for collision exceptions: gathering Drones, and units that already overlap (design change 0106).
+//!   filter for collision exceptions: gathering Drones, units that already overlap (design change 0106), and (M5-V4)
+//!   a crusher's crushable enemies.
+//! - (M5-V4) [`crush`]: crushing (`systems/units.md > UnitCollision > Crushing`): whose move crushes this tick, and the
+//!   crushable enemies it kills, which leave the grid at once and the game at the end of the phase.
 //! - [`scratch`]: the phase's scratch, rebuilt every tick: every unit as the others see it, the objects the units
 //!   head for, and the turn budget phase 5e reads ([`Turns`]).
 //! - [`collide`]: one unit's move by the rules of `docs/movement.md > 6.3`: lane seeking among the units it has to
@@ -33,12 +37,13 @@
 //! end of its path when the object hasn't moved since it was planned (the nearest point it can reach); the
 //! chase's progress, the occupied-target rule and queueing behind attackers are in [`stuck`].
 //!
-//! Hooks for later slices: crushing is an exception in [`space::blocks`]; other movement models replace the
-//! "desired direction → facing and velocity" part of a unit's tick, as [`drag`], [`wheeled`] and [`tracked`] do in
-//! [`follow`].
+//! Hooks for later slices: other movement models replace the "desired direction → facing and velocity" part of a
+//! unit's tick, as [`drag`], [`wheeled`] and [`tracked`] do in [`follow`]; (M5-V4) crushing is an exception in
+//! [`space::blocks`] and a kill at the crusher's commit ([`crush`]).
 
 mod air;
 mod collide;
+mod crush;
 mod doorway;
 mod drag;
 mod follow;
@@ -126,6 +131,9 @@ fn tracked_turn_noted(movement: &MovementAttrs, turned: f32, momentum: Vec2) -> 
 /// (`yielding::apply`) and begin in the next. (M4-S2) A lowered pop-up turret that wants to rise asks its owner's idle
 /// units over its footprint the same way (`yielding::make_way`). The angle each unit turned goes to [`Turns`], for phase 5e.
 /// (M5-N1a) Each moves by its movement numbers as its Augmentations make them, at its owner's levels in `research`.
+/// (M5-V4) A crusher whose move crushes passes through the crushable enemies in its way and kills those it overlaps
+/// or sweeps (`crush`): they make no move of their own after it, and their `SimEvent::Crushed` come once every unit
+/// has moved. Returns them, for the removal path.
 #[expect(
     clippy::too_many_arguments,
     reason = "phase 5d's state, in the parts of the sim it reads and writes"
@@ -139,7 +147,7 @@ pub(crate) fn step(
     tick: Tick,
     research: Research,
     events: &mut Vec<SimEvent>,
-) {
+) -> Vec<ObjectId> {
     scratch.counters = MoveCounters::default();
     scratch.bodies.clear();
     scratch.chased.clear();
@@ -148,6 +156,7 @@ pub(crate) fn step(
     scratch.requests.clear();
     scratch.rising.clear();
     scratch.turns.0.clear();
+    scratch.crushed.clear();
     for layer in &mut scratch.layers {
         layer.reset(map.width(), map.height());
     }
@@ -197,7 +206,8 @@ pub(crate) fn step(
         };
         let me = index;
         index += 1;
-        if o.id >= first_new {
+        // (M5-V4) A unit crushed earlier in the tick is dead: it makes no move.
+        if o.id >= first_new || scratch.crushed.iter().any(|crush| crush.victim == me) {
             continue;
         }
         // `systems/combat.md > UnitBaseSource`: while its attack aims, fires or cools down, a unit's base neither
@@ -212,6 +222,12 @@ pub(crate) fn step(
             mover.exit = None;
             mover.exit_heading = None;
         }
+        // (M5-V4) Whether its move this tick crushes (`crush::drives`): its own body says so, for its turn alone.
+        let moving: &Mover = mover;
+        let crushing = crush::drives(base, movement, moving, facing, held, door.as_ref(), || {
+            crush::steers(moving, &scratch.bodies[me].shape_at(from), scratch.chased[me].as_ref())
+        });
+        scratch.bodies[me].crushes = crushing;
         let mut world = World {
             grid: paths::unit_grid(nav, base, half * 2.0),
             layer: layer.map(|l| &scratch.layers[l]),
@@ -378,6 +394,23 @@ pub(crate) fn step(
                 scratch.layers[l].mark(o.pos, after.half, after.kinds());
             }
         }
+        // (M5-V4) The crushable enemies its move crushed leave the grid at once (`crush::victims`): the units after it
+        // no longer meet them, and those that haven't moved yet don't move.
+        if crushing && let Some(l) = layer {
+            let first = scratch.crushed.len();
+            crush::victims(
+                &scratch.bodies,
+                &scratch.layers[l],
+                me,
+                from,
+                facing,
+                &mut scratch.crushed,
+            );
+            for crush in &scratch.crushed[first..] {
+                let victim = &scratch.bodies[crush.victim];
+                scratch.layers[l].remove(crush.victim as u32, victim.pos, victim.half);
+            }
+        }
     }
     // (M4-S2) After the movers' own requests, which come first for a unit asked twice.
     for &(owner, centre, half) in &scratch.rising {
@@ -387,6 +420,7 @@ pub(crate) fn step(
     yielding::apply(objects, &scratch.bodies, &mut scratch.requests, research);
     // (M5-H1) The air units keep apart, from where the moves left them.
     air::separate(objects, first_new, map, &mut scratch.air);
+    crush::tell(objects, &scratch.bodies, &scratch.crushed, events)
 }
 
 /// The unit stands this tick.

@@ -6,7 +6,8 @@
 //! shield bar above the HP bar of an object that has Shields (`systems/combat.md > Shields > Display`, slice M3-B,
 //! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass) and (slice
 //! M5-N4a) an energy bar under it of an object that has an energy pool (a Disciple's, [`hp_bars`]), and a fading marker
-//! where an object died (`SimEvent::Died`). Slice M4-O adds the projectiles in flight
+//! where an object died (`SimEvent::Died`; (M5-V4) or was crushed, `SimEvent::Crushed`). Slice M4-O adds the
+//! projectiles in flight
 //! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52), each in its thrower's style (the
 //! Grenadier's grenade, slice M4-U), and the blasts where they land ([`blasts`], `SimEvent::Blast`). (M5-N2) The shots
 //! of the units inside a Garrison leave from its footprint's edge nearest their targets, where the sim says they do
@@ -131,7 +132,7 @@ impl ShotStyle {
     }
 }
 
-/// An object that died in `tick`, where it stood (`SimEvent::Died`).
+/// An object that died in `tick`, where it stood (`SimEvent::Died`, (M5-V4) `SimEvent::Crushed`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeathMarker {
     pub tick: Tick,
@@ -329,10 +330,13 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
         effects.blasts.clear();
         effects.generation = Some(sim.generation());
     }
-    // An attacker gone by now died in one of these ticks: its type and owner are its death's.
+    // An attacker gone by now died in one of these ticks: its type and owner are its death's, (M5-V4) or its crush's.
     let fallen = |id: ObjectId| {
         events.sightings().find_map(|(_, event, _)| match *event {
             SimEvent::Died {
+                id: dead, kind, owner, ..
+            }
+            | SimEvent::Crushed {
                 id: dead, kind, owner, ..
             } if dead == id => Some((kind, owner)),
             _ => None,
@@ -433,13 +437,16 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                     seen,
                 });
             }
-            SimEvent::Died { kind, owner, pos, .. } => effects.deaths.push(DeathMarker {
-                tick,
-                kind,
-                owner,
-                pos,
-                seen,
-            }),
+            // (M5-V4) A crush is a death, marked as any other (Placeholder (not in the design: no look of its own)).
+            SimEvent::Died { kind, owner, pos, .. } | SimEvent::Crushed { kind, owner, pos, .. } => {
+                effects.deaths.push(DeathMarker {
+                    tick,
+                    kind,
+                    owner,
+                    pos,
+                    seen,
+                })
+            }
             _ => {}
         }
     }

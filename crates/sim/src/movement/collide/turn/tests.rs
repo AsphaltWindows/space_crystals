@@ -37,6 +37,8 @@ fn body(id: u32, pos: Vec2, half: Vec2, facing: Option<f32>) -> Body {
         gathers: false,
         leads: true,
         moved: 0,
+        crushes: false,
+        crushable: false,
     }
 }
 

@@ -24,7 +24,8 @@
 //!   (`core/vision.md > Attacks from outside vision`, design change 0293: "No exceptions"); a blast shows where its
 //!   centre is Visible, and what it hits underground shows nothing (plan decision T52: "nothing is drawn for a hidden
 //!   victim"); a death shows to its object's owner, and to the others where it is Visible, never to one it was hidden
-//!   from as it died (`SimEvent::Died::hiding`).
+//!   from as it died (`SimEvent::Died::hiding`). (M5-V4) A crush is a death (`SimEvent::Crushed`), and reaches them
+//!   alike.
 //! - **A removal** ([`Audience::Removal`]): to whoever was shown the object where it went, but never to a player who
 //!   remembers it out of sight, whose record of it stays as last seen (`core/vision.md > Explored`).
 //! - **Everyone** ([`Audience::Everyone`]): a defeat, and the end of the game (`core/game_rules.md > End of Game`:
@@ -320,7 +321,8 @@ fn take_objects(sim: &Sim, known: &mut Vec<(ObjectId, Sighting)>) {
 /// as it last saw them.
 struct Arrival<'a> {
     sim: &'a Sim,
-    /// The frame's deaths: each dead object where it died, as hidden as it was (`SimEvent::Died::hiding`).
+    /// The frame's deaths: each dead object where it died, as hidden as it was (`SimEvent::Died::hiding`), (M5-V4) the
+    /// crushed too (`SimEvent::Crushed`).
     deaths: Vec<(ObjectId, Sighting)>,
     known: &'a [(ObjectId, Sighting)],
 }
@@ -330,6 +332,9 @@ impl<'a> Arrival<'a> {
         let deaths = (events)
             .filter_map(|event| match *event {
                 SimEvent::Died {
+                    id, owner, pos, hiding, ..
+                }
+                | SimEvent::Crushed {
                     id, owner, pos, hiding, ..
                 } => Some((id, Sighting::object_at(owner, hiding, pos))),
                 _ => None,
@@ -395,7 +400,10 @@ impl<'a> Arrival<'a> {
             | SimEvent::ProjectileLaunched { from, to, .. } => Audience::Seen(Sighting::path(from, to)),
             // A blast's damage too: what it hit underground shows nothing (plan decision T52).
             SimEvent::Hit { target, .. } => self.object(target),
-            SimEvent::Died { owner, pos, hiding, .. } => Audience::Seen(Sighting::object_at(owner, hiding, pos)),
+            // (M5-V4) A crush is a death.
+            SimEvent::Died { owner, pos, hiding, .. } | SimEvent::Crushed { owner, pos, hiding, .. } => {
+                Audience::Seen(Sighting::object_at(owner, hiding, pos))
+            }
             SimEvent::PatchDepleted { plate, .. } => self.owner(plate),
             SimEvent::ProductionQueued { producer, .. }
             | SimEvent::ProductionRefused { producer, .. }

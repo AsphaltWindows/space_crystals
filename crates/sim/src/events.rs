@@ -17,7 +17,8 @@ use crate::vision::Hiding;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum SimEvent {
     Spawned(ObjectId),
-    /// The object left the game (`Sim::remove_objects`), after its `Died` event if it was destroyed.
+    /// The object left the game (`Sim::remove_objects`), after its `Died` event if it was destroyed (or (M5-V4) its
+    /// `Crushed`).
     Removed(ObjectId),
     /// A Supply Delivery Station received a delivery.
     SuppliesDelivered {
@@ -507,5 +508,17 @@ pub enum SimEvent {
         caster: ObjectId,
         ability: AreaAbility,
         at: Vec2,
+    },
+    /// (M5-V4) `crusher`'s move in phase 5d crushed `id`, a crushable enemy its Silhouette overlapped or swept
+    /// (`movement::crush`; `systems/units.md > UnitCollision > Crushing`: "**Effect**: instant death of the crushed
+    /// unit"). A death in place of a [`SimEvent::Died`], told as one: what it was, whose, where it died and whom it was
+    /// hidden from as it died. It is no damage: no [`SimEvent::Hit`] comes with it. Its `Removed` follows in the tick.
+    Crushed {
+        id: ObjectId,
+        kind: ObjectKind,
+        owner: Option<PlayerId>,
+        pos: Vec2,
+        hiding: Hiding,
+        crusher: ObjectId,
     },
 }

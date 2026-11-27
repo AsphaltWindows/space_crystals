@@ -8,7 +8,7 @@ fn every_base_has_its_def() {
     }
 }
 
-/// `systems/units.md > UnitBase`: the bases that cross Rugged tiles, the crushable one, the air ones.
+/// `systems/units.md > UnitBase`: the bases that cross Rugged tiles, the crushable one, the crushers, the air ones.
 #[test]
 fn base_flags_follow_the_design() {
     let rugged: Vec<UnitBase> = UnitBase::ALL.into_iter().filter(|b| b.def().rugged_terrain).collect();
@@ -24,6 +24,10 @@ fn base_flags_follow_the_design() {
     );
     let crushable: Vec<UnitBase> = UnitBase::ALL.into_iter().filter(|b| b.def().crushable).collect();
     assert_eq!(crushable, [UnitBase::LightInfantry]);
+    // (M5-V4) `systems/units.md > UnitCollision > Crushing`: "TrackedVehicle, Mech, and a DrillUnit in its above-ground
+    // mode"; the DrillUnit has no such mode yet (slice M6-ST1), and underground it never crushes (design change 0419).
+    let crushers: Vec<UnitBase> = UnitBase::ALL.into_iter().filter(|b| b.def().crushes).collect();
+    assert_eq!(crushers, [UnitBase::TrackedVehicle, UnitBase::Mech]);
     let air: Vec<UnitBase> = UnitBase::ALL
         .into_iter()
         .filter(|b| b.def().domain == Domain::Air)

@@ -39,6 +39,9 @@ const HIDDEN_DEAD: ObjectId = ObjectId(93);
 /// `factions/syndicate/structures/laser_turret.md > Pop-up rules`: "**Hidden only while fully lowered**"): its death
 /// says whom it was hidden from, by `Hiding::of`'s arm for it.
 const LOWERED: ObjectId = ObjectId(94);
+/// (M5-V4) Player 1's unit that a crusher crushed in the frame, where player 2 sees: its death is a `Crushed`, which
+/// says where it was as a `Died` does.
+const CRUSHED: ObjectId = ObjectId(95);
 
 fn centre(x: i32, y: i32) -> Vec2 {
     TilePos::new(x, y).center()

@@ -940,7 +940,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      as of the end of the last tick (see *Navigation > Path knowledge*).
    - 5d `movement::step`: steering and hard collision, the only code that writes a unit's `pos` besides a teleport
      (see Movement and collision). Units move one after another in id order and never come to overlap, gathering
-     Drones apart (design change 0106).
+     Drones apart (design change 0106). (M5-V4) A crusher's move passes through its crushable enemies and crushes
+     those it overlaps or sweeps: they leave the game at the end of 5d, before 5e, through the removal path, each with
+     a `SimEvent::Crushed` (see *Movement and collision > Crushing*).
    - 5e `combat::step`: attack phases (a unit's turret turning first) and launches, then those of the units that
      fire from inside a building (slice M5-N2, `combat::occupants`), the projectiles due landing in launch order, the
      tick's list of
@@ -1942,7 +1944,7 @@ the hardening of crowds and nav performance did, **(H2)** where gathering Drones
 **(M3-G)** where DragMovement and idle units moving apart did, **(M3-G2)** where a queueing unit going round
 the row in its way did, **(M3-G3)** where one with no way round giving up did, **(H1)** where Gliders and the soft
 separation of air units did, **(M5-H2)** where a Glider's Move completing on arrival and Gliders pushing apart slowly
-did, **(V1)** where Silhouettes turning with the facing did), and the code is
+did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where crushing did), and the code is
 `crates/sim/src/movement.rs` and `movement/`, with the unit's state in
 `mover.rs`.
 
@@ -1962,9 +1964,10 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   unit alone is no lane. The code and its constants, the `LANE_*`, are in `collide/lanes.rs`. It is deterministic
   by sorted lanes and fixed cell order, and keeps no state but `Mover::avoid_side`. Never let it write a position
   except through `World::clear`.
-- **The grid's cells carry marks** (`Body::kinds`, `Layer::near_any`): which heading sectors and whether a yielding
-  unit were listed in a cell this tick. They only ever say "maybe", and exist so that a unit with nobody to pass
-  doesn't look at bodies. Keep them conservative: mark on every insert and whenever a body's kinds change.
+- **The grid's cells carry marks** (`Body::kinds`, `Layer::near_any`; the grid is `movement/space/layer.rs`): which
+  heading sectors and whether a yielding unit (and, slice M5-V4, a crushable one) were listed in a cell this tick.
+  They only ever say "maybe", and exist so that a unit with nobody to pass doesn't look at bodies. Keep them
+  conservative: mark on every insert and whenever a body's kinds change.
 - **Oriented Silhouettes** (slice M5-V1, plan decision T78; `docs/movement.md > 3`, `docs/movement.md > 6.3`): a
   Silhouette that isn't square (`ObjectDef::silhouette_turns`: the Seeker, the Prayer-mobile, the Hand of Heaven)
   lies along its unit's facing. `shape.rs` has the geometry: the separating-axis test for overlap and the sweep, the
@@ -2015,10 +2018,10 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
   the units over its footprint that yield to its owner for a sidestep off it, along the axis on which they are out
   soonest, to where their box touches its edge; the movers' requests come first, and it asks again every tick it is
   kept down. No other unit is ever moved for it.
-- **Collision exceptions** between units go in `space::blocks(mover, other)` and nowhere else (crushing will). The
+- **Collision exceptions** between units go in `space::blocks(mover, other)` and nowhere else. The
   sweeps, lane seeking and `World::is_free` all ask it, so a unit ignored for a move is ignored for the whole of it.
-  It is asked last, after the box test (few units near a move are in its way). Two exceptions (design change 0106,
-  slice M3-H2), both read off the bodies each tick, with **no pair state**:
+  It is asked last, after the box test (few units near a move are in its way). Three exceptions (design change 0106,
+  slice M3-H2; crushing, slice M5-V4), all read off the bodies each tick, with **no pair state**:
   - **Gathering Drones** (`systems/units.md > UnitCollision > Ground Collision > Exception, gathering Drones`):
     two bodies with `Body::gathers` (`orders::gather::on_gather_job`: a Drone whose current order is a Gather or a
     Drop Off, at every step of the job) don't block each other, whoever owns them. A gathering Drone and any other
@@ -2032,8 +2035,23 @@ did, **(V1)** where Silhouettes turning with the facing did), and the code is
     footprint at once; slice M5-N2: an Eject All lets everyone out of the Garrison's door at once, at one spot), so in
     today's game such a pair is two Drones of which one left its job, two evacuees, or two units out of a Garrison;
     the rule itself asks nothing about the units' kinds.
-  A later exception (crushing) is one more clause there. A slice that adds a way for two boxes to come to overlap
-  must add it to `testing::invariants::overlaps::may_overlap` too, or I1 fails.
+  - **A crusher's crushable enemies** (slice M5-V4, *Crushing* below): while a crusher's move crushes
+    (`Body::crushes`, set on the mover's own body for its turn alone), the crushable units of its enemies don't
+    block it. The clause reads the mover's flag only: to every other unit's move the crusher blocks as ever.
+  A slice that adds a way for two boxes to come to overlap must add it to
+  `testing::invariants::overlaps::may_overlap` too, or I1 fails. Crushing doesn't: the crushed are out of the game
+  by the end of the tick of contact.
+- **Crushing** (slice M5-V4, plan decision T86, design changes 0418 and 0419; `systems/units.md > UnitCollision >
+  Crushing`, `docs/movement.md > 6.13`; `movement/crush.rs`): a unit whose base crushes (`UnitBaseDef::crushes`: the
+  TrackedVehicle and the Mech; the DrillUnit only above ground, slice M6-ST1) crushes the crushable enemies
+  (`UnitBaseDef::crushable`: Light Infantry; enemies by `economy::defeat::allied`, neutrals nobody's) in its way
+  while its move crushes: Moving or Reversing, or turning in place (0418), never Stopping nor held by its attack
+  (`crush::drives`, decided before its move from what it does in the tick). At its commit, those its Silhouette
+  overlaps where it ends or swept in its turn or its move (`crush::victims`) leave the grid at once, so the units
+  after it don't meet them and those not yet moved don't move, and `movement::step` returns them: `Sim::step`
+  removes them at the end of 5d through the removal path (grids synced, a Disciple's Shroud ended, before 5e), each
+  with a `SimEvent::Crushed { id, kind, owner, pos, hiding, crusher }` in place of a `Died`. It isn't damage: no
+  `Hit`, no Shields. Never kill a unit in movement any other way.
 - **The exit doorway** (`core/entities.md > Structure Type > Exit Doorway`, design change 0080; a portal's energy
   doorway, design change 0145; `production/exit.rs`, `production::ExitDoor`) is the one exception against tiles,
   and the one case in which a unit's box overlaps a structure. A unit a producer released (or a building that holds
@@ -3167,7 +3185,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`,
   `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, `Missed`, `LocationTooClose`,
-  `ShroudStarted`, `ShroudEnded`, `ShroudReleased`, …) are output
+  `ShroudStarted`, `ShroudEnded`, `ShroudReleased`, `Crushed`, …) are output
   only, for effects,
   sounds and
   UI. The sim never reads them, and tells each to every player; the client shows a player only what they may
@@ -3386,7 +3404,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   blocks of any shape; the ignored crowd sweep), `movement_soak.rs` (200 units,
   random orders, 2 000 ticks; bounds on the share of failed moves), `movement_stuck.rs` (whose progress a waiting
   unit shares: a unit behind one whose legs begin again finds its way round), `invariants_overlap.rs` (I1's two
-  exceptions and nothing more, on edited states) and the ignored `movement_perf.rs`.
+  exceptions and nothing more, on edited states), `crushing/` (slice M5-V4: design change 0418's spin, a line of
+  enemies driven through, backing up, Guards and own infantry gone round, and the soak with crushers) and the ignored
+  `movement_perf.rs`.
 - **Behaviour scenario tests** are `crates/sim/tests/behaviours_attack.rs` (the approach to a gap of Range, the
   chase, a target lost from vision, a target out of reach, a unit blocked behind its owner's attacker giving up),
   `attack_behind_friends/` (slices M3-G2 and M3-G3: the way round a firing line, and the Failure rule with none,
@@ -3918,7 +3938,8 @@ these.
   place, whether the bar shows or not, green for Health regeneration and violet for Energy regeneration, in
   `AreaAbility::ALL`'s order (`combat_effects/buffs.rs`, `buff_marks`; who sees a buff and its look are
   Placeholders, Q0001), and a fading marker for each
-  `SimEvent::Died` (`DEATH_MARKER_TICKS`), never for an object that was hidden from the local player
+  `SimEvent::Died` and (slice M5-V4) `SimEvent::Crushed` (`DEATH_MARKER_TICKS`; a crush has no look of its own:
+  Placeholder (not in the design: no look of its own)), never for an object that was hidden from the local player
   (`shows_death`, the `Hiding` its death carries; plan decision T52: "nothing is drawn for a hidden victim", as a
   Hideout under a blast; no hit is drawn for any victim). Each effect keeps its event's `Sighting` (*Viewer events*):
   the drawing code only cuts a path to the Visible tiles. Slice M4-O adds the projectiles in flight
@@ -3985,8 +4006,8 @@ these.
   - `Owner`, the owner alone: feedback, refusals, notices, refunds, production, construction and upgrades;
   - `Object`, whoever `Sight::sees` the object;
   - `Seen`, by place: every shot and projectile is clipped for every viewer, the shooter's owner too (0293); a blast
-    shows where its centre is Visible; a death shows to its owner and where it is Visible, never to a player it was
-    hidden from;
+    shows where its centre is Visible; a death (a `Died`, and slice M5-V4's `Crushed` alike) shows to its owner and
+    where it is Visible, never to a player it was hidden from;
   - `Removal`, whoever was shown the object where it went, never a player who remembers it out of sight;
   - `Everyone`: defeats and the end of the game, and (slice M5-N4b) Shroud's releases, which the drawing keeps to the
     viewer's Visible tiles, as the clouds (`shroud_view`).

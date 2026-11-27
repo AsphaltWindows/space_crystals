@@ -349,6 +349,8 @@ mod tests {
             gathers: false,
             leads: false,
             moved: 0,
+            crushes: false,
+            crushable: false,
         };
         let (pos, goal) = (Vec2::new(100.0, 96.0), Vec2::new(180.0, 96.0));
         let mut mover = Mover::default();
@@ -383,6 +385,8 @@ mod tests {
             gathers: false,
             leads: true,
             moved: 0,
+            crushes: false,
+            crushable: false,
         };
         // The unit stands in tile (1, 1) and goes to tile (7, 1).
         let pos = Vec2::new(100.0, 96.0);

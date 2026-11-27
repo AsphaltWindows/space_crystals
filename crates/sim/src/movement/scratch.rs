@@ -1,11 +1,12 @@
 //! The scratch of phase 5d (`docs/movement.md > 3`) and the bodies it is built from: every unit as the others see it
-//! this tick ([`Body`], [`body_of`]), the objects the units head for ([`Chased`]), the collision layers, and the turn
-//! budget phase 5e reads ([`Turns`]). Rebuilt from the objects every tick by `super::step`.
+//! this tick ([`Body`], [`body_of`]), the objects the units head for ([`Chased`]), the collision layers, the turn
+//! budget phase 5e reads ([`Turns`]) and (M5-V4) the tick's crushes. Rebuilt from the objects every tick by
+//! `super::step`.
 
 use glam::Vec2;
 
 use super::space::{self, Body, Layer};
-use super::{air, collide, stuck, yielding};
+use super::{air, collide, crush, stuck, yielding};
 use crate::augmentation::Research;
 use crate::defs::{Domain, MovementAttrs, UnitDef};
 use crate::ids::{ObjectId, PlayerId};
@@ -104,6 +105,8 @@ pub(crate) struct Scratch {
     pub(super) counters: MoveCounters,
     /// (M5-H1) The air units' separation ([`air`]).
     pub(super) air: air::Scratch,
+    /// (M5-V4) This tick's crushes, in the order they came ([`crush`]).
+    pub(super) crushed: Vec<crush::Crush>,
 }
 
 impl Scratch {
@@ -153,6 +156,9 @@ pub(super) fn body_of(o: &Object, mover: &Mover, movement: &MovementAttrs, half:
         gathers: gather::on_gather_job(o),
         leads: stuck::leads(mover),
         moved: mover.last_progress,
+        // (M5-V4) Set for the unit's own turn alone (`super::crush::drives`).
+        crushes: false,
+        crushable: o.def().unit.as_ref().is_some_and(|unit| unit.base_def().crushable),
     }
 }
 

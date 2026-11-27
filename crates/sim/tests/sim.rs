@@ -55,6 +55,8 @@ mod command_gate;
 mod construction;
 #[path = "conversion/main.rs"]
 mod conversion;
+#[path = "crushing/main.rs"]
+mod crushing;
 mod cults_combat;
 #[path = "cults_construction/main.rs"]
 mod cults_construction;

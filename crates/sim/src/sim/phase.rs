@@ -162,7 +162,7 @@ impl Sim {
         // 5d: the one movement pipeline, the single place that moves units.
         observe(Phase::Movement);
         let (nav, scratch) = self.nav.for_movement();
-        movement::step(
+        let crushed = movement::step(
             &mut self.objects,
             first_new,
             &self.map,
@@ -172,6 +172,14 @@ impl Sim {
             Research::new(&self.players),
             &mut self.events,
         );
+        // (M5-V4) The crushed die in 5d, before 5e (`movement::crush`): they leave through the removal path, the grids
+        // follow as after 5e's deaths, and a Disciple's Shroud ends with its death (`shroud::Clouds::settle`), its
+        // buffer released in this tick's 5e.
+        if !crushed.is_empty() {
+            self.remove_objects(&crushed);
+            paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
+            self.clouds.settle(|id| self.objects.get(&id), &mut self.events);
+        }
         // 5e: shoots from the positions movement committed, and the projectiles due land (`combat::projectiles`). The
         // dead leave through the removal path; a footprint they leave behind no longer blocks, so the grids follow as
         // in 5b.
@@ -282,7 +290,8 @@ impl Sim {
         // A defeated player's network goes with their last structure (`sim/network.rs`).
         self.clear_defeated_networks();
         // (M5-N4b) The clouds of the channels that ended since 5a, by a death in 5e or a defeat's cleared orders
-        // (`shroud::Clouds::settle`): after every way a channel ends; their buffers wait for the next tick's 5e.
+        // (`shroud::Clouds::settle`; (M5-V4) a crush in 5d settled them before 5e): after every way a channel ends;
+        // their buffers wait for the next tick's 5e.
         self.clouds.settle(|id| self.objects.get(&id), &mut self.events);
         // 5f: sees the tick's final positions, this tick's new objects included; the fog delays and reveals that end
         // in this tick end (`vision::linger`, `vision::reveal`).

@@ -56,6 +56,8 @@ fn a_drone_creeping_along_a_wall_makes_progress_and_never_gives_up() {
             gathers: false,
             leads: true,
             moved: 0,
+            crushes: false,
+            crushable: false,
         }];
         let mut world = World {
             grid: Some(grid),

@@ -104,6 +104,8 @@ fn a_unit_yields_to_its_owners_units_but_not_to_the_group_it_arrived_with() {
         gathers: false,
         leads: true,
         moved: 0,
+        crushes: false,
+        crushable: false,
     };
     let (p1, p2) = (Some(PlayerId(1)), Some(PlayerId(2)));
     assert!(yields_to(&body(p1, None), p1, Some(3)));

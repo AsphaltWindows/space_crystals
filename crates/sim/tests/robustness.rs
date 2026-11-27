@@ -364,6 +364,7 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::Attacked { .. }
                 | SimEvent::Hit { .. }
                 | SimEvent::Died { .. }
+                | SimEvent::Crushed { .. }
                 | SimEvent::PatchDepleted { .. }
                 | SimEvent::ProductionQueued { .. }
                 | SimEvent::ProductionRefused { .. }

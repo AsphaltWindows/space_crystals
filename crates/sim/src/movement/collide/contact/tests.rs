@@ -41,6 +41,8 @@ fn standing(id: u32, pos: Vec2) -> Body {
         gathers: false,
         leads: false,
         moved: 0,
+        crushes: false,
+        crushable: false,
     }
 }
 

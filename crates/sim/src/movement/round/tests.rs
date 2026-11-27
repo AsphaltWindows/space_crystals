@@ -24,6 +24,8 @@ fn body(id: u32, x: f32, y: f32, held_up: bool) -> Body {
         gathers: false,
         leads: true,
         moved: 0,
+        crushes: false,
+        crushable: false,
     }
 }
 

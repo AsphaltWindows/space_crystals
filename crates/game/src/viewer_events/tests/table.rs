@@ -141,6 +141,19 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             },
             [W, W, N, W],
         ),
+        // (M5-V4) A crush is a death, and the crushed unit's removal reaches whom its death did.
+        (
+            SimEvent::Crushed {
+                id: CRUSHED,
+                kind: ObjectKind::Peacekeeper,
+                owner: Some(P1),
+                pos: centre(5, 5),
+                hiding: Hiding::default(),
+                crusher: WATCHER,
+            },
+            [W, W, N, W],
+        ),
+        (SimEvent::Removed(CRUSHED), [W, W, N, W]),
         (
             SimEvent::PatchDepleted {
                 patch: ObjectId(80),

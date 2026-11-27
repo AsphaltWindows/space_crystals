@@ -99,6 +99,12 @@
   marked **(M5-V3)**. The code is `crates/sim/src/movement/tracked.rs`, `movement/tracked/corner.rs`,
   `movement/follow.rs`, `movement/collide/contact.rs` (a turned Silhouette's contact step), `movement.rs`
   (`turn_rate`) and `defs/units/movement_attrs.rs` (`MovementAttrs::spin_rate`, `reverse_speed`).
+- **Crushers drive through enemy Light Infantry and kill it** (slice M5-V4; plan decision T86 with design changes
+  0418 and 0419, answering Q0153 parts 2 and 4; `systems/units.md > UnitCollision > Crushing`): 6.13 is crushing,
+  the third exception of 6.1's filter, the spin that crushes, and the kill at the crusher's commit, with the soak's
+  checks (8). Its changes are marked **(M5-V4)**. The code is `crates/sim/src/movement/crush.rs`, `movement/space.rs`
+  (`space::blocks`, `Body::crushes`; the grid split out to `movement/space/layer.rs`), `movement.rs`, `sim/phase.rs`
+  (the removal in 5d), `defs/units/bases.rs` (`UnitBaseDef::crushes`) and `events.rs` (`SimEvent::Crushed`).
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -113,7 +119,7 @@ Every number marked *(placeholder)* becomes a named const tagged with the questi
 | Domains | Ground, Air, Underground per UnitBase | `systems/units.md > UnitBase` |
 | Ground collision | Hard, never overlapping; shape is the Silhouette rectangle; **(Y) friendly yielding**: an idle unit takes one short sidestep for a blocked moving unit of its owner (not on Hold, not busy, not if it can't move, not for its own group order); enemies never yield, and moving units never yield or swap; moving units path around occupied space; ground units collide with ground units and structures | `systems/units.md > UnitCollision > Ground Collision` (0022, 0023, 0027) |
 | Air collision | None with ground or structures; soft separation among air units (SeparationRadius) | `systems/units.md > Air Collision` |
-| Crushing | Moving TrackedVehicle/Mech pass through and kill enemy LightInfantry; not friendly; stationary crushers are solid | `systems/units.md > Crushing` (not M1, but the collision filter must allow it) |
+| Crushing | Moving TrackedVehicle/Mech pass through and kill enemy LightInfantry; not friendly; stationary crushers are solid. **(M5-V4)** Built (6.13), with a crusher turning in place crushing too (0418); the surfaced DrillUnit's (0419) waits for its above-ground mode | `systems/units.md > UnitCollision > Crushing` (not M1, but the collision filter must allow it) |
 | Sub-tile lanes | A 64 su gap fits two 24 su units side by side, one lane each way | `factions/cults/units/recruit.md` (throughput note) |
 | Terrain | Non-Traversible tiles block ground units. RuggedTerrain = true bases (infantry, Mech) cross Rugged tiles. Drill units travel on Drillable tiles | `core/map.md > Tile`, `systems/units.md > UnitBase`, `systems/units.md > DrillUnit` |
 | Elevation | Slopes change neither speed nor path cost; cliffs are non-Traversible tiles; corners are shared, so two adjacent Traversible tiles are always connected | `core/map.md > Elevation` |
@@ -226,7 +232,7 @@ Phases 1–4 stay as they are. Order commands (phase 4) only write `Orders` queu
 | 5a `orders::update` | Pops completed orders, runs the behaviour state machine, writes `mover.goal`, reads `mover.status` and last tick's positions and visibility. **(E)** Every behaviour reads one snapshot of the objects, taken before any of them runs (`orders::world::World`) | After commands, so an order acts in its own tick; before movement, so there is one writer of goals |
 | 5b `paths::sync` | If a tile-blocking object changed: rebuild the **true** NavGrids and components, bump `nav_version` **(K)**. Then build the grids of a class whose first unit came in, or was queued (5.2, M5-Z2) | The movement below must collide with this tick's obstacles |
 | 5c `paths::serve` | Runs the staggered path checks (5.6, 6.2), then serves `Wanted` requests within the budget (5.5). **(K)** Each unit on its owner's known grids, as of the end of the last tick | After goals, before steering; a repath a check asks for is served in the same tick |
-| 5d `movement::step` | **The one movement pipeline**: steer, resolve collisions, commit `pos`/`facing`/`velocity`/channels, set `status`. **(H1)** A Glider flies instead (6.9); after every unit has moved and yielded, air units are pushed apart (6.10) | Single place that writes `pos` |
+| 5d `movement::step` | **The one movement pipeline**: steer, resolve collisions, commit `pos`/`facing`/`velocity`/channels, set `status`. **(H1)** A Glider flies instead (6.9); after every unit has moved and yielded, air units are pushed apart (6.10). **(M5-V4)** The units crushed in it leave the game at its end, through the removal path (6.13) | Single place that writes `pos` |
 | 5e combat | Attack phases, hit list, damage, deaths (other slice) | Shoots from post-move positions |
 | 5f vision | Visibility per player (other slice) | Sees final positions |
 | end: path knowledge **(K)** | `PathKnowledge::observe`, the grids of the units the tick brought (5.2), then `paths::sync_known`: each player whose known footprints changed gets a new knowledge version and its grids rebuilt | After the vision and its records, which it follows from; once per tick, so a player's grids are rebuilt at most once per tick and between ticks they follow from the state alone |
@@ -411,6 +417,8 @@ collision; soft separation is a velocity bias inside SeparationRadius (not M1). 
 Drones on a Gather job don't block each other; and two units whose boxes already overlap as the mover's turn
 begins ignore each other until they are apart, with no push-apart (`ARCHITECTURE.md > Movement and collision >
 Collision exceptions`).
+**(M5-V4)** A third since slice M5-V4, read off the mover's body alone: while a crusher's move crushes, its
+crushable enemies don't block it, and it kills those it overlaps or sweeps (6.13).
 **(G)** A cell also notes the **kinds** of unit listed in it since the grid was built: the 45° sector of each
 one's heading, and whether it yields (`Body::kinds`, `Layer::near_any`). A mark is never taken back within the
 tick, so it means "maybe": lane seeking (6.3) asks the marks first and looks at the bodies only where a unit
@@ -1102,6 +1110,54 @@ yielding requests and the stuck clock are the shared ones.
   cut and backing off by one tick's acceleration doesn't free it, or where its blocker never moves; slower than a
   Seeker (5 su a tick to its 8), fewer of its moves end before the next order replaces them.
 
+**6.13 Crushing. (M5-V4)** `systems/units.md > UnitCollision > Crushing` ("Units whose UnitBase can crush
+(TrackedVehicle, Mech, and a **DrillUnit in its above-ground mode** [...]; never underground) crush enemy units whose
+UnitBase has Crushable = true (Light Infantry)"; "**Effect**: instant death of the crushed unit"); plan decision T86
+with design changes 0418 and 0419. The code is `movement/crush.rs`, the third arm of `space::blocks` and the removal
+at the end of phase 5d (`sim/phase.rs`); the game's tests are `crates/sim/tests/crushing/`, with the Hand of Heaven
+among Peacekeepers, Recruits and Guards.
+- **Crushers** (`UnitBaseDef::crushes`): the TrackedVehicle and the Mech. The DrillUnit has no above-ground mode yet,
+  and underground it never crushes: slice M6-ST1 gives it the mode, and with it 0419's crushing, the spin rule
+  included. **Crushable** (`UnitBaseDef::crushable`): Light Infantry; Heavy Infantry "cannot be crushed".
+  **Enemies**: units of two players who aren't allied (`economy::defeat::allied`: every player is their own side so
+  far). A neutral unit is nobody's enemy.
+- **Whose move crushes** (`crush::drives`): "while the crusher is moving (Locomotion = Moving or Reversing)", and
+  turning in place (0418: "Silhouette overlap while Moving, Reversing **or Stationary + Turning**"). It is decided as
+  the unit's turn of 5d begins, before it moves, as every part of its move asks the filter; last tick's Locomotion
+  would never let a crusher parked against an enemy start or spin. Every move a crusher makes sets Moving or
+  Reversing or spins it in place, but for a Stopping one: coasting to rest with no way to steer, or braking against
+  its leg before it sets off the other way. Stopping isn't in the trigger's list, so a braking crusher crushes
+  nothing, and enemy infantry stops it at contact, as any unit does (the literal reading). A unit whose attack holds
+  its base (`systems/combat.md > UnitBaseSource`) doesn't move, and crushes nothing.
+- **Collision** (6.1's third exception): while its move crushes, the crusher's crushable enemies are no obstacles to
+  it, not to its probe, its lanes, its sweep, any part of its turn ("they don't block the spin"), nor the rules'
+  steps. The filter reads the mover's flag alone (`Body::crushes`, set on its own body for its turn), so to every
+  other unit's move the crusher is the obstacle it was ("Crushable units avoid crushers"), and so is a crusher that
+  stands and doesn't turn ("Stationary crushers do not overlap"). Its own and allied crushables, Heavy Infantry and
+  vehicles block it as before ("No friendly crushing"): its spin stops at contact with them (6.3, 0035), and its
+  follower goes round them. Paths are planned on the nav grids, which hold no units: they ran through infantry
+  before, and still do.
+- **The kill** (`crush::victims`, at the crusher's commit): the crushable enemies its Silhouette overlaps where it
+  ends, or swept on its way: its turn about where it started, at the parts `World::turn` tests (`TURN_TRY_SU` apart at
+  its corners), and its move, as it lies at the end (`Shape::sweep`). Found through the cells' kinds
+  (`KIND_CRUSHABLE`), they leave the grid at once: the units after it don't meet them, nobody crushes them twice, and
+  those not yet moved make no move. At the end of 5d they leave the game through the removal path (their Unit
+  Control and lineage with them, the grids synced, a Disciple's Shroud ended), each with a `SimEvent::Crushed`, its
+  crusher named, in place of a `Died`, before 5e. It isn't damage: no Hit, no Shields, no armour. The client shows it
+  as any death (`viewer_events`, `combat_effects`: Placeholder (not in the design: no look of its own)).
+- **Numbers that follow** (`tests/crushing/`): an enemy Peacekeeper against the middle of a stopped Hand of Heaven's
+  side dies in the tank's first tick of turning to face it, and the tank turns on and goes; an own Recruit holding
+  there stops the turn at once, and nobody dies; an enemy Peacekeeper sent through an idle Hand of Heaven goes round
+  it. Driving east through 5 enemy Peacekeepers a tile apart, it crushes each in its turn, its line and facing
+  unchanged; backing up through one crushes it; a Guard on its way is never crushed, and it goes round; two own
+  Recruits on Hold stop it, and it goes round them.
+- **The soaks**: the crushing soak (`tests/crushing/soak.rs`, seeds 1 and 2: 24 Hands of Heaven among 72
+  Peacekeepers, Recruits and Guards, half of each kind player 1's, half player 2's, on the oriented soak's maps)
+  crushes 44 and 36 of the 48 Light Infantry, and checks each crush in its tick: an enemy Light Infantry, gone, its
+  crusher a Hand of Heaven that moved or turned in it and wasn't Stopping. In the oriented soak the Hands of Heaven
+  crush the other player's Peacekeepers: over seeds 1 to 8, 184 of their moves arrived and 123 failed (from 168 and
+  113). I1 needs no exception: no overlap with a crushed unit outlives the tick of contact (8).
+
 ## 7. Numbers: f32, not fixed point
 
 **Decision: keep `f32` under the current rules, and keep every discrete decision in the pathfinder in integers.**
@@ -1127,7 +1183,8 @@ yielding requests and the stuck clock are the shared ones.
   path; an unreachable goal costs 0 expansions and returns the nearest reachable tile; LOS against hand-drawn corners.
 - **Invariants**, checked after every tick by a `TestSim` switch, in every scenario test:
   I1 no two units of a layer overlap (**(H2)** except two Drones on a Gather job, and two units that already
-  overlapped a tick earlier, until they are apart: design change 0106); I2 no ground box overlaps a blocked tile or
+  overlapped a tick earlier, until they are apart: design change 0106; **(M5-V4)** a crusher overlaps the enemy it
+  crushes only within the tick, after which the crushed unit is gone, so crushing needs no exception, 6.13); I2 no ground box overlaps a blocked tile or
   leaves the map (except a unit in an exit doorway, `Mover::exit`, on its own building's tiles: it only comes out,
   and **(M3-D2)** out of a portal's energy doorway only within its open arc; **(M5-Z1)** never over ground under the
   footprint that it can't stand on, so that it stands on open ground when the building goes);

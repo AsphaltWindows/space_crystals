@@ -3,6 +3,9 @@
 //! with gaps, under seeded random orders. `TestSim` checks the invariants I1–I7 after every tick: I1 between turned
 //! shapes by the separating-axis test, I2 with a turned shape against the tiles, and the turning laws W1 and S1.
 //! Nothing panics, the vehicles turn and get where they are sent, every move ends, and the run is deterministic.
+//! (M5-V4) The Hands of Heaven crush the other player's Peacekeepers.
+
+use std::collections::BTreeMap;
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::tuning::movement::{GIVE_UP_TICKS, STUCK_GRACE_TICKS};
@@ -186,13 +189,17 @@ fn seeker_outcomes_over_eight_seeds() {
 /// tick's acceleration doesn't free it. Slower than a Seeker (5 su a tick to its 8), fewer of its moves end before the
 /// next order replaces them. Seeds 1 and 2: the Seekers' 13 arrived and 45 failed, and 18 and 35; the Hands of
 /// Heaven's 8 and 8, and 14 and 10.
+///
+/// (M5-V4) The Hands of Heaven crush the other player's Peacekeepers (design change 0418, `tests/crushing/`), which
+/// sends the games another way: seeds 1 and 2, the Seekers' 16 arrived and 44 failed, and 24 and 32; the Hands of
+/// Heaven's 6 and 10, and 10 and 19 (over seeds 1 to 8, theirs 184 and 123, from 168 and 113).
 #[test]
 fn seekers_among_other_units_under_random_orders_keep_the_invariants() {
     let give_up = GIVE_UP_TICKS + 4 * STUCK_GRACE_TICKS;
     for seed in [1, 2] {
         let (mut t, [seekers, hands]) = soak(seed);
-        // Per unit: the tick and the values of its latest progress.
-        let mut since: Vec<(u32, f32, u32)> = Vec::new();
+        // Per unit: the tick and the values of its latest progress. (M5-V4) By id: the crushed leave the game.
+        let mut since: BTreeMap<ObjectId, (u32, f32, u32)> = BTreeMap::new();
         // Per Seeker: its facing and its move's status a tick ago; per Hand of Heaven, its move's status.
         let mut seen: Vec<(f32, MoveStatus)> = seekers.iter().map(|_| (0.0, MoveStatus::Idle)).collect();
         let mut hands_seen = vec![MoveStatus::Idle; hands.len()];
@@ -201,11 +208,8 @@ fn seekers_among_other_units_under_random_orders_keep_the_invariants() {
         while t.sim().tick() < TICKS {
             t.step();
             let tick = t.sim().tick();
-            for (i, mover) in t.sim().objects().filter_map(|o| o.mover.as_ref()).enumerate() {
-                if since.len() <= i {
-                    since.push((tick, f32::MAX, 0));
-                }
-                let (from, best, progress) = &mut since[i];
+            for (id, mover) in t.sim().objects().filter_map(|o| Some((o.id, o.mover.as_ref()?))) {
+                let (from, best, progress) = since.entry(id).or_insert((tick, f32::MAX, 0));
                 if mover.status != MoveStatus::Moving
                     || mover.best_remaining != *best
                     || mover.last_progress != *progress
@@ -234,7 +238,7 @@ fn seekers_among_other_units_under_random_orders_keep_the_invariants() {
         assert!(turns > 1000, "seed {seed}: the Seekers turned {turns} times");
         assert!(arrived >= 8, "seed {seed}: {arrived} arrived, {failed} failed");
         assert!(
-            hands_arrived >= 8,
+            hands_arrived >= 5,
             "seed {seed}: of the Hands of Heaven's, {hands_arrived} arrived, {hands_failed} failed"
         );
         if seed == 1 {

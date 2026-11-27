@@ -287,6 +287,8 @@ mod tests {
             gathers: false,
             leads: true,
             moved: 0,
+            crushes: false,
+            crushable: false,
         }
     }
 
