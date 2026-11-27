@@ -36,7 +36,7 @@ use crate::units::{Tick, TilePos};
 /// A tunable of `tuning::movement`, re-exported here for the client, whose tests read it by this path.
 pub use crate::tuning::movement::OCCUPIED_ARRIVAL_GU;
 pub use aside::StepAside;
-pub use flight::{Pass, Strafe};
+pub use flight::{Pass, Strafe, Takeoff};
 pub use sidestep::Sidestep;
 
 /// `docs/movement.md > 3`: at most this many `avoid_tiles` (a technical cap).
@@ -234,14 +234,22 @@ pub struct Mover {
     /// = Moving(idle circle over TargetLocation)"; (M5-H2) a Move completes there, and with nothing queued the Glider
     /// "keeps circling there, as when idle", design change 0404), else the point of the map nearest to where it was
     /// when its goal ended or it was stopped (`factions/cults/units/sparrow.md > Flight rules`: "Stop: it circles where
-    /// it is"), which the movement step notes in its next turn. A new leg and a stop clear it. Always `None` for the
-    /// other models. Left out of files and of the hash while `None` (`mover/hash.rs`).
+    /// it is"), which the movement step notes in its next turn; (M5-N7) out of a runway whose building has no rally
+    /// point, the point past the runway's end that it circles ("**No rally point**: it circles 2 grid units past the
+    /// runway's C end", `production::Runway::circle_point`). A new leg and a stop clear it. Always `None` for the other
+    /// models. Left out of files and of the hash while `None` (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orbit: Option<Vec2>,
     /// (M5-H1) A Glider's strafing run at its goal ([`Strafe`], [`Mover::strafe`]). A new leg and a stop end it. Left
     /// out of files and of the hash while `None` (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strafe: Option<Strafe>,
+    /// (M5-N7) A Glider's takeoff run along the runway it appeared on ([`Takeoff`]; `Sim::step_holding`): it flies
+    /// straight along it until its centre is past the runway's end, whatever its goal (`movement::glider`), and the
+    /// movement step clears it there. Neither a new leg nor a stop ends it. Left out of files and of the hash while
+    /// `None` (`mover/hash.rs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub takeoff: Option<Takeoff>,
 }
 
 fn is_zero(v: &Vec2) -> bool {
@@ -290,6 +298,7 @@ impl Default for Mover {
             step_aside: None,
             orbit: None,
             strafe: None,
+            takeoff: None,
         }
     }
 }

@@ -11,8 +11,9 @@ use crate::player::Faction;
 /// `factions/cults/units/sparrow.md`: "A **small glider** built at the Airstrip, with a **machine-gun-style** attack
 /// that hits **both air and ground**". Its numbers (slice M5-G2, plan decision T69): (M5-H1) it flies by them
 /// (`movement::glider`, its flight rules in `orders`), keeps apart from other air units by its SeparationRadius
-/// (`movement::air`), and fires from its turret (slice M5-U1). Its production at the Airstrip comes with that
-/// building's slice, so no building makes it yet. Its numbers are the design's "Placeholder stats".
+/// (`movement::air`), and fires from its turret (slice M5-U1). (M5-N7) The Airstrip trains it of a Recruit, and it
+/// takes off along the runway (`production::Runway`: "On completion it **takes off from the Airstrip** and **never
+/// lands** again"). Its numbers are the design's "Placeholder stats".
 pub(crate) static SPARROW: ObjectDef = ObjectDef {
     kind: ObjectKind::Sparrow,
     name: "Sparrow",

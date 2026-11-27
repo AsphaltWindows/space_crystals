@@ -11,10 +11,13 @@ use crate::defs::{ExitRule, ObjectDef, ObjectKind, StructureDef};
 ///
 /// (M5-F1) A building that holds units (plan decision T60, `crate::holding`): an entrance side and an exit side its
 /// SymmetryType letters once each, apart; a pool that holds some; units of its own faction, each listed once. One that
-/// also produces releases through the same doorway, on its exit side (`factions/cults/structures/armory.md > ExitSide
-/// - opposite short side (C)`: "Trained units and ejected Recruits exit through the exit side, one at a time through
-/// the exit doorway"). (M5-N2) A building with one door lets everyone out at once through its entrance
-/// (`ExitRule::AtOnce`, the Garrison's: "one door, entrance and exit"), and produces nothing.
+/// also produces releases through the same doorway, on its exit side
+/// (`factions/cults/structures/armory.md > ExitSide - opposite short side (C)`: "Trained units and ejected Recruits
+/// exit through the exit side, one at a time through the exit doorway"), but (M5-N7) for a runway's aircraft, which
+/// take off along it and use no doorway (`ExitRule::Runway`): the units it holds come out at the runway's far end, its
+/// `toward` side (the Airstrip's C).
+/// (M5-N2) A building with one door lets everyone out at once through its entrance (`ExitRule::AtOnce`, the
+/// Garrison's: "one door, entrance and exit"), and produces nothing.
 ///
 /// (M5-N2) The units inside fire only from a building that holds them, has no attack of its own and takes them in:
 /// every kind it takes in fires, its own attack or its stand-in's, and the kinds its rules name are kinds it takes in
@@ -94,7 +97,16 @@ pub(super) fn holds_are_consistent(def: &ObjectDef, structure: &StructureDef) {
         assert!(!holds.accepts[..i].contains(&kind), "{name} lists {kind:?} twice");
     }
     if let Some(production) = &structure.production {
-        assert_eq!(production.exits, holds.exit, "{name}: one exit doorway");
+        match production.exits {
+            ExitRule::Runway { toward, .. } => {
+                assert_eq!(
+                    holds.exit,
+                    ExitRule::Side(toward),
+                    "{name}: out at the runway's far end"
+                );
+            }
+            exits => assert_eq!(exits, holds.exit, "{name}: one exit doorway"),
+        }
     }
 }
 

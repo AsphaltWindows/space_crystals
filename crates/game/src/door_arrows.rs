@@ -18,6 +18,12 @@
 //!   Doorway`), their units leaving the centre through an open side (`factions/colonists/structures/README.md > Portal
 //!   Exits (energy doorway)`): out, at the middle of each open side. **Placeholder (not in the design: where a
 //!   portal's arrows stand, its doorway being at the centre)**;
+//! - **the Airstrip's runway** (`ExitRule::Runway`, slice M5-N7; `factions/cults/structures/airstrip.md > Placeholder
+//!   stats`: "EntranceSide B (Recruits walk in); a finished aircraft is placed **directly on the runway** and takes off
+//!   along it toward C"): in at B, its entrance, out at C, the end its aircraft take off toward, which is also the
+//!   doorway its Recruits leave by, on the ground (`exit_rule`: the holder's exit). **Placeholder (not in the design:
+//!   an aircraft takes off along the whole runway, not through a doorway; the arrow out at C reads its way off the
+//!   runway, as the portals' arrows read their open sides)**;
 //! - **a Tunnel's Side A** (`factions/syndicate/tunnels.md`: "two paths: one for entering, one for exiting"): in at the
 //!   entry path, out at the exit path, where the sim takes units in and lets them out (`sc_sim::network::Paths`);
 //! - none for a building whose units stay in the Tunnel Network (`ExitRule::Network`, the Hideout's: "units released
@@ -103,6 +109,8 @@ pub fn door_arrows(kind: ObjectKind, placement: &Placement) -> Vec<DoorArrow> {
     let rule = exit_rule(structure);
     let is_exit = |letter: SideLetter| match rule {
         Some(ExitRule::Side(exit) | ExitRule::Sides(exit) | ExitRule::AtOnce(exit)) => letter == exit,
+        // The end its aircraft take off toward (module docs: a placeholder reading), had its exit no doorway.
+        Some(ExitRule::Runway { toward, .. }) => letter == toward,
         Some(ExitRule::Centre(open)) => open.contains(&letter),
         Some(ExitRule::Network) | None => false,
     };

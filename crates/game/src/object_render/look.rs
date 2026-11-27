@@ -14,6 +14,9 @@ pub enum Look {
     /// A structure that attacks (plan decision T49: the Laser Turret, slice M4-S1): a structure's look, with a barrel
     /// that turns to face what it fires at (`super::turret`).
     Turret,
+    /// (M5-N7) A structure whose aircraft take off along it (`sc_sim::defs::ExitRule::Runway`: the Airstrip): a
+    /// structure's look, with a runway down its length (`super::runway`).
+    Runway,
     /// A Space Crystals Patch's shards (`super::resources`).
     CrystalPatch,
     /// A Supply Delivery Station's shape (`super::resources`).
@@ -40,7 +43,7 @@ impl Look {
     pub fn unit_shape(self) -> Option<UnitShape> {
         match self {
             Look::Unit { shape, .. } => Some(shape),
-            Look::Structure | Look::Turret | Look::CrystalPatch | Look::SupplyDeliveryStation => None,
+            Look::Structure | Look::Turret | Look::Runway | Look::CrystalPatch | Look::SupplyDeliveryStation => None,
         }
     }
 

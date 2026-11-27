@@ -1,7 +1,9 @@
 //! (M5-H1) What a Glider's mover keeps of its flight from tick to tick (plan decision T81): the point it circles
-//! ([`Mover::orbit`]) and its strafing run ([`Strafe`]). The movement step flies it (`movement::glider`); its speed is
-//! its [`Mover::momentum`], as a DragMovement unit's velocity is.
+//! ([`Mover::orbit`]) and its strafing run ([`Strafe`]); (M5-N7) its takeoff run along a runway ([`Takeoff`]). The
+//! movement step flies it (`movement::glider`); its speed is its [`Mover::momentum`], as a DragMovement unit's velocity
+//! is.
 
+use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use super::Mover;
@@ -12,12 +14,17 @@ use super::Mover;
 /// for another pass 5. Repeat until target is destroyed or a new command is issued", and at a location
 /// (`systems/controls/command_behaviors.md > AttackingLocation`: "Same strafing run pattern as AttackingObject,
 /// targeting the ground location"); `factions/cults/units/sparrow.md > Flight rules`: "Strafing: after a pass it flies
-/// on until the target is out of range, then loops back at full speed". The movement flies it (`movement::glider`): at
-/// MaxSpeed through the goal, on past it, and back.
+/// on until the target's **centre** is out of range [...], then loops back at full speed". The movement flies it
+/// (`movement::glider`): at MaxSpeed through the goal, on past it, and back.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Strafe {
-    /// The range a pass flies on to, space units: past its goal, the Glider holds its course until the gap from its
-    /// Silhouette to the goal (edge to edge, `shape`) is more than this. The attack's Range.
+    /// The range a pass flies on to, space units: past its goal, the Glider holds its course until the distance from
+    /// its Silhouette's edge to the goal's centre (`Shape::distance_to`) is more than this. The attack's Range, which
+    /// its fire measures edge to edge (`systems/combat.md > Range Measurement`), as every other check of it does: design
+    /// change 0408 (`systems/controls/command_behaviors.md > AttackingObject`, GliderMovement exception, step 3): "the
+    /// pass ends when the **target's centre** is out of weapon range, measured from the glider's edge to the target's
+    /// centre", so that "the loop is the same size whatever the target" (it was edge to edge, the loop growing with the
+    /// target's size).
     pub range: f32,
     /// Where the run is.
     pub pass: Pass,
@@ -43,5 +50,25 @@ impl Mover {
             range,
             pass: Pass::Toward,
         });
+    }
+}
+
+/// (M5-N7) A Glider's takeoff run along the runway it appeared on (`ExitRule::Runway`, `production::Runway`;
+/// `factions/cults/units/sparrow.md > Flight rules`: "**Takeoff**: it appears over the runway's B end facing C at
+/// IdleSpeed and speeds up along the runway"): it flies straight on, speeding up toward its MaxSpeed, until its centre
+/// is past the runway's end ([`Takeoff::is_over`]), and only then as its goal or its orbit sends it (`movement::glider`).
+/// An order given meanwhile waits for the runway's end: **Placeholder (not in the design: a takeoff run cut short)**.
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Takeoff {
+    /// The middle of the runway's end it takes off toward, space units.
+    pub end: Vec2,
+    /// The unit vector along the runway, toward `end`: the way it faces as it appears.
+    pub along: Vec2,
+}
+
+impl Takeoff {
+    /// Whether a Glider centred on `pos` is past the runway's end, or on it: its run is over.
+    pub fn is_over(&self, pos: Vec2) -> bool {
+        (pos - self.end).dot(self.along) >= 0.0
     }
 }

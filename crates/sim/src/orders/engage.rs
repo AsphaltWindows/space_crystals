@@ -108,7 +108,8 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
 /// with `attrs`: its turret, if it has one, locks the target for the whole run, so that it turns toward it (and
 /// phase 5e fires while the target is within Range and the turret's arc, `combat::turret`), and its move is a
 /// strafing run at the target (`Mover::strafe`, `movement::glider`) out to its attack's Range: through the target, on
-/// until it is out of range, and back at full speed (`factions/cults/units/sparrow.md > Flight rules`). The run goes
+/// until the target's centre is out of range (design change 0408), and back at full speed
+/// (`factions/cults/units/sparrow.md > Flight rules`). The run goes
 /// on, never stopping nor giving up, until the behaviour that runs it ends: `chasing` says whether the unit's current
 /// move is this run.
 fn strafe(

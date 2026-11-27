@@ -14,6 +14,9 @@
 //!   through its loops (design change 0403);
 //! - `orders`: Stop circles where the Sparrow is, Hold circles there and fires only at what comes into range, without
 //!   chasing (`factions/cults/units/sparrow.md > Flight rules`);
+//! - `pass_end`: (M5-N7) a pass ends where the target's centre is out of range (design change 0408): a lone Sparrow's
+//!   loop is the same size whatever it attacks, a Seeker, a Guard, a building or a Peacekeeper, and it strafes each
+//!   until it dies;
 //! - `attack_move`: an AttackMove strafes what it meets on the way and ends in idle circling over its destination
 //!   (`systems/controls/command_behaviors.md > AttackMovingToLocation`, GliderMovement exception);
 //! - `edge`: circling near the map's edge takes it past the edge, where it stays visible and attackable as at the
@@ -35,6 +38,7 @@ mod edge;
 mod flight;
 mod moves;
 mod orders;
+mod pass_end;
 mod separation;
 mod shroud;
 mod strafing;

@@ -5,6 +5,7 @@ use super::*;
 use crate::defs::ObjectKind;
 use crate::ids::ObjectId;
 use crate::math::PI;
+use crate::mover::Takeoff;
 
 /// The Sparrow's half extents: 40 × 40.
 const HALF: Vec2 = Vec2::splat(20.0);
@@ -67,11 +68,16 @@ impl Flight {
     }
 
     /// Heading for a 40 × 40 object at `at` (its id 9), on a strafing run out to `range`.
-    fn strafing(mut self, at: Vec2, range: f32) -> Self {
+    fn strafing(self, at: Vec2, range: f32) -> Self {
+        self.strafing_at(at, HALF, range)
+    }
+
+    /// Heading for an object at `at` with half extents `half` (its id 9), on a strafing run out to `range`.
+    fn strafing_at(mut self, at: Vec2, half: Vec2, range: f32) -> Self {
         self.target = Some(Chased {
             id: ObjectId(9),
             pos: at,
-            shape: Shape::rect(at, HALF),
+            shape: Shape::rect(at, half),
         });
         self.mover.go_to(
             MoveGoal::Object {
@@ -269,15 +275,16 @@ fn a_point_inside_its_turn_it_slows_down_for() {
 }
 
 /// `systems/controls/command_behaviors.md > AttackingObject`, GliderMovement exception, and
-/// `factions/cults/units/sparrow.md > Flight rules`: "Strafing: after a pass it flies on until the target is out of
-/// range, then loops back at full speed". On a run at an object 1000 su east of it, out to its Range of 192 su, a
-/// Sparrow passes over it again and again, each pass a fly-past within a few su of it; past it, it holds its course
-/// until it is more than 192 su off; it never slows below MaxSpeed once at it, and never arrives.
+/// `factions/cults/units/sparrow.md > Flight rules`: "Strafing: after a pass it flies on until the target's **centre**
+/// is out of range, then loops back at full speed" (design change 0408). On a run at an object 1000 su east of it, out
+/// to its Range of 192 su, a Sparrow passes over it again and again, each pass a fly-past within a few su of it; past
+/// it, it holds its course until the target's centre is more than 192 su from its edge; it never slows below MaxSpeed
+/// once at it, and never arrives.
 #[test]
 fn on_a_strafing_run_it_passes_over_its_target_flies_on_out_of_range_and_loops_back() {
     let target = Vec2::new(2000.0, 2000.0);
     let mut flight = Flight::new(sparrow(), Vec2::new(1000.0, 2000.0), 0.0).strafing(target, 192.0);
-    let gap = |flight: &Flight| Shape::rect(flight.pos, HALF).gap(&Shape::rect(target, HALF));
+    let gap = |flight: &Flight| Shape::rect(flight.pos, HALF).distance_to(target);
     let (mut passes, mut closest, mut past) = (0, f32::INFINITY, Vec::new());
     let mut pass = Pass::Toward;
     for tick in 1..=1600 {
@@ -308,6 +315,71 @@ fn on_a_strafing_run_it_passes_over_its_target_flies_on_out_of_range_and_loops_b
     // About 16 s a pass at 10 su a tick: out 192 su and more, the turn back (2 × 200 su to the side), and in again.
     assert!(passes >= 5, "{passes} passes");
     assert!(past.iter().all(|&closest| closest < 40.0), "{past:?}");
+}
+
+/// Design change 0408's point: "The loop is the same size whatever the target". The same run as above at a Sparrow's
+/// 40 × 40 and at a building's 3 × 2 tiles (192 × 128 su, its long side across the run): from its second pass on, each
+/// loop takes the Sparrow as far from the target's centre, within a few su; edge to edge, as before the change, the
+/// building's loop would reach some 44 su farther, its half width along the run less the Sparrow-sized target's.
+#[test]
+fn a_strafing_run_s_loop_is_the_same_size_whatever_the_target() {
+    let target = Vec2::new(2000.0, 2000.0);
+    let farthest = |half: Vec2| {
+        let start = Vec2::new(1000.0, 2000.0);
+        let mut flight = Flight::new(sparrow(), start, 0.0).strafing_at(target, half, 192.0);
+        let (mut passes, mut farthest, mut pass) = (0, 0.0_f32, Pass::Toward);
+        for _ in 0..1600 {
+            flight.tick();
+            let now = flight.mover.strafe.expect("on its run").pass;
+            if (pass, now) == (Pass::Run, Pass::On) {
+                passes += 1;
+            }
+            if passes >= 2 {
+                farthest = farthest.max(flight.pos.distance(target));
+            }
+            pass = now;
+        }
+        assert!(passes >= 5, "{passes} passes");
+        farthest
+    };
+    let small = farthest(HALF);
+    let building = farthest(Vec2::new(64.0, 96.0));
+    assert!(near(small, building, 4.0), "{small} and {building}");
+    assert!((400.0..600.0).contains(&small), "{small}");
+}
+
+/// (M5-N7) `factions/cults/units/sparrow.md > Flight rules`: "**Takeoff**: it appears over the runway's B end facing C
+/// at IdleSpeed and speeds up along the runway". A Sparrow on its takeoff run west along a runway whose end is 236 su
+/// ahead, ordered to a point behind it, flies straight on, speeding up by its Acceleration from IdleSpeed, until its
+/// centre is past the end, and only then turns for its goal; its run is over there.
+#[test]
+fn on_its_takeoff_run_it_flies_straight_along_the_runway_then_turns_for_its_goal() {
+    let start = Vec2::new(2000.0, 2000.0);
+    let end = start - Vec2::new(236.0, 0.0);
+    let goal = MoveGoal::Point(Vec2::new(3000.0, 2000.0));
+    let mut flight = Flight::flying(sparrow(), start, PI, 4.0).going(goal);
+    flight.mover.takeoff = Some(Takeoff { end, along: -Vec2::X });
+    let mut ticks = 0;
+    loop {
+        let before = flight.pos;
+        let turned = flight.tick();
+        ticks += 1;
+        if flight.mover.takeoff.is_none() {
+            break;
+        }
+        assert_eq!(turned, 0.0, "tick {ticks}: it turned on the runway");
+        assert!(near(flight.pos.y, start.y, 1e-3), "tick {ticks}: {}", flight.pos);
+        let expected = (4.0 + 0.5 * ticks as f32).min(10.0);
+        let flown = before.x - flight.pos.x;
+        assert!(near(flown, expected, 1e-3), "tick {ticks}: {flown}");
+        assert!(ticks < 40, "still on the runway at {}", flight.pos);
+    }
+    // 4.5 + 5 + ... + 10 su in the first 12 ticks (87 su), 10 a tick after: past the end in tick 27, over in the next.
+    assert_eq!(ticks, 28);
+    assert!(flight.pos.x < end.x, "{}", flight.pos);
+    for _ in 0..20 {
+        assert!(flight.tick() > 0.0, "it turns for its goal");
+    }
 }
 
 /// `systems/units.md > Air Collision`: "Gliders may unavoidably travel a little outside the map edge while turning or

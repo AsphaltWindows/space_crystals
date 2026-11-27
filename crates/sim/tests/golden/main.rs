@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): eighteen small games, defined below and in
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): nineteen small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
 //! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
@@ -17,9 +17,10 @@
 //! `garrison.rs` (a Garrison's four against Agents and Grenadiers), `altar.rs` (three Militants augmented at an Altar,
 //! against Agents), `temple.rs` (a Temple's research completing while Militants fight Agents), `shroud.rs` (three
 //! Disciples' clouds over Militants under fire, joining and splitting), `shrine.rs` (a manned Shrine's heal over
-//! Militants mid-fight and its boost of a Disciple's energy) and below (the Riot Shield game), and every test is
-//! below.
+//! Militants mid-fight and its boost of a Disciple's energy), `air.rs` (an Airstrip's three Sparrows taking off and
+//! strafing a Militant and a Guard) and below (the Riot Shield game), and every test is below.
 
+mod air;
 mod altar;
 mod colonists;
 mod cults;
@@ -234,4 +235,9 @@ fn golden_cults_shroud() {
 #[test]
 fn golden_cults_shrine() {
     golden("cults_shrine", shrine::cults_shrine);
+}
+
+#[test]
+fn golden_cults_air() {
+    golden("cults_air", air::cults_air);
 }
