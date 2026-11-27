@@ -87,6 +87,7 @@ fn a_revealed_shooters_projectile_at_your_object_shows_only_over_your_visible_ti
             from,
             to,
             lands_at,
+            homing: false,
         };
         let tick = tick(&app) + 1;
         app.world_mut()

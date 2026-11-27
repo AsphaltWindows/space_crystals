@@ -1,7 +1,8 @@
-//! The GDO's structures — `factions/gdo/structures/` (the Deployment Center, the Barracks, the Career Campus) and the
-//! economy buildings of `factions/gdo/economy.md` (the Generator, the Extraction Facility, the Extraction Plate), one
-//! module each.
+//! The GDO's structures — `factions/gdo/structures/` (the Deployment Center, the Barracks, the Career Campus, the
+//! Arsenal) and the economy buildings of `factions/gdo/economy.md` (the Generator, the Extraction Facility, the
+//! Extraction Plate), one module each.
 
+pub(crate) mod arsenal;
 pub(crate) mod barracks;
 pub(crate) mod career_campus;
 pub(crate) mod deployment_center;

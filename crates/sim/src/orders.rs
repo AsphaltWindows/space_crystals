@@ -24,7 +24,9 @@
 //! - [`attack_ground`]: AttackingLocation, an Attack Ground's walk into range and its shots, until another order
 //!   (slice M4-O; design change 0293);
 //! - [`shroud`]: a Disciple channelling Shroud where it stands, its energy drained each tick (slice M5-N4b); the
-//!   phase lists the units that channel as it ends, for their clouds (`crate::shroud`).
+//!   phase lists the units that channel as it ends, for their clouds (`crate::shroud`);
+//! - [`target_lock`]: a Rocketman locking onto its target and firing at it where it stands, until the lock breaks
+//!   (slice M5-K; the lock itself is phase 5e's, `crate::combat::target_lock`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
@@ -45,6 +47,7 @@ pub mod resolution;
 mod run;
 pub(crate) mod shroud;
 pub mod state;
+mod target_lock;
 mod travel;
 mod turret;
 pub(crate) mod world;
@@ -157,6 +160,14 @@ pub enum OrderKind {
     /// leg drives backwards, `Mover::reverses`). A location-targeted movement order, so a group's takes the magic box
     /// as a Move's does ([`Order::slot`]; the design's list, "Move, Attack Move, Patrol", predates it).
     Reverse(Vec2),
+    /// (M5-K) `factions/gdo/units/rocketman.md > Target Lock (targeted ability)`: "The player orders Target Lock on one
+    /// enemy unit", or structure ("Target Lock can target structures (user, 2026-11-26) as well as units"). An order
+    /// (the Director's reading, by plan decision T76's Shroud), so that "the Rocketman is given **any** order [...]
+    /// **without Shift**" breaks it, and "a Shift-queued order waits behind the lock and runs when it ends" (design
+    /// change 0438, answering Q0171). The unit stands and locks onto this object, then fires its homing missiles at it,
+    /// until the lock breaks (`crate::combat::target_lock`), which ends the order ([`target_lock`]). Only a unit whose
+    /// type has a Target Lock takes it (`UnitDef::target_lock`, the gate).
+    TargetLock(ObjectId),
 }
 
 impl OrderKind {
@@ -169,7 +180,8 @@ impl OrderKind {
             | OrderKind::DropOff(id)
             | OrderKind::Enter(id)
             | OrderKind::Assist(id)
-            | OrderKind::Repair(id) => Some(id),
+            | OrderKind::Repair(id)
+            | OrderKind::TargetLock(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } | OrderKind::Build { .. } => None,
             OrderKind::AttackGround(_) | OrderKind::Shroud | OrderKind::Reverse(_) => None,
@@ -202,8 +214,8 @@ impl Order {
             OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => None,
             // The unit goes only as near the location as its attack needs (`attack_ground`).
             OrderKind::Enter(_) | OrderKind::AttackGround(_) => None,
-            // (M5-N4b) A channel holds the unit where it stands.
-            OrderKind::Shroud => None,
+            // (M5-N4b) A channel holds the unit where it stands; (M5-K) so does a Target Lock.
+            OrderKind::Shroud | OrderKind::TargetLock(_) => None,
         }
     }
 

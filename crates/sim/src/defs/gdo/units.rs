@@ -2,3 +2,4 @@
 
 pub(crate) mod field_engineer;
 pub(crate) mod peacekeeper;
+pub(crate) mod rocketman;

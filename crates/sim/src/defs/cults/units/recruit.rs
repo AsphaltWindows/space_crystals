@@ -120,6 +120,7 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
         }),
         spells: &[],
         separation_radius: None,
+        target_lock: None,
     }),
     structure: None,
     default_settings: None,

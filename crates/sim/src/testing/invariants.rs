@@ -486,7 +486,7 @@ fn floats_finite(o: &Object) -> bool {
                     }
                     OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => true,
                     OrderKind::Enter(_) | OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => true,
-                    OrderKind::Shroud => true,
+                    OrderKind::Shroud | OrderKind::TargetLock(_) => true,
                 }
         })
     });

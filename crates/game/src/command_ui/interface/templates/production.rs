@@ -16,10 +16,9 @@ const TRAIN_SLOTS: usize = 8;
 /// which takes that slot first ([`PanelTemplate::trains`], slice M5-N9); X Cancel Production and C Set Rally Point
 /// (`> Standard Slot Assignments`); Z is Back while a target is awaited.
 ///
-/// - The Barracks: Q Build Peacekeeper, E Build Field Engineer, X, C (`factions/gdo/structures/barracks.md >
-///   ObjectInterfaceState[Barracks]`: "**E: Build Field Engineer** (placeholder letter)"). "W: Build Rocketman (hotkey
-///   tentative)" stays empty: the Rocketman isn't in the game yet (plan slice K brings it, and its Arsenal), so it
-///   isn't among the recipes and its button is hidden.
+/// - The Barracks: Q Build Peacekeeper, W Build Rocketman (slice M5-K), E Build Field Engineer, X, C
+///   (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`: "**W: Build Rocketman** (hotkey
+///   tentative)", "**E: Build Field Engineer** (placeholder letter)").
 /// - The Robo Portal: Q Drone, W Scout, X, C; the Bio Portal: Q Sabre Legionnaire, W Lancer, E psionic unit, X, C
 ///   (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
 ///   `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124). The Scout,

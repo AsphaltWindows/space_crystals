@@ -21,8 +21,12 @@
 //! aims, locks and stays engaged at a location the same way, with no projectile: "The effect applies to whatever units
 //! are at the target location at the end of the Firing phase" ([`strike`]). A target that has left the spot by then
 //! is missed ("Targets can dodge by moving out of the locked location"), and whatever stands there is hit in its
-//! place, whoever owns it. TODO(attack types): the HeadDisjointed attack isn't built (no kind has one): it hits as a
-//! FullyConnected attack does.
+//! place, whoever owns it.
+//!
+//! (M5-K) A HeadDisjointed attack (`systems/combat.md > HeadDisjointed`: the Rocketman's locked missile,
+//! `factions/gdo/units/rocketman.md > Target Lock`) aims at its target as a FullyConnected one does, and at the end of
+//! its Firing launches a projectile that homes in on it (`super::projectiles::Homing`), instead of hitting it there and
+//! then: "The unit enters Cooldown and Reloading while the projectile is in flight".
 
 use glam::Vec2;
 
@@ -197,6 +201,12 @@ impl<'a> Shooter<'a> {
         )
     }
 
+    /// (M5-K) Whether its attack launches a projectile that homes in on its target at the end of its Firing, a
+    /// HeadDisjointed one (module docs), instead of hitting it there and then.
+    fn homes(&self) -> bool {
+        matches!(self.attrs.attack_type, AttackType::HeadDisjointed)
+    }
+
     /// `systems/combat.md > ValidTarget` 2: whether its owner sees `t` (`PlayerVision::object_box_state`: `t` isn't
     /// hidden from the owner, plan decision T32, and a tile it covers is Visible, or it is revealed to the owner).
     /// Phase 5e reads the vision phase 5f left at the end of the last tick (`docs/movement.md > 4`).
@@ -206,7 +216,7 @@ impl<'a> Shooter<'a> {
     }
 
     /// Whether `t` is within its Range and beyond its MinRange from where it stands.
-    fn reaches(&self, t: &TargetView) -> bool {
+    pub(super) fn reaches(&self, t: &TargetView) -> bool {
         reaches(self.attrs, &self.shape, self.elevation, &t.shape, t.elevation)
     }
 
@@ -259,10 +269,10 @@ impl<'a> Shooter<'a> {
     }
 
     /// `systems/combat.md > Aiming`: the unit turns towards the point `at`, at most its TurnRate this tick
-    /// (`> LocomotionOrientationConstraints[TurnRateMovement]`, `Stationary + Turning`), landing exactly on the
-    /// direction once within it. (G) The TurnRate is one budget per tick: the aim has what phase 5d left of it
-    /// ([`Shooter::turn_left`]), and it turns a unit at most once per tick.
-    fn turn_toward(&self, facing: &mut f32, at: Vec2) {
+    /// (`systems/combat.md > LocomotionOrientationConstraints[TurnRateMovement]`, `Stationary + Turning`), landing
+    /// exactly on the direction once within it. (G) The TurnRate is one budget per tick: the aim has what phase 5d left
+    /// of it ([`Shooter::turn_left`]), and it turns a unit at most once per tick.
+    pub(super) fn turn_toward(&self, facing: &mut f32, at: Vec2) {
         let Some(wanted) = self.bearing(at).filter(|_| self.source == Source::Base) else {
             return;
         };
@@ -332,9 +342,9 @@ pub(super) fn run(
     let mut tick_left = true;
     while let Some(phase) = state.phase {
         let aimed_at = match phase {
-            // `systems/combat.md > Aiming`: the target must stay valid throughout (`> ValidTarget`: seen by the
-            // owner too) and in range, or the sequence is cancelled; the unit keeps turning to face it. A different
-            // command already cancelled it (`AttackState::engage`).
+            // `systems/combat.md > Aiming`: the target must stay valid throughout (`systems/combat.md > ValidTarget`:
+            // seen by the owner too) and in range, or the sequence is cancelled; the unit keeps turning to face it. A
+            // different command already cancelled it (`AttackState::engage`).
             AttackPhase::Aiming { target } => {
                 let valid = targets.get(target).filter(|t| {
                     shooter.aimed(state) == Some(target)
@@ -405,8 +415,12 @@ fn end(
         AttackPhase::AimingAt { at } => Some(AttackPhase::FiringAt { at, target: None }),
         AttackPhase::Firing { target } => {
             if let Some(t) = target.and_then(|id| targets.get(id)) {
-                volley.origins.mark(volley.hits.len(), shooter.muzzle(t.pos));
-                fire(shooter, t, &mut volley.hits, events);
+                if shooter.homes() {
+                    launch(shooter, t.pos, Some(t.id), volley, events);
+                } else {
+                    volley.origins.mark(volley.hits.len(), shooter.muzzle(t.pos));
+                    fire(shooter, t, &mut volley.hits, events);
+                }
             }
             Some(AttackPhase::Cooldown)
         }

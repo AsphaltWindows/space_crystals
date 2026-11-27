@@ -466,6 +466,21 @@ pub struct UnitDef {
     /// air units have one; `None` for every other type. Optional in files: none.
     #[serde(default)]
     pub separation_radius: Option<f32>,
+    /// (M5-K) Its Target Lock (`factions/gdo/units/rocketman.md > Target Lock`, `combat::target_lock`): the
+    /// Rocketman's. `None` for every other type. Optional in files: none.
+    #[serde(default)]
+    pub target_lock: Option<TargetLockDef>,
+}
+
+/// (M5-K) `factions/gdo/units/rocketman.md > Target Lock (targeted ability)`: the numbers of a unit's Target Lock
+/// ([`UnitDef::target_lock`]). Its locked missiles are its weapon's, homing (`combat::target_lock`).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TargetLockDef {
+    /// LockOnDuration, ticks: "the Rocketman aims at the target continuously for LockOnDuration".
+    pub lock_on_ticks: u32,
+    /// LockRange, grid units, measured as a Range is (`systems/combat.md > Range Measurement`): "Locking succeeds
+    /// only if the target stays within LockRange"; "Locked missiles can be fired from anywhere within LockRange".
+    pub lock_range: f32,
 }
 
 /// (M5-N1a) How an augmentable unit type takes its Augmentations' increments (`UnitDef::augmentable`,

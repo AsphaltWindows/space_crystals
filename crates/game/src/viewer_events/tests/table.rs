@@ -404,6 +404,7 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
                 from: unit,
                 to: watcher,
                 lands_at: 30,
+                homing: false,
             },
             [P, P, P, W],
         ),

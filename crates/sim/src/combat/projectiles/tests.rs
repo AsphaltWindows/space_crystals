@@ -23,12 +23,12 @@ const SHOOTER: ObjectId = ObjectId(1);
 const TARGET: ObjectId = ObjectId(2);
 
 /// 16 × 10 open tiles.
-fn open() -> String {
+pub(super) fn open() -> String {
     "................\n".repeat(10)
 }
 
 /// The launches of the run so far: (tick, from, to, lands_at).
-fn launches(t: &TestSim) -> Vec<(Tick, Vec2, Vec2, Tick)> {
+pub(super) fn launches(t: &TestSim) -> Vec<(Tick, Vec2, Vec2, Tick)> {
     (t.events().iter())
         .filter_map(|(tick, e)| match *e {
             SimEvent::ProjectileLaunched { from, to, lands_at, .. } => Some((*tick, from, to, lands_at)),
@@ -38,7 +38,7 @@ fn launches(t: &TestSim) -> Vec<(Tick, Vec2, Vec2, Tick)> {
 }
 
 /// The blasts of the run so far: (tick, centre, radius).
-fn blasts(t: &TestSim) -> Vec<(Tick, Vec2, f32)> {
+pub(super) fn blasts(t: &TestSim) -> Vec<(Tick, Vec2, f32)> {
     (t.events().iter())
         .filter_map(|(tick, e)| match *e {
             SimEvent::Blast { at, radius } => Some((*tick, at, radius)),
@@ -48,7 +48,7 @@ fn blasts(t: &TestSim) -> Vec<(Tick, Vec2, f32)> {
 }
 
 /// The HP damage `id` took in each hit of the run so far: (tick, damage).
-fn hits_on(t: &TestSim, id: ObjectId) -> Vec<(Tick, f32)> {
+pub(super) fn hits_on(t: &TestSim, id: ObjectId) -> Vec<(Tick, f32)> {
     (t.events().iter())
         .filter_map(|(tick, e)| match *e {
             SimEvent::Hit { target, damage, .. } if target == id => Some((*tick, damage)),
@@ -58,7 +58,7 @@ fn hits_on(t: &TestSim, id: ObjectId) -> Vec<(Tick, f32)> {
 }
 
 /// Runs until the first launch, and returns its tick.
-fn until_launched(t: &mut TestSim) -> Tick {
+pub(super) fn until_launched(t: &mut TestSim) -> Tick {
     while launches(t).is_empty() {
         assert!(t.sim().tick() < 200, "nothing was launched\n{}", t.ascii(None));
         t.step();
@@ -342,6 +342,7 @@ fn a_projectile_forgets_its_target_and_flies_on() {
         damage: 100.0,
         radius: 40.0,
         domain: TargetDomain::Ground,
+        homing: None,
     }];
     forget(&mut store, &[ObjectId(3), ObjectId(9)]);
     assert_eq!(store[0].target, Some(ObjectId(7)));
@@ -385,4 +386,64 @@ fn the_store_counts_only_while_a_projectile_flies() {
     let loaded: crate::sim::Sim = serde_json::from_value(saved).unwrap();
     assert_eq!(loaded.state_hash(), t.sim().state_hash());
     assert_eq!(loaded.projectiles(), t.sim().projectiles());
+}
+
+/// (M5-K) A single-target projectile, the Rocketman's missile (`factions/gdo/units/rocketman.md`: "Damage **20**",
+/// "ProjectileSpeed **16 su/frame**"), at a Guard of player 2 standing 256 su east: it leaves from the Rocketman's
+/// centre at the end of Firing, flies 16 ticks, and lands where the Guard stood at the end of Aiming, a blast of radius
+/// 0 there, hitting the Guard with its Damage less the Guard's PointArmor.
+#[test]
+fn a_missile_hits_the_unit_at_the_spot() {
+    let from = Vec2::new(200.0, 320.0);
+    let at = from + Vec2::new(256.0, 0.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Rocketman, P1, from)
+        .spawn_unit_at(1, ObjectKind::Guard, P2, at)
+        .order_at(2, P1, &[SHOOTER], OrderKind::Attack(TARGET), false);
+    let launched = until_launched(&mut t);
+    assert_eq!(launches(&t), [(launched, from, at, launched + 16)]);
+    t.run_until(launched + 16);
+    assert_eq!(blasts(&t), [(launched + 16, at, 0.0)]);
+    let guard = ObjectKind::Guard.def();
+    assert_eq!(hits_on(&t, TARGET), [(launched + 16, 20.0 - guard.armor.point)]);
+}
+
+/// (M5-K) `systems/combat.md > DoublyDisjointed`: "Targets can dodge by moving out of the locked location". The Guard
+/// walks off as the missile leaves: it lands behind it, and hits nothing.
+#[test]
+fn a_target_that_walks_off_dodges_the_missile() {
+    let from = Vec2::new(200.0, 320.0);
+    let stood = from + Vec2::new(256.0, 0.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Rocketman, P1, from)
+        .spawn_unit_at(1, ObjectKind::Guard, P2, stood)
+        .order_at(2, P1, &[SHOOTER], OrderKind::Attack(TARGET), false);
+    let launched = until_launched(&mut t);
+    let away = Target::Point(Vec2::new(900.0, 320.0));
+    t.order_at(launched + 1, P2, &[TARGET], OrderKind::Move(away), false)
+        .run_until(launched + 16);
+    assert_eq!(blasts(&t), [(launched + 16, stood, 0.0)]);
+    assert!(t.pos(2).x - stood.x > 18.0, "off the spot: {}", t.pos(2));
+    assert_eq!(hits_on(&t, TARGET), []);
+}
+
+/// (M5-K) "The effect applies to whatever units are at the target location when the projectile arrives", whoever owns
+/// them (the module docs' placeholder: TailDisjointed's rule): an Attack Ground on the spot of one of the Rocketman's
+/// own Peacekeepers hits the Peacekeeper, and never the Rocketman itself.
+#[test]
+fn a_missile_hits_whatever_stands_at_the_spot_whoever_owns_it() {
+    let from = Vec2::new(200.0, 320.0);
+    let at = from + Vec2::new(256.0, 0.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Rocketman, P1, from)
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P1, at)
+        .order_at(2, P1, &[SHOOTER], OrderKind::AttackGround(at), false);
+    let launched = until_launched(&mut t);
+    t.run_until(launched + 16);
+    let peacekeeper = ObjectKind::Peacekeeper.def();
+    assert_eq!(hits_on(&t, TARGET), [(launched + 16, 20.0 - peacekeeper.armor.point)]);
+    assert_eq!(hits_on(&t, SHOOTER), []);
 }

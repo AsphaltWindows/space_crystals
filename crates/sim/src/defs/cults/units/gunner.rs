@@ -83,6 +83,7 @@ pub(crate) static GUNNER: ObjectDef = ObjectDef {
         repairs: None,
         spells: &[],
         separation_radius: None,
+        target_lock: None,
     }),
     structure: None,
     default_settings: None,

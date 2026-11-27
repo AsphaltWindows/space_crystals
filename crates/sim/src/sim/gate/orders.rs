@@ -110,6 +110,9 @@ impl Sim {
                     return Err(Reject::CannotReverse);
                 }
             }
+            // (M5-K) `factions/gdo/units/rocketman.md > Target Lock` (`crate::combat::target_lock`): the units whose
+            // type has a Target Lock take it, the others ignore it.
+            OrderKind::TargetLock(target) => ordered = self.check_target_lock(player, ordered, target)?,
         }
         Ok(Checked::Order {
             units: ordered,
@@ -178,6 +181,37 @@ impl Sim {
             return Err(Reject::CantRepair(target));
         }
         Ok(repairing)
+    }
+
+    /// (M5-K) The gate for a Target Lock on `target` (`factions/gdo/units/rocketman.md > Target Lock`: "The player
+    /// orders Target Lock on one enemy unit"; "Target Lock can target structures (user, 2026-11-26) as well as units"):
+    /// the player knows of it (`Sim::check_target_known`, as an Attack's target), and it is destructible
+    /// ([`Reject::NotAttackable`]) and another player's ([`Reject::NotAnEnemy`]), as the player knows it (a remembered
+    /// one by its record, `Sim::aimed`). The units of `units` whose type has a Target Lock (`UnitDef::target_lock`)
+    /// take it, else [`Reject::LacksAbility`]. Nothing asks whether the target is within LockRange: a lock on one
+    /// beyond it breaks at once (`crate::combat::target_lock`).
+    fn check_target_lock(
+        &self,
+        player: PlayerId,
+        units: Vec<ObjectId>,
+        target: ObjectId,
+    ) -> Result<Vec<ObjectId>, Reject> {
+        self.check_target_known(player, target)?;
+        let aimed = self.aimed(player, target).ok_or(Reject::NotVisible(target))?;
+        if !aimed.destructible {
+            return Err(Reject::NotAttackable(target));
+        }
+        if !aimed.enemy {
+            return Err(Reject::NotAnEnemy(target));
+        }
+        let locks = |o: &Object| (o.def().unit.as_ref()).is_some_and(|unit| unit.target_lock.is_some());
+        let locking: Vec<ObjectId> = (units.into_iter())
+            .filter(|id| self.objects.get(id).is_some_and(locks))
+            .collect();
+        if locking.is_empty() {
+            return Err(Reject::LacksAbility);
+        }
+        Ok(locking)
     }
 
     /// (M5-N4b) The gate for a spell's order: the units of `units` whose type casts the spell (the one of their type's

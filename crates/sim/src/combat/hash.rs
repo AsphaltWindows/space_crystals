@@ -1,9 +1,10 @@
 //! The state hash of an attack's state (`hash.rs`): [`AttackState`] and the phase of its sequence ([`AttackPhase`]).
 //! What slice M4-O added is hashed so that the states of attacks without it hash as they did (the goldens stand): the
 //! phases at a location under tags after the others, the location engaged only while set. So is a unit's turret
-//! (slice M5-U1, [`TurretState`]): only while it has one.
+//! (slice M5-U1, [`TurretState`]): only while it has one; and (M5-K) a Target Lock ([`TargetLock`]), only while one is
+//! under way.
 
-use super::{AttackPhase, AttackState, TurretState};
+use super::{AttackPhase, AttackState, TargetLock, TurretState};
 use crate::hash::{StateHash, StateHasher};
 
 impl StateHash for AttackPhase {
@@ -40,6 +41,7 @@ impl StateHash for AttackState {
             elapsed,
             location,
             turret,
+            target_lock,
         } = self;
         target.hash(h);
         phase.hash(h);
@@ -55,6 +57,24 @@ impl StateHash for AttackState {
             h.tag(2);
             turret.hash(h);
         }
+        // (M5-K) The same for a Target Lock: an attack without one hashes as it did.
+        if let Some(lock) = target_lock {
+            h.tag(3);
+            lock.hash(h);
+        }
+    }
+}
+
+impl StateHash for TargetLock {
+    fn hash(&self, h: &mut StateHasher) {
+        let TargetLock {
+            target,
+            elapsed,
+            locked,
+        } = self;
+        target.hash(h);
+        elapsed.hash(h);
+        locked.hash(h);
     }
 }
 
