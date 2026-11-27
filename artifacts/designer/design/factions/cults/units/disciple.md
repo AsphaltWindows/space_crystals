@@ -43,7 +43,7 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 - **Sight**: they have the Disciple's **SightRange**, so they can scout.
 - **No spells**: illusions can't cast.
 - **Shroud mirroring**: when the parent Disciple **starts channelling Shroud**, its illusions **play the same channelling animation**, but make **no cloud** (so a watching enemy can tell which one is real while it channels). Each illusion's animation can be **cancelled individually** (as the channel: Stop or another order); all of them stop when the parent's channel ends. An illusion that is moving or busy when the parent starts channelling stops and plays the animation too (designer's reading).
-- **Garrison**: illusions may enter a Garrison and **fire for real** with the Militant's attack, as a Disciple does (factions/cults/structures/garrison.md).
+- **Garrison**: illusions may enter a Garrison, but **don't fire** from it, as Disciples don't (user, 2026-11-27; factions/cults/structures/garrison.md).
 - **Other effects**: the Shrine's health regeneration works on them (they are own Cults infantry).
 - **How illusions end**: an illusion lasts until it **dies**, its **parent dies**, or the parent **casts Mirage again** (the old set vanishes and a new set of 4 appears; a Disciple never has more than one set). An illusion inside a Garrison when it ends simply vanishes.
 - **Casting it cancels Shroud**: casting Mirage ends the Disciple's channel (the cloud then lingers as usual).
