@@ -2552,6 +2552,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0168 | The Prism: its panel, aiming a thrust, and orders while it launches (M6-SP, SR; from M6-P's D47) | no | open |
 | Q0169 | GDO Supplies: what they buy, and the Supply Chopper's repair on its Tower (M6-GS; from M6-P's D41) | no | open |
 | Q0170 | Orders given to a Sparrow during its takeoff run (from M5-N7's placeholder: they wait for the run's end, and Stop doesn't end it) | no | open |
+| Q0171 | Does a Shift-queued order end a Target Lock or a Shroud channel, or wait behind it? (as built for Shroud, and being built for Target Lock in M5-K: it waits, T76) | no | open |
 
 ## Design change entries
 Last triaged: 0282.
