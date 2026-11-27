@@ -1,0 +1,143 @@
+//! The Vehicle Assembly — `factions/syndicate/structures/vehicle_assembly.md` (design change 0367's placeholders; slice
+//! M6-SK).
+
+use crate::defs::structures::{ExpansionDef, Recipe, StructureDef, SymmetryType};
+use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
+use crate::player::Faction;
+
+/// `factions/syndicate/structures/vehicle_assembly.md`: the "Syndicate production building that assembles Syndicate
+/// ground vehicles", an underground expansion behind a Chemical Plant, and the Forge's prerequisite. Its numbers only
+/// (slice M6-SK, plan decision T84, by T69's rule): no Tunnel builds one yet ([`VEHICLE_ASSEMBLY_EXPANSION`], kept out
+/// of its def, so its ExpandMenu entry stays `Planned`), and it trains nothing: its production is the Hideout's
+/// (`ExitRule::Network`) with slice M6-SV, which makes the Assault Bike's recipe live, and each other recipe goes live
+/// with its unit's slice. Its numbers are the design's "Placeholder stats".
+pub(crate) const VEHICLE_ASSEMBLY: ObjectDef = ObjectDef {
+    kind: ObjectKind::VehicleAssembly,
+    name: "Vehicle Assembly",
+    faction: Some(Faction::Syndicate),          // `factions/syndicate/`
+    category: Category::Structure,              // Entity Type - Structure Type (Underground)
+    footprint: Footprint::Tiles { w: 3, h: 3 }, // Size 3x3
+    selectable: true,                           // `core/entities.md > Object Type > Selectable - true`
+    // Not listed; a type with MaxHP is destructible (`core/entities.md > Object Instance > HP`).
+    destructible: true,
+    // Not listed: every expansion's, `factions/syndicate/tunnel_menus.md > Expansions under construction` (design change
+    // 0254): "Sight: none (underground). **Groupable**: true."
+    groupable: true,
+    sight_range: 0.0,
+    max_hp: Some(600.0),                     // MaxHP 600
+    armor: Armor { point: 6.0, full: 54.0 }, // PointArmor 6, FullArmor 54 (underground expansion, n = 6)
+    // `core/map.md > Elevation` (design change 0005): "Syndicate underground expansions (inside a Tunnel Area) may be
+    // placed on sloped tiles".
+    needs_flat_ground: false,
+    structure: Some(StructureDef {
+        // Not given (plan decision T29): AAAA, since none of its sides has a function.
+        symmetry: SymmetryType::AAAA,
+        build_radius_extension: 0,
+        power: 0,
+        // With slice M6-SV: the Hideout's production, its recipes the consts below, each live with its slice.
+        production: None,
+        underground: true, // Entity Type - Structure Type (Underground)
+        expansion: None,   // with slice M6-SV: [`VEHICLE_ASSEMBLY_EXPANSION`]
+        // TechPrerequisite - player owns at least one Chemical Plant (anywhere in the Tunnel Network)
+        requires: &[ObjectKind::ChemicalPlant],
+        ..StructureDef::NONE
+    }),
+    ..ObjectDef::NONE
+};
+
+/// The Vehicle Assembly's construction by a Tunnel (`StructureDef::expansion`), for slice M6-SV to make live.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "slice M6-SV: a Tunnel builds the Vehicle Assembly")
+)]
+pub(crate) const VEHICLE_ASSEMBLY_EXPANSION: ExpansionDef = ExpansionDef {
+    tier: 2,     // Tier Requirement - 2
+    cost: 250,   // Cost 250 Space Crystals
+    frames: 480, // Build Time 480 frames (30 seconds)
+    // `factions/syndicate/tunnel_menus.md > Expansions under construction` (design change 0254): "the ConstructionHP
+    // Rule applies to every expansion (starts at 10%, grows with progress)".
+    start_hp: 0.1,
+};
+
+// `> Placeholder stats`: "Produces (cost, time, TunnelSpaceCost): **Assault Bike** 125 SC, 240 f, 2; **Shadebringer** 150
+// SC, 320 f, 2; **Laser Battery** 200 SC, 400 f, 3; **Subterranean Transport** 200 SC, 400 f, 3", each behind its unit's
+// TechPrerequisite ("**Shadebringer** (requires a Vault), **Laser Battery** (requires an Optics Lab), **Subterranean
+// Transport** (requires a Forge)"); the TunnelSpaceCosts are the units' own (`UnitDef::tunnel_space_cost`). Its panel
+// is "as the Hideout: **Q** Assault Bike, **W** Shadebringer, **E** Laser Battery, **R** Subterranean Transport".
+
+/// Q: the Assault Bike, for slice M6-SV.
+#[cfg_attr(not(test), expect(dead_code, reason = "slice M6-SV: the Vehicle Assembly's Q"))]
+pub(crate) const ASSAULT_BIKE_RECIPE: Recipe = Recipe {
+    kind: ObjectKind::AssaultBike,
+    cost: 125,
+    frames: 240,
+    requires: &[],
+};
+
+/// W: the Shadebringer, behind a Vault, for slice M6-SB.
+#[cfg_attr(not(test), expect(dead_code, reason = "slice M6-SB: the Vehicle Assembly's W"))]
+pub(crate) const SHADEBRINGER_RECIPE: Recipe = Recipe {
+    kind: ObjectKind::Shadebringer,
+    cost: 150,
+    frames: 320,
+    requires: &[ObjectKind::Vault],
+};
+
+/// E: the Laser Battery, behind an Optics Lab, for slice M6-SL.
+#[cfg_attr(not(test), expect(dead_code, reason = "slice M6-SL: the Vehicle Assembly's E"))]
+pub(crate) const LASER_BATTERY_RECIPE: Recipe = Recipe {
+    kind: ObjectKind::LaserBattery,
+    cost: 200,
+    frames: 400,
+    requires: &[ObjectKind::OpticsLab],
+};
+
+/// R: the Subterranean Transport, behind a Forge, for slice M6-ST1.
+#[cfg_attr(not(test), expect(dead_code, reason = "slice M6-ST1: the Vehicle Assembly's R"))]
+pub(crate) const SUBTERRANEAN_TRANSPORT_RECIPE: Recipe = Recipe {
+    kind: ObjectKind::SubterraneanTransport,
+    cost: 200,
+    frames: 400,
+    requires: &[ObjectKind::Forge],
+};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::defs::syndicate::tests::assert_expansion;
+
+    /// The stat block (design change 0367): an underground structure, 3×3, MaxHP 600, the expansions' 6 / 54, behind a
+    /// Chemical Plant; a Tier 2 Tunnel's for 250 Space Crystals in 480 frames. Its four recipes, in its panel's order,
+    /// each with its unit's TechPrerequisite; none live yet.
+    #[test]
+    fn the_vehicle_assembly_follows_the_design() {
+        let expansion = ExpansionDef {
+            tier: 2,
+            cost: 250,
+            frames: 480,
+            start_hp: 0.1,
+        };
+        let kind = ObjectKind::VehicleAssembly;
+        assert_expansion(kind, "Vehicle Assembly", 3, 600.0, &[ObjectKind::ChemicalPlant]);
+        assert_eq!(VEHICLE_ASSEMBLY_EXPANSION, expansion);
+        let recipes = [
+            ASSAULT_BIKE_RECIPE,
+            SHADEBRINGER_RECIPE,
+            LASER_BATTERY_RECIPE,
+            SUBTERRANEAN_TRANSPORT_RECIPE,
+        ];
+        let rows: Vec<(ObjectKind, u32, u32, &[ObjectKind])> =
+            recipes.iter().map(|r| (r.kind, r.cost, r.frames, r.requires)).collect();
+        assert_eq!(
+            rows,
+            [
+                (ObjectKind::AssaultBike, 125, 240, &[][..]),
+                (ObjectKind::Shadebringer, 150, 320, &[ObjectKind::Vault][..]),
+                (ObjectKind::LaserBattery, 200, 400, &[ObjectKind::OpticsLab][..]),
+                (ObjectKind::SubterraneanTransport, 200, 400, &[ObjectKind::Forge][..]),
+            ]
+        );
+        let tunnel_space = recipes.map(|r| r.kind.def().unit.as_ref().and_then(|unit| unit.tunnel_space_cost));
+        assert_eq!(tunnel_space, [Some(2), Some(2), Some(3), Some(3)]);
+    }
+}

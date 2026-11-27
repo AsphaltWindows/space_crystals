@@ -1,0 +1,98 @@
+//! The Shadebringer — `factions/syndicate/units/shadebringer.md` (design change 0367's placeholders; slice M6-SK).
+
+use crate::defs::units::{MovementAttrs, UnitBase, UnitDef};
+use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
+use crate::player::Faction;
+
+/// `factions/syndicate/units/shadebringer.md`: the "Syndicate **support vehicle**. Wheeled. **No attack and no
+/// turret.**", with its two toggles, Sludge and Cover. Its numbers only (slice M6-SK, plan decision T84, by T69's
+/// rule): it drives by its FixedTurnRadiusMovement as any wheeled unit does, and nothing makes one yet: the Vehicle
+/// Assembly trains it behind a Vault with slice M6-SB, which brings its Sludge and its tanks (`> Sludge (toggle)`,
+/// `> Charges and recharging`), and slice M6-SC its Cover (`> Cover (toggle)`). Its numbers are the design's
+/// "Placeholder stats".
+pub(crate) const SHADEBRINGER: ObjectDef = ObjectDef {
+    kind: ObjectKind::Shadebringer,
+    name: "Shadebringer",
+    faction: Some(Faction::Syndicate), // Faction - TheSyndicate
+    category: Category::Unit,          // Entity Type - Unit
+    // "Silhouette 56x40 space units": its length along its facing, turned with the facing, as every vehicle's
+    // (`ObjectDef::silhouette_turns`).
+    footprint: Footprint::Silhouette { w: 56.0, h: 40.0 },
+    selectable: true, // `core/entities.md > Object Type > Selectable - true`
+    // Not listed; a type with MaxHP is destructible (`core/entities.md > Object Instance > HP`).
+    destructible: true,
+    groupable: true,     // Groupable - true (assumed)
+    sight_range: 6.0,    // SightRange 6 grid units
+    max_hp: Some(160.0), // MaxHP 160
+    armor: Armor {
+        point: 2.0, // PointArmor 2
+        full: 2.0,  // FullArmor 2
+    },
+    needs_flat_ground: false,
+    unit: Some(UnitDef {
+        base: UnitBase::WheeledVehicle, // UnitBase - WheeledVehicle (exits only through Tier 2+ Tunnels)
+        // "FixedTurnRadiusMovement: MinimumTurnRadius 80 su; ForwardMaxSpeed 8 su/frame; ForwardAcceleration 1;
+        // ReverseMaxSpeed 3; ReverseAcceleration 0.5; Deceleration 1."
+        movement: MovementAttrs::FixedTurnRadius {
+            minimum_turn_radius: 80.0,
+            forward_acceleration: Some(1.0),
+            forward_max_speed: 8.0,
+            reverse_acceleration: Some(0.5),
+            reverse_max_speed: 3.0,
+            deceleration: Some(1.0),
+        },
+        rugged_terrain_defense_bonus: None, // only LightInfantry has it
+        turret: None,                       // "No attack and no turret."
+        attack: None,                       // AttackAttributes - none
+        tunnel_space_cost: Some(2),         // TunnelSpaceCost 2
+        ..UnitDef::NONE
+    }),
+    ..ObjectDef::NONE
+};
+
+#[cfg(test)]
+mod tests {
+    use glam::Vec2;
+
+    use super::*;
+
+    /// A 56×40 WheeledVehicle, MaxHP 160, PointArmor 2, FullArmor 2, SightRange 6, Groupable ("true (assumed)"),
+    /// TunnelSpaceCost 2; FixedTurnRadiusMovement at 8 su a frame forward and 3 in reverse, on a turning radius of 80
+    /// su; no turret and no attack.
+    #[test]
+    fn the_shadebringer_follows_the_design() {
+        let def = ObjectKind::Shadebringer.def();
+        assert_eq!(
+            (def.name, def.category, def.faction),
+            ("Shadebringer", Category::Unit, Some(Faction::Syndicate))
+        );
+        assert_eq!(def.silhouette(), Some(Vec2::new(56.0, 40.0)));
+        let two = Armor { point: 2.0, full: 2.0 };
+        assert_eq!(
+            (def.max_hp, def.max_shields, def.armor, def.sight_range),
+            (Some(160.0), None, two, 6.0)
+        );
+        assert_eq!((def.selectable, def.destructible, def.groupable), (true, true, true));
+        let unit = def.unit.as_ref().unwrap();
+        assert_eq!(unit.base, UnitBase::WheeledVehicle);
+        let movement = MovementAttrs::FixedTurnRadius {
+            minimum_turn_radius: 80.0,
+            forward_acceleration: Some(1.0),
+            forward_max_speed: 8.0,
+            reverse_acceleration: Some(0.5),
+            reverse_max_speed: 3.0,
+            deceleration: Some(1.0),
+        };
+        assert_eq!(unit.movement, movement);
+        assert_eq!((unit.turret, unit.attack), (None, None), "no attack and no turret");
+        assert_eq!(
+            (
+                unit.tunnel_space_cost,
+                unit.unit_control_cost,
+                unit.beacon_capacity_cost
+            ),
+            (Some(2), None, None)
+        );
+        assert_eq!((unit.worker, unit.deploy, unit.separation_radius), (None, None, None));
+    }
+}

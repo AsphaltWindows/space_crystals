@@ -213,6 +213,38 @@ kind_registry! {
     Arsenal => gdo::structures::arsenal::ARSENAL,
     /// `factions/gdo/units/rocketman.md`
     Rocketman => gdo::units::rocketman::ROCKETMAN,
+    /// `factions/syndicate/structures/vault.md` (slice M6-SK, plan decision T84: design change 0367's kinds, the
+    /// expansions in the order of `factions/syndicate/structures/README.md > Tech Tree Overview`, then the units in that
+    /// of `factions/syndicate/units/README.md > Files`, a unit's second type after its first)
+    Vault => syndicate::structures::vault::VAULT,
+    /// `factions/syndicate/structures/vehicle_assembly.md`
+    VehicleAssembly => syndicate::structures::vehicle_assembly::VEHICLE_ASSEMBLY,
+    /// `factions/syndicate/structures/forge.md`
+    Forge => syndicate::structures::forge::FORGE,
+    /// `factions/syndicate/structures/null_chamber.md`
+    NullChamber => syndicate::structures::null_chamber::NULL_CHAMBER,
+    /// `factions/syndicate/structures/aerospace_assembly.md`
+    AerospaceAssembly => syndicate::structures::aerospace_assembly::AEROSPACE_ASSEMBLY,
+    /// `factions/syndicate/structures/orbital_command.md`
+    OrbitalCommand => syndicate::structures::orbital_command::ORBITAL_COMMAND,
+    /// `factions/syndicate/units/assault_bike.md`
+    AssaultBike => syndicate::units::assault_bike::ASSAULT_BIKE,
+    /// `factions/syndicate/units/shadebringer.md`
+    Shadebringer => syndicate::units::shadebringer::SHADEBRINGER,
+    /// `factions/syndicate/units/laser_battery.md`
+    LaserBattery => syndicate::units::laser_battery::LASER_BATTERY,
+    /// `factions/syndicate/units/laser_battery.md > Deploy (ability)`: "**Laser Battery (Deployed)**"
+    LaserBatteryDeployed => syndicate::units::laser_battery::LASER_BATTERY_DEPLOYED,
+    /// `factions/syndicate/units/subterranean_transport.md`, above ground
+    SubterraneanTransport => syndicate::units::subterranean_transport::SUBTERRANEAN_TRANSPORT,
+    /// `factions/syndicate/units/subterranean_transport.md > Burrow (ability)`: underground
+    SubterraneanTransportBurrowed => syndicate::units::subterranean_transport::SUBTERRANEAN_TRANSPORT_BURROWED,
+    /// `factions/syndicate/units/phantom.md`
+    Phantom => syndicate::units::phantom::PHANTOM,
+    /// `factions/syndicate/units/specter.md`
+    Specter => syndicate::units::specter::SPECTER,
+    /// `factions/syndicate/units/prism.md`
+    Prism => syndicate::units::prism::PRISM,
 }
 
 /// The factions' own rules (plan decision T66), each faction's from its root module (`defs/<faction>.rs`): the

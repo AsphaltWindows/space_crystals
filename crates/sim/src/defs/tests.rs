@@ -86,6 +86,25 @@ fn every_kind_keeps_its_place_and_name() {
         // Slice M5-N9 (design change 0328).
         "CareerCampus",
         "FieldEngineer",
+        // Slice M5-K (design change 0356).
+        "Arsenal",
+        "Rocketman",
+        // Slice M6-SK (plan decision T84): the Syndicate's kinds of design change 0367.
+        "Vault",
+        "VehicleAssembly",
+        "Forge",
+        "NullChamber",
+        "AerospaceAssembly",
+        "OrbitalCommand",
+        "AssaultBike",
+        "Shadebringer",
+        "LaserBattery",
+        "LaserBatteryDeployed",
+        "SubterraneanTransport",
+        "SubterraneanTransportBurrowed",
+        "Phantom",
+        "Specter",
+        "Prism",
     ];
     assert_eq!(names[..expected.len()], expected.map(|name| format!("\"{name}\"")));
     for (index, &kind) in ObjectKind::ALL.iter().enumerate() {
@@ -422,13 +441,31 @@ fn tunnel_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     }
 }
 
-/// `defs_are_consistent` for a unit type: its movement attributes are its base's model, and it has a collision box.
+/// The unit types that can't move, immobile by their defs (plan decision T87: "The deployed kind is immobile by its
+/// def, so "can't move" and "never yields" follow from the existing rules"): a MaxSpeed of 0, and a ReverseMaxSpeed of
+/// 0 for a model that has one, so that `Mover::can_move` answers false. Slice M6-SK's deployed Laser Battery
+/// (`factions/syndicate/units/laser_battery.md > Deploy (ability)`: "**Deployed**: **cannot move**"); slice M6-GK adds
+/// the deployed Artillery Rig. A named list until the pairs' deploying exists: slices M6-GA and M6-SL may replace it by
+/// a rule read from `UnitDef::vehicle_deploy` (the kind a deploy leads into).
+const IMMOBILE: &[ObjectKind] = &[ObjectKind::LaserBatteryDeployed];
+
+/// `defs_are_consistent` for a unit type: its movement attributes are its base's model, and it has a collision box. It
+/// moves, at a top speed above 0, unless it is one of the [`IMMOBILE`] types, whose top speeds are 0.
 fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
     let name = def.name;
     let base = unit.base_def();
     assert_eq!(unit.movement.model(), base.movement_model, "{name}: movement model");
     let speed = unit.movement.max_speed();
-    assert!(speed.is_finite() && speed > 0.0, "{name}: max speed {speed}");
+    if IMMOBILE.contains(&def.kind) {
+        let reverse = match unit.movement {
+            MovementAttrs::FixedTurnRadius { reverse_max_speed, .. }
+            | MovementAttrs::SpeedTurnRadius { reverse_max_speed, .. } => reverse_max_speed,
+            _ => 0.0,
+        };
+        assert_eq!((speed, reverse), (0.0, 0.0), "{name}: immobile, its max speeds 0");
+    } else {
+        assert!(speed.is_finite() && speed > 0.0, "{name}: max speed {speed}");
+    }
     // `systems/units.md > TurretAttributes`: "Only present on units whose UnitBase has CanHaveTurret = true; a unit
     // of such a base may still have TurretAttributes = None (no turret)" (design change 0154): the HoverVehicle
     // can carry one, and the Drone has none.

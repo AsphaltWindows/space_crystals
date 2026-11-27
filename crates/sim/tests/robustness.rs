@@ -643,7 +643,22 @@ fn any_spawn_settings_are_handled() {
                 | ObjectKind::CareerCampus
                 | ObjectKind::FieldEngineer
                 | ObjectKind::Arsenal
-                | ObjectKind::Rocketman => None,
+                | ObjectKind::Rocketman
+                | ObjectKind::Vault
+                | ObjectKind::VehicleAssembly
+                | ObjectKind::Forge
+                | ObjectKind::NullChamber
+                | ObjectKind::AerospaceAssembly
+                | ObjectKind::OrbitalCommand
+                | ObjectKind::AssaultBike
+                | ObjectKind::Shadebringer
+                | ObjectKind::LaserBattery
+                | ObjectKind::LaserBatteryDeployed
+                | ObjectKind::SubterraneanTransport
+                | ObjectKind::SubterraneanTransportBurrowed
+                | ObjectKind::Phantom
+                | ObjectKind::Specter
+                | ObjectKind::Prism => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;

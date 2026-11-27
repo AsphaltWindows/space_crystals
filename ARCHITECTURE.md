@@ -5602,7 +5602,12 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
    producer's `ProductionDef` for a unit (the Guard and the Grenadier, slice M4-K); a structure's weapon,
    `StructureDef::attack`, and its pop-up form, `StructureDef::popup` (the Laser Turret, slices M4-S1 and M4-S2; every
    object of such a type a pop-up since slice M5-Y). A new expansion also turns its `ExpandEntry::Planned` into its
-   `Kind` in `defs::syndicate::EXPAND_MENU`, and a new Syndicate unit joins `EJECT_MENU_ORDER` there.
+   `Kind` in `defs::syndicate::EXPAND_MENU`, and a new Syndicate unit joins `EJECT_MENU_ORDER` there. A unit's second
+   type (the Peacekeeper (Shielded); slice M6-SK's Laser Battery (Deployed) and Subterranean Transport (Burrowed)) is a
+   kind of its own in its first type's module (and client module), its literal made from the first's; a deployed type
+   is immobile by its def, MaxSpeed and ReverseMaxSpeed 0 (plan decision T87), named in `IMMOBILE` (`defs/tests.rs`),
+   and a type that never enters the Tunnel Network stays out of `EJECT_MENU_ORDER` (`NEVER_INSIDE`,
+   `defs/syndicate/tests.rs`).
 2. **Its client module**, `crates/game/src/kinds/<faction>/<object>.rs` (*Client architecture > Kinds*): its
    `ClientKind`, with
    - its label, two letters of its own (`kinds::tests::every_label_is_its_own` checks them against every other

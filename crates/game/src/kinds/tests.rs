@@ -13,7 +13,11 @@ use crate::command_ui::interface::templates::Planned;
 /// and last letters are the Grenadier's GR). Slice M5-G2: the Cults' buildings with their Construct menus' entries'
 /// labels (`kinds::cults`), and the Disciple's DE, the Seeker's SKR, the Sparrow's SW, the Hand of Heaven's HOH and the
 /// Prayer-mobile's PM. Slice M5-N9: the Career Campus's CC and the Field Engineer's FEN (FE is the Forge's), and the
-/// Field Engineer's Construct menu's Bunker, BKR (BR is the Barracks'), and First Aid Tent, FAT.
+/// Field Engineer's Construct menu's Bunker, BKR (BR is the Barracks'), and First Aid Tent, FAT. Slice M6-SK: the six
+/// expansions with their ExpandMenu placeholders' labels (VT, VA, FE, NC, AA, OC), and the units by the same rules,
+/// AB, LB and LBD, with three letters where two are taken: the Shadebringer's SBR (SR is the Shrine's), the
+/// Subterranean Transport's STR and STB (ST is the Scout's), the Phantom's PHM (PM is the Prayer-mobile's), the
+/// Specter's SPR and the Prism's PRM.
 #[test]
 fn every_label_is_its_own() {
     let in_game = |planned: &Planned| ObjectKind::ALL.iter().any(|kind| kind.def().name == planned.name());
@@ -85,6 +89,34 @@ fn every_label_is_its_own() {
     assert_eq!(
         [Planned::Bunker, Planned::FirstAidTent].map(|p| p.label()),
         ["BKR", "FAT"]
+    );
+    let expansions = [
+        ObjectKind::Vault,
+        ObjectKind::VehicleAssembly,
+        ObjectKind::Forge,
+        ObjectKind::NullChamber,
+        ObjectKind::AerospaceAssembly,
+        ObjectKind::OrbitalCommand,
+    ];
+    assert_eq!(
+        expansions.map(short_label),
+        ["VT", "VA", "FE", "NC", "AA", "OC"],
+        "slice M6-SK's expansions, each with its ExpandMenu placeholder's label"
+    );
+    let syndicate_units = [
+        ObjectKind::AssaultBike,
+        ObjectKind::Shadebringer,
+        ObjectKind::LaserBattery,
+        ObjectKind::LaserBatteryDeployed,
+        ObjectKind::SubterraneanTransport,
+        ObjectKind::SubterraneanTransportBurrowed,
+        ObjectKind::Phantom,
+        ObjectKind::Specter,
+        ObjectKind::Prism,
+    ];
+    assert_eq!(
+        syndicate_units.map(short_label),
+        ["AB", "SBR", "LB", "LBD", "STR", "STB", "PHM", "SPR", "PRM"]
     );
     assert_eq!([0, 1, 2, 3, 4].map(tier_label), ["T1", "T1", "T2", "T3", "T1"]);
     let tier = |tier| object_label(ObjectKind::Tunnel, Some(TunnelState::at(tier)));

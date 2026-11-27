@@ -32,7 +32,8 @@ fn mode(app: &App) -> ClientMode {
 /// (Shielded), its shield up from the start; the Field Engineer (slice M5-N9) and the Rocketman (slice M5-K) after
 /// them, in the order of the kinds.
 /// The Syndicate's Agent follows its Guard (slice M4-A), and its Grenadier the Agent (slice M4-U), in the order of the
-/// kinds. The Cults' come between the Syndicate's and the Colonists', in `Faction::ALL`'s order: slice M5-A's three,
+/// kinds, then slice M6-SK's nine, which a map may place though no building makes them yet, each unit's second type
+/// after its first. The Cults' come between the Syndicate's and the Colonists', in `Faction::ALL`'s order: slice M5-A's three,
 /// then slice M5-G2's five, which a map may place, the Hand of Heaven and the Prayer-mobile though no building makes
 /// them yet (every type is in the palette: `the_palette_lists_every_object_type_once`).
 #[test]
@@ -56,7 +57,20 @@ fn the_palette_lists_the_units_of_each_faction() {
             ),
             (
                 "Syndicate units".to_string(),
-                vec![GUARD, ObjectKind::Agent, ObjectKind::Grenadier]
+                vec![
+                    GUARD,
+                    ObjectKind::Agent,
+                    ObjectKind::Grenadier,
+                    ObjectKind::AssaultBike,
+                    ObjectKind::Shadebringer,
+                    ObjectKind::LaserBattery,
+                    ObjectKind::LaserBatteryDeployed,
+                    ObjectKind::SubterraneanTransport,
+                    ObjectKind::SubterraneanTransportBurrowed,
+                    ObjectKind::Phantom,
+                    ObjectKind::Specter,
+                    ObjectKind::Prism
+                ]
             ),
             (
                 "Cults units".to_string(),

@@ -43,13 +43,14 @@ fn follows_the_rule(kind: ObjectKind, squares: u32) -> bool {
     armor.full == armor.point * squares as f32
 }
 
-/// 0264: every building follows the rule but the listed exceptions, and no listed exception follows it. Today all 29
+/// 0264: every building follows the rule but the listed exceptions, and no listed exception follows it. Today all 35
 /// do: the GDO's Deployment Center 1/16, Generator 1/4, Barracks 1/6, Extraction Facility 1/9, Extraction Plate 2/2,
 /// Career Campus 1/4 (slice M5-N9, `factions/gdo/structures/career_campus.md`) and Arsenal 1/4 (slice M5-K,
 /// `factions/gdo/structures/arsenal.md`); the Colonists' Beacon 0/0, Egress Node
 /// 0/0, Robo Portal 1/16 and Bio Portal 1/9; the Syndicate's Tunnel 1/16, Hideout 6/24, Optics Lab 6/24 and Chemical
-/// Plant 6/24 (slice M4-K), and its Laser Turret, raised, 1/1 (slice M4-S1;
-/// `factions/syndicate/structures/laser_turret.md`: "building armor rule, 1x1"); the Cults' thirteen
+/// Plant 6/24 (slice M4-K), its Laser Turret, raised, 1/1 (slice M4-S1;
+/// `factions/syndicate/structures/laser_turret.md`: "building armor rule, 1x1"), and its six other expansions
+/// (slice M6-SK, [`every_expansion_has_point_armor_six`]); the Cults' thirteen
 /// ([`the_cults_buildings_follow_the_rule`]).
 #[test]
 fn every_building_has_full_armor_n_times_its_size() {
@@ -75,6 +76,7 @@ fn every_building_has_full_armor_n_times_its_size() {
     let mut kinds: Vec<ObjectKind> = all.iter().map(|b| b.0).collect();
     kinds.sort_by_key(|k| k.def().name);
     let expected = [
+        ObjectKind::AerospaceAssembly,
         ObjectKind::Airstrip,
         ObjectKind::Altar,
         ObjectKind::Armory,
@@ -90,13 +92,16 @@ fn every_building_has_full_armor_n_times_its_size() {
         ObjectKind::EgressNode,
         ObjectKind::ExtractionFacility,
         ObjectKind::ExtractionPlate,
+        ObjectKind::Forge,
         ObjectKind::Garrison,
         ObjectKind::Generator,
         ObjectKind::Gunworks,
         ObjectKind::Hideout,
         ObjectKind::LaserTurret,
         ObjectKind::MachineShop,
+        ObjectKind::NullChamber,
         ObjectKind::OpticsLab,
+        ObjectKind::OrbitalCommand,
         ObjectKind::RecruitmentHall,
         ObjectKind::RoboPortal,
         ObjectKind::ScrapHangar,
@@ -104,8 +109,10 @@ fn every_building_has_full_armor_n_times_its_size() {
         ObjectKind::Storage,
         ObjectKind::Temple,
         ObjectKind::Tunnel,
+        ObjectKind::Vault,
+        ObjectKind::VehicleAssembly,
     ];
-    assert_eq!(kinds, expected, "the 29 buildings of today");
+    assert_eq!(kinds, expected, "the 35 buildings of today");
 }
 
 /// The plan addendum's G2 acceptance: "Every Cults building follows the rule (n = 2 for the Garrison) with no exception
@@ -165,7 +172,9 @@ fn a_popup_follows_the_rule_in_both_forms() {
 
 /// `factions/syndicate/structures/README.md > High armor underground`: every underground expansion has the
 /// placeholder's PointArmor 6 (and so, by the rule, FullArmor 6 × its size): today the Hideout, the Optics Lab and
-/// the Chemical Plant (slice M4-K), each 6 / 24 on its 2 × 2.
+/// the Chemical Plant (slice M4-K), each 6 / 24 on its 2 × 2; and slice M6-SK's six, in the Tech Tree's order (design
+/// change 0367: "Expansions follow n = 6"), the Vault, the Forge, the Null Chamber and the Orbital Command 6 / 24 on
+/// their 2 × 2, the Vehicle Assembly and the Aerospace Assembly 6 / 54 on their 3 × 3.
 #[test]
 fn every_expansion_has_point_armor_six() {
     let expansions: Vec<(ObjectKind, f32, f32)> = (buildings().into_iter())
@@ -176,6 +185,22 @@ fn every_expansion_has_point_armor_six() {
     for &(kind, point, _) in &expansions {
         assert_eq!(point, EXPANSION_POINT_ARMOR, "{kind:?}");
     }
-    let today = [ObjectKind::Hideout, ObjectKind::OpticsLab, ObjectKind::ChemicalPlant];
-    assert_eq!(expansions, today.map(|kind| (kind, 6.0, 24.0)));
+    let today = [
+        (ObjectKind::Hideout, 6.0, 24.0),
+        (ObjectKind::OpticsLab, 6.0, 24.0),
+        (ObjectKind::ChemicalPlant, 6.0, 24.0),
+        (ObjectKind::Vault, 6.0, 24.0),
+        (ObjectKind::VehicleAssembly, 6.0, 54.0),
+        (ObjectKind::Forge, 6.0, 24.0),
+        (ObjectKind::NullChamber, 6.0, 24.0),
+        (ObjectKind::AerospaceAssembly, 6.0, 54.0),
+        (ObjectKind::OrbitalCommand, 6.0, 24.0),
+    ];
+    assert_eq!(expansions, today);
+    for (kind, squares, _) in buildings() {
+        if expansions.iter().any(|e| e.0 == kind) {
+            assert!(follows_the_rule(kind, squares), "{kind:?}");
+            assert!(!EXCEPTIONS.iter().any(|e| e.0 == kind), "{kind:?}: no exception");
+        }
+    }
 }

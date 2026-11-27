@@ -116,32 +116,55 @@ fn the_tunnels_upgrade_is_greyed_with_the_gates_reason() {
 /// count, one with none inside there all the same, 0 and greyed (0299, answering Q0086 point 2: "every Syndicate unit
 /// type keeps its EjectMenu tile; types with none inside show 0, greyed"), greyed while the gate refuses its Eject,
 /// with the gate's reason; a tile ejects at once and leaves the menu open (0300, answering Q0086 point 3: "the
-/// panel **stays in the EjectMenu**"); Z goes back to DefaultState.
+/// panel **stays in the EjectMenu**"); Z goes back to DefaultState. Slice M6-SK's seven units take R to C, after the
+/// Grenadier (`factions/syndicate/units/README.md > Files`: "then the vehicles and aircraft in production-building
+/// order"), each greyed with its 0, as none is ever inside until its slice (plan decision T84).
 #[test]
 fn the_eject_menu_shows_the_network_in_grid_order_with_counts() {
     use ButtonLook::{Back, Common, Disabled};
     use PanelCommand::Eject;
     let tunnel = Selection::new([(id(1), TUNNEL)]);
-    let conditions = Conditions::default()
-        .with_network([(AGENT, 3)])
-        .refusing(Eject(GUARD), Reject::NotInNetwork(GUARD))
-        .refusing(Eject(GRENADIER), Reject::NotInNetwork(GRENADIER));
+    let none_inside =
+        |conditions: Conditions, kind: ObjectKind| conditions.refusing(Eject(kind), Reject::NotInNetwork(kind));
+    let conditions = (EJECT_MENU_ORDER[1..].iter())
+        .fold(Conditions::default().with_network([(AGENT, 3)]), |c, &kind| {
+            none_inside(c, kind)
+        });
     let menu = panel(&tunnel, InterfaceState::EjectMenu, &conditions);
     let c = PanelButton::Command;
+    let greyed = |slot: CommandSlot, kind: ObjectKind| (slot, c(Eject(kind)), Disabled);
     assert_eq!(
         shown(&menu),
         [
             (slot(0, 0), c(Eject(AGENT)), Common),
-            (slot(0, 1), c(Eject(GUARD)), Disabled),
-            (slot(0, 2), c(Eject(GRENADIER)), Disabled),
+            greyed(slot(0, 1), GUARD),
+            greyed(slot(0, 2), GRENADIER),
+            greyed(slot(0, 3), ObjectKind::AssaultBike),
+            greyed(slot(1, 0), ObjectKind::Shadebringer),
+            greyed(slot(1, 1), ObjectKind::LaserBattery),
+            greyed(slot(1, 2), ObjectKind::SubterraneanTransport),
+            greyed(slot(1, 3), ObjectKind::Phantom),
             (CommandSlot::BACK, PanelButton::Back, Back),
+            greyed(slot(2, 1), ObjectKind::Specter),
+            greyed(slot(2, 2), ObjectKind::Prism),
         ]
     );
-    let counts: Vec<Option<u32>> = menu.slots().filter_map(|(_, s)| s.map(|s| s.count)).collect();
-    assert_eq!(counts, [Some(3), Some(0), Some(0), None]);
-    let labels: Vec<&str> = menu.slots().filter_map(|(_, s)| s.map(|s| s.label())).collect();
-    assert_eq!(labels[..3], ["AG", "GD", "GR"]);
+    let tiles = || {
+        menu.slots()
+            .filter(|&(slot, _)| slot != CommandSlot::BACK)
+            .filter_map(|(_, s)| s)
+    };
+    let counts: Vec<u32> = tiles().filter_map(|s| s.count).collect();
+    assert_eq!(counts, [3, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    let labels: Vec<&str> = tiles().map(|s| s.label()).collect();
+    assert_eq!(
+        labels,
+        ["AG", "GD", "GR", "AB", "SBR", "LB", "STR", "PHM", "SPR", "PRM"]
+    );
     assert_eq!(menu.name(slot(0, 2)).as_deref(), Some("Eject Grenadier"));
+    assert_eq!(menu.name(slot(2, 2)).as_deref(), Some("Eject Prism"));
+    assert_eq!(why_text(&menu, slot(2, 1)), Some("None in the Tunnel Network"));
+    assert_eq!(press(&menu, slot(0, 3)), SlotPress::Nothing);
     assert_eq!(menu.name(slot(0, 0)).as_deref(), Some("Eject Agent"));
     assert_eq!(why_text(&menu, slot(0, 1)), Some("None in the Tunnel Network"));
     let eject = TunnelCommand::Eject { kind: AGENT };

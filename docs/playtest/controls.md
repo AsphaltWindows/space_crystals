@@ -273,6 +273,70 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | D | AtkGnd | Attack Ground | click a target; Shift queues |
 | X | Stop | Stop | Shift queues |
 
+#### Assault Bike (AB)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues |
+| E | Hold | Hold Position | Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| D | AtkGnd | Attack Ground | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
+#### Shadebringer (SBR)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues |
+| E | Hold | Hold Position | Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
+#### Laser Battery (LB)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues |
+| E | Hold | Hold Position | Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| D | AtkGnd | Attack Ground | click a target; Shift queues; greyed: "Not available for this unit" |
+| X | Stop | Stop | Shift queues |
+
+#### Laser Battery (Deployed) (LBD)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| A | Attack | Attack | click a target; Shift queues |
+
+#### Phantom (PHM)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
+| E | Hold | Hold Position | Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| D | AtkGnd | Attack Ground | click a target; Shift queues; greyed: "Not available for this unit" |
+| X | Stop | Stop | Shift queues |
+
+#### Specter (SPR)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
+| E | Hold | Hold Position | Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
+| S | Patrol | Patrol | click a target; Shift queues |
+| D | AtkGnd | Attack Ground | click a target; Shift queues |
+| X | Stop | Stop | Shift queues |
+
 ### Buildings
 
 #### Tunnel (T1)
@@ -295,6 +359,13 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | E → Q | AG | Eject Agent |  |
 | E → W | GD | Eject Guard |  |
 | E → E | GR | Eject Grenadier |  |
+| E → R | AB | Eject Assault Bike |  |
+| E → A | SBR | Eject Shadebringer |  |
+| E → S | LB | Eject Laser Battery |  |
+| E → D | STR | Eject Subterranean Transport |  |
+| E → F | PHM | Eject Phantom |  |
+| E → X | SPR | Eject Specter |  |
+| E → C | PRM | Eject Prism |  |
 | X | Cancel | Cancel Operation |  |
 
 **Before it is finished:** X Cancel Construction.
@@ -313,7 +384,7 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 
 **Before it is finished:** X Cancel Construction, C Set Rally Point.
 
-No commands: Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT).
+No commands: Subterranean Transport (STR), Subterranean Transport (Burrowed) (STB), Prism (PRM), Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT), Vault (VT), Vehicle Assembly (VA), Forge (FE), Null Chamber (NC), Aerospace Assembly (AA), Orbital Command (OC).
 
 ## Cults
 

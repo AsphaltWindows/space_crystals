@@ -19,7 +19,7 @@ use space_crystals::input::ControlGroup;
 use space_crystals::placement::TunnelAreaOverlay;
 
 use super::*;
-use KeyCode::{ControlLeft, Digit1, Escape, KeyE, KeyQ, KeyW, KeyX, KeyZ};
+use KeyCode::{ControlLeft, Digit1, Escape, KeyE, KeyQ, KeyR, KeyW, KeyX, KeyZ};
 
 const P1: PlayerId = PlayerId(1);
 const AGENT: ObjectKind = ObjectKind::Agent;
@@ -63,6 +63,47 @@ fn buttons(app: &mut App) -> Vec<(CommandSlot, PanelButton, ButtonLook, Option<u
         .collect();
     shown.sort_by_key(|(slot, ..)| *slot);
     shown
+}
+
+/// Slice M6-SK's seven units' EjectMenu tiles, in their slots, R to C (`sc_sim::defs::EJECT_MENU_ORDER`): none of
+/// them is ever inside until its slice (plan decision T84), and [`TUNNEL`], at Tier 1, lets none of them out.
+fn m6sk_tiles() -> [(CommandSlot, ObjectKind); 7] {
+    [
+        (slot(0, 3), ObjectKind::AssaultBike),
+        (slot(1, 0), ObjectKind::Shadebringer),
+        (slot(1, 1), ObjectKind::LaserBattery),
+        (slot(1, 2), ObjectKind::SubterraneanTransport),
+        (slot(1, 3), ObjectKind::Phantom),
+        (slot(2, 1), ObjectKind::Specter),
+        (slot(2, 2), ObjectKind::Prism),
+    ]
+}
+
+/// The EjectMenu's buttons, in slot order: the Agent's, the Guard's and the Grenadier's, `first`, then
+/// [`m6sk_tiles`], each greyed with its count of 0, and Back.
+fn eject_menu(
+    first: [(CommandSlot, PanelButton, ButtonLook, Option<u32>); 3],
+) -> Vec<(CommandSlot, PanelButton, ButtonLook, Option<u32>)> {
+    let greyed = m6sk_tiles().map(|(slot, kind)| {
+        let eject = PanelButton::Command(PanelCommand::Eject(kind));
+        (slot, eject, ButtonLook::Disabled, Some(0))
+    });
+    let back = (CommandSlot::BACK, PanelButton::Back, ButtonLook::Back, None);
+    let mut menu: Vec<_> = first.into_iter().chain(greyed).chain([back]).collect();
+    menu.sort_by_key(|(slot, ..)| *slot);
+    menu
+}
+
+/// The EjectMenu's counts as drawn, in slot order: the Agent's, the Guard's and the Grenadier's, `first`, then
+/// [`m6sk_tiles`]' 0s.
+fn eject_counts(first: [&str; 3]) -> Vec<(CommandSlot, String)> {
+    let first = [slot(0, 0), slot(0, 1), slot(0, 2)]
+        .into_iter()
+        .zip(first.map(String::from));
+    let zeros = m6sk_tiles().map(|(slot, _)| (slot, "0".to_string()));
+    let mut counts: Vec<_> = first.chain(zeros).collect();
+    counts.sort();
+    counts
 }
 
 /// The counts drawn on the buttons, in slot order.
@@ -147,7 +188,7 @@ fn rally_markers(app: &App) -> Vec<RallyIndicator> {
 /// Tunnels shows its area").
 #[test]
 fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
-    use ButtonLook::{Back, Common, Disabled};
+    use ButtonLook::{Common, Disabled};
     use PanelCommand::{CancelOperation, Eject, EjectMenu, ExpandMenu, UpgradeTunnel};
     let mut app = syndicate_game();
     let overlay = |app: &App| {
@@ -183,21 +224,18 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
     assert_eq!(interface(&app), InterfaceState::EjectMenu);
     assert_eq!(
         buttons(&mut app),
-        [
+        eject_menu([
             (slot(0, 0), c(Eject(AGENT)), Disabled, Some(0)),
             (slot(0, 1), c(Eject(GUARD)), Disabled, Some(0)),
             (slot(0, 2), c(Eject(GRENADIER)), Disabled, Some(0)),
-            (CommandSlot::BACK, PanelButton::Back, Back, None),
-        ]
+        ])
     );
-    assert_eq!(
-        counts_drawn(&mut app),
-        [
-            (slot(0, 0), "0".into()),
-            (slot(0, 1), "0".into()),
-            (slot(0, 2), "0".into())
-        ]
-    );
+    assert_eq!(counts_drawn(&mut app), eject_counts(["0", "0", "0"]));
+    // Slice M6-SK's: greyed, saying why (a Tier 1 Tunnel lets no vehicle out, nor an aircraft while there are no air
+    // doors), and refused.
+    tap(&mut app, &[], KeyR);
+    assert_eq!(feedback(&app), Some("This Tunnel's tier is too low"));
+    assert_eq!(interface(&app), InterfaceState::EjectMenu);
     tap(&mut app, &[], KeyQ);
     assert_eq!(feedback(&app), Some("None in the Tunnel Network"));
     assert_eq!(interface(&app), InterfaceState::EjectMenu);
@@ -226,7 +264,7 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
 /// the EjectMenu**", as built).
 #[test]
 fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
-    use ButtonLook::{Back, Common, Disabled};
+    use ButtonLook::{Common, Disabled};
     use PanelCommand::Eject;
     let mut app = syndicate_game();
     let oldest = spawn(&mut app, AGENT, Some(P1), NORTH);
@@ -238,12 +276,11 @@ fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
     let c = PanelButton::Command;
     assert_eq!(
         buttons(&mut app),
-        [
+        eject_menu([
             (slot(0, 0), c(Eject(AGENT)), Common, Some(1)),
             (slot(0, 1), c(Eject(GUARD)), Disabled, Some(0)),
             (slot(0, 2), c(Eject(GRENADIER)), Disabled, Some(0)),
-            (CommandSlot::BACK, PanelButton::Back, Back, None),
-        ]
+        ])
     );
 
     // Another Agent and a Guard walk in: the Guard's tile counts it and is greyed while it is in transit, from the tick
@@ -278,14 +315,7 @@ fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
     tap(&mut app, &[], KeyQ);
     assert_eq!(interface(&app), InterfaceState::EjectMenu);
     assert_eq!(buttons(&mut app)[0].3, Some(1), "the count drops at the press");
-    assert_eq!(
-        counts_drawn(&mut app),
-        [
-            (slot(0, 0), "1".into()),
-            (slot(0, 1), "1".into()),
-            (slot(0, 2), "0".into())
-        ]
-    );
+    assert_eq!(counts_drawn(&mut app), eject_counts(["1", "1", "0"]));
     until(&mut app, 100, |app| on_map(app, oldest));
     assert_eq!(inside(&app), [GUARDS[0], newer]);
     tap(&mut app, &[], KeyZ);
