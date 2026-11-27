@@ -11,6 +11,7 @@
 //! - Fixed 16 ticks per second; all durations are counted in ticks.
 //! - Every gameplay number cites its design section (`path/file.md > Section`).
 
+pub mod aircraft;
 pub mod augmentation;
 pub mod buffs;
 pub mod combat;

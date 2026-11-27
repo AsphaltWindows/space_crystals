@@ -199,10 +199,10 @@ fn the_field_engineer_builds_none_of_them() {
     }
 }
 
-/// The new buildings that will produce, spawned: the Airfield and the Supply Tower produce nothing yet
-/// (`Reject::NoProducers`), not even their own units, nor (M6-GF) the Factory its held Prospector and Artillery Rig
-/// (`Reject::CannotProduce`: it produces its Raptor and Twister, `tests/factory/`). (M6-GR) The Defense System
-/// constructs its Missile Turret (`tests/defense_system/`).
+/// The new buildings that will produce, spawned: the Supply Tower produces nothing yet (`Reject::NoProducers`), not
+/// even its own unit, nor (M6-GF) the Factory its held Prospector and Artillery Rig (`Reject::CannotProduce`: it
+/// produces its Raptor and Twister, `tests/factory/`), nor (M6-GH1) the Airfield its held Dragonfly (it trains the
+/// Hornet, `tests/airfield/`). (M6-GR) The Defense System constructs its Missile Turret (`tests/defense_system/`).
 #[test]
 fn the_new_buildings_make_nothing_yet() {
     let mut t = base();
@@ -230,7 +230,9 @@ fn the_new_buildings_make_nothing_yet() {
         };
         let (id, kind) = (ids[n], recipe.kind);
         match maker {
-            ObjectKind::Factory => assert_eq!(gate(&t, train(id, kind)), Err(Reject::CannotProduce(kind))),
+            ObjectKind::Factory | ObjectKind::Airfield => {
+                assert_eq!(gate(&t, train(id, kind)), Err(Reject::CannotProduce(kind)), "{kind:?}")
+            }
             _ => assert_eq!(gate(&t, train(id, kind)), Err(Reject::NoProducers), "{kind:?}"),
         }
     }

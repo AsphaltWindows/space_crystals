@@ -122,6 +122,13 @@ pub enum ExitRule {
     /// runway** and takes off along it toward C"). Only for a building that holds units, whose own exit lets its
     /// ejected and released units out on the ground, at the `toward` end (`defs_are_consistent`).
     Runway { from: SideLetter, toward: SideLetter },
+    /// (M6-GH1) An Airfield's pads (plan decision T88): its aircraft use no doorway
+    /// (`core/entities.md > Structure Type > Exit Doorway`: "Aircraft [...] are not covered by this rule") and never
+    /// wait. **Placeholder (D34 for slice M6-GH1)**: each appears over the centre of the footprint, facing its
+    /// building's rally point if it has one, and flies off with the order the rally point gives, or hovers there
+    /// (`Sim::release_over_pads`); slice M6-GH2 lands it on a free pad (`factions/gdo/structures/airfield.md > Returning
+    /// and rearming`: "**New aircraft** [...] appear **landed on a free slot**").
+    Pad,
 }
 
 /// One entry of a producer's `Produces` list: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"; of a

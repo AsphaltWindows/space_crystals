@@ -1,3 +1,4 @@
+mod airfield;
 mod garrison;
 mod gathering;
 mod radar_station;
@@ -39,6 +40,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             full: false,
             site: None,
             repair: None,
+            airfield: false,
         }),
         seen: true,
         on_map: true,
@@ -94,6 +96,7 @@ const fn combat_unit(attack: Option<TargetDomain>, may_attack: bool) -> UnitCapa
             carrying: false,
             gathers_supplies: false,
             transit: Transit::Infantry,
+            aircraft: None,
         }),
     }
 }
@@ -117,6 +120,7 @@ const DRONE: UnitCapabilities = UnitCapabilities {
         carrying: false,
         gathers_supplies: false,
         transit: Transit::Vehicles,
+        aircraft: None,
     }),
 };
 const LOADED_DRONE: UnitCapabilities = UnitCapabilities {
@@ -129,6 +133,7 @@ const LOADED_DRONE: UnitCapabilities = UnitCapabilities {
         carrying: true,
         gathers_supplies: false,
         transit: Transit::Vehicles,
+        aircraft: None,
     }),
 };
 /// An object without commands: a building.

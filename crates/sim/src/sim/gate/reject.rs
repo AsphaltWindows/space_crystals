@@ -267,6 +267,21 @@ pub enum Reject {
     DroneOut,
     /// (M6-GD) None of the units of a Launch has an item in its stock to launch (`crate::stock`).
     StockEmpty,
+    /// (M6-GH1) The Airfield has no room (`crate::aircraft::room`): for the aircraft a Train would queue
+    /// (`factions/gdo/structures/airfield.md > Production limit`: "An Airfield **can't queue another aircraft** if its
+    /// assignments plus the aircraft already in its production queue would exceed 4"), or for any of the aircraft a
+    /// Rebase names that it doesn't hold yet (`factions/gdo/structures/airfield.md > Assignment`: "if that Airfield has
+    /// room: its assignments plus the aircraft in its production queue must be **fewer than 4**").
+    AirfieldFull,
+    /// (M6-GH1) A Rebase's target isn't an Airfield of the player's in operation (`crate::aircraft::is_airfield`).
+    NotAnAirfield(ObjectId),
+    /// (M6-GH1) None of the aircraft of a Return to Base has a base (`factions/gdo/structures/airfield.md > Returning
+    /// and rearming`: "An unassigned aircraft has no base [...] Return to Base is unavailable until it is reassigned").
+    NoBase,
+    /// (M6-GH1) None of the units of an Attack or an Attack Ground that would take it has ammo left (`crate::aircraft`;
+    /// `factions/gdo/units/hornet.md > AttackAttributes`: "Ammo: **5 missiles**, then it must reload at its assigned
+    /// Airfield").
+    OutOfAmmo,
 }
 
 impl fmt::Display for Reject {
@@ -355,6 +370,10 @@ impl fmt::Display for Reject {
             Reject::PurchaseUnderWay => write!(f, "a purchase is under way"),
             Reject::DroneOut => write!(f, "its drone is out"),
             Reject::StockEmpty => write!(f, "there is nothing in stock to launch"),
+            Reject::AirfieldFull => write!(f, "the Airfield is full"),
+            Reject::NotAnAirfield(id) => write!(f, "object {} is no Airfield of the player's in operation", id.0),
+            Reject::NoBase => write!(f, "none of the aircraft has an Airfield"),
+            Reject::OutOfAmmo => write!(f, "none of the units has ammo left"),
         }
     }
 }

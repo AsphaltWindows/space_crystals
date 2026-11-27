@@ -112,7 +112,8 @@ pub fn door_arrows(kind: ObjectKind, placement: &Placement) -> Vec<DoorArrow> {
         // The end its aircraft take off toward (module docs: a placeholder reading), had its exit no doorway.
         Some(ExitRule::Runway { toward, .. }) => letter == toward,
         Some(ExitRule::Centre(open)) => open.contains(&letter),
-        Some(ExitRule::Network) | None => false,
+        // (M6-GH1) An Airfield's aircraft appear over it, through no side.
+        Some(ExitRule::Network | ExitRule::Pad) | None => false,
     };
     let mut ways: [Option<Way>; 4] = letters.map(|letter| is_exit(letter).then_some(Way::Out));
     if let Some(entrance) = structure

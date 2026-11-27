@@ -7,6 +7,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::aircraft::AircraftState;
 use crate::augmentation::Augmentation;
 use crate::buffs::Buff;
 use crate::combat::AttackState;
@@ -202,6 +203,13 @@ pub struct Object {
     /// that states saved before it existed load and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cooldown: Option<Progress>,
+    /// (M6-GH1) An aircraft's ammo and base (plan decision T88, `crate::aircraft`): the rounds it has left and the
+    /// Airfield it is assigned to (`factions/gdo/structures/airfield.md > Aircraft Support`), for a unit whose type
+    /// has ammo (`UnitDef::ammo`, the Hornet). `None` for every other object. Optional in files and left out of them
+    /// while `None`, and hashed only while set, so that states saved before it existed load (an aircraft's with full
+    /// ammo, unassigned: `sim/load.rs`) and those without one hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aircraft: Option<AircraftState>,
 }
 
 impl Object {

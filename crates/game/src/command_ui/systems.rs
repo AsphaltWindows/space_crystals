@@ -274,8 +274,10 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
 ///
 /// (M6-GD) A right-click none of whose orders the gate takes, one of them refused for a drone out (`Reject::DroneOut`:
 /// a Drone Operator alone, its drone launched, "**cannot move**"), says so ([`CommandRefused`]), as a greyed Move does:
-/// "The operator refuses Move, with feedback, until the drone is gone" (plan §GD). The gate's other refusals of a
-/// right-click stay unsaid, as before.
+/// "The operator refuses Move, with feedback, until the drone is gone" (plan §GD). (M6-GH1) So does one that reassigns
+/// no aircraft for its Airfield's room (`Reject::AirfieldFull`: `m6-plan.md > GH1 > Acceptance`, "A right-click on
+/// Airfield B assigns the Hornet to B if B's assigned and queued aircraft are fewer than 4, and is refused otherwise").
+/// The gate's other refusals of a right-click stay unsaid, as before.
 pub(super) fn right_click_orders(
     actions: Res<ActionState>,
     mut clicks: MessageReader<MapClick>,
@@ -308,8 +310,8 @@ pub(super) fn right_click_orders(
         let queue = bindings.holds(InputAction::Queue, modifiers);
         match right_click(&control, &mut outbox, &target, queue) {
             None => return,
-            Some(Err(Reject::DroneOut)) => {
-                let why = WhyUnavailable::Refused(Reject::DroneOut);
+            Some(Err(reject @ (Reject::DroneOut | Reject::AirfieldFull))) => {
+                let why = WhyUnavailable::Refused(reject);
                 refused.write(CommandRefused {
                     why,
                     tick: control.sim().tick(),

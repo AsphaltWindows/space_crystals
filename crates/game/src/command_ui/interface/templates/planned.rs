@@ -105,11 +105,15 @@ pub enum Planned {
     /// (`crate::kinds::gdo::twister`).
     LayMine,
     BuyMine,
+    /// (M6-GH1) The Airfield's W (`factions/gdo/structures/airfield.md > Placeholder stats`: "**W** Dragonfly (greyed
+    /// without Propulsion Labs)"), in the game since slice M6-GK, which slice M6-GL has it train
+    /// (`super::gdo::airfield`).
+    Dragonfly,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 31] = [
+    pub const ALL: [Planned; 32] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -141,6 +145,7 @@ impl Planned {
         Planned::ArtilleryRig,
         Planned::LayMine,
         Planned::BuyMine,
+        Planned::Dragonfly,
     ];
 
     /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
@@ -185,6 +190,7 @@ impl Planned {
             Planned::ArtilleryRig => "Artillery Rig",
             Planned::LayMine => "Lay Mine",
             Planned::BuyMine => "Buy Mine",
+            Planned::Dragonfly => "Dragonfly",
         }
     }
 
@@ -203,9 +209,10 @@ impl Planned {
     /// The Vehicle Assembly's units not trained yet are labelled by their types, in the game already (slice M6-SK):
     /// "SBR", "LB" and "STR"; (M6-SD) the Aerospace Assembly's alike, "SPR" and "PRM". (M6-GK) The Deployment Center's
     /// three, whose types are in the game, have their types' labels; (M6-GF) and so have the Factory's two units not
-    /// trained yet, "PR" and "ARG". The Twister's mines' commands by their names' first words, "Lay" and "Buy", as the
-    /// Drone Operator's Launch Drone is "Launch" (slice M6-GD, `PanelCommand::label`); not Buy Mine by the mine's tag,
-    /// as Build Drone is by the drone's, "DRN": "ME" is the mine type's own, which no placeholder shares.
+    /// trained yet, "PR" and "ARG", and (M6-GH1) the Airfield's Dragonfly, "DY". The Twister's mines' commands by their
+    /// names' first words, "Lay" and "Buy", as the Drone Operator's Launch Drone is "Launch" (slice M6-GD,
+    /// `PanelCommand::label`); not Buy Mine by the mine's tag, as Build Drone is by the drone's, "DRN": "ME" is the
+    /// mine type's own, which no placeholder shares.
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -239,6 +246,7 @@ impl Planned {
             Planned::ArtilleryRig => "ARG",
             Planned::LayMine => "Lay",
             Planned::BuyMine => "Buy",
+            Planned::Dragonfly => "DY",
         }
     }
 
@@ -257,6 +265,7 @@ impl Planned {
                 | Planned::Prism
                 | Planned::Prospector
                 | Planned::ArtilleryRig
+                | Planned::Dragonfly
         )
     }
 

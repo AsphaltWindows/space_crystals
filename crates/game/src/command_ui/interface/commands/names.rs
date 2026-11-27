@@ -31,7 +31,8 @@ impl PanelCommand {
     /// `factions/cults/structures/shrine.md > Abilities`). A Rocketman's Target Lock is "Lock", its name's second word,
     /// which says what it does (slice M5-K). A Prayer-mobile's casts shorten their names, "Insp." and "Suppr." (slice
     /// M5-N11). A Drone Operator's Launch Drone is its name's first word, "Launch", and its Build Drone the drone's tag,
-    /// "DRN", what it makes, as a Train shows its unit's (slice M6-GD). A Radar Station's Scan is its name, whole
+    /// "DRN", what it makes, as a Train shows its unit's (slice M6-GD). An aircraft's Return to Base is its name's last
+    /// word, "Base", where it goes (slice M6-GH1). A Radar Station's Scan is its name, whole
     /// (slice M6-GR).
     pub fn label(self) -> &'static str {
         match self {
@@ -89,6 +90,7 @@ impl PanelCommand {
             PanelCommand::Cast(AreaAbility::Scan) => "Scan",
             PanelCommand::TargetLock => "Lock",
             PanelCommand::Launch => "Launch",
+            PanelCommand::ReturnToBase => "Base",
         }
     }
 
@@ -140,6 +142,7 @@ impl PanelCommand {
             PanelCommand::Cast(ability) => ability.def().name.into(),
             PanelCommand::TargetLock => "Target Lock".into(),
             PanelCommand::Launch => "Launch Drone".into(),
+            PanelCommand::ReturnToBase => "Return to Base".into(),
             PanelCommand::Buy(kind) => named("Build", kind),
             PanelCommand::Move
             | PanelCommand::Attack

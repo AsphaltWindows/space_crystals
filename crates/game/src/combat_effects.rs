@@ -5,7 +5,8 @@
 //! selected objects, with a
 //! shield bar above the HP bar of an object that has Shields (`systems/combat.md > Shields > Display`, slice M3-B,
 //! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass) and (slice
-//! M5-N4a) an energy bar under it of an object that has an energy pool (a Disciple's, [`hp_bars`]), and a fading marker
+//! M5-N4a) an energy bar under it of an object that has an energy pool (a Disciple's, [`hp_bars`]), (slice M6-GH1) an
+//! aircraft's ammo pips under that (a Hornet's missiles left, [`HpBar::ammo`]), and a fading marker
 //! where an object died (`SimEvent::Died`; (M5-V4) or was crushed, `SimEvent::Crushed`). Slice M4-O adds the
 //! projectiles in flight
 //! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52), each in its thrower's style (the
@@ -171,6 +172,10 @@ pub struct HpBar {
     /// (M5-N4a) The share of its maximum its energy fills (`sc_sim::energy::of`), if it has an energy pool: a
     /// Disciple's.
     pub energy: Option<f32>,
+    /// (M6-GH1) An aircraft's ammo, the rounds it has left and the most it carries (`sc_sim::aircraft`): a Hornet's
+    /// missiles, "Ammo: **5 missiles**" (`factions/gdo/units/hornet.md > AttackAttributes`), shown as pips under its
+    /// bars, one a round (plan §GH1: "the Hornet's ammo pips"). Placeholder (not in the design: Q0001's art direction).
+    pub ammo: Option<(u32, u32)>,
 }
 
 /// The entity holding the effects mesh.
@@ -208,7 +213,8 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
 /// transforming object's interpolated ones (`Object::max_hp`, `Object::max_shields`), (slice M5-N1a) an augmented
 /// unit's with its Augmentations (`Object::max_hp_with`). (M5-N4a) An object with an energy pool has its energy bar
 /// with its HP bar: Placeholder (not in the design, which says nothing of energy's display: the plan's "an energy bar
-/// under the HP bar"), so shown when the HP bar is, energy short of its maximum not counting as damage.
+/// under the HP bar"), so shown when the HP bar is, energy short of its maximum not counting as damage. (M6-GH1) An
+/// aircraft's ammo pips alike: shown with its HP bar, ammo short of its maximum not counting as damage.
 ///
 /// (M5-X2) Their sizes and the air units' lift are `tuning`'s (`LookTuning::bar_height` and the next).
 pub fn hp_bars(
@@ -228,7 +234,12 @@ pub fn hp_bars(
             let shields = shields.map(|(shields, max)| shields / max);
             let energy = sc_sim::energy::of(o).map(|(energy, max)| energy / max);
             let bars = (hp / max_hp, (shields, energy));
-            (damaged || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, bars, &tuning.look))
+            let ammo = o.aircraft.zip(sc_sim::aircraft::def_of(o.kind));
+            let ammo = ammo.map(|(state, def)| (state.ammo.min(def.max), def.max));
+            (damaged || selected(o.id)).then(|| HpBar {
+                ammo,
+                ..hp_bar(sim.map(), o, alpha, bars, &tuning.look)
+            })
         })
         .collect()
 }
@@ -317,6 +328,7 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, bars: (f32, (Option<f32>, Option<f3
         fraction: fraction.clamp(0.0, 1.0),
         shields: shields.map(|shields| shields.clamp(0.0, 1.0)),
         energy: energy.map(|energy| energy.clamp(0.0, 1.0)),
+        ammo: None,
     }
 }
 

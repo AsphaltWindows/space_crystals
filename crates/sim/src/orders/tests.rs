@@ -91,6 +91,7 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
         may_attack: true,
         converting: false,
         tethered: false,
+        base: None,
         worker: None,
         energy: None,
     };
@@ -210,6 +211,7 @@ fn unit<'a>(mover: &'a mut Mover, attack: Option<&'a mut AttackState>) -> Unit<'
         may_attack: true,
         converting: false,
         tethered: false,
+        base: None,
         worker: None,
         energy: None,
     }

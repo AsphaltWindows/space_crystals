@@ -1,9 +1,10 @@
 //! The selected units' modes ([`Modes`]): which of them take no Attack, carry a load, aren't in operation yet, or
-//! (M6-GD) hold still for their drones.
+//! (M6-GD) hold still for their drones, and (M6-GH1) which are aircraft, with their bases, and which of those have no
+//! ammo left.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use sc_sim::{ObjectId, ShieldMode, Sim, combat, riot_shield, tether};
+use sc_sim::{ObjectId, ShieldMode, Sim, aircraft, combat, riot_shield, tether};
 
 use crate::selection::Selection;
 
@@ -18,11 +19,13 @@ use crate::selection::Selection;
 /// (carrying resources)") and the Agent's Drop Off, and which of the selected objects aren't in operation yet
 /// (`sc_sim::Object::is_operational`: one that transforms, or a site under construction), and (M6-GD) which of the
 /// units hold still for their drones (`sc_sim::tether::holds`: "The Drone Operator **cannot move** while it has a drone
-/// active"). Which way a shield goes is its unit's type (design change 0173), whose panel offers the command that turns
-/// it.
+/// active"), and (M6-GH1) which are aircraft, with their bases (`sc_sim::aircraft`), and which of these have no ammo
+/// left, taking no Attack then (`sc_sim::aircraft::armed`, the gate's `sc_sim::Reject::OutOfAmmo`). Which way a shield
+/// goes is its unit's type (design change 0173), whose panel offers the command that turns it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
-    /// The units whose type takes no Attack: a Peacekeeper (Shielded), or a unit without a weapon.
+    /// The units whose type takes no Attack: a Peacekeeper (Shielded), or a unit without a weapon; (M6-GH1) and the
+    /// aircraft out of ammo ([`Modes::empty`]).
     held: BTreeSet<ObjectId>,
     /// (M5-N4a) Of them, those whose Riot Shield holds them back (`sc_sim::riot_shield::takes_attack_orders`): the
     /// Peacekeepers (Shielded), which would take an Attack with their shields lowered (`super::WhyUnavailable::ShieldsUp`).
@@ -31,15 +34,23 @@ pub struct Modes {
     transforming: BTreeSet<ObjectId>,
     /// (M6-GD) The Drone Operators whose drones are out.
     tethered: BTreeSet<ObjectId>,
+    /// (M6-GH1) The aircraft, each with the Airfield it is assigned to, if any (`sc_sim::aircraft::base_of`).
+    bases: BTreeMap<ObjectId, Option<ObjectId>>,
+    /// (M6-GH1) Of them, those with no ammo left.
+    empty: BTreeSet<ObjectId>,
 }
 
 impl Modes {
     /// The modes of `selection`'s objects in `sim`.
     pub fn of(sim: &Sim, selection: &Selection) -> Self {
+        let empty: BTreeSet<ObjectId> = (selection.ids())
+            .filter(|&id| sim.object(id).is_some_and(|o| !aircraft::armed(o)))
+            .collect();
         Self {
             held: (selection.members())
                 .filter(|&(_, kind)| kind.def().unit.is_some() && !combat::takes_attack_orders(kind))
                 .map(|(id, _)| id)
+                .chain(empty.iter().copied())
                 .collect(),
             shielded: (selection.members())
                 .filter(|&(_, kind)| !riot_shield::takes_attack_orders(kind))
@@ -55,7 +66,35 @@ impl Modes {
             tethered: (selection.ids())
                 .filter(|&id| sim.object(id).is_some_and(tether::holds))
                 .collect(),
+            bases: (selection.ids())
+                .filter_map(|id| sim.object(id).filter(|o| o.aircraft.is_some()))
+                .map(|o| (o.id, aircraft::base_of(o)))
+                .collect(),
+            empty,
         }
+    }
+
+    /// (M6-GH1) Whether `id` is an aircraft, and if so the Airfield it is assigned to, if any
+    /// (`sc_sim::orders::resolution::Abilities::aircraft`, which its right-click on an own Airfield reads).
+    pub fn aircraft(&self, id: ObjectId) -> Option<Option<ObjectId>> {
+        self.bases.get(&id).copied()
+    }
+
+    /// (M6-GH1) Whether `id` is an aircraft with no ammo left: it takes no Attack nor Attack Ground (`Reject::OutOfAmmo`).
+    pub fn empty(&self, id: ObjectId) -> bool {
+        self.empty.contains(&id)
+    }
+
+    /// (M6-GH1) The same, with `ids` aircraft assigned to `base` with `ammo` left: for the unit tests.
+    pub fn with_aircraft(mut self, ids: impl IntoIterator<Item = ObjectId>, base: Option<ObjectId>, ammo: u32) -> Self {
+        for id in ids {
+            self.bases.insert(id, base);
+            if ammo == 0 {
+                self.empty.insert(id);
+                self.held.insert(id);
+            }
+        }
+        self
     }
 
     /// (M6-GD) Whether `id` holds still for its drone, out (`sc_sim::tether::holds`): the gate refuses it every order
@@ -128,6 +167,8 @@ impl FromIterator<(ObjectId, ShieldMode)> for Modes {
             loaded: BTreeSet::new(),
             transforming: BTreeSet::new(),
             tethered: BTreeSet::new(),
+            bases: BTreeMap::new(),
+            empty: BTreeSet::new(),
         }
     }
 }

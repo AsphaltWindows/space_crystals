@@ -107,6 +107,12 @@ impl StateHash for OrderKind {
             }
             // (M6-GD) A new tag, hashed only while a unit carries the order.
             OrderKind::Launch => h.tag(17),
+            // (M6-GH1) New tags, hashed only while a unit carries the order.
+            OrderKind::Rebase(airfield) => {
+                h.tag(18);
+                airfield.hash(h);
+            }
+            OrderKind::ReturnToBase => h.tag(19),
         }
     }
 }

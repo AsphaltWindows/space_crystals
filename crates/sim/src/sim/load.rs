@@ -140,6 +140,11 @@ impl TryFrom<SimState> for Sim {
             if o.energy.is_none() {
                 o.energy = crate::energy::start(o.kind);
             }
+            // (M6-GH1) An aircraft saved before it had ammo (`Object::aircraft`, a debug spawn's) has its type's full
+            // ammo, unassigned.
+            if o.aircraft.is_none() {
+                o.aircraft = crate::aircraft::fresh(o.kind);
+            }
             if o.id.0 >= next_id {
                 return Err(format!("object id {} is not below next_id {next_id}", o.id.0));
             }
@@ -151,9 +156,12 @@ impl TryFrom<SimState> for Sim {
         // object's.
         let mut held = BTreeMap::new();
         for mut unit in held_list {
-            // (M5-N4a) The same for a held unit.
+            // (M5-N4a) The same for a held unit, and (M6-GH1) its ammo.
             if unit.object.energy.is_none() {
                 unit.object.energy = crate::energy::start(unit.object.kind);
+            }
+            if unit.object.aircraft.is_none() {
+                unit.object.aircraft = crate::aircraft::fresh(unit.object.kind);
             }
             let id = unit.object.id;
             if id.0 >= next_id {

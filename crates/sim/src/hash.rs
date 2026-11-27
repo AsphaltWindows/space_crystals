@@ -341,6 +341,7 @@ impl StateHash for Object {
             tether,
             drone,
             cooldown,
+            aircraft,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -434,6 +435,11 @@ impl StateHash for Object {
         if let Some(drone) = drone {
             h.tag(13);
             drone.hash(h);
+        }
+        // (M6-GH1) The same for an aircraft's ammo and base (`crate::aircraft`), under a tag of its own: only while set.
+        if let Some(aircraft) = aircraft {
+            h.tag(14);
+            aircraft.hash(h);
         }
     }
 }

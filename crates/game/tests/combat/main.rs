@@ -259,6 +259,42 @@ fn a_disciple_shows_an_energy_bar_under_its_hp_bar() {
     assert_eq!(shown(&app), [(1.0, Some(50.5 / 200.0)), (1.0, None)]);
 }
 
+/// (M6-GH1) An aircraft's ammo shows as pips under its HP bar (plan §GH1: "the Hornet's ammo pips"; Placeholder, not
+/// in the design's art): a Hornet's missiles left of its 5 (`factions/gdo/units/hornet.md > AttackAttributes`: "Ammo: **5
+/// missiles**"), 2 once it has fired three at a Prospector. Its bars show as the HP bar does, while it is selected or
+/// damaged; a Peacekeeper beside it, selected too, has no pips.
+#[test]
+fn a_hornet_shows_its_missiles_left_as_pips_under_its_hp_bar() {
+    const HORNET: ObjectId = ObjectId(1);
+    let mut app = headless_app();
+    submit(
+        &mut app,
+        P1,
+        Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    );
+    app.update();
+    spawn(&mut app, ObjectKind::Hornet, P1, Vec2::new(300.0, 300.0));
+    spawn(&mut app, ObjectKind::Peacekeeper, P1, Vec2::new(300.0, 420.0));
+    spawn(&mut app, ObjectKind::Prospector, P2, Vec2::new(500.0, 300.0));
+    app.update();
+    let both = Selection::new([(HORNET, ObjectKind::Hornet), (ObjectId(2), ObjectKind::Peacekeeper)]);
+    app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection = both;
+    let pips = |app: &App| -> Vec<Option<(u32, u32)>> { bars(app).iter().map(|bar| bar.ammo).collect() };
+    assert_eq!(pips(&app), [Some((5, 5)), None]);
+    attack(&mut app, P1, HORNET, ObjectId(3));
+    let ammo = |app: &App| {
+        let sim = app.world().resource::<SimRes>();
+        sim.object(HORNET).and_then(|o| o.aircraft).map(|a| a.ammo)
+    };
+    let until = tick(&app) + 200;
+    while ammo(&app) != Some(2) {
+        assert!(tick(&app) < until, "three missiles");
+        let next = tick(&app) + 1;
+        run_until(&mut app, next);
+    }
+    assert_eq!(pips(&app), [Some((2, 5)), None, None], "and the Prospector, damaged");
+}
+
 /// A structure's bars lie along the top edge of its footprint, as wide as it (placeholder look; slice M3-K2's
 /// walkthrough found them unit-sized, inside the building). Player 1's Barracks, 3 × 2 tiles, selected, shows its HP
 /// bar 192 su wide, centred over it, just above its top edge, clear of its selection frame, which lies inside it.

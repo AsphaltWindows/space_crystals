@@ -1,12 +1,13 @@
 //! The Hornet — `factions/gdo/units/hornet.md` (design change 0366, slice M6-GK): "GDO air-to-ground attack aircraft
 //! produced at the Airfield. A HoverCraft (a chopper) that fires **air-to-ground missiles**." Its numbers are the
 //! design's "Placeholder stats" (plan decision T84), its DragMovement (design change 0420) and its missile among them.
-//! Its ammo (`> AttackAttributes`: "Ammo: **5 missiles**, then it must reload at its assigned Airfield";
-//! "**RearmTimePerAmmo 32 frames**") and its Airfield entry ([`RECIPE`], held) are slice M6-GH1's; no player produces
-//! one before.
+//! (M6-GH1) Its ammo (`> AttackAttributes`: "Ammo: **5 missiles**, then it must reload at its assigned Airfield";
+//! "**RearmTimePerAmmo 32 frames**"; `crate::aircraft`), and the Airfield trains it ([`RECIPE`]).
 
 use crate::defs::structures::Recipe;
-use crate::defs::units::{AttackAttrs, AttackType, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef};
+use crate::defs::units::{
+    AmmoDef, AttackAttrs, AttackType, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
@@ -63,6 +64,12 @@ pub(crate) const HORNET: ObjectDef = ObjectDef {
         // **Placeholder (Q0181)**: SeparationRadius 56 su, its Silhouette's side and 8 su, as the Sparrow's and the
         // Dragonfly's 48 on their 40 (`systems/units.md > Air Collision`: "Must be larger than the unit's Silhouette").
         separation_radius: Some(56.0),
+        // (M6-GH1) "Ammo: **5 missiles**, then it must reload at its assigned Airfield"; "**RearmTimePerAmmo 32
+        // frames** (5 missiles in 10 s)".
+        ammo: Some(AmmoDef {
+            max: 5,
+            rearm_ticks_per_ammo: 32,
+        }),
         ..UnitDef::NONE
     }),
     ..ObjectDef::NONE
@@ -70,8 +77,8 @@ pub(crate) const HORNET: ObjectDef = ObjectDef {
 
 /// `factions/gdo/structures/airfield.md > Produces (so far)`: "Hornet: 150 Space Crystals, 320 frames (20 seconds)
 /// (placeholder)", and `> Placeholder stats` of `factions/gdo/units/hornet.md`: "Cost: Airfield, 150 Space Crystals
-/// **+ 2 Supplies** (user, 2026-11-26; Q0169), 320 frames" (design change 0435). Held until slice M6-GH1
-/// (`crate::defs::PLANNED_RECIPES`).
+/// **+ 2 Supplies** (user, 2026-11-26; Q0169), 320 frames" (design change 0435). The Airfield's since slice M6-GH1
+/// (`super::super::structures::airfield`).
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::Hornet,
     cost: 150,
@@ -88,7 +95,8 @@ mod tests {
     /// The placeholder stats: a HoverCraft in the air, 48×48, MaxHP 120, armour 1/1, SightRange 7, Unit Control 2;
     /// DragMovement to a top speed of 9 su a frame, turning 8° a frame; no turret; a dodgeable missile at ground only,
     /// 30 damage up to 5 grid units at 14 su a frame, one every 32 frames; a SeparationRadius of 56 su, more than its
-    /// Silhouette. Its Airfield entry, 150 Space Crystals and 2 Supplies in 320 frames, is held.
+    /// Silhouette. (M6-GH1) 5 missiles, 32 frames each to rearm. Its Airfield entry, 150 Space Crystals and 2 Supplies
+    /// in 320 frames.
     #[test]
     fn the_hornet_follows_the_design() {
         let unit = super::super::assert_stat_block(
@@ -120,6 +128,13 @@ mod tests {
         );
         assert_eq!(super::super::cycle(&attack), ((4, 2, 4, 22), 32));
         assert_eq!(unit.separation_radius, Some(56.0));
+        assert_eq!(
+            unit.ammo,
+            Some(AmmoDef {
+                max: 5,
+                rearm_ticks_per_ammo: 32
+            })
+        );
         let recipe = Recipe {
             kind: ObjectKind::Hornet,
             cost: 150,

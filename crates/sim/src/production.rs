@@ -125,6 +125,11 @@ pub enum Refusal {
     /// "crystals or any other resource paid at queue time" (`systems/controls/selection.md > Group production with
     /// limited resources`).
     Supplies,
+    /// (M6-GH1) An Airfield has no room for another aircraft (`crate::aircraft::room`;
+    /// `factions/gdo/structures/airfield.md > Production limit`: "An Airfield **can't queue another aircraft** if its
+    /// assignments plus the aircraft already in its production queue would exceed 4"). Passed over whatever the bank,
+    /// as a full queue.
+    AirfieldFull,
 }
 
 /// `factions/gdo/structures/barracks.md > BarracksInstanceState`: a producing structure's state.

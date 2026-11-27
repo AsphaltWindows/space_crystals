@@ -6,6 +6,7 @@
 use glam::Vec2;
 
 use super::collide::{Moved, World};
+use super::drag::Terms;
 use super::model::Model;
 use super::{Chased, stand, stuck, turn_rate, yielding};
 use crate::defs::MovementAttrs;
@@ -57,7 +58,7 @@ pub(super) fn leave(
     }
     let from = *facing;
     // How far it goes out this tick: a step, or a unit with momentum its speed out, braking to rest where it is out.
-    let model = Model::of(movement, mover, false);
+    let model = Model::of(movement, mover, Terms::default());
     let (step, done) = match &model {
         None => {
             let turn = math::turn_toward(facing, math::wrap_angle(math::vector_angle(to)), turn_rate(movement));
@@ -163,7 +164,7 @@ pub(super) fn emerge(
     turned: &mut f32,
     mover: &mut Mover,
     movement: &MovementAttrs,
-    rugged: bool,
+    terms: Terms,
     portal: &EnergyDoorway,
     world: &mut World,
     touched: &mut Vec<usize>,
@@ -200,7 +201,7 @@ pub(super) fn emerge(
     } else {
         dist
     };
-    let model = Model::of(movement, mover, rugged);
+    let model = Model::of(movement, mover, terms);
     // How far it goes along its heading this tick.
     let speed = match &model {
         None => {

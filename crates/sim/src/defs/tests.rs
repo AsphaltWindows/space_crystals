@@ -351,6 +351,19 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
                     "{name}: a runway's aircraft of no one inside"
                 );
             }
+            // (M6-GH1) Over its pads: an Airfield's (`StructureDef::airfield`), whose every unit is an aircraft that
+            // rearms at it (`UnitDef::ammo`).
+            ExitRule::Pad => {
+                assert!(structure.airfield.is_some(), "{name}: pads, and no Airfield");
+                for recipe in production.recipes {
+                    let unit = recipe.kind.def().unit.as_ref();
+                    assert!(
+                        unit.is_some_and(|unit| unit.ammo.is_some() && unit.base_def().domain == Domain::Air),
+                        "{name}: {:?} is no aircraft that rearms at it",
+                        recipe.kind
+                    );
+                }
+            }
         }
         // (M5-S8) A default rally point lies out of the middle of the exit side (`production::default_rally`,
         // `core/entities.md > Entrance and exit > Exit Doorway` point 7): a type with one has one exit side, and makes

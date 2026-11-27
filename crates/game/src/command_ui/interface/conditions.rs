@@ -459,7 +459,8 @@ impl Conditions {
     /// Why the game doesn't let `command` go to its recipients in `selection` now ([`Conditions::allows`]), if it
     /// doesn't: their types, their loads (a Drop Off none of whose recipients carries anything, the gate's
     /// `Reject::NothingToDeliver`), (M6-GD) their drones (a command that would move them while every one of them holds
-    /// still for its drone, the gate's `Reject::DroneOut`), a pool building's free units (a kind button with none of its kind, which every
+    /// still for its drone, the gate's `Reject::DroneOut`), (M6-GH1) their ammo (an Attack or Attack Ground while none
+    /// of them has any left, the gate's `Reject::OutOfAmmo`), a pool building's free units (a kind button with none of its kind, which every
     /// entry of its KindMenu would want: `Reject::NoRecruit`), an Altar's (a type or state tile with none, said as the
     /// first state's, Unaugmented, for a type tile), a Temple's key in progress (`Reject::ResearchUnderWay`, which its
     /// Research would get), a Place button's building while the constructor doesn't hold it ready (design changes
@@ -472,6 +473,9 @@ impl Conditions {
                     None
                 } else if recipients.iter().any(|&id| self.modes.shielded(id)) {
                     Some(WhyUnavailable::ShieldsUp)
+                } else if recipients.iter().any(|&id| self.modes.empty(id)) {
+                    // (M6-GH1) Aircraft with no ammo left.
+                    Some(WhyUnavailable::Refused(Reject::OutOfAmmo))
                 } else {
                     // (M5-N4a) Units without a weapon: a Disciple's Attack, greyed (its panel's "attack commands").
                     Some(WhyUnavailable::NotForThisType)
@@ -485,8 +489,15 @@ impl Conditions {
             }
             PanelCommand::Move | PanelCommand::Reverse | PanelCommand::Patrol | PanelCommand::AttackGround => {
                 let recipients = recipients(selection, command);
-                let held = !recipients.is_empty() && recipients.iter().all(|&id| self.modes.tethered(id));
-                held.then_some(WhyUnavailable::Refused(Reject::DroneOut))
+                let all =
+                    |held: &dyn Fn(ObjectId) -> bool| !recipients.is_empty() && recipients.iter().all(|&id| held(id));
+                if all(&|id| self.modes.tethered(id)) {
+                    Some(WhyUnavailable::Refused(Reject::DroneOut))
+                } else {
+                    // (M6-GH1) An Attack Ground none of whose recipients has ammo left.
+                    let empty = command == PanelCommand::AttackGround && all(&|id| self.modes.empty(id));
+                    empty.then_some(WhyUnavailable::Refused(Reject::OutOfAmmo))
+                }
             }
             PanelCommand::KindMenu(kind) => {
                 (self.pool_count(kind) == 0).then_some(WhyUnavailable::Refused(Reject::NoRecruit(kind)))

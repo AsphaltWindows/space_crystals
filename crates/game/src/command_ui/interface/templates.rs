@@ -33,7 +33,7 @@ pub mod syndicate;
 
 use sc_sim::defs::SpellDef;
 use sc_sim::{AreaAbility, ObjectKind};
-use sc_sim::{conversion, tether};
+use sc_sim::{aircraft, conversion, tether};
 
 pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
@@ -342,9 +342,10 @@ pub use sc_sim::combat::can_target_ground;
 /// `sc_sim::defs::UnitDef::target_lock`); (M5-N11) a unit that casts area abilities, the Prayer-mobile, Inspire in R and
 /// Suppress in F ([`PanelCommand::Cast`], [`cast_slot`]); (M6-GD) a unit whose stock holds drones, the Drone Operator,
 /// Launch Drone in R and Build Drone in F ([`PanelCommand::Launch`], [`PanelCommand::Buy`]: `sc_sim::defs::UnitDef::stock`
-/// whose item is on a leash, `sc_sim::defs::UnitDef::tether`; [`gdo::drone_operator`]). These are the commands the type
-/// offers ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a constructor's panel follows its state
-/// ([`state_grid`]).
+/// whose item is on a leash, `sc_sim::defs::UnitDef::tether`; [`gdo::drone_operator`]); (M6-GH1) an aircraft, one with
+/// ammo (`sc_sim::aircraft::def_of`), the Hornet, Return to Base in F ([`PanelCommand::ReturnToBase`]). These are the
+/// commands the type offers ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a constructor's panel
+/// follows its state ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let Some(template) = InterfaceTemplate::of(kind) else {
         return [None; 12];
@@ -376,8 +377,15 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
         grid[gdo::drone_operator::LAUNCH_SLOT] = Some(PanelCommand::Launch);
         grid[gdo::drone_operator::BUY_SLOT] = Some(PanelCommand::Buy(stock.item));
     }
+    if aircraft::def_of(kind).is_some() {
+        grid[RETURN_TO_BASE_SLOT] = Some(PanelCommand::ReturnToBase);
+    }
     grid
 }
+
+/// (M6-GH1) `factions/gdo/units/hornet.md > AttackAttributes`: "Panel: BasicCombatUnitInterfaceState plus **F: Return to
+/// Base**" (`factions/gdo/structures/airfield.md > Returning and rearming`: "hotkey **F**, placeholder").
+const RETURN_TO_BASE_SLOT: usize = 7;
 
 /// `systems/controls/interface.md > CommandPanel > Standard Slot Assignments` (design changes 0397 and 0399): "**A:
 /// Attack, on every unit** (user, 2026-11-27): Attack is always in slot **A**, whichever group is in focus, so the

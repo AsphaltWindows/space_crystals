@@ -46,14 +46,14 @@ pub use map::crystal_patch::DEFAULT_STARTING_AMOUNT;
 pub use map::supply_delivery_station::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_SUPPLIES};
 pub use spells::{ShroudDef, SpellDef};
 pub use structures::{
-    AugmentRecipe, BuilderGoes, DropOff, ExitRule, ExpansionDef, HoldsDef, MiningDef, OccupantFire, PopUpDef,
-    ProductionDef, Recipe, RecruitmentDef, ResearchDef, SiteDef, SitePrice, StructureDef, SymmetryType, TierDef,
-    Transit, TunnelDef, UpgradeDef,
+    AirfieldDef, AugmentRecipe, BuilderGoes, DropOff, ExitRule, ExpansionDef, HoldsDef, MiningDef, OccupantFire,
+    PopUpDef, ProductionDef, Recipe, RecruitmentDef, ResearchDef, SiteDef, SitePrice, StructureDef, SymmetryType,
+    TierDef, Transit, TunnelDef, UpgradeDef,
 };
 pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
 pub use syndicate::{EJECT_MENU_ORDER, EXPAND_MENU, ExpandEntry, SyndicateRules};
 pub use units::{
-    AttackAttrs, AttackType, Augmentable, BlastDomain, ContactStep, ConversionDef, Domain, DropOffChoice,
+    AmmoDef, AttackAttrs, AttackType, Augmentable, BlastDomain, ContactStep, ConversionDef, Domain, DropOffChoice,
     FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest, RepairDef, RepairPayment,
     RepairTargets, Resource, ReverseSpeed, RiotShieldDef, StockDef, TargetDomain, TargetLockDef, TargetType, TetherDef,
     TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,

@@ -114,6 +114,8 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
             // (M5-E) An Assist ends wherever its spot beside the site was; (M5-N8) a Repair too, or wherever its vehicle
             // led it.
             OrderKind::Assist(_) | OrderKind::Repair(_) => return None,
+            // (M6-GH1) An aircraft's flight to its Airfield ends over it, wherever the Airfield's pads are.
+            OrderKind::Rebase(_) | OrderKind::ReturnToBase => return None,
         }
     }
     None

@@ -1,7 +1,9 @@
 //! The Hornet (`factions/gdo/units/hornet.md`, design change 0366, slice M6-GK): the plain unit box, a square, with its
 //! first and last letters, "HT", on it, drawn in flight as every air unit is (`crate::object_render::flight`). Its
 //! missiles are drawn as missiles ([`ShotStyle::Missile`], the Rocketman's). Its panel is the BasicCombatUnit
-//! template, without yet the design's "**F: Return to Base**", which is slice M6-GH1's, with its Airfield entry.
+//! template, and (M6-GH1) the design's "**F: Return to Base**", which the grid adds for an aircraft
+//! (`crate::command_ui::interface::templates::grid`), and its missiles left show as pips under its HP bar
+//! (`crate::combat_effects`).
 
 use crate::combat_effects::ShotStyle;
 use crate::command_ui::interface::templates::{InterfaceTemplate, PanelTemplate};

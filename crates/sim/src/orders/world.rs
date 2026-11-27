@@ -89,12 +89,16 @@ pub(crate) struct Unit<'a> {
     /// (M5-N1a) Its top speed with its Augmentations' at its owner's levels, and (M5-N11) its Inspire's
     /// (`Object::max_speed`), before its mode's speed factor ([`Unit::max_speed`]).
     pub max_speed: f32,
-    /// Whether its mode lets it attack now: not while its Riot Shield is up (`riot_shield::allows_attack`).
+    /// Whether its mode lets it attack now: not while its Riot Shield is up (`riot_shield::allows_attack`), nor (M6-GH1)
+    /// while it is an aircraft out of ammo (`aircraft::armed`).
     pub may_attack: bool,
     /// Whether it converts its weapon (`conversion::is_converting`): it holds still meanwhile.
     pub converting: bool,
     /// (M6-GD) Whether it holds still for its drone (`tether::holds`: an operator with its drone out).
     pub tethered: bool,
+    /// (M6-GH1) The Airfield it is assigned to, if it is an aircraft with a base (`crate::aircraft::base_of`), which
+    /// its flight home goes to (`super::air_base`).
+    pub base: Option<ObjectId>,
     /// A worker's load, patch and drop-off (`economy::gathering`).
     pub worker: Option<&'a mut Worker>,
     /// (M5-N4b) Its energy pool (`Object::energy`), which a channel drains (`super::shroud`).

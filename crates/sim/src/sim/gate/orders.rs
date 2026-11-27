@@ -14,7 +14,7 @@ use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::sim::{Reject, Sim};
 use crate::stock::{self, Unbuyable};
-use crate::{combat, conversion, tether};
+use crate::{aircraft, combat, conversion, tether};
 
 impl Sim {
     /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped.
@@ -75,6 +75,8 @@ impl Sim {
                 if ordered.is_empty() {
                     return Err(Reject::CannotHit(id));
                 }
+                // (M6-GH1) Nor an aircraft out of ammo (`crate::aircraft::armed`): of them, those with ammo left.
+                ordered = self.armed_among(ordered)?;
             }
             OrderKind::Hold | OrderKind::Stop => {}
             // `factions/colonists/units/drone.md > Unit Commands` (`sim/workers.rs`): the workers among the
@@ -105,6 +107,8 @@ impl Sim {
                 if ordered.is_empty() {
                     return Err(Reject::CannotTargetGround);
                 }
+                // (M6-GH1) Nor an aircraft out of ammo, as an Attack.
+                ordered = self.armed_among(ordered)?;
             }
             // `core/entities.md > Worker-Built Structures` (`sim/builds.rs`): one worker takes it, and pays for it.
             OrderKind::Build {
@@ -136,6 +140,11 @@ impl Sim {
             // (M6-GD) `factions/gdo/units/drone_operator.md > Launching and piloting` (`crate::tether`): the units
             // that launch from their stock take it, the others ignore it.
             OrderKind::Launch => ordered = self.check_launch(ordered)?,
+            // (M6-GH1) `factions/gdo/structures/airfield.md > Assignment` (`crate::aircraft`): the aircraft that the
+            // Airfield has room for take it, the others ignore it.
+            OrderKind::Rebase(airfield) => ordered = self.check_rebase(player, ordered, airfield)?,
+            // (M6-GH1) `factions/gdo/structures/airfield.md > Returning and rearming`: the aircraft with a base take it.
+            OrderKind::ReturnToBase => ordered = self.check_return(ordered)?,
         }
         // (M6-GD) "The Drone Operator **cannot move** while it has a drone active" (`crate::tether`): a unit that holds
         // still for its drone ignores an order that would move it; if every unit does, the order is refused, with
@@ -295,6 +304,81 @@ impl Sim {
             return Err(Reject::StockEmpty);
         }
         Ok(stocked)
+    }
+
+    /// (M6-GH1) The units of `units` with ammo left, or whose weapon never runs out (`crate::aircraft::armed`), else
+    /// [`Reject::OutOfAmmo`]: an Attack's and an Attack Ground's, which an aircraft out of ammo ignores.
+    fn armed_among(&self, units: Vec<ObjectId>) -> Result<Vec<ObjectId>, Reject> {
+        let armed: Vec<ObjectId> = (units.into_iter())
+            .filter(|id| self.objects.get(id).is_some_and(aircraft::armed))
+            .collect();
+        if armed.is_empty() {
+            return Err(Reject::OutOfAmmo);
+        }
+        Ok(armed)
+    }
+
+    /// (M6-GH1) The gate for a Rebase to `airfield` (`factions/gdo/structures/airfield.md > Assignment`: "**Reassigning**:
+    /// the player can move an aircraft's assignment to another Airfield, if that Airfield has room: its assignments
+    /// plus the aircraft in its production queue must be **fewer than 4**"; plan decision T88): it is an Airfield of
+    /// the player's in operation (`aircraft::is_airfield`), else [`Reject::NotAnAirfield`]; the aircraft of `units`
+    /// take it (`Object::aircraft`), else [`Reject::LacksAbility`]: those assigned to it already, which need no room,
+    /// and of the others, in the command's order, as many as it has room for (`aircraft::room`); the others ignore
+    /// it. With no room for any of them and none assigned to it: [`Reject::AirfieldFull`]. `Sim::give_order` assigns
+    /// them as it gives the order.
+    fn check_rebase(
+        &self,
+        player: PlayerId,
+        units: Vec<ObjectId>,
+        airfield: ObjectId,
+    ) -> Result<Vec<ObjectId>, Reject> {
+        let target = self.referenced(airfield, None)?;
+        if target.owner != Some(player) || !aircraft::is_airfield(target) {
+            return Err(Reject::NotAnAirfield(airfield));
+        }
+        let aircraft: Vec<&Object> = (units.iter())
+            .filter_map(|id| self.objects.get(id))
+            .filter(|o| o.aircraft.is_some())
+            .collect();
+        if aircraft.is_empty() {
+            return Err(Reject::LacksAbility);
+        }
+        let mut room = aircraft::room(&self.objects, airfield);
+        let mut taking = Vec::new();
+        for o in aircraft {
+            if aircraft::base_of(o) == Some(airfield) {
+                taking.push(o.id);
+            } else if room > 0 {
+                room -= 1;
+                taking.push(o.id);
+            }
+        }
+        if taking.is_empty() {
+            return Err(Reject::AirfieldFull);
+        }
+        Ok(taking)
+    }
+
+    /// (M6-GH1) The gate for a Return to Base (`factions/gdo/structures/airfield.md > Returning and rearming`: "An
+    /// unassigned aircraft has no base [...] Return to Base is unavailable until it is reassigned"): the aircraft of
+    /// `units` take it, else [`Reject::LacksAbility`], and of them those with a base (`aircraft::base_of`), else
+    /// [`Reject::NoBase`].
+    fn check_return(&self, units: Vec<ObjectId>) -> Result<Vec<ObjectId>, Reject> {
+        let aircraft: Vec<&Object> = (units.iter())
+            .filter_map(|id| self.objects.get(id))
+            .filter(|o| o.aircraft.is_some())
+            .collect();
+        if aircraft.is_empty() {
+            return Err(Reject::LacksAbility);
+        }
+        let based: Vec<ObjectId> = (aircraft.into_iter())
+            .filter(|o| aircraft::base_of(o).is_some())
+            .map(|o| o.id)
+            .collect();
+        if based.is_empty() {
+            return Err(Reject::NoBase);
+        }
+        Ok(based)
     }
 
     /// (M6-GD) The gate for a Buy (`crate::stock`, plan decision T89), of `units`, the player's own units with a stock:

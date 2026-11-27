@@ -236,15 +236,18 @@ fn a_replay_without_checkpoints_plays_unchecked() {
 }
 
 /// A replay file keeps every kind of command (`testing::every_command`: every order, ability and debug command), so
-/// nothing a player did is lost in a recording; the game plays back the same from the file.
+/// nothing a player did is lost in a recording; the game plays back the same from the file. It runs past the last of
+/// them, one a tick from tick 20.
 #[test]
 fn replay_files_keep_every_kind_of_command() {
     let mut t = scripted_skirmish();
-    for (i, command) in every_command().into_iter().enumerate() {
+    let commands = every_command();
+    let last = 20 + commands.len() as u32;
+    for (i, command) in commands.into_iter().enumerate() {
         let player = PlayerId(1 + (i % 2) as u8);
         t.at(20 + i as u32, player, command);
     }
-    t.run(100);
+    t.run(last.max(100));
     let replay = t.replay();
     let recorded: Vec<Command> = replay.inputs[19..]
         .iter()

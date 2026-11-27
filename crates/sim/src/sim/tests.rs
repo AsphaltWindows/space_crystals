@@ -71,6 +71,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         tether: None,
         drone: None,
         cooldown: None,
+        aircraft: None,
     };
     sim.objects.insert(id, unit);
     // Its grid, as every unit in the game has (slice M5-Z2, `paths`).

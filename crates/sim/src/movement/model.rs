@@ -8,7 +8,7 @@
 use glam::Vec2;
 
 use super::collide::World;
-use super::drag::Drag;
+use super::drag::{Drag, Terms};
 use super::tracked::Tracked;
 use super::wheeled::Wheeled;
 use crate::defs::MovementAttrs;
@@ -24,10 +24,10 @@ pub(super) enum Model {
 
 impl Model {
     /// The model of a unit with these movement numbers and this mover, `None` for one that stops within the tick.
-    /// `rugged` is whether the tile under its centre is Rugged terrain, which only DragMovement asks
-    /// (`systems/units.md > HoverVehicle > RuggedTerrain`).
-    pub(super) fn of(movement: &MovementAttrs, mover: &Mover, rugged: bool) -> Option<Self> {
-        Drag::of(movement, mover.speed_factor, rugged)
+    /// `terms` are what only DragMovement asks: whether the tile under its centre is Rugged terrain
+    /// (`systems/units.md > HoverVehicle > RuggedTerrain`), and (M6-GH1) whether its base brakes by drag alone.
+    pub(super) fn of(movement: &MovementAttrs, mover: &Mover, terms: Terms) -> Option<Self> {
+        Drag::with(movement, mover.speed_factor, terms)
             .map(Model::Drag)
             .or_else(|| Wheeled::of(movement, mover).map(Model::Wheeled))
             .or_else(|| Tracked::of(movement, mover).map(Model::Tracked))

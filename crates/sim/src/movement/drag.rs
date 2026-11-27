@@ -44,6 +44,19 @@
 //! one of the ways a unit without a goal moves, with a sidestep, a doorway and a step off a unit it overlaps
 //! (invariants I5 and I7).
 //!
+//! **(M6-GH1) Braking by drag alone** ([`Terms::drag_only`]): the air HoverCraft (`UnitBaseDef::brakes_by_drag`;
+//! `systems/units.md > DragMovement`: "Air units typically have high drag and high acceleration, relying on drag
+//! alone to stop. Ground hover units have lower drag and actively thrust in the opposing direction to decelerate";
+//! `systems/units.md > HoverCraft`: "Relies on high drag to decelerate passively") never thrust against their motion
+//! to brake. Without a goal such a unit drifts, its velocity kept by the drag alone, `v ← v × (1 − DragRatio)`, and
+//! **Placeholder (not in the design: how a unit braking by drag alone comes to rest)**: it holds still once a tick's
+//! thrust takes all its drag leaves (the HoverCraft "can hover in place"). From top speed the Hornet (9 su a tick,
+//! DragRatio 0.1) drifts 80 su in 42 ticks, about the `v × keep / (1 − keep)` of 81 su its DragRatio gives, where
+//! braking with its thrust would stop it within 60 su in 21 ticks ([`tests`]). Its approach plans the same braking
+//! ([`braking_approach`]: no thrust against its motion, then the tick that holds it still), so it begins to slow
+//! about 89 su before its goal, and lands on it. On its way it still thrusts towards the step it wants: that steers it,
+//! round a corner or back to a goal it has passed.
+//!
 //! Float rules (`docs/movement.md > 7`): `+ − × ÷` and `sqrt` only, but for the facing's unit vector, which goes
 //! through `sc_sim::math`. Every position is committed through the same predicates as any other move
 //! (`World::clear`, `World::shuffle`), so the model adds no way for two boxes to come to overlap.
@@ -61,6 +74,16 @@ use crate::mover::{Locomotion, Mover};
 /// come back. With a sixteenth in hand it stays on its plan to the last step and lands exactly.
 const PLANNED_BRAKE: f32 = 15.0 / 16.0;
 
+/// What a DragMovement unit's tick asks of where it is and what it is, besides its movement numbers ([`Drag::of`]).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct Terms {
+    /// The tile under the unit's centre is Rugged terrain (`systems/units.md > HoverVehicle > RuggedTerrain`): its
+    /// DragRatio doubles.
+    pub rugged: bool,
+    /// (M6-GH1) Its base brakes by its drag alone (`UnitBaseDef::brakes_by_drag`: the HoverCraft's; module docs).
+    pub drag_only: bool,
+}
+
 /// One unit's DragMovement numbers for this tick, in space units and ticks.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(super) struct Drag {
@@ -72,12 +95,14 @@ pub(super) struct Drag {
     omni: f32,
     /// Where thrust and drag balance on this terrain: `(omni + forward) / drag`.
     top: f32,
+    /// (M6-GH1) It brakes by its drag alone ([`Terms::drag_only`]).
+    drag_only: bool,
 }
 
 impl Drag {
     /// The model of a unit with these attributes, `None` for every other movement model. `speed_factor` is the
     /// mover's (a mode that slows the unit scales its thrust, and its top speed with it); `rugged` is whether the
-    /// tile under the unit's centre is Rugged terrain.
+    /// tile under the unit's centre is Rugged terrain. It brakes with its thrust ([`Drag::braking_by_drag`]).
     pub(super) fn of(movement: &MovementAttrs, speed_factor: f32, rugged: bool) -> Option<Self> {
         let MovementAttrs::Drag {
             forward_acceleration,
@@ -99,13 +124,28 @@ impl Drag {
             forward,
             omni,
             top: (forward + omni) / drag,
+            drag_only: false,
         })
     }
 
-    /// The speed the unit approaches a goal `dist` space units away at ([`approach_speed`]), braking with
-    /// [`PLANNED_BRAKE`] of its omni-directional thrust.
+    /// (M6-GH1) The model of a unit whose base brakes by its drag alone if `drag_only` ([`Terms::drag_only`]), with
+    /// its thrust if not.
+    pub(super) fn braking_by_drag(self, drag_only: bool) -> Self {
+        Self { drag_only, ..self }
+    }
+
+    /// The model of a unit of these terms ([`Terms`]): [`Drag::of`], braking by drag alone if its base does.
+    pub(super) fn with(movement: &MovementAttrs, speed_factor: f32, terms: Terms) -> Option<Self> {
+        Some(Self::of(movement, speed_factor, terms.rugged)?.braking_by_drag(terms.drag_only))
+    }
+
+    /// The speed the unit approaches a goal `dist` space units away at ([`braking_approach`]), braking with
+    /// [`PLANNED_BRAKE`] of its omni-directional thrust, or (M6-GH1) by its drag alone, and holding still with as
+    /// much of it.
     pub(super) fn approach(&self, dist: f32) -> f32 {
-        approach_speed(dist, self.keep, self.omni * PLANNED_BRAKE, self.top)
+        let hold = self.omni * PLANNED_BRAKE;
+        let brake = if self.drag_only { 0.0 } else { hold };
+        braking_approach(dist, self.keep, brake, hold, self.top)
     }
 
     /// Step 3 of the scheme: the thrust nearest to `want`, the change of velocity the unit would like, with the
@@ -198,9 +238,9 @@ impl Drag {
     }
 
     /// Steps 2 to 4 for a unit that isn't steering this tick (no goal, no path yet, held by its attack) and still
-    /// has momentum: it brakes, thrusting against its motion, and moves by what is left, as far as tiles and
-    /// units allow. It stands once a tick's thrust takes all that the drag left, or when it meets a tile or a
-    /// unit (design change 0035: no velocity is left). The facing stays as it is.
+    /// has momentum: it brakes, thrusting against its motion, or (M6-GH1) by its drag alone (module docs), and moves
+    /// by what is left, as far as tiles and units allow. It stands once a tick's thrust takes all that the drag left,
+    /// or when it meets a tile or a unit (design change 0035: no velocity is left). The facing stays as it is.
     pub(super) fn coast(
         &self,
         pos: &mut Vec2,
@@ -215,7 +255,13 @@ impl Drag {
         let kept = mover.momentum * self.keep;
         let (thrust, stopped) = self.thrust(-kept, math::facing_vector(facing));
         let from = *pos;
-        let velocity = if stopped { Vec2::ZERO } else { kept + thrust };
+        let velocity = if stopped {
+            Vec2::ZERO
+        } else if self.drag_only {
+            kept
+        } else {
+            kept + thrust
+        };
         if !stopped {
             touched.clear();
             *pos = world.shuffle(from, velocity, touched);
@@ -246,15 +292,22 @@ impl Drag {
 /// It only falls as `dist` does, and never faster than braking follows: a unit at the approach speed of one tick
 /// is within the next tick's by braking alone.
 pub(super) fn approach_speed(dist: f32, keep: f32, brake: f32, top: f32) -> f32 {
-    // No drag left to speak of, or nothing to brake with: the unit stops within the tick, or by drag alone (it
-    // then covers `v × keep / (1 − keep)` more).
+    braking_approach(dist, keep, brake, brake, top)
+}
+
+/// [`approach_speed`], braking with the thrust `brake` (`v ← v × keep − brake`), none for (M6-GH1) a unit that
+/// brakes by its drag alone (module docs), and coming to rest with the thrust `hold`, which takes the speed of the
+/// last step: that step is made at `hold / keep` at most, and each before it at `(v + brake) / keep`.
+pub(super) fn braking_approach(dist: f32, keep: f32, brake: f32, hold: f32, top: f32) -> f32 {
+    // No drag left to speak of, or nothing to come to rest with: the unit stops within the tick, or by drag alone
+    // (it then covers `v × keep / (1 − keep)` more).
     if keep <= 0.0 {
         return dist.min(top);
     }
-    if brake <= 0.0 {
+    if hold <= 0.0 {
         return (dist * (1.0 - keep)).min(top);
     }
-    let last = brake / keep;
+    let last = hold / keep;
     if dist <= last {
         return dist.min(top);
     }

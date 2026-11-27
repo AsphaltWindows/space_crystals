@@ -31,10 +31,10 @@ crate::tuning::tunables! {
 /// (`StructureDef::requires`), but the Radar Station and the Defense System, live since slice M6-GR with the Defense
 /// System's Missile Turret, and the Factory, Advanced Mechanics and the Industrial Powerplant, live since slice M6-GF;
 /// the Field Engineer's Bunker and First Aid Tent; the Factory's two vehicles behind Advanced Mechanics and the
-/// Airfield's two aircraft, in their `Produces` order, and the Supply Tower's Supply Chopper, each with its Unit
+/// Airfield's Dragonfly, in their `Produces` order, and the Supply Tower's Supply Chopper, each with its Unit
 /// Prerequisite and its Supplies (`Recipe::supplies`, design changes 0435 and 0441). The slice that makes an entry live
 /// moves it into its maker's list: slice M6-GD the Barracks' Drone Operator; slice M6-GF the Factory's Raptor and
-/// Twister.
+/// Twister; slice M6-GH1 the Airfield's Hornet (the Airfield's own entry stays held until slice M6-GH2).
 pub const PLANNED_RECIPES: &[(ObjectKind, Recipe)] = &[
     (ObjectKind::DeploymentCenter, structures::supply_tower::RECIPE),
     (ObjectKind::DeploymentCenter, structures::airfield::RECIPE),
@@ -43,7 +43,6 @@ pub const PLANNED_RECIPES: &[(ObjectKind, Recipe)] = &[
     (ObjectKind::FieldEngineer, structures::first_aid_tent::RECIPE),
     (ObjectKind::Factory, units::prospector::RECIPE),
     (ObjectKind::Factory, units::artillery_rig::RECIPE),
-    (ObjectKind::Airfield, units::hornet::RECIPE),
     (ObjectKind::Airfield, units::dragonfly::RECIPE),
     (ObjectKind::SupplyTower, units::supply_chopper::RECIPE),
 ];

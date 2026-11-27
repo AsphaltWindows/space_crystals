@@ -9,6 +9,7 @@
 use glam::Vec2;
 
 use super::collide::{Moved, World};
+use super::drag::Terms;
 use super::model::Model;
 use super::{Chased, stand, stuck, turn_rate, wait, yielding};
 use crate::defs::MovementAttrs;
@@ -17,7 +18,8 @@ use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
 use crate::units::Tick;
 
-/// One unit's tick (`docs/movement.md > 6.2`, `> 6.3`) on open ground: [`step_unit_on`] off Rugged terrain.
+/// One unit's tick (`docs/movement.md > 6.2`, `> 6.3`) on open ground: [`step_unit_on`] off Rugged terrain, braking
+/// with its thrust.
 /// Returns whether its move failed this tick. For the unit tests of one unit's tick.
 #[cfg(test)]
 #[expect(
@@ -38,13 +40,24 @@ pub(super) fn step_unit(
     tick: Tick,
 ) -> bool {
     step_unit_on(
-        pos, facing, turned, mover, movement, false, world, touched, requests, chased, engaged, tick,
+        pos,
+        facing,
+        turned,
+        mover,
+        movement,
+        Terms::default(),
+        world,
+        touched,
+        requests,
+        chased,
+        engaged,
+        tick,
     )
 }
 
-/// One unit's tick (`docs/movement.md > 6.2`, `> 6.3`). Returns whether its move failed this tick. `rugged` is
-/// whether the tile under its centre is Rugged terrain, which only a DragMovement unit's model asks
-/// (`systems/units.md > HoverVehicle > RuggedTerrain`).
+/// One unit's tick (`docs/movement.md > 6.2`, `> 6.3`). Returns whether its move failed this tick. `terms` are what
+/// only a DragMovement unit's model asks (`super::drag::Terms`): whether the tile under its centre is Rugged terrain
+/// (`systems/units.md > HoverVehicle > RuggedTerrain`), and (M6-GH1) whether its base brakes by drag alone.
 ///
 /// A unit with momentum that didn't steer in this tick (no goal, no path yet, its move ended before it stepped)
 /// brakes off the momentum it still has ([`Model::coast`]); every other unit then stands.
@@ -58,7 +71,7 @@ pub(super) fn step_unit_on(
     turned: &mut f32,
     mover: &mut Mover,
     movement: &MovementAttrs,
-    rugged: bool,
+    terms: Terms,
     world: &mut World,
     touched: &mut Vec<usize>,
     requests: &mut Vec<yielding::Request>,
@@ -66,7 +79,7 @@ pub(super) fn step_unit_on(
     engaged: &[Option<ObjectId>],
     tick: Tick,
 ) -> bool {
-    let model = Model::of(movement, mover, rugged);
+    let model = Model::of(movement, mover, terms);
     let mut steered = false;
     let failed = follow(
         pos,

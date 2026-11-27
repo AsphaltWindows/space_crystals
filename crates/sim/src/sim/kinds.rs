@@ -229,6 +229,8 @@ impl Sim {
             drone: _,
             // (M6-GR) Kept: no type of the design becomes a Radar Station or stops being one.
             cooldown: _,
+            // (M6-GH1) Kept: no type of the design gains or loses ammo by a change of kind (`crate::aircraft`).
+            aircraft: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

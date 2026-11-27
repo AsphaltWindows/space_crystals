@@ -77,7 +77,7 @@ fn a_drone_creeping_along_a_wall_makes_progress_and_never_gives_up() {
             &mut 0.0,
             &mut mover,
             &DRONE,
-            false,
+            Terms::default(),
             &mut world,
             &mut Vec::new(),
             &mut Vec::new(),

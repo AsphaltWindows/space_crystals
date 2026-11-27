@@ -7,13 +7,15 @@ use super::PanelCommand;
 
 impl PanelCommand {
     /// The order of a unit command that needs no target: Hold Position's, Stop's, (M5-N4b) a Disciple's Shroud,
-    /// channelled where it stands, and (M6-GD) a Drone Operator's Launch Drone, over itself.
+    /// channelled where it stands, (M6-GD) a Drone Operator's Launch Drone, over itself, and (M6-GH1) an aircraft's
+    /// Return to Base, to its Airfield.
     pub fn immediate_order(self) -> Option<OrderKind> {
         match self {
             PanelCommand::HoldPosition => Some(OrderKind::Hold),
             PanelCommand::Stop => Some(OrderKind::Stop),
             PanelCommand::Shroud => Some(OrderKind::Shroud),
             PanelCommand::Launch => Some(OrderKind::Launch),
+            PanelCommand::ReturnToBase => Some(OrderKind::ReturnToBase),
             _ => None,
         }
     }

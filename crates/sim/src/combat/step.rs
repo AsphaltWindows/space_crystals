@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use super::{AttackPhase, Projectile, damage};
 use super::{Threats, occupants, phases, power, projectiles, structures, target_lock, targeting, weapon_ref};
+use crate::aircraft;
 use crate::augmentation::Research;
 use crate::conversion;
 use crate::events::SimEvent;
@@ -38,6 +39,9 @@ use crate::vision::{Hiding, Vision};
 /// the buffers due follow the tick's hits on the list (`damage::release`), revealing no one. (M5-K) A unit whose type
 /// has a Target Lock runs its sequence through the lock's tick (`target_lock::step`), with its locked missiles too.
 /// (M6-GD) A unit its attack spent (`phases::Volley::spent`, the operator's drone) is among the objects destroyed.
+/// (M6-GH1) An aircraft spends a round of its ammo with each shot (`crate::aircraft`), and attacks nothing with none
+/// left, its sequence under way running on to its end; those whose last round went in the tick join `emptied`, in the
+/// order they fired, for their return (`Sim::send_home`).
 #[expect(
     clippy::too_many_arguments,
     reason = "phase 5e's state, in the parts of the sim it reads and writes"
@@ -54,6 +58,7 @@ pub(crate) fn step(
     auto_targeting: bool,
     research: Research,
     clouds: &mut Clouds,
+    emptied: &mut Vec<ObjectId>,
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
     // A structure that attacks is always busy: it looks for its targets in this phase. So is a turret with a target
@@ -87,7 +92,8 @@ pub(crate) fn step(
         if conversion::is_converting(o) {
             continue;
         }
-        let may_attack = riot_shield::allows_attack(o);
+        // (M6-GH1) Not an aircraft out of ammo (`aircraft::armed`), as behind a raised Riot Shield.
+        let may_attack = riot_shield::allows_attack(o) && aircraft::armed(o);
         // The weapon in hand: the form's, which a Legionnaire whose conversion waits still fights with (design change
         // 0198); its shape and its turn rate are its type's, the same in either form. A structure's is its type's.
         // (M5-N1a) With its Augmentations' effects.
@@ -169,6 +175,12 @@ pub(crate) fn step(
     // (M5-K) The homing projectiles in flight fly on, those launched in this tick from the next on.
     projectiles::steer(projectiles, tick, &targets);
     projectiles.append(&mut volley.launched);
+    // (M6-GH1) The rounds the aircraft fired in the tick (`phases::Volley::rounds`), each one spent.
+    for id in std::mem::take(&mut volley.rounds) {
+        if objects.get_mut(&id).is_some_and(aircraft::spend) {
+            emptied.push(id);
+        }
+    }
     // The blasts first: due projectiles land before this tick's new hits are applied (plan decision T45).
     let mut hits = Vec::new();
     let mut origins = damage::Origins::new(shrouded);

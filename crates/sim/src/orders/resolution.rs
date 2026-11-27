@@ -44,6 +44,11 @@
 //!   Right-Click Resolution`: "**Except when it is full** [...]: a damaged enterable building that is **full at the
 //!   moment of the click** resolves to **Repair** (the pointer shows Repair). This applies to every building that
 //!   holds units").
+//! - (M6-GH1) **An own Airfield** in operation gives an aircraft that rearms at one (`crate::aircraft`) a Rebase to it
+//!   (`factions/gdo/structures/airfield.md > Assignment`: "Input: select the aircraft and **right-click the other
+//!   Airfield**"), whether or not it has room, which the gate judges (`Reject::AirfieldFull`); its own Airfield a
+//!   Return to Base (`factions/gdo/structures/airfield.md > Returning and rearming`: "Right-clicking its own Airfield
+//!   does the same").
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
 //!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3), and the object is destructible.
 //! - **Everything else** gives a Move to the object (`systems/controls/command_behaviors.md > MovingToObject`), which
@@ -62,6 +67,7 @@
 
 use glam::Vec2;
 
+use crate::aircraft;
 use crate::combat::{self, domain_allows};
 use crate::construction::site::assists;
 use crate::defs::{Domain, ObjectKind, TargetDomain, Transit};
@@ -93,6 +99,9 @@ pub struct Abilities {
     /// The class of its base for a Tunnel's transit (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier
     /// Requirements`, `Transit::of`).
     pub transit: Transit,
+    /// (M6-GH1) If it is an aircraft that rearms at an Airfield (`crate::aircraft`), the Airfield it is assigned to:
+    /// `Some(None)` while it is unassigned. `None` for every other unit.
+    pub aircraft: Option<Option<ObjectId>>,
 }
 
 impl Abilities {
@@ -108,10 +117,12 @@ impl Abilities {
                 .as_ref()
                 .and_then(|unit| unit.attack.as_ref())
                 .map(|attack| attack.target_domain),
-            may_attack: combat::takes_attack_orders(o.kind),
+            // (M6-GH1) Not an aircraft out of ammo (`crate::aircraft::armed`).
+            may_attack: combat::takes_attack_orders(o.kind) && aircraft::armed(o),
             worker: o.worker.is_some(),
             carrying: o.worker.is_some_and(|worker| worker.load > 0),
             gathers_supplies: o.worker.is_some() && worker_def(o.kind).is_some_and(|def| def.supplies.is_some()),
+            aircraft: o.aircraft.map(|state| state.base),
         })
     }
 }
@@ -155,6 +166,9 @@ pub struct Aimed {
     /// complete, below its MaxHP), which the units whose type repairs that kind take a Repair on (`repair::repairs`).
     /// `None` for anything else.
     pub repair: Option<ObjectKind>,
+    /// (M6-GH1) It is an Airfield of the unit's owner's in operation (`crate::aircraft::is_airfield`), which the
+    /// aircraft that rearm at one are assigned to. `false` for anything else.
+    pub airfield: bool,
 }
 
 /// What a unit's default command is resolved against.
@@ -195,6 +209,8 @@ pub enum Rule {
     Assist,
     /// (M5-N8) A damaged own building or vehicle that the unit's type repairs: Repair.
     Repair,
+    /// (M6-GH1) An own Airfield, for an aircraft that rearms at one: Return to Base on its own, Rebase on another.
+    Rebase,
     /// An enemy the unit can attack, its type taking Attack orders: Attack.
     Attack,
 }
@@ -204,7 +220,8 @@ pub enum Rule {
 /// slice M5-N8's Repair, after [`Rule::Enter`] and [`Rule::Assist`] and before [`Rule::Attack`], in the design's order
 /// (`factions/cults/units/recruit.md > Right-Click Resolution`, design change 0325: "Damaged own building or vehicle
 /// (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins"), which (M5-S2b)
-/// a full building's Enter lets through to it ([`Rule::Enter`], design change 0378).
+/// a full building's Enter lets through to it ([`Rule::Enter`], design change 0378). (M6-GH1) The aircraft's Rebase,
+/// on an own Airfield, which no other rule gives anything.
 pub const RULES: &[Rule] = &[
     Rule::Gather,
     Rule::GatherSupplies,
@@ -212,6 +229,7 @@ pub const RULES: &[Rule] = &[
     Rule::Enter,
     Rule::Assist,
     Rule::Repair,
+    Rule::Rebase,
     Rule::Attack,
 ];
 
@@ -234,6 +252,11 @@ impl Rule {
             Rule::Repair => {
                 (target.repair.is_some_and(|kind| repairs(unit.kind, kind))).then_some(OrderKind::Repair(id))
             }
+            Rule::Rebase => match unit.aircraft {
+                Some(base) if target.airfield && base == Some(id) => Some(OrderKind::ReturnToBase),
+                Some(_) if target.airfield => Some(OrderKind::Rebase(id)),
+                _ => None,
+            },
             Rule::Attack => {
                 let can_attack =
                     target.destructible && unit.attack.is_some_and(|domain| domain_allows(domain, target.domain));

@@ -84,6 +84,7 @@ impl Sim {
     /// box where the units' earlier orders leave them (design change 0029). Orders only fill queues here; phase 5a
     /// starts them. An order given without Shift replaces the unit's, a Build among them refunded, and a Build is paid
     /// for as it is given (`sim/builds.rs`). (M5-E) A group's Build is one order, paid once (`sim/builds/shared.rs`).
+    /// (M6-GH1) A Rebase reassigns each aircraft that takes it as it is given (`Sim::rebase`, plan decision T88).
     pub(super) fn give_order(&mut self, units: &[ObjectId], kind: OrderKind, queue: bool) {
         let group = OrderGroup(self.next_group);
         self.next_group = self.next_group.wrapping_add(1);
@@ -113,11 +114,20 @@ impl Sim {
             // (M5-N4b) Each channels where it stands; (M5-K) each locks from where it stands; (M6-GD) each launches
             // over itself.
             OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => vec![None; units.len()],
+            // (M6-GH1) Each flies to its Airfield (`orders::air_base`).
+            OrderKind::Rebase(_) | OrderKind::ReturnToBase => vec![None; units.len()],
         };
         if self.gives_shared_build(units, kind) {
             return self.give_shared_build(units, kind, queue, group);
         }
         for (id, slot) in units.iter().zip(slots) {
+            // (M6-GH1) A Rebase assigns the aircraft as it is given (`Sim::rebase`): one the Airfield has no room for
+            // any more gets no order.
+            if let OrderKind::Rebase(airfield) = kind
+                && !self.rebase(*id, airfield)
+            {
+                continue;
+            }
             if !queue {
                 self.drop_orders(*id);
             }

@@ -3,6 +3,7 @@
 //! their units here (`producers/pool.rs`, slice M5-F2), an Altar's augmentation orders among them (slice M5-N1b).
 
 use super::{ProductionPlan, producer};
+use crate::aircraft;
 use crate::augmentation::{AugmentOrder, RecruitKind};
 use crate::defs::ObjectKind;
 use crate::holding;
@@ -38,8 +39,9 @@ impl Sim {
     ///   has the recipe, or only a Recruitment Hall, which trains nothing on command: `sim/recruitment.rs`),
     ///   [`Reject::Requires`] (the player owns none of a type its entry requires, slice M4-K:
     ///   `core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`, `crate::tech`; a unit already queued
-    ///   goes on whatever is lost later), [`Reject::InsufficientCrystals`], (M6-GD) [`Reject::InsufficientSupplies`]
-    ///   or [`Reject::QueueFull`]. Queuing "needs only its Space Crystals (paid when queued) and a free queue slot; it
+    ///   goes on whatever is lost later), [`Reject::InsufficientCrystals`], (M6-GD) [`Reject::InsufficientSupplies`],
+    ///   [`Reject::QueueFull`] or (M6-GH1) [`Reject::AirfieldFull`], an aircraft at an Airfield without room for it
+    ///   (`crate::aircraft`), passed over as a full queue. Queuing "needs only its Space Crystals (paid when queued) and a free queue slot; it
     ///   does **not** check or reserve Unit Control" (design change 0143, `factions/gdo/overview.md > GDOResources >
     ///   Unit Control > Reserved when production starts`; the Colonists' Beacon Capacity alike): the army cap is
     ///   checked when production starts (`producers/step.rs`). (M6-GD) A recipe with Supplies (`Recipe::supplies`)
@@ -166,7 +168,14 @@ impl Sim {
                         units.truncate(needed);
                         (short.then_some(Refusal::NoRecruit), units)
                     }
-                    None => (production.is_full().then_some(Refusal::QueueFull), Vec::new()),
+                    // (M6-GH1) An aircraft at an Airfield without room for it (`crate::aircraft::room`; `factions/gdo/
+                    // structures/airfield.md > Production limit`: "E.g. 3 assigned + 1 queued = full"), passed over as
+                    // a full queue.
+                    None => {
+                        let refusal = (production.is_full().then_some(Refusal::QueueFull))
+                            .or_else(|| self.airfield_full(o, kind).then_some(Refusal::AirfieldFull));
+                        (refusal, Vec::new())
+                    }
                 };
                 Some(Candidate {
                     work: production.remaining_work(def),
@@ -182,6 +191,14 @@ impl Sim {
             return Err(unmet.map_or(Reject::CannotProduce(kind), Reject::Requires));
         }
         self.serve(player, entry, able, from)
+    }
+
+    /// (M6-GH1) Whether a unit of `kind` is an aircraft that the Airfield `o` has no room for (`crate::aircraft::room`:
+    /// its assignments and the aircraft in its queue at its capacity).
+    fn airfield_full(&self, o: &crate::object::Object, kind: ObjectKind) -> bool {
+        aircraft::def_of(kind).is_some()
+            && aircraft::airfield_def(o).is_some()
+            && aircraft::room(&self.objects, o.id) == 0
     }
 
     /// (M5-N1b) Which of `producers` queue `order` for `player`, each for its free unit of type `kind` and kind `from`
@@ -282,6 +299,7 @@ impl Sim {
                 Some(Refusal::Crystals) => Reject::InsufficientCrystals,
                 Some(Refusal::Supplies) => Reject::InsufficientSupplies,
                 Some(Refusal::NoRecruit) => from.map_or(Reject::QueueFull, Reject::NoRecruit),
+                Some(Refusal::AirfieldFull) => Reject::AirfieldFull,
                 Some(Refusal::QueueFull) | None => Reject::QueueFull,
             });
         }

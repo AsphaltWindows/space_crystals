@@ -11,6 +11,7 @@
 //! - [`Sim::default_order`]: a unit's default command against a target (`crate::orders::resolution`), the
 //!   right-click's and the rally point's, on the target as the unit's owner knows it ([`Sim::aimed`]).
 
+use crate::aircraft;
 use crate::combat::object_domain;
 use crate::defs::{Domain, ObjectKind};
 use crate::economy::gathering::{gatherable, is_drop_off};
@@ -71,6 +72,8 @@ impl Sim {
                     site: (o.owner == Some(player) && o.is_built_from_outside()).then_some(o.kind),
                     // (M5-N8) A damaged own object, complete, which the units that repair its kind Repair.
                     repair: (o.owner == Some(player) && repair::damage(o, self.research()).is_some()).then_some(o.kind),
+                    // (M6-GH1) An own Airfield in operation, which the aircraft are assigned to (`crate::aircraft`).
+                    airfield: o.owner == Some(player) && aircraft::is_airfield(o),
                 })
             }
             TargetView::Remembered { .. } => {
@@ -89,6 +92,7 @@ impl Sim {
                     full: false,
                     site: None,
                     repair: None,
+                    airfield: false,
                 })
             }
             TargetView::Gone => None,

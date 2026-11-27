@@ -97,6 +97,7 @@ fn with_no_patch_left_a_job_ends_or_delivers_its_load_first() {
             may_attack: true,
             converting: false,
             tethered: false,
+            base: None,
             worker: Some(&mut worker),
             energy: None,
         };

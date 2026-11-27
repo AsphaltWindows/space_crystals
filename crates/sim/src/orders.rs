@@ -28,13 +28,16 @@
 //! - [`target_lock`]: a Rocketman locking onto its target and firing at it where it stands, until the lock breaks
 //!   (slice M5-K; the lock itself is phase 5e's, `crate::combat::target_lock`);
 //! - [`launch`]: a Drone Operator stopping to launch its drone, which the step right after the phase does (slice
-//!   M6-GD, `crate::tether`).
+//!   M6-GD, `crate::tether`);
+//! - [`air_base`]: an aircraft flying to its Airfield, a new one it was reassigned to or the one it returns to (slice
+//!   M6-GH1, `crate::aircraft`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
 //! Their working state ([`state`], the design's BaseBehaviorState) is part of the order, or of the unit while it
 //! has none ([`Orders::auto`]).
 
+mod air_base;
 mod assist;
 mod attack_ground;
 pub mod build;
@@ -177,6 +180,21 @@ pub enum OrderKind {
     /// ([`launch`], `crate::tether`). Only a unit whose stock holds drones takes it, with one in stock and none out
     /// (the gate).
     Launch,
+    /// (M6-GH1) `factions/gdo/structures/airfield.md > Assignment`: "**Reassigning**: the player can move an aircraft's
+    /// assignment to another Airfield, if that Airfield has room [...] Input: select the aircraft and **right-click the
+    /// other Airfield**. The aircraft is reassigned and flies there to land" (plan decision T88). Applied as it is
+    /// given (`Sim::give_order`): this Airfield is the aircraft's base from then on (`crate::aircraft`), and the order
+    /// flies it there ([`air_base`]). Only an aircraft that rearms at an Airfield takes it, to an own Airfield in
+    /// operation that has room for it (the gate).
+    Rebase(ObjectId),
+    /// (M6-GH1) `factions/gdo/structures/airfield.md > Returning and rearming`: "**Return to Base** command: sends the
+    /// aircraft to its assigned Airfield to land and rearm (hotkey **F**, placeholder). Right-clicking its own Airfield
+    /// does the same"; and the automatic return, "when an aircraft runs out of ammo, it automatically flies back to its
+    /// assigned Airfield", which "**can be interrupted** by giving the aircraft any other order" (plan decision T88:
+    /// pushed by itself as its ammo reaches 0, an order that any new order replaces; `crate::aircraft`). The aircraft
+    /// flies to its base ([`air_base`]), and slice M6-GH2 lands and rearms it there. Only an aircraft with a base takes
+    /// it (the gate): "An unassigned aircraft has no base [...] Return to Base is unavailable until it is reassigned".
+    ReturnToBase,
 }
 
 impl OrderKind {
@@ -190,10 +208,13 @@ impl OrderKind {
             | OrderKind::Enter(id)
             | OrderKind::Assist(id)
             | OrderKind::Repair(id)
-            | OrderKind::TargetLock(id) => Some(id),
+            | OrderKind::TargetLock(id)
+            | OrderKind::Rebase(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } | OrderKind::Build { .. } => None,
             OrderKind::AttackGround(_) | OrderKind::Shroud | OrderKind::Reverse(_) | OrderKind::Launch => None,
+            // (M6-GH1) Its base is the aircraft's (`crate::aircraft`), not the order's.
+            OrderKind::ReturnToBase => None,
         }
     }
 }
@@ -225,6 +246,8 @@ impl Order {
             OrderKind::Enter(_) | OrderKind::AttackGround(_) => None,
             // (M5-N4b) A channel holds the unit where it stands; (M5-K) so does a Target Lock, and (M6-GD) a Launch.
             OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => None,
+            // (M6-GH1) The aircraft goes to its Airfield (`air_base`).
+            OrderKind::Rebase(_) | OrderKind::ReturnToBase => None,
         }
     }
 

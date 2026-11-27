@@ -179,6 +179,7 @@ fn the_rule_on_abilities_and_targets() {
         carrying: false,
         gathers_supplies: false,
         transit: Transit::Infantry,
+        aircraft: None,
     };
     let drone = |carrying| Abilities {
         kind: ObjectKind::Drone,
@@ -188,6 +189,7 @@ fn the_rule_on_abilities_and_targets() {
         carrying,
         gathers_supplies: false,
         transit: Transit::Vehicles,
+        aircraft: None,
     };
     let object = |enemy, destructible, domain, gatherable, drop_off| Aimed {
         id: ObjectId(5),
@@ -202,6 +204,7 @@ fn the_rule_on_abilities_and_targets() {
         full: false,
         site: None,
         repair: None,
+        airfield: false,
     };
     let follow = OrderKind::Move(Target::Object(ObjectId(5)));
     let attack = OrderKind::Attack(ObjectId(5));

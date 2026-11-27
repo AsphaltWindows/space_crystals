@@ -94,6 +94,8 @@ pub fn allows(kind: OrderKind) -> bool {
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => false,
         OrderKind::AttackGround(_) | OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => false,
         OrderKind::Reverse(_) => false,
+        // (M6-GH1) An aircraft's flight to its Airfield (no operator is one).
+        OrderKind::Rebase(_) | OrderKind::ReturnToBase => false,
     }
 }
 

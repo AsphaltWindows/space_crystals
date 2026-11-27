@@ -18,8 +18,8 @@ use crate::selection::Selection;
 /// unturned, and an Agent's or a Recruits' Build for its Build order ([`build_probe`]), each leaving out the
 /// placement's refusal (`Reject::Unplaceable`, the gate's last check): the ghost judges each spot as it is placed.
 /// (M5-N5) A Shrine's cast asks `Sim::can_cast`, the gate's checks of a cast but its point's: where it is cast is the
-/// click's to judge (`crate::command_ui::resolution::target_resolution`). (M5-N4b) A Disciple's Shroud and (M6-GD) a
-/// Drone Operator's Launch Drone ask for their order, unqueued. `None` for a command the panel sends no sim command for
+/// click's to judge (`crate::command_ui::resolution::target_resolution`). (M5-N4b) A Disciple's Shroud, (M6-GD) a
+/// Drone Operator's Launch Drone and (M6-GH1) an aircraft's Return to Base ask for their order, unqueued. `None` for a command the panel sends no sim command for
 /// here (a menu, a target command).
 pub(super) fn refusal(sim: &Sim, player: PlayerId, selection: &Selection, command: PanelCommand) -> Option<Reject> {
     let objects = recipients(selection, command);
@@ -57,7 +57,10 @@ pub(super) fn refusal(sim: &Sim, player: PlayerId, selection: &Selection, comman
         }
     } else if let PanelCommand::Build(kind) = command {
         build_probe(objects, kind)
-    } else if matches!(command, PanelCommand::Shroud | PanelCommand::Launch) {
+    } else if matches!(
+        command,
+        PanelCommand::Shroud | PanelCommand::Launch | PanelCommand::ReturnToBase
+    ) {
         Command::Order {
             units: objects,
             kind: command.immediate_order()?,

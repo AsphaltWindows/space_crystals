@@ -49,6 +49,8 @@ pub fn every_command() -> Vec<Command> {
         OrderKind::Reverse(point),
         OrderKind::TargetLock(ObjectId(9)),
         OrderKind::Launch,
+        OrderKind::Rebase(ObjectId(10)),
+        OrderKind::ReturnToBase,
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -254,7 +256,9 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Shroud
                 | OrderKind::Reverse(_)
                 | OrderKind::TargetLock(_)
-                | OrderKind::Launch => {}
+                | OrderKind::Launch
+                | OrderKind::Rebase(_)
+                | OrderKind::ReturnToBase => {}
             },
             Command::Ability {
                 ability: Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert | Ability::Buy,

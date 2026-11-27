@@ -41,7 +41,10 @@
 //! - (M6-GD) a right-click that moves nothing for the units' drones (`factions/gdo/units/drone_operator.md > Launching
 //!   and piloting`: "The Drone Operator **cannot move** while it has a drone active"; plan §GD's acceptance: "The
 //!   operator refuses Move, with feedback, until the drone is gone"): every order it gives refused, one of them for a
-//!   drone out (`sc_sim::Reject::DroneOut`), said as a greyed Move is ([`DRONE_OUT_TEXT`], `super::CommandRefused`).
+//!   drone out (`sc_sim::Reject::DroneOut`), said as a greyed Move is ([`DRONE_OUT_TEXT`], `super::CommandRefused`);
+//! - (M6-GH1) a right-click on an own Airfield that reassigns no aircraft, the Airfield full
+//!   (`factions/gdo/structures/airfield.md > Assignment`: "if that Airfield has room"; `sc_sim::Reject::AirfieldFull`):
+//!   [`AIRFIELD_FULL_TEXT`], as a greyed Q says it.
 //!
 //! The sim's events among these come through the filter of events (`crate::viewer_events`), which gives each to the
 //! owner of its producer, constructor or unit alone.
@@ -194,6 +197,21 @@ pub const PURCHASE_UNDER_WAY_TEXT: &str = "Already building a drone";
 /// (M6-GD) The message of a Launch Drone with none in stock (`Reject::StockEmpty`; `factions/gdo/units/drone_operator.md
 /// > Drone Stock`: "once its drone has been used, it purchases/builds a replacement"). Placeholder wording.
 pub const STOCK_EMPTY_TEXT: &str = "No drone to launch";
+/// (M6-GH1) The message of an Airfield's Q with its assignments and its queue at its capacity, and of a Rebase onto it
+/// (`Reject::AirfieldFull`, `Refusal::AirfieldFull`; `m6-plan.md > GH1 > Acceptance`: "Q is refused ("Airfield
+/// full")"; `factions/gdo/structures/airfield.md > Production limit`).
+pub const AIRFIELD_FULL_TEXT: &str = "Airfield full";
+/// (M6-GH1) The message of a Return to Base for aircraft without a base (`Reject::NoBase`;
+/// `factions/gdo/structures/airfield.md > Returning and rearming`: "An unassigned aircraft has no base [...] Return to
+/// Base is unavailable until it is reassigned"). Placeholder wording.
+pub const NO_BASE_TEXT: &str = "No Airfield assigned";
+/// (M6-GH1) The message of an Attack or an Attack Ground for aircraft with no ammo left (`Reject::OutOfAmmo`;
+/// `factions/gdo/units/hornet.md > AttackAttributes`: "Ammo: **5 missiles**, then it must reload at its assigned
+/// Airfield"). Placeholder wording.
+pub const OUT_OF_AMMO_TEXT: &str = "Out of ammo";
+/// (M6-GH1) The message of a Rebase onto what isn't one of the player's Airfields (`Reject::NotAnAirfield`).
+/// Placeholder wording; no click gives one.
+pub const NOT_AN_AIRFIELD_TEXT: &str = "Not an Airfield";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -290,6 +308,7 @@ fn refusal_text(reason: Refusal) -> Option<&'static str> {
         Refusal::Supplies => Some(NO_SUPPLIES_TEXT),
         Refusal::QueueFull => None,
         Refusal::NoRecruit => Some(NO_RECRUIT_TEXT),
+        Refusal::AirfieldFull => Some(AIRFIELD_FULL_TEXT),
     }
 }
 
@@ -356,7 +375,8 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 /// building's (slice M5-F2: no free Recruit of the kind, nothing to eject), a Temple's key's (slice M5-N3: in progress,
 /// completed, its previous level missing), (M6-GD) a Drone Operator's (its drone out, its stock full, empty or being
 /// filled; Supplies short for the Barracks' R, "a feedback line that names Supplies", design change 0441), (M6-GR) a
-/// Scan's (its station cooling down), and placeholders for the others.
+/// Scan's (its station cooling down), (M6-GH1) an Airfield's and its aircraft's (the Airfield full, no base, out of
+/// ammo, not an Airfield), and placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -390,6 +410,10 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::PurchaseUnderWay => PURCHASE_UNDER_WAY_TEXT,
         Reject::StockEmpty => STOCK_EMPTY_TEXT,
         Reject::CoolingDown => COOLING_DOWN_TEXT,
+        Reject::AirfieldFull => AIRFIELD_FULL_TEXT,
+        Reject::NoBase => NO_BASE_TEXT,
+        Reject::OutOfAmmo => OUT_OF_AMMO_TEXT,
+        Reject::NotAnAirfield(_) => NOT_AN_AIRFIELD_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

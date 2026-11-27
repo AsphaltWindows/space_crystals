@@ -157,6 +157,9 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         // (M5-E) No row for an Assist either: placeholder, the Enter's (its look is slice M5-J1's). (M5-N8) Nor for a
         // Repair: the same placeholder.
         OrderKind::Enter(_) | OrderKind::Assist(_) | OrderKind::Repair(_) => Some(MOVE_COLOR),
+        // (M6-GH1) No row for a Rebase either, an aircraft's flight to the Airfield it is assigned to: the same
+        // placeholder.
+        OrderKind::Rebase(_) => Some(MOVE_COLOR),
         // Design change 0201: the gathering markers' own colours.
         OrderKind::Gather(_) => Some(GATHER_COLOR),
         OrderKind::DropOff(_) => Some(RETURN_COLOR),
@@ -165,8 +168,8 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         OrderKind::Attack(_) | OrderKind::AttackGround(_) | OrderKind::TargetLock(_) => Some(ATTACK_COLOR),
         OrderKind::AttackMove(_) | OrderKind::Patrol(_) => Some(AGGRESSIVE_COLOR),
         // (M5-N4b) A Shroud is channelled where the Disciple stands: no target; (M6-GD) a Launch puts the drone over
-        // its operator.
-        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch => None,
+        // its operator; (M6-GH1) a Return to Base names none, its Airfield being the aircraft's base.
+        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch | OrderKind::ReturnToBase => None,
     }
 }
 
@@ -191,7 +194,7 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
         OrderKind::Attack(id) | OrderKind::Enter(id) | OrderKind::Assist(id) | OrderKind::Repair(id) => {
             known(id).then_some(Indicator::Object { id, color })
         }
-        OrderKind::TargetLock(id) => known(id).then_some(Indicator::Object { id, color }),
+        OrderKind::TargetLock(id) | OrderKind::Rebase(id) => known(id).then_some(Indicator::Object { id, color }),
         OrderKind::Gather(id) => known(id).then_some(Indicator::Gathering {
             id,
             marker: GatheringMarker::Gather,
@@ -208,7 +211,7 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
             at: sc_sim::orders::build::build_site(kind)?.1.center(),
             color,
         }),
-        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch => None,
+        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch | OrderKind::ReturnToBase => None,
     }
 }
 

@@ -31,6 +31,9 @@ const SHIELD_FILL: Color = Color::srgb(0.35, 0.72, 1.0);
 /// (M5-N4a) An energy bar's fill: Placeholder (not in the design: Q0001's art direction), a violet, apart from the
 /// HP bar's green, yellow and red and the shield bar's blue.
 const ENERGY_FILL: Color = Color::srgb(0.72, 0.45, 1.0);
+/// (M6-GH1) An ammo pip's fill, a round left: Placeholder (not in the design: Q0001's art direction), an amber, apart
+/// from the bars' colours; a spent round's pip is its dark frame alone.
+const AMMO_FILL: Color = Color::srgb(1.0, 0.68, 0.15);
 /// Above the path overlay, in the overlays layer.
 const EFFECTS_Z: f32 = 1.0;
 
@@ -176,7 +179,8 @@ fn death_marker(mesh: &mut ColorMesh, map: &Map, death: &DeathMarker, fade: f32,
 
 /// A dark frame around the bar's fill, each bar `height` su high (`LookTuning::bar_height`): green above 60%, yellow
 /// above 30%, red below. The shield bar, if any, right above it, its fill in [`SHIELD_FILL`]; (M5-N4a) the energy
-/// bar, if any, right under it, its fill in [`ENERGY_FILL`].
+/// bar, if any, right under it, its fill in [`ENERGY_FILL`]; (M6-GH1) an aircraft's ammo pips under them, one square
+/// a round, as high as a bar, centred under it, those of the rounds left filled in [`AMMO_FILL`] from the left.
 fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
     let center = view_to_world(bar.center);
     let fill = match bar.fraction {
@@ -190,9 +194,20 @@ fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
         let above = center + Vec2::new(0.0, height + 1.0);
         bar_shape(mesh, above, size, shields, SHIELD_FILL, z);
     }
+    let mut under = center;
     if let Some(energy) = bar.energy {
-        let under = center - Vec2::new(0.0, height + 1.0);
+        under -= Vec2::new(0.0, height + 1.0);
         bar_shape(mesh, under, size, energy, ENERGY_FILL, z);
+    }
+    if let Some((left, max)) = bar.ammo {
+        under -= Vec2::new(0.0, height + 3.0);
+        let step = height + 3.0;
+        let first = under.x - step * (max as f32 - 1.0) / 2.0;
+        for round in 0..max {
+            let at = Vec2::new(first + step * round as f32, under.y);
+            let full = if round < left { 1.0 } else { 0.0 };
+            bar_shape(mesh, at, Vec2::splat(height), full, AMMO_FILL, z);
+        }
     }
 }
 

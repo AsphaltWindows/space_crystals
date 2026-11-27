@@ -28,7 +28,8 @@ use super::{BuildMenu, Planned};
 /// (`factions/cults/units/disciple.md > Placeholder stats`, slice M5-N4b), and the Shrine's casts
 /// (`factions/cults/structures/shrine.md > Placeholder stats`, slice M5-N5), and the Rocketman's Target Lock
 /// (`factions/gdo/units/rocketman.md > Placeholder stats`, slice M5-K), and the Drone Operator's Launch Drone and Build
-/// Drone (`factions/gdo/units/drone_operator.md > Placeholder stats`, slice M6-GD).
+/// Drone (`factions/gdo/units/drone_operator.md > Placeholder stats`, slice M6-GD), and the Hornet's Return to Base
+/// (`factions/gdo/units/hornet.md > AttackAttributes`, slice M6-GH1).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -276,4 +277,12 @@ pub enum PanelCommand {
     /// (`sc_sim::Reject::PurchaseUnderWay`), too few Space Crystals; with the purchase's progress on its bar while it
     /// runs (`super::PanelSlot::progress`), and its price in its hint (`super::Conditions::price`).
     Buy(ObjectKind),
+    /// (M6-GH1) An aircraft's F (`factions/gdo/units/hornet.md > AttackAttributes`: "Panel: BasicCombatUnitInterfaceState
+    /// plus **F: Return to Base**"; `factions/gdo/structures/airfield.md > Returning and rearming`: "**Return to Base**
+    /// command: sends the aircraft to its assigned Airfield to land and rearm (hotkey **F**, placeholder)"): a Return to
+    /// Base order, at once (`sc_sim::OrderKind::ReturnToBase`), to every aircraft of the ActiveGroup, each flying to its
+    /// own Airfield, where it hovers until slice M6-GH2 lands it. Shift queues it, as any unit order. Greyed while none
+    /// of them has a base ("An unassigned aircraft has no base [...] Return to Base is unavailable until it is
+    /// reassigned", `sc_sim::Reject::NoBase`).
+    ReturnToBase,
 }

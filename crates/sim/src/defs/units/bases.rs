@@ -124,6 +124,13 @@ pub struct UnitBaseDef {
     /// The class of unit the base belongs to for the Tunnel Network's transit (`factions/syndicate/tunnels.md > Tunnel
     /// Network > Transit Tier Requirements`, as it lists the bases; [`Transit::of`]).
     pub transit: Transit,
+    /// (M6-GH1) Whether a DragMovement unit of the base brakes by its drag alone (`movement::drag`):
+    /// `systems/units.md > DragMovement`, "Air units typically have high drag and high acceleration, relying on drag
+    /// alone to stop. Ground hover units have lower drag and actively thrust in the opposing direction to decelerate";
+    /// `systems/units.md > HoverCraft`, "Relies on high drag to decelerate passively". The HoverCraft's: it never
+    /// thrusts against its motion to stop, and holds still once its thrust takes what its drag leaves. False for every
+    /// other base: a HoverVehicle brakes with its thrust, and the bases of the other models have no drag.
+    pub brakes_by_drag: bool,
 }
 
 impl UnitBase {
@@ -213,6 +220,7 @@ const LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
     yields: true,
     separation_strength: None,
     transit: Transit::Infantry, // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
+    brakes_by_drag: false,
 };
 
 /// `systems/units.md > HeavyInfantry`.
@@ -231,6 +239,7 @@ const HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
     yields: true,
     separation_strength: None,
     transit: Transit::Infantry, // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
+    brakes_by_drag: false,
 };
 
 /// `systems/units.md > WheeledVehicle`.
@@ -249,6 +258,7 @@ const WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
     yields: false,                    // 0353: "an idle vehicle doesn't yield"
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
+    brakes_by_drag: false,
 };
 
 /// `systems/units.md > TrackedVehicle`.
@@ -267,6 +277,7 @@ const TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
     yields: false,                       // 0440: an idle TrackedVehicle stands
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
+    brakes_by_drag: false,
 };
 
 /// `systems/units.md > DrillUnit`.
@@ -287,6 +298,7 @@ const DRILL_UNIT: UnitBaseDef = UnitBaseDef {
     yields: true,
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
+    brakes_by_drag: false,
 };
 
 /// `systems/units.md > HoverVehicle`.
@@ -308,6 +320,7 @@ const HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
     yields: true,
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
+    brakes_by_drag: false,
 };
 
 /// `systems/units.md > Mech`.
@@ -328,6 +341,7 @@ const MECH: UnitBaseDef = UnitBaseDef {
     yields: true,
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
+    brakes_by_drag: false,
 };
 
 /// `systems/units.md > HoverCraft`.
@@ -348,6 +362,8 @@ const HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
     // The full push, slice M5-H1's (plan decision T81), the strength the Glider's is a share of (design change 0405).
     separation_strength: Some(1.0),
     transit: Transit::Air, // "Tier 3+: Air units (Hover Craft, Glider)"
+    // `systems/units.md > HoverCraft`: "Relies on high drag to decelerate passively".
+    brakes_by_drag: true,
 };
 
 /// `systems/units.md > Glider`.
@@ -370,4 +386,5 @@ const GLIDER: UnitBaseDef = UnitBaseDef {
     // (design changes 0405 and 0412, answering Q0148 part 3 and Q0152). Placeholder.
     separation_strength: Some(1.0 / 3.0),
     transit: Transit::Air, // "Tier 3+: Air units (Hover Craft, Glider)"
+    brakes_by_drag: false,
 };

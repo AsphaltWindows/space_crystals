@@ -137,6 +137,26 @@ pub struct UnitDef {
     /// door and **rises** out of the exit door over **16 frames (1 s) each**"). 0 for every other type: an air unit
     /// with none comes out at once, and goes in once it is over the door (the plan's D46).
     pub air_door_ticks: u32,
+    /// (M6-GH1) Its ammo, for an aircraft that rearms at its Airfield (plan decision T88, `crate::aircraft`;
+    /// `factions/gdo/structures/airfield.md > Aircraft Support`: "GDO aircraft carry limited ammo and **rearm at an
+    /// Airfield**"): the Hornet's missiles. `None` for every other type, whose weapon never runs out.
+    pub ammo: Option<AmmoDef>,
+}
+
+/// (M6-GH1) An aircraft's ammo (plan decision T88, `crate::aircraft`): "Ammo per unit is on each aircraft"
+/// (`factions/gdo/structures/airfield.md > Aircraft Support`), and "**Rearm time is per unit of ammo**, and the value
+/// differs per aircraft type" (`factions/gdo/structures/airfield.md > Returning and rearming`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AmmoDef {
+    /// The rounds it carries, full, as it comes into the game: each shot spends one as it is fired or launched, and at
+    /// none it can't attack until it rearms. The Hornet's "Ammo: **5 missiles**, then it must reload at its assigned
+    /// Airfield" (`factions/gdo/units/hornet.md > AttackAttributes`).
+    pub max: u32,
+    /// RearmTimePerAmmo, frames: "Rearming an aircraft takes RearmTimePerAmmo × missing ammo"
+    /// (`factions/gdo/structures/airfield.md > Returning and rearming`). The Hornet's
+    /// "**RearmTimePerAmmo 32 frames** (5 missiles in 10 s)" (`factions/gdo/units/hornet.md > Placeholder stats`).
+    /// Slice M6-GH2 rearms; nothing reads it before.
+    pub rearm_ticks_per_ammo: u32,
 }
 
 /// (M6-GD) A unit's stock (plan decision T89, `crate::stock`): items it carries, buys one at a time and spends one at a

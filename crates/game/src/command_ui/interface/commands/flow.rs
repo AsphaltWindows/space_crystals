@@ -16,7 +16,7 @@ impl PanelCommand {
     /// Disciple's Shroud, (M5-N11) a Prayer-mobile's casts, round it and ahead of it
     /// (`factions/cults/units/prayer_mobile.md > Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target)",
     /// "**Suppress** (hotkey **F**, instant, no target)"), (M6-GD) a Drone Operator's Launch Drone, over itself, and
-    /// Build Drone, Raise and Lower Shield, Convert, a producer's Train and
+    /// Build Drone, (M6-GH1) an aircraft's Return to Base, Raise and Lower Shield, Convert, a producer's Train and
     /// Cancel Production, a constructor's
     /// Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the
     /// EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct
@@ -73,7 +73,8 @@ impl PanelCommand {
             | PanelCommand::ReleaseOne(_)
             | PanelCommand::Shroud
             | PanelCommand::Launch
-            | PanelCommand::Buy(_) => false,
+            | PanelCommand::Buy(_)
+            | PanelCommand::ReturnToBase => false,
         }
     }
 
@@ -167,7 +168,8 @@ impl PanelCommand {
     /// decision T76: "Shift+R after a Move queues a lock"). (M6-GD) So is a Drone Operator's Launch Drone, an order
     /// (`sc_sim::OrderKind::Launch`, plan decision T91: "untargeted and queueable"): Shift+R after a Move launches where
     /// the walk ends. Its Build Drone is an ability (`sc_sim::Ability::Buy`), which keeps the orders as a Riot Shield
-    /// does: Shift changes nothing.
+    /// does: Shift changes nothing. (M6-GH1) An aircraft's Return to Base is an order too (`sc_sim::OrderKind::ReturnToBase`),
+    /// which Shift queues.
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -184,7 +186,8 @@ impl PanelCommand {
             | PanelCommand::Repair
             | PanelCommand::Shroud
             | PanelCommand::TargetLock
-            | PanelCommand::Launch => true,
+            | PanelCommand::Launch
+            | PanelCommand::ReturnToBase => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)

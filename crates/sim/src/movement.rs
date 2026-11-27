@@ -249,10 +249,14 @@ pub(crate) fn step(
         let mut turned = 0.0;
         // (M3-G) A unit with momentum brakes it off before anything else (`drag`), and its drag is doubled on
         // Rugged terrain: the tile under its centre (`systems/units.md > Which tile counts`).
-        let rugged = matches!(*movement, MovementAttrs::Drag { .. })
-            && map
-                .tile_preset(TilePos::containing(o.pos))
-                .is_some_and(|preset| preset.rugged);
+        // (M6-GH1) An air HoverCraft brakes by its drag alone (`UnitBaseDef::brakes_by_drag`, `drag`).
+        let terms = drag::Terms {
+            rugged: matches!(*movement, MovementAttrs::Drag { .. })
+                && map
+                    .tile_preset(TilePos::containing(o.pos))
+                    .is_some_and(|preset| preset.rugged),
+            drag_only: base.brakes_by_drag,
+        };
         let coasting = mover.momentum != Vec2::ZERO;
         let failed = if let Some(glider) = Glider::of(movement) {
             // (M5-H1) A Glider never stands, waits nor yields: it flies, whatever its attack does (`glider`).
@@ -270,7 +274,7 @@ pub(crate) fn step(
             // A unit in an attack sequence is busy: it doesn't yield (design change 0023).
             mover.sidestep = None;
             wait(mover, tick);
-            if let Some(model) = Model::of(movement, mover, rugged) {
+            if let Some(model) = Model::of(movement, mover, terms) {
                 model.coast(&mut o.pos, o.facing, mover, &mut world, &mut scratch.touched);
             }
             false
@@ -283,7 +287,7 @@ pub(crate) fn step(
                 &mut turned,
                 mover,
                 movement,
-                rugged,
+                terms,
                 &portal,
                 &mut world,
                 &mut scratch.touched,
@@ -351,7 +355,7 @@ pub(crate) fn step(
                 &mut turned,
                 mover,
                 movement,
-                rugged,
+                terms,
                 &mut world,
                 &mut scratch.touched,
                 &mut scratch.requests,
@@ -489,7 +493,7 @@ fn turn_in_place(
     let (start, from) = (*facing, *pos);
     let dir = toward - from;
     if dir != Vec2::ZERO {
-        let blocker = match Model::of(movement, mover, false) {
+        let blocker = match Model::of(movement, mover, drag::Terms::default()) {
             Some(Model::Tracked(tracked)) => {
                 let (at, blocker) = tracked.spin(from, facing, dir, world, touched);
                 *pos = at;

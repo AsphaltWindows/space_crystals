@@ -214,3 +214,62 @@ fn a_number_that_isnt_finite_is_named() {
         Some(("tuning", "elevation_modifier"))
     );
 }
+
+/// (M6-GH1) The Hornet's ammo and the Airfield's assignments (`crate::aircraft`): their numbers apply live (the
+/// rounds, the rearm frames and the capacity); having them, the Airfield's pads (`ExitRule::Pad`) and the HoverCraft's
+/// braking by drag alone (`UnitBaseDef::brakes_by_drag`) are structure.
+#[test]
+fn ammo_and_an_airfield_are_structure_and_their_numbers_live() {
+    use crate::defs::{AirfieldDef, AmmoDef, ExitRule, StructureDef};
+    use crate::sides::SideLetter;
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    let change = |entry, field| Some(RuleField { entry, field });
+    fn hornet(rules: &mut Ruleset) -> &mut UnitDef {
+        rules.defs.get_mut(ObjectKind::Hornet).unit.as_mut().unwrap()
+    }
+    fn airfield(rules: &mut Ruleset) -> &mut StructureDef {
+        rules.defs.get_mut(ObjectKind::Airfield).structure.as_mut().unwrap()
+    }
+    assert_eq!(
+        changed(&|r| {
+            let ammo = hornet(r).ammo.as_mut().unwrap();
+            (ammo.max, ammo.rearm_ticks_per_ammo) = (3, 20);
+        }),
+        None
+    );
+    assert_eq!(changed(&|r| airfield(r).airfield.as_mut().unwrap().capacity = 6), None);
+    assert_eq!(changed(&|r| hornet(r).ammo = None), change("Hornet", "ammo"));
+    let ammo = AmmoDef {
+        max: 5,
+        rearm_ticks_per_ammo: 32,
+    };
+    assert_eq!(changed(&|r| unit(r).ammo = Some(ammo)), change("Peacekeeper", "ammo"));
+    assert_eq!(
+        changed(&|r| airfield(r).airfield = None),
+        change("Airfield", "airfield")
+    );
+    let room = AirfieldDef { capacity: 4 };
+    assert_eq!(
+        changed(&|r| r
+            .defs
+            .get_mut(ObjectKind::Barracks)
+            .structure
+            .as_mut()
+            .unwrap()
+            .airfield = Some(room)),
+        change("Barracks", "airfield")
+    );
+    assert_eq!(
+        changed(&|r| airfield(r).production.as_mut().unwrap().exits = ExitRule::Side(SideLetter::B)),
+        change("Airfield", "exits")
+    );
+    assert_eq!(
+        changed(&|r| r.bases.get_mut(UnitBase::HoverCraft).brakes_by_drag = false),
+        change("HoverCraft", "brakes_by_drag")
+    );
+}

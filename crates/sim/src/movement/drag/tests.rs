@@ -273,3 +273,161 @@ fn degenerate_numbers_give_finite_speeds() {
     assert_eq!(approach_speed(10.0, 0.0, 0.2, 0.8), 0.8);
     assert_eq!(approach_speed(0.0, 0.9, 0.2, 8.0), 0.0);
 }
+
+/// (M6-GH1) `factions/gdo/units/hornet.md > Placeholder stats`: "ForwardAcceleration 0.8; OmniDirectionalAcceleration
+/// 0.1; DragRatio 0.1 (top speed 9 su/frame); TurnRate 8°/frame", an air HoverCraft's (design change 0420).
+const HORNET: MovementAttrs = MovementAttrs::Drag {
+    forward_acceleration: 0.8,
+    omni_directional_acceleration: 0.1,
+    drag_ratio: 0.1,
+    turn_rate: 8.0 * crate::math::PI / 180.0,
+};
+
+/// The Hornet's model, braking by drag alone if `drag_only`, as its base does, or with its thrust.
+fn hornet(drag_only: bool) -> Drag {
+    Drag::of(&HORNET, 1.0, false)
+        .expect("a DragMovement unit")
+        .braking_by_drag(drag_only)
+}
+
+/// A unit's drift without a goal from `speed` east, facing east ([`Drag::coast`] on open ground): the distance it
+/// covers to rest and the ticks it moves.
+fn drift(model: &Drag, speed: f32) -> (f32, u32) {
+    use crate::ids::ObjectId;
+    use crate::movement::MoveCounters;
+    use crate::movement::space::Body;
+    let start = Vec2::new(1000.0, 1000.0);
+    let bodies = [Body {
+        id: ObjectId(1),
+        owner: None,
+        pos: start,
+        half: Vec2::splat(24.0),
+        oriented: None,
+        velocity: Vec2::ZERO,
+        heading: Vec2::X,
+        stationary: false,
+        progress: None,
+        arrived_with: None,
+        yields: false,
+        gathers: false,
+        leads: true,
+        moved: 0,
+        crushes: false,
+        crushable: false,
+    }];
+    let mut counters = MoveCounters::default();
+    let mut world = World {
+        grid: None,
+        layer: None,
+        bodies: &bodies,
+        me: 0,
+        contact: crate::defs::ContactStep::Sideways,
+        door: None,
+        lanes: &mut Vec::new(),
+        counters: &mut counters,
+        mine: bodies[0],
+    };
+    let mut mover = Mover {
+        momentum: Vec2::new(speed, 0.0),
+        ..Mover::default()
+    };
+    let (mut pos, mut ticks) = (start, 0);
+    loop {
+        model.coast(&mut pos, 0.0, &mut mover, &mut world, &mut Vec::new());
+        if mover.velocity == Vec2::ZERO {
+            return (pos.x - start.x, ticks);
+        }
+        assert_eq!(pos.y, start.y, "straight on");
+        ticks += 1;
+        assert!(ticks < 1000, "it comes to rest");
+    }
+}
+
+/// (M6-GH1) The numbers here are the Hornet's own, and its base, the HoverCraft, brakes by drag alone, where the
+/// HoverVehicle, the ground hover units' base, brakes with its thrust (`UnitBaseDef::brakes_by_drag`).
+#[test]
+fn these_are_the_hornet_s_numbers_and_its_base_brakes_by_drag() {
+    let unit = ObjectKind::Hornet.def().unit.as_ref().expect("a unit");
+    assert_eq!(unit.movement, HORNET);
+    assert!(unit.base_def().brakes_by_drag);
+    let drone = ObjectKind::Drone.def().unit.as_ref().expect("a unit");
+    assert!(
+        !drone.base_def().brakes_by_drag,
+        "a ground hover unit brakes with its thrust"
+    );
+    assert!((hornet(true).top - 9.0).abs() < 1e-4);
+}
+
+/// (M6-GH1) `systems/units.md > DragMovement`: "Air units [...] relying on drag alone to stop". From top speed a
+/// Hornet without a goal drifts to rest by its drag alone, `v ← 0.9 v`, about as far as its DragRatio gives (`v ×
+/// keep / (1 − keep)`, 81 su): 80 su in 42 ticks, until a tick's thrust holds it still. Braking with its thrust, as a
+/// ground hover unit does (`v ← 0.9 v − 0.1`), it would stop within 60 su in 21 ticks; and the Drone still does,
+/// within 26 su in 9 ticks.
+#[test]
+fn an_air_hovercraft_drifts_to_rest_by_drag_alone() {
+    let model = hornet(true);
+    let (dist, ticks) = drift(&model, 9.0);
+    let by_drag = 9.0 * model.keep / (1.0 - model.keep);
+    assert!(
+        (79.0..=81.0).contains(&dist) && dist <= by_drag,
+        "{dist} su in {ticks} ticks"
+    );
+    assert_eq!(ticks, 42, "{dist} su");
+    let (thrust_dist, thrust_ticks) = drift(&hornet(false), 9.0);
+    assert!(
+        (59.0..=60.0).contains(&thrust_dist) && thrust_ticks == 21,
+        "{thrust_dist} su in {thrust_ticks} ticks"
+    );
+    let (drone_dist, drone_ticks) = drift(&drone(false), 8.0);
+    assert!(
+        drone_dist <= 26.0 && drone_ticks <= 9,
+        "{drone_dist} su in {drone_ticks} ticks"
+    );
+}
+
+/// (M6-GH1) Its approach plans the same braking: no thrust against its motion, then the tick that holds it still. It
+/// begins to slow about 89 su before its goal, where braking with its thrust would begin some 68 su before; following
+/// the plan down from top speed, every tick's wish is what its drag keeps of its speed, or more, and it lands exactly
+/// on the goal at a speed one tick's thrust holds still. A goal nearer than that is overrun from top speed, but not
+/// from rest.
+#[test]
+fn braking_by_drag_alone_plans_no_thrust_against_the_motion() {
+    let model = hornet(true);
+    let at = brakes_at(&model);
+    assert!((88.0..=90.0).contains(&at), "{at}");
+    let by_thrust = brakes_at(&hornet(false));
+    assert!((66.0..=70.0).contains(&by_thrust), "{by_thrust}");
+    for goal in [3.0_f32, 30.0, 89.9, 120.0, 400.0] {
+        let mut v = if goal > at { model.top } else { 0.0 };
+        let (mut pos, mut ticks) = (0.0_f32, 0);
+        while pos != goal {
+            let want = model.approach(goal - pos);
+            assert!(want <= model.top && pos < goal, "goal {goal}: at {pos} with {v}");
+            if v > 0.0 {
+                assert!(
+                    want >= v * model.keep - 1e-3,
+                    "goal {goal} at {pos}: {v} to {want}, braking by thrust"
+                );
+            }
+            let (thrust, reached) = model.thrust(Vec2::new(want - v * model.keep, 0.0), Vec2::X);
+            v = if reached { want } else { v * model.keep + thrust.x };
+            pos = if reached && want == goal - pos { goal } else { pos + v };
+            ticks += 1;
+            assert!(ticks < 200, "goal {goal}: at {pos} with {v}");
+        }
+        assert!(
+            v <= model.omni / model.keep + 1e-5,
+            "goal {goal}: one tick's thrust holds it still at {v}"
+        );
+    }
+    // The plan of the thrust braking, with no braking thrust: its last step, and the drag alone.
+    let hold = model.omni * PLANNED_BRAKE;
+    assert_eq!(
+        model.approach(200.0),
+        braking_approach(200.0, model.keep, 0.0, hold, model.top)
+    );
+    assert_eq!(
+        approach_speed(50.0, 0.9, 0.1, 9.0),
+        braking_approach(50.0, 0.9, 0.1, 0.1, 9.0)
+    );
+}

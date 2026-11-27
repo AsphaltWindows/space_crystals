@@ -261,6 +261,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | A | Attack | Attack | click a target; Shift queues |
 | S | Patrol | Patrol | click a target; Shift queues |
 | D | AtkGnd | Attack Ground | click a target; Shift queues |
+| F | Base | Return to Base | Shift queues |
 | X | Stop | Stop | Shift queues |
 
 #### Dragonfly (DY)
@@ -367,6 +368,17 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 
 **Right-click** sets its rally point, on the ground or on an object; on the building itself, it clears it.
 
+#### Airfield (AD)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | HT | Train Hornet |  |
+| W | DY | Train Dragonfly | greyed: "Not available yet" |
+| X | Cancel | Cancel Production |  |
+| C | Rally | Set Rally Point | click a target |
+
+**Right-click** sets its rally point, on the ground or on an object; on the building itself, it clears it.
+
 #### Radar Station (RS)
 
 | Keys | Button | Command | Notes |
@@ -383,7 +395,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 
 **Once the building is ready:** Q Place the building, X Cancel Ready Turret.
 
-No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL), Airfield (AD), Advanced Mechanics (AM), Propulsion Labs (PL), Industrial Powerplant (IP), Missile Turret (MTT), Outpost (OT), Bunker (BKR), First Aid Tent (FAT), Supply Tower (SPT), Mine (ME).
+No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL), Advanced Mechanics (AM), Propulsion Labs (PL), Industrial Powerplant (IP), Missile Turret (MTT), Outpost (OT), Bunker (BKR), First Aid Tent (FAT), Supply Tower (SPT), Mine (ME).
 
 ## Syndicate
 

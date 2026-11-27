@@ -66,6 +66,7 @@ impl UnitDef {
         stock: None,
         tether: None,
         air_door_ticks: 0,
+        ammo: None,
     };
 }
 
@@ -96,5 +97,6 @@ impl StructureDef {
         occupants_fire: None,
         research: None,
         abilities: None,
+        airfield: None,
     };
 }

@@ -50,6 +50,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
         tether: None,
         drone: None,
         cooldown: None,
+        aircraft: None,
     }
 }
 

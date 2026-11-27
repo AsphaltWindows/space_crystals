@@ -120,6 +120,21 @@ pub struct StructureDef {
     /// `Command::Cast`: the Shrine's two, in the order of its keys. `None` for every other structure. Optional in files.
     #[serde(default, deserialize_with = "crate::defs::leak::option_slice")]
     pub abilities: Option<&'static [AreaAbility]>,
+    /// (M6-GH1) The aircraft it supports, for an Airfield (plan decision T88, `crate::aircraft`;
+    /// `factions/gdo/structures/airfield.md > Aircraft Support`: "provides a landing/reloading zone" for the aircraft
+    /// assigned to it). `None` for every other structure.
+    pub airfield: Option<AirfieldDef>,
+}
+
+/// (M6-GH1) An Airfield's support of its aircraft (`StructureDef::airfield`, plan decision T88, `crate::aircraft`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AirfieldDef {
+    /// The most aircraft assigned to it, those in its production queue counting
+    /// (`factions/gdo/structures/airfield.md > Aircraft Support`: "**Capacity: each Airfield supports at most 4
+    /// aircraft.**"; `> Assignment`: "An Airfield holds at most **4 assignments**"; `> Production limit`: "An
+    /// Airfield **can't queue another aircraft** if its assignments plus the aircraft already in its production queue
+    /// would exceed 4").
+    pub capacity: u32,
 }
 
 /// A structure type that holds units inside (`StructureDef::holds`, plan decision T60; `crate::holding`): one

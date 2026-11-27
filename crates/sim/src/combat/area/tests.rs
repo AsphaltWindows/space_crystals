@@ -68,6 +68,7 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         tether: None,
         drone: None,
         cooldown: None,
+        aircraft: None,
     }
 }
 

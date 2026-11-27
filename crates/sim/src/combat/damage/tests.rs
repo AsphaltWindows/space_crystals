@@ -134,6 +134,7 @@ fn target(kind: crate::defs::ObjectKind, shields: f32) -> Object {
         tether: None,
         drone: None,
         cooldown: None,
+        aircraft: None,
     }
 }
 

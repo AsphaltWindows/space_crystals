@@ -61,14 +61,18 @@ impl PointerDisplay {
     /// "will issue AttackMove"); GatherResources for a Gather ("Cursor over resource (resource gatherer selected)"),
     /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"), Enter for
     /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"), Assist for an Assist and Repair for a
-    /// Repair (design change 0322). No click gives Hold, Stop, (M5-N4b) a Shroud or (M6-GD) a Launch.
+    /// Repair (design change 0322). (M6-GH1) An aircraft's right-click on an own Airfield, a Rebase onto another or a
+    /// Return to Base onto its own (`factions/gdo/structures/airfield.md > Assignment`: "right-click the other
+    /// Airfield"), shows Enter: **Placeholder (not in the design: `systems/controls/hud.md > Types` has no row for it;
+    /// the aircraft flies there to land, as a unit goes into what it enters)**. No click gives Hold, Stop, (M5-N4b) a
+    /// Shroud or (M6-GD) a Launch.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
             // No click gives a Deploy (slice M3-J1 places it), nor a Build.
             OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => PointerDisplay::Move,
             // (M5-V2) `systems/controls/hud.md`: "AwaitingTarget[Reverse] over ground: **Move**".
             OrderKind::Reverse(_) => PointerDisplay::Move,
-            OrderKind::Enter(_) => PointerDisplay::Enter,
+            OrderKind::Enter(_) | OrderKind::Rebase(_) | OrderKind::ReturnToBase => PointerDisplay::Enter,
             OrderKind::Assist(_) => PointerDisplay::Assist,
             OrderKind::Repair(_) => PointerDisplay::Repair,
             OrderKind::Gather(_) => PointerDisplay::GatherResources,

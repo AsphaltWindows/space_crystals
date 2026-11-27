@@ -1,10 +1,12 @@
 //! The Airfield — `factions/gdo/structures/airfield.md` (design change 0366, slice M6-GK): "GDO aircraft production
 //! structure. Constructs aircraft and provides a landing/reloading zone for them." Its numbers are the design's
-//! "Placeholder stats" (plan decision T84). No player constructs one, and it produces nothing, until slice M6-GH1: its
-//! production, its Aircraft Support (`> Aircraft Support`: assignment, landing slots, rearming) and its Deployment
-//! Center entry ([`RECIPE`], held) are that slice's.
+//! "Placeholder stats" (plan decision T84). Since slice M6-GH1 it trains the Hornet (`> Produces (so far)`), whose
+//! aircraft appear over it (`ExitRule::Pad`), and supports at most 4 aircraft (`> Aircraft Support`, `AirfieldDef`;
+//! `crate::aircraft`). Its landing slots and rearming are slice M6-GH2's, and so is its Deployment Center entry
+//! ([`RECIPE`], held until then): until it, only a debug spawn places one.
 
-use crate::defs::structures::{Recipe, StructureDef, SymmetryType};
+use crate::defs::gdo::units::hornet;
+use crate::defs::structures::{AirfieldDef, ExitRule, ProductionDef, Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
@@ -31,6 +33,17 @@ pub(crate) const AIRFIELD: ObjectDef = ObjectDef {
         power: -30,                   // Power -30
         // TechPrerequisite - player owns at least one Advanced Mechanics, wherever it is constructed (`crate::tech`).
         requires: &[ObjectKind::AdvancedMechanics],
+        // (M6-GH1) `> Produces (so far)`: the Hornet. The Dragonfly ("Requires: player owns at least one Propulsion
+        // Labs") is slice M6-GL's, held till then (`crate::defs::PLANNED_RECIPES`).
+        production: Some(ProductionDef {
+            exits: ExitRule::Pad,
+            recipes: &[hornet::RECIPE],
+            recruitment: None,
+            augment: &[],
+            default_rally: None,
+        }),
+        // (M6-GH1) "**Capacity: each Airfield supports at most 4 aircraft.**"
+        airfield: Some(AirfieldDef { capacity: 4 }),
         ..StructureDef::NONE
     }),
     ..ObjectDef::NONE
@@ -38,7 +51,7 @@ pub(crate) const AIRFIELD: ObjectDef = ObjectDef {
 
 /// `factions/gdo/structures/deployment_center.md > Constructs`: "Airfield: 250 Space Crystals, 480 frames (30 seconds)
 /// (placeholder). Requires: player owns at least one Advanced Mechanics" (its own TechPrerequisite). Held until slice
-/// M6-GH1 (`crate::defs::PLANNED_RECIPES`).
+/// M6-GH2, which lands its aircraft (`crate::defs::PLANNED_RECIPES`).
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::Airfield,
     cost: 250,
@@ -51,8 +64,9 @@ pub(crate) const RECIPE: Recipe = Recipe {
 mod tests {
     use super::*;
 
-    /// The placeholder stat block, and its TechPrerequisite: Advanced Mechanics. It produces and constructs nothing
-    /// yet; its Deployment Center entry, 250 Space Crystals and 480 frames, is held.
+    /// The placeholder stat block, and its TechPrerequisite: Advanced Mechanics. (M6-GH1) It trains the Hornet, whose
+    /// aircraft appear over its pads, and supports at most 4 aircraft; it holds and constructs nothing. Its Deployment
+    /// Center entry, 250 Space Crystals and 480 frames, is held.
     #[test]
     fn the_airfield_follows_the_design() {
         let structure = super::super::assert_stat_block(
@@ -67,7 +81,11 @@ mod tests {
             -30,
         );
         assert_eq!(structure.requires, [ObjectKind::AdvancedMechanics]);
-        assert!(structure.production.is_none() && structure.holds.is_none());
+        let production = structure.production.expect("it trains aircraft");
+        assert_eq!(production.exits, ExitRule::Pad);
+        assert_eq!(production.recipes, [hornet::RECIPE]);
+        assert_eq!(structure.airfield, Some(AirfieldDef { capacity: 4 }));
+        assert!(structure.holds.is_none() && structure.constructs.is_empty());
         assert_eq!(RECIPE, super::super::held(ObjectKind::Airfield, 250, 480));
     }
 }

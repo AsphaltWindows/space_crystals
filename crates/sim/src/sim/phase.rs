@@ -199,6 +199,7 @@ impl Sim {
         // A unit turns at most its TurnRate per tick in all: the aim has what 5d's turn left (`movement::Turns`).
         observe(Phase::Combat);
         let turns = self.nav.turns();
+        let mut emptied = Vec::new();
         let dead = combat::step(
             &mut self.objects,
             &mut self.held,
@@ -211,12 +212,18 @@ impl Sim {
             self.auto_targeting,
             Research::new(&self.players),
             &mut self.clouds,
+            &mut emptied,
             &mut self.events,
         );
         observe(Phase::Deaths);
         if !dead.is_empty() {
             self.remove_objects(&dead);
             paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
+        }
+        // (M6-GH1) The aircraft whose last round went in 5e fly home by themselves (`sim/aircraft.rs`): after the
+        // removal of the dead, which unassigns an Airfield's aircraft as it falls.
+        if !emptied.is_empty() {
+            self.send_home(&emptied);
         }
         // The pop-up turrets (slices M4-S2 and M5-Y, `sim/popups.rs`): after 5e, where each picked its target, and its
         // removals, so that a turret whose Tunnel is lost in this tick is down at its end; after 5d, so that the

@@ -216,10 +216,11 @@ pub(crate) fn weapon_of(form: ObjectKind) -> Option<&'static AttackAttrs> {
 /// that attacks, a structure that attacks once complete (`Object::is_operational`: a site does nothing but cancel). What
 /// the auto-targeting scans rank first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`:
 /// "threatening targets first"): the behaviours' (`orders::world`), and a structure's own pick ([`structures`]), whose
-/// snapshots add (M5-S2b) what a building's units inside threaten ([`Threats`], design change 0377).
+/// snapshots add (M5-S2b) what a building's units inside threaten ([`Threats`], design change 0377). (M6-GH1) Not an
+/// aircraft out of ammo (`crate::aircraft::armed`), which attacks nothing.
 pub(crate) fn threat(o: &Object) -> Option<TargetDomain> {
     weapon_in_hand(o)
-        .filter(|_| o.attack.is_some() && o.is_operational())
+        .filter(|_| o.attack.is_some() && o.is_operational() && crate::aircraft::armed(o))
         .map(|attack| attack.target_domain)
 }
 

@@ -225,6 +225,7 @@ mod tests {
             tether: None,
             drone: None,
             cooldown: None,
+            aircraft: None,
         }
     }
 

@@ -31,7 +31,8 @@ impl Sim {
     /// destruction), which opens its tile (design change 0038); a patch with crystals left stays, uncovered. A plate
     /// whose patch is removed from under it (a debug command) mines nothing from then on. (M6-GD) An operator takes its
     /// drone along, which falls without exploding (`factions/gdo/units/drone_operator.md > Drone limits — how a drone
-    /// ends`: "Its **operator dies**"; `Sim::drones_of`), and an operator whose drone goes is free.
+    /// ends`: "Its **operator dies**"; `Sim::drones_of`), and an operator whose drone goes is free. (M6-GH1) An
+    /// Airfield's aircraft are unassigned as it goes (`crate::aircraft`).
     ///
     /// A producer's whole queue is refunded as if cancelled, a finished unit waiting inside for the doorway included
     /// (design changes 0084 and 0085, `Sim::refund_production`); of the army cap it frees what its unit in production
@@ -197,6 +198,15 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
     // (`Sim::drones_of`); one whose operator has left the map some other way falls in the tether's next step.
     if o.drone.is_some_and(is_gone) {
         o.drone = None;
+    }
+    // (M6-GH1) An aircraft whose Airfield has gone is unassigned (`crate::aircraft`; `factions/gdo/structures/airfield.md
+    // > Assignment`: "**Airfield destroyed**: its aircraft become **unassigned** [...] **There is no automatic
+    // reassignment**, even if another Airfield has room"). A Rebase to it ends with it, and a Return to Base where the
+    // unit is, in its next tick (`orders::air_base`).
+    if let Some(aircraft) = &mut o.aircraft
+        && aircraft.base.is_some_and(is_gone)
+    {
+        aircraft.base = None;
     }
     if o.extractor.is_some_and(|extractor| is_gone(extractor.patch)) {
         o.extractor = None;

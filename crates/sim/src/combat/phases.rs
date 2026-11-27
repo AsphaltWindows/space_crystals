@@ -79,6 +79,9 @@ pub(super) struct Volley {
     /// (M6-GD) The units whose attack was their end ([`Shooter::spent_by_attack`]): the drones that exploded, which
     /// leave with the tick's dead (`super::step`).
     pub spent: Vec<ObjectId>,
+    /// (M6-GH1) The aircraft that fired a round of their ammo ([`Shooter::spends_rounds`]), once per shot, in the order
+    /// they fired: `super::step` spends them (`crate::aircraft::spend`).
+    pub rounds: Vec<ObjectId>,
 }
 
 impl Volley {
@@ -90,6 +93,7 @@ impl Volley {
             origins: Origins::new(origins),
             launched: Vec::new(),
             spent: Vec::new(),
+            rounds: Vec::new(),
         }
     }
 }
@@ -123,6 +127,9 @@ pub(super) struct Shooter<'a> {
     /// (M6-GD) Its attack is its end, "a melee-range attack that it can use only once" (`UnitDef::tether`: the
     /// operator's drone, `crate::tether`): the end of its Firing spends it ([`Volley::spent`]).
     spent_by_attack: bool,
+    /// (M6-GH1) Each shot it fires or launches spends a round of its ammo ([`Volley::rounds`]): an aircraft that rearms
+    /// at an Airfield (`Object::aircraft`, `crate::aircraft`).
+    spends_rounds: bool,
     /// (M6-GR) Its share of each tick, in `RATIO_ONE`s (`super::power`): a whole one but for a consumer's weapon at low
     /// Power.
     pub(super) speed: u32,
@@ -157,6 +164,7 @@ impl<'a> Shooter<'a> {
             inside: false,
             holds_fire: suppress::holds_fire(o),
             spent_by_attack: unit.is_some_and(|unit| unit.tether.is_some()),
+            spends_rounds: o.aircraft.is_some(),
             speed: RATIO_ONE,
         }
     }
@@ -186,7 +194,15 @@ impl<'a> Shooter<'a> {
             inside: true,
             holds_fire: false,
             spent_by_attack: false,
+            spends_rounds: false,
             speed: RATIO_ONE,
+        }
+    }
+
+    /// (M6-GH1) The shot it fired or launched spends a round of its ammo, if it has ammo ([`Shooter::spends_rounds`]).
+    fn spend_round(&self, volley: &mut Volley) {
+        if self.spends_rounds {
+            volley.rounds.push(self.id);
         }
     }
 
@@ -495,6 +511,8 @@ fn end(
                     volley.origins.mark(volley.hits.len(), shooter.muzzle(t.pos));
                     fire(shooter, t, &mut volley.hits, events);
                 }
+                // (M6-GH1) A round of its ammo, fired.
+                shooter.spend_round(volley);
             }
             // (M6-GD) "using its attack destroys it".
             if shooter.spent_by_attack {
@@ -513,6 +531,8 @@ fn end(
                     launch(shooter, at, aimed, volley, events)
                 }
             }
+            // (M6-GH1) A round of its ammo, launched at the locked location (the Hornet's missile).
+            shooter.spend_round(volley);
             Some(AttackPhase::Cooldown)
         }
         AttackPhase::Cooldown => Some(AttackPhase::Reloading),

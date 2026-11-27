@@ -135,7 +135,7 @@ fn the_gdo_kinds_are_every_designed_one() {
 /// the slices landed: (M6-GD) the Barracks' Drone Operator, and its drone, which the operator's stock launches
 /// (`UnitDef::stock`); (M6-GR) the Deployment Center's Radar Station and Defense System, and the Defense System's
 /// Missile Turret; (M6-GF) the Deployment Center's Factory, Advanced Mechanics and Industrial Powerplant, and the
-/// Factory's Raptor and Twister.
+/// Factory's Raptor and Twister; (M6-GH1) the Airfield's Hornet, the Airfield itself staying held until slice M6-GH2.
 const LIVE: &[(ObjectKind, ObjectKind)] = &[
     (ObjectKind::Barracks, ObjectKind::DroneOperator),
     (ObjectKind::DroneOperator, ObjectKind::OperatorDrone),
@@ -147,6 +147,7 @@ const LIVE: &[(ObjectKind, ObjectKind)] = &[
     (ObjectKind::DeploymentCenter, ObjectKind::IndustrialPowerplant),
     (ObjectKind::Factory, ObjectKind::Raptor),
     (ObjectKind::Factory, ObjectKind::Twister),
+    (ObjectKind::Airfield, ObjectKind::Hornet),
 ];
 
 /// The kinds that some live list makes, each with the kind whose list it is: a constructor's `Constructs` list
