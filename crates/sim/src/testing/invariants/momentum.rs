@@ -1,8 +1,9 @@
-//! (M3-G, M5-V2, M5-V3) The movement models with momentum (`movement::model`): DragMovement, FixedTurnRadiusMovement
-//! and SpeedTurnRadiusMovement carry a unit's velocity from tick to tick (`Mover::momentum`), and a unit of them without
-//! a goal brakes off what it has left, moving meanwhile (`Locomotion::Stopping`; `docs/movement.md > 6.7`, `> 6.11`,
-//! `> 6.12`). What I3, I5 and I7 allow it, (M5-V2) the wheeled invariant W1, that a FixedTurnRadiusMovement unit turns
-//! by its speed alone, and (M5-V3) the tracked invariant S1, that a SpeedTurnRadiusMovement unit turns by the tread law.
+//! (M3-G, M5-V2, M5-V3) The movement models with momentum (`movement::model`): DragMovement,
+//! FixedTurnRadiusMovement and SpeedTurnRadiusMovement carry a unit's velocity from tick to tick (`Mover::momentum`),
+//! and a unit of them without a goal brakes off what it has left, moving meanwhile (`Locomotion::Stopping`;
+//! `docs/movement.md > 6.7`, `> 6.11`, `> 6.12`). What I3, I5 and I7 allow it, (M5-V2) the wheeled invariant W1, that
+//! a FixedTurnRadiusMovement unit turns by its speed alone, and (M5-V3) the tracked invariant S1, that a
+//! SpeedTurnRadiusMovement unit turns by the tread law.
 
 use glam::Vec2;
 

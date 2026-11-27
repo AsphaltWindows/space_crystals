@@ -107,7 +107,8 @@ pub(super) fn step_unit_on(
 ///   on while its waypoint lies inside its turning circle: the forward loop (`Wheeled::steer`, design change 0353).
 ///   (M5-V3) A SpeedTurnRadiusMovement unit turns by the tread law as it drives (`super::tracked`), slowing for each
 ///   turn to the speed of its corner choice, and for the turn at its steering waypoint in time (`Tracked::ahead`). A
-///   unit that spins in place stands to turn, as a TurnRate unit does: its stuck clock doesn't run meanwhile.
+///   unit that spins in place stands to turn, as a TurnRate unit does, and the stuck rules see it as they see a
+///   blocked unit.
 /// - **Arrival**: when the goal is within one step and the way is free, the unit stands exactly on it and stops
 ///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots. A DragMovement
 ///   unit's step is its approach speed ([`Drag::approach`]), which brings it onto the goal at a speed it stops

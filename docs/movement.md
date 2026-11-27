@@ -92,6 +92,13 @@
   changes are marked **(M5-V2)**. The code is `crates/sim/src/movement/wheeled.rs`, `movement/model.rs`,
   `movement/collide/turn.rs` (`World::back_off`), `movement/collide/contact.rs` (`ContactStep::Graze`),
   `movement/yielding.rs`, `orders/run.rs` and `sim/gate/orders.rs` (`OrderKind::Reverse`).
+- **Tracked vehicles spin in place and slow for corners** (slice M5-V3; plan decision T85 as design change 0417
+  replaced its law, answering Q0153 parts 1 and 3; design changes 0439 and 0440, answering Q0172;
+  `systems/units.md > SpeedTurnRadiusMovement`): 6.12 is SpeedTurnRadiusMovement, the tread law, the corner choice,
+  what a tracked unit does at rest, its Reverse order and its yielding, with the invariant S1 (8). Its changes are
+  marked **(M5-V3)**. The code is `crates/sim/src/movement/tracked.rs`, `movement/tracked/corner.rs`,
+  `movement/follow.rs`, `movement/collide/contact.rs` (a turned Silhouette's contact step), `movement.rs`
+  (`turn_rate`) and `defs/units/movement_attrs.rs` (`MovementAttrs::spin_rate`, `reverse_speed`).
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -516,9 +523,11 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
        - **Straight sideways is along the blocker's face**, as every sidestep here: for a unit that meets the face
          squarely that is 90° to its heading; the quarter turn of a leaning heading leans into the blocker on one
          side and is never free there. **Its own width** is its box's extent along that face. **(V1)** At a
-         turned shape the face is the edge direction the two meet on: the glance and the lean follow it, but the
-         contact step stays along the axis nearest to it, by the extent of the unit's bounding box
-         (`StepAside` keeps an axis): the Hand of Heaven's, a TrackedVehicle's, for a later slice to turn.
+         turned shape the face is the edge direction the two meet on: the glance and the lean follow it, and
+         **(M5-V3)** so does the contact step of a turned Silhouette (the Hand of Heaven's, a TrackedVehicle's):
+         straight along the face, by the turned shape's own extent along it (`StepAside::end`), which is its width
+         where the face lies across its heading. A box's stays along the axis of the face (V1 kept every step on an
+         axis, by the extent of the unit's bounding box).
        - **Over several ticks** (`Mover::step_aside`: the axis, and the coordinate the step ends on, fixed when it
          begins; hashed and saved only while set). Each tick the unit moves its speed towards that coordinate,
          the last part exactly onto it, and nothing else: no step forward and no lane seeking, even if the way
@@ -990,8 +999,8 @@ the probe, yielding requests and the stuck clock are the shared ones.
   ReversingToLocation`): `OrderKind::Reverse(point)`, a Move to a point that backs up (`Mover::reverses`, hashed only
   while set): the leg drives tail first at ReverseMaxSpeed and ReverseAcceleration, turning by `|speed| / r` too, and
   a unit going forward brakes to rest first. The gate keeps only the units that can (`UnitDef::can_reverse`: the
-  base's CanReverse and a movement model with a reverse speed, `MovementAttrs::reverse_speed`, today
-  FixedTurnRadiusMovement alone; a TrackedVehicle can't take it until slice M5-V3 adds its arm, design change 0417)
+  base's CanReverse and a movement model with a reverse speed, `MovementAttrs::reverse_speed`: FixedTurnRadiusMovement
+  and **(M5-V3)** SpeedTurnRadiusMovement, design change 0417, 6.12)
   and refuses it if none can (`Reject::CannotReverse`). A group's Reverse takes the magic box as a Move does (6.4).
 - **Yielding** (0353 point 1): an idle vehicle doesn't yield, it stands as on Hold Position; own idle infantry yield
   to a moving vehicle as to any unit (a unit the vehicle's own move meets, where the probe's step didn't, is asked as
@@ -1005,6 +1014,93 @@ the probe, yielding requests and the stuck clock are the shared ones.
   jams the design makes, where a Seeker's turn is cut and nothing makes way: it can't turn in place, backs up only on
   a Reverse, and neither an enemy nor an idle vehicle steps aside, among scattered single tiles and 72 units on
   32 × 32 tiles.
+
+**6.12 SpeedTurnRadiusMovement. (M5-V3)** `systems/units.md > SpeedTurnRadiusMovement` ("Unit can rotate in place by
+spinning treads in opposite directions. Turn radius increases with speed ... sharp turns require significant slowing
+or a complete stop"), `systems/units.md > TrackedVehicle`; plan decision T85 as design change 0417 replaced its law;
+design changes 0035, 0323, 0439 and 0440. The code is `movement/tracked.rs` and `movement/tracked/corner.rs` (the
+model's numbers alone in `movement/tracked/tests.rs`), the game's tests `crates/sim/tests/tracked/` with the Hand of
+Heaven (64 × 40 su; MaxSpeed 5, Acceleration 0.5, Deceleration 1, TrackWidth 30, ReverseMaxSpeed 2.5), so far the
+only unit of the model. Like 6.11 it replaces only 6.3's "desired direction → velocity and facing" step; the probe,
+yielding requests and the stuck clock are the shared ones.
+- **The tread law** (0417, `systems/units.md > SpeedTurnRadiusMovement > The turning law`): stopped it spins at
+  SpinRate = 2 × MaxSpeed ÷ TrackWidth a tick (`MovementAttrs::spin_rate`; the Hand of Heaven's 1/3 radian, about
+  19°); at the speed `v` it turns at most SpinRate × (1 − |v| ÷ MaxSpeed), on the tightest radius (TrackWidth ÷ 2) ×
+  |v| ÷ (MaxSpeed − |v|): 15 su at 2.5 su a tick, 60 at 4, none at MaxSpeed. Backing up, the same law with |v|.
+  Turning costs no speed. `systems/combat.md > LocomotionOrientationConstraints[SpeedTurnRadiusMovement]` calls
+  Stationary and Stopping + Turning "unconstrained": the law at their speed limits them, as 0417's Verification has
+  it ("standing still turns 90° in about 5 frames").
+- **A signed speed**, as 6.11's (`Mover::momentum`, backwards on a Reverse leg): up by Acceleration either way, down
+  by Deceleration, capped by MaxSpeed (ReverseMaxSpeed backing up) times `speed_factor`; moving the other way it
+  brakes to rest first. It turns towards the step it heads along by the law at this tick's speed, so "it turns as
+  soon as it is below MaxSpeed, while still braking", in place at rest; it moves along its heading halfway through
+  the turn, the whole move if it is free, else per axis; a move or turn that met something leaves no momentum (0035).
+- **Numbers that follow**: from rest a right angle in its 5th tick, then 0.5, 1 … 5 su, full speed in its 10th tick;
+  a Stop at full speed brakes 4 + 3 + 2 + 1 = 10 su and is at rest in its 5th tick. Facing east and sent west, it
+  spins round where it stands, 10 ticks, and drives off; at full speed sent 90° to its side it brakes and turns at
+  once, on the law's circles, and never turns at MaxSpeed (`tests/tracked/spin.rs`, `law.rs`).
+- **The corner choice** (T85's rule with 0417: "choose the speed to take it at, from full speed down to a stop and
+  spin. Take the fastest whose arc fits the free space on the nav grid, counting the time to brake to it";
+  `movement/tracked/corner.rs`): analytic, from the law, without tables. For a turn of θ from the speed it has, each
+  of `CORNER_SPEEDS` + 1 speeds from a stop to its top speed is timed: changing to it, the arc at the law's rate,
+  getting back to the top speed, less the way made meanwhile towards where the turn leads. It takes the soonest if
+  its arc fits (the tightest at that speed, from where it starts until it heads the new way, its Silhouette tested
+  every `ARC_TEST_RAD`, 22.5°, against the blocked tiles of its nav grid; units are the collision's), else the next
+  slower one that fits, and a stop and spin if none does. It depends on the angle, the speed and the room only:
+  predictable (0223). From full speed the Hand of Heaven takes 15° at 4.5 su a tick, 45° at 3.9, a right angle at 2.8
+  (on a 19 su radius, nearly pivoting about its inner tread) and a turn about at 0.9: a gentle curve within a tenth of
+  MaxSpeed. From rest going forward every turn is a spin first, the quickest turn from rest. Backing up, its top
+  speed is ReverseMaxSpeed, half MaxSpeed, where the law still turns it at half SpinRate: from rest it backs off at
+  that speed as it turns, up to about 60°, slower up to about 105°, and spins first beyond.
+  - **The turn now**: each tick, for the turn onto the step it takes. A heading that misses the steering waypoint by
+    less than `TRACKED_MISS_SU` (1 su) is held: at full speed the law can't turn it.
+  - **The corner ahead** (`Tracked::ahead`): the turn at its steering waypoint onto the path's next leg. Within
+    braking distance it brakes to be at that corner's speed once it is within a step of the waypoint, where the
+    follower passes it; within `TRACKED_MISS_SU` of that mark it counts as there (else, braking to a spin, it closed
+    in by ever shorter moves, the last lost to rounding, and never got there).
+  - **A right-angled bend of a corridor two tiles wide** is taken at about 3 su a tick on its arc, the nearest wall
+    13.6 su off, not by a stop and spin (`tests/tracked/corners.rs`): the soonest speed's arc fits there. A stop and
+    spin is the choice only where no arc fits, or from rest. (The slice's brief expected the stop and spin in that
+    bend; the rule as given takes the arc.) Rugged terrain is impassable to it (`NavClass::Ground`): its path goes
+    round.
+- **At rest** (0035: "Blocked units don't freeze; they creep and turn out of the contact"):
+  - **A glance** off a unit, the rules' step along the face of one it met that doesn't move away, is taken as it is
+    where the unit would spin to head along it: its facing kept and no speed carried, as its contact step is. A glance
+    depends on how the Silhouette lies, and the spin would turn the Silhouette into the contact or out of it, and the
+    glance with it: the unit turned to and fro where it stood. A slide along tiles is no glance: there it heads along
+    the step it asked for (as 6.11), which its Silhouette doesn't change.
+  - **A turn cut short** is made all the same, as 6.11's, backing off by what its corners sweep (`World::back_off`),
+    but by no more than the unit moves in the tick: its speed, or at rest one tick's acceleration (0.5 su), away from
+    its way. V2's bound alone, the corners' sweep, is far more than the unit moves at the law's rates: a Hand of
+    Heaven backing up jumped 4.5 su in a tick. A spin that backing off doesn't free takes the rules' step as far as
+    its Silhouette lies free where the spin stopped; with none it stops at contact (`tests/tracked/spin.rs`: a spin a
+    wall blocks stops at contact, steps off the wall in the same tick, spins on and arrives).
+  - **A spin is no progress**: the unit stands, Turning, and its stuck clock runs and the stuck rules see it
+    (`stuck::after_move`), as they see a blocked unit: a spin cut and made again tick after tick would otherwise be
+    a unit that never got on and never gave up.
+- **The contact step** (0323) is taken as it is, sideways, its facing kept and no speed carried. A turned
+  Silhouette's goes straight along the face it met (6.3): a Hand of Heaven turned 30° steps 40 su, its width, square
+  to its heading (`tests/tracked/contact.rs`); where the face lies oblique to its heading the step is the shape's
+  longer extent along it.
+- **The Reverse order** (0417: "reverse is capped at ReverseMaxSpeed"): a TrackedVehicle takes it
+  (`UnitDef::can_reverse`), backing up at ReverseMaxSpeed and its one Acceleration, turning by the same law. A
+  group's Reverse takes the magic box as a Move does (0439): three abreast reversed to a point behind them back up
+  keeping their row; reversed to a point inside their spread they converge (`tests/tracked/group_reverse.rs`).
+- **Yielding** (0440, answering Q0172 point 1): an idle TrackedVehicle doesn't yield (`UnitBaseDef::yields`), as a
+  WheeledVehicle doesn't, nor take the idle push apart; own idle infantry still yield to it. An idle Hand of Heaven in
+  a lane stands while three of its owner's Militants go round it; an idle Drone steps aside
+  (`tests/tracked/standing.rs`). The DrillUnit has no above-ground mode yet: slice M6-ST1 gives it 0440's rule.
+- **The aim** (phase 5e, `movement::turn_rate`): a SpeedTurnRadiusMovement unit's budget is its SpinRate, and phase
+  5d notes what it turned plus the part of SpinRate its speed leaves no tread for (`tracked_turn_noted`): a stopped
+  Hand of Heaven aims by spinning its hull ("the vehicle must stop and turn its hull to face them",
+  `factions/cults/units/hand_of_heaven.md`), and a moving one is left what the law leaves it, never less than nothing.
+- **Invariant S1** (`testing/invariants/momentum.rs`): a SpeedTurnRadiusMovement unit turns in a tick by at most the
+  law's rate at the slowest speed it can have in it (8).
+- **The soak with turned shapes** (`tests/oriented/soak.rs`, seeds 1 to 8) has 24 Hands of Heaven added to its 72
+  units: 213 of the Seekers' moves arrived and 344 failed (M5-V2, without them: 157 and 295), and 168 of the Hands
+  of Heaven's arrived and 113 failed. The invariants hold and every move ends. A Hand of Heaven jams where its spin is
+  cut and backing off by one tick's acceleration doesn't free it, or where its blocker never moves; slower than a
+  Seeker (5 su a tick to its 8), fewer of its moves end before the next order replaces them.
 
 ## 7. Numbers: f32, not fixed point
 
@@ -1066,6 +1162,9 @@ the probe, yielding requests and the stuck clock are the shared ones.
   **(M5-V2)** **W1**: a FixedTurnRadiusMovement unit turns in a tick by at most `(|momentum| + a) / MinimumTurnRadius`,
   `momentum` what it carried into the tick and `a` the largest of its accelerations and Deceleration: never in place
   (`testing/invariants/momentum.rs`; 6.11). I3's bound for it is its ForwardMaxSpeed.
+  **(M5-V3)** **S1**: a SpeedTurnRadiusMovement unit turns in a tick by at most SpinRate × (1 − `v` ÷ MaxSpeed), `v`
+  the slowest speed it can have in it, `|momentum|` less the largest of its Acceleration and Deceleration, at least 0
+  (`testing/invariants/momentum.rs`; 6.12). I3's bound for it is its MaxSpeed, forward or backing up.
   **(D)** The switch (`TestSim::check_invariants`) is on by default, so every test that uses a `TestSim` runs them;
   `sc_sim::testing::invariants` has the checker for tests that step a bare `Sim`.
 - **Scenario tests** (`crates/sim/tests/movement_*.rs`, inline ASCII maps): straight move arrives exactly at

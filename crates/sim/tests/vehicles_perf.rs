@@ -12,6 +12,10 @@
 //! (`movement::collide::turn`, the separating-axis tests of `shape`). Auto-targeting is off. The run is 600 ticks,
 //! 37.5 s; every invariant is checked after each tick, outside the timing.
 //!
+//! (M5-V3) The Hands of Heaven drive by the tread law (SpeedTurnRadiusMovement) since slice M5-V3. A second run adds
+//! thirty more of them, fifteen a player, crossing the same way north of the first two groups
+//! (`perf_30_vehicles_and_30_more_tracked`).
+//!
 //! It prints, for the whole tick and for the movement phase (5d), the mean, the 99th percentile and the worst tick,
 //! flagging a worst tick over 10 ms (slice M2-J2's target for a whole tick). The assertions are on the game, never on
 //! wall time. New in M5-V1, so its figures are absolute ones: compare them by A/B runs.
@@ -34,6 +38,9 @@ const PHASES: usize = Phase::ALL.len() - 1;
 /// Where each group starts (the middle of its block) and is sent: the other's side.
 const WEST: Vec2 = Vec2::new(700.0, 1024.0);
 const EAST: Vec2 = Vec2::new(2372.0, 1024.0);
+/// (M5-V3) Where the thirty more Hands of Heaven start and are sent, a group a player: north of the others.
+const NORTH_WEST: Vec2 = Vec2::new(700.0, 400.0);
+const NORTH_EAST: Vec2 = Vec2::new(2372.0, 400.0);
 const END: Tick = 600;
 
 /// The wall-clock time of each phase of one tick of `sim` (`Sim::step_observed`), in [`Phase`]'s order. Only perf
@@ -54,9 +61,23 @@ fn timed_step(sim: &mut Sim, inputs: &TickInputs) -> [Duration; PHASES] {
     times
 }
 
+/// The groups of 15 in the order of their ids, from 1: kind, owner, where they start and where they are sent.
+fn groups(more: bool) -> Vec<(ObjectKind, PlayerId, Vec2, Vec2)> {
+    let mut groups = vec![
+        (ObjectKind::Seeker, P1, WEST, EAST),
+        (ObjectKind::HandOfHeaven, P2, EAST, WEST),
+    ];
+    if more {
+        groups.push((ObjectKind::HandOfHeaven, P1, NORTH_WEST, NORTH_EAST));
+        groups.push((ObjectKind::HandOfHeaven, P2, NORTH_EAST, NORTH_WEST));
+    }
+    groups
+}
+
 /// The game at tick 0: ids 1–15 player 1's Seekers in a block of 5 × 3 around [`WEST`], 16–30 player 2's Hands of
-/// Heaven around [`EAST`], 90 su apart.
-fn game() -> Sim {
+/// Heaven around [`EAST`], 90 su apart; with `more`, 31–45 player 1's Hands of Heaven around [`NORTH_WEST`] and 46–60
+/// player 2's around [`NORTH_EAST`].
+fn game(more: bool) -> Sim {
     let map = vec![".".repeat(48); 32].join("\n");
     let mut builder = (ScenarioBuilder::new(&map))
         .faction(P1, Faction::Cults)
@@ -66,40 +87,32 @@ fn game() -> Sim {
         let offset = Vec2::new((i % 3) as f32 - 1.0, (i / 3) as f32 - 2.0) * 90.0;
         SpawnAt::Point(centre + offset)
     };
-    for i in 0..15 {
-        builder = builder.spawn(ObjectKind::Seeker, Some(P1), block(WEST, i));
-    }
-    for i in 0..15 {
-        builder = builder.spawn(ObjectKind::HandOfHeaven, Some(P2), block(EAST, i));
+    for (kind, owner, from, _) in groups(more) {
+        for i in 0..15 {
+            builder = builder.spawn(kind, Some(owner), block(from, i));
+        }
     }
     Sim::new(&builder.build())
 }
 
 /// The orders of tick 1: auto-targeting off, each group to the other's side.
-fn orders() -> Vec<PlayerCommand> {
-    let group = |from: u32| (from..from + 15).map(ObjectId).collect::<Vec<_>>();
-    vec![
-        PlayerCommand {
-            player: P1,
-            command: Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
-        },
-        PlayerCommand {
-            player: P1,
+fn orders(more: bool) -> Vec<PlayerCommand> {
+    let mut orders = vec![PlayerCommand {
+        player: P1,
+        command: Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    }];
+    for (n, (_, owner, _, to)) in groups(more).into_iter().enumerate() {
+        let first = 1 + 15 * n as u32;
+        orders.push(PlayerCommand {
+            player: owner,
             command: Command::Order {
-                units: group(1),
-                kind: OrderKind::Move(Target::Point(EAST)),
+                units: (first..first + 15).map(ObjectId).collect(),
+                kind: OrderKind::Move(Target::Point(to)),
                 queue: false,
             },
-        },
-        PlayerCommand {
-            player: P2,
-            command: Command::Order {
-                units: group(16),
-                kind: OrderKind::Move(Target::Point(WEST)),
-                queue: false,
-            },
-        },
-    ]
+        });
+    }
+    orders
 }
 
 /// One line: the mean, the 99th percentile and the worst tick of `times`, flagged over [`BUDGET`].
@@ -122,13 +135,27 @@ fn line(label: &str, times: &[(Tick, Duration)]) -> String {
 #[test]
 #[ignore = "timing: run with --release --ignored --nocapture"]
 fn perf_30_vehicles_in_a_crowd() {
-    let mut sim = game();
+    run(false);
+}
+
+/// (M5-V3) The same with thirty more tracked units, the Hands of Heaven north of the others.
+#[test]
+#[ignore = "timing: run with --release --ignored --nocapture"]
+fn perf_30_vehicles_and_30_more_tracked() {
+    run(true);
+}
+
+/// One run: the game, its orders and its timings; with `more`, the thirty more Hands of Heaven.
+fn run(more: bool) {
+    let groups = groups(more);
+    let count = 15 * groups.len() as u32;
+    let mut sim = game(more);
     let mut invariants = Invariants::new(&sim);
     let (mut whole, mut movement) = (Vec::new(), Vec::new());
     let mut turns = 0;
-    let mut facings: Vec<f32> = (1..=30).map(|id| sim.object(ObjectId(id)).unwrap().facing).collect();
+    let mut facings: Vec<f32> = (1..=count).map(|id| sim.object(ObjectId(id)).unwrap().facing).collect();
     while sim.tick() < END {
-        let commands = if sim.tick() == 0 { orders() } else { Vec::new() };
+        let commands = if sim.tick() == 0 { orders(more) } else { Vec::new() };
         let inputs = TickInputs { commands };
         let times = timed_step(&mut sim, &inputs);
         if let Err(violation) = invariants.check(&sim, &inputs) {
@@ -137,25 +164,29 @@ fn perf_30_vehicles_in_a_crowd() {
         let tick = sim.tick();
         whole.push((tick, times.iter().sum()));
         movement.push((tick, times[Phase::Movement as usize]));
-        for (id, facing) in (1..=30).zip(&mut facings) {
+        for (id, facing) in (1..=count).zip(&mut facings) {
             let now = sim.object(ObjectId(id)).unwrap().facing;
             turns += usize::from(now != *facing);
             *facing = now;
         }
     }
-    let crossed = (1..=30).filter(|&id| {
+    let crossed = (1..=count).filter(|&id| {
         let o = sim.object(ObjectId(id)).unwrap();
-        let goal = if id <= 15 { EAST } else { WEST };
-        o.pos.distance(goal) < o.pos.distance(if id <= 15 { WEST } else { EAST })
+        let (_, _, from, to) = groups[(id as usize - 1) / 15];
+        o.pos.distance(to) < o.pos.distance(from)
     });
     let crossed = crossed.count();
-    let statuses = (1..=30).map(|id| sim.object(ObjectId(id)).unwrap().mover.as_ref().unwrap().status);
+    let statuses = (1..=count).map(|id| sim.object(ObjectId(id)).unwrap().mover.as_ref().unwrap().status);
     let arrived = statuses.filter(|&s| s == MoveStatus::Arrived).count();
-    assert!(crossed >= 20, "only {crossed} of the 30 vehicles got past the middle");
-    assert!(turns > 300, "the vehicles turned {turns} times");
+    assert!(
+        3 * crossed >= 2 * count as usize,
+        "only {crossed} of the {count} vehicles got past the middle"
+    );
+    assert!(turns > 10 * count as usize, "the vehicles turned {turns} times");
     println!(
-        "30 vehicles, {END} ticks: two groups of 15 through each other, {turns} turns; {crossed} past the middle, \
-         {arrived} arrived"
+        "{count} vehicles, {END} ticks: {} groups of 15, two by two through each other, {turns} turns; {crossed} past \
+         the middle, {arrived} arrived",
+        groups.len()
     );
     println!("{}", line("whole tick", &whole));
     println!("{}", line("movement (5d)", &movement));

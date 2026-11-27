@@ -39,7 +39,8 @@ pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
     unit: Some(UnitDef {
         base: UnitBase::TrackedVehicle, // UnitBase - TrackedVehicle (turns in place)
         // "SpeedTurnRadiusMovement: MaxSpeed 5 su/frame; Acceleration 0.5 su/frame²; Deceleration 1 su/frame²;
-        // TrackWidth 30 su; ReverseMaxSpeed 2.5 (Q0153; spins about 19° a frame when stopped, can't turn at full speed)."
+        // TrackWidth 30 su; ReverseMaxSpeed 2.5 (Q0153; spins about 19° a frame when stopped, can't turn at full
+        // speed)."
         movement: MovementAttrs::SpeedTurnRadius {
             track_width: 30.0,
             acceleration: Some(0.5),

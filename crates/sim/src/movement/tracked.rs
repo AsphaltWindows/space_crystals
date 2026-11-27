@@ -93,10 +93,10 @@ fn turns_now(turn: f32, aim: f32) -> bool {
     turn != 0.0 && aim * math::sin(turn.abs().min(core::f32::consts::FRAC_PI_2)) >= TRACKED_MISS_SU
 }
 
-/// Whether the shared rules' step `probe` from `from`, for the step `asked` of them, is a glance (module docs, at rest):
-/// a slide along the face of a unit it met that doesn't move away along `asked` (behind one that does, the step closes
-/// up along `asked`), which moves the unit. A slide along tiles is no glance: the unit heads along `asked` there, which
-/// doesn't depend on how its Silhouette lies, so it spins to its way and creeps along them.
+/// Whether the shared rules' step `probe` from `from`, for the step `asked` of them, is a glance (module docs, at
+/// rest): a slide along the face of a unit it met that doesn't move away along `asked` (behind one that does, the step
+/// closes up along `asked`), which moves the unit. A slide along tiles is no glance: the unit heads along `asked`
+/// there, which doesn't depend on how its Silhouette lies, so it spins to its way and creeps along them.
 fn glances(world: &World, probe: &Moved, asked: Vec2, from: Vec2) -> bool {
     probe.pos != from
         && probe.forward

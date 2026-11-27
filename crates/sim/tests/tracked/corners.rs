@@ -1,6 +1,7 @@
-//! Corners (the brief's corner choice: "choose the speed to take it at, from full speed down to a stop and spin. Take
-//! the fastest whose arc fits the free space on the nav grid, counting the time to brake to it"; `movement/tracked.rs`)
-//! and Rugged terrain (`systems/units.md > TrackedVehicle`: RuggedTerrain false, so Rugged tiles are impassable for it).
+//! Corners (the brief's corner choice: "choose the speed to take it at, from full speed down to a stop and spin.
+//! Take the fastest whose arc fits the free space on the nav grid, counting the time to brake to it";
+//! `movement/tracked/corner.rs`) and Rugged terrain (`systems/units.md > TrackedVehicle`: RuggedTerrain false, so
+//! Rugged tiles are impassable for it).
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{MoveStatus, SpawnAt, TilePos, Vec2};
@@ -57,9 +58,8 @@ fn it_takes_a_right_angled_bend_of_a_corridor_without_touching_the_walls() {
         nearest = nearest.min(gap_to_walls(&t, 1, &solid));
         assert!(t.sim().tick() < 500, "{}", t.ascii(Some(t.pos(1))));
     }
-    println!(
-        "a bend of a corridor two tiles wide: full speed {fastest}, slowest at the bend {slowest_after}, nearest a wall {nearest} su"
-    );
+    println!("a bend of a corridor two tiles wide: full speed {fastest}, slowest at the bend {slowest_after}");
+    println!("nearest a wall: {nearest} su");
     assert_eq!((t.status(1), t.pos(1)), (MoveStatus::Arrived, goal));
     assert!(about(fastest, TOP), "it was at full speed: {fastest}");
     assert!(slowest_after < 4.0, "it slowed for the bend: {slowest_after}");

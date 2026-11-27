@@ -302,7 +302,8 @@ impl Invariants {
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));
             }
-            // (M5-V2) W1: a wheeled unit turns by its speed, never in place; (M5-V3) S1: a tracked one by the tread law.
+            // (M5-V2) W1: a wheeled unit turns by its speed, never in place; (M5-V3) S1: a tracked one by the tread
+            // law.
             let wheeled = o.movement(sim.research()).zip(before);
             if let Some((invariant, message)) =
                 wheeled.and_then(|(movement, b)| momentum::turns_by_its_speed(&movement, o.facing, b))
