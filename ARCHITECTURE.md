@@ -4094,7 +4094,8 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   0410) a building, a click selects it, Shift toggles it, Ctrl or a double-click selects its type on screen, and Ctrl
   + Shift adds that type (0052); "its type" is its SelectionGroup's (`Selectables::own_on_screen` by `GroupType`), so
   an unfinished building takes only the unfinished ones of its kind, and units and buildings may mix. A box selects
-  what its tiers give, and Shift + box adds that (0049). The add inputs all go through `ControlState::add_to_selection`: they
+  what its tiers give, one own building at most, even of a groupable type (design change 0411: several Halls are
+  selected with a double-click, a Ctrl- or Shift-click, or Shift + box), and Shift + box adds that (0049). The add inputs all go through `ControlState::add_to_selection`: they
   remove nothing and add nothing the Constraints forbid, so they do nothing while another player's or a neutral
   object is selected (0053). A plain click on empty ground or an empty box clears the selection; a modified click
   there or an empty Shift + box changes nothing (0051). Control groups take only own objects: Assign and Add with
