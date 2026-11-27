@@ -5,11 +5,14 @@
 //! until the owner sees its place ([`Sim::follow_targets`], at the end of the tick), and so does a rally point on it;
 //! a Gather on its way to its patch's spot goes on there.
 
+use glam::Vec2;
+
 use super::{Sim, builds};
 use crate::combat;
 use crate::economy;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
+use crate::movement;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::object::Object;
 use crate::orders::{Behaviour, Order};
@@ -214,12 +217,18 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
         }
     }
     // The building whose doorway a unit stood in: nothing is left to overlap, nor to leave along (design change
-    // 0145).
+    // 0145). `core/entities.md > Structure Type > Exit Doorway` (point 2: "the unit then walks out toward its
+    // RallyPoint (or straight out of the exit side if there is none)") doesn't say what happens when the building
+    // goes meanwhile. The Director's reading (slice A2a): one walking out without a goal stands where it is, as one
+    // that has walked out does (`movement`), and one walking out toward its rally point goes on there.
     if let Some(mover) = &mut o.mover
         && mover.exit.is_some_and(is_gone)
     {
         mover.exit = None;
         mover.exit_heading = None;
+        if mover.goal == MoveGoal::None && mover.sidestep.is_none() && mover.momentum == Vec2::ZERO {
+            movement::stand(mover);
+        }
     }
 }
 
