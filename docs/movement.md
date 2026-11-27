@@ -1139,12 +1139,13 @@ among Peacekeepers, Recruits and Guards.
   before, and still do.
 - **The kill** (`crush::victims`, at the crusher's commit): the crushable enemies its Silhouette overlaps where it
   ends, or swept on its way: its turn about where it started, at the parts `World::turn` tests (`TURN_TRY_SU` apart at
-  its corners), and its move, as it lies at the end (`Shape::sweep`). Found through the cells' kinds
-  (`KIND_CRUSHABLE`), they leave the grid at once: the units after it don't meet them, nobody crushes them twice, and
-  those not yet moved make no move. At the end of 5d they leave the game through the removal path (their Unit
-  Control and lineage with them, the grids synced, a Disciple's Shroud ended), each with a `SimEvent::Crushed`, its
-  crusher named, in place of a `Died`, before 5e. It isn't damage: no Hit, no Shields, no armour. The client shows it
-  as any death (`viewer_events`, `combat_effects`: Placeholder (not in the design: no look of its own)).
+  its corners), and its move, as it lies at the end (`Shape::sweep`): as the collision step tries them (a cut turn's
+  back-off, at most a tick's move, aside). Found through the cells' kinds (`KIND_CRUSHABLE`), they leave the grid at
+  once: the units after it don't meet them, nobody crushes them twice, and those not yet moved make no move. At the
+  end of 5d they leave the game through the removal path (their Unit Control and lineage with them, the grids
+  synced, a Disciple's Shroud ended), each with a `SimEvent::Crushed`, its crusher named, in place of a `Died`, before
+  5e. It isn't damage: no Hit, no Shields, no armour. The client shows it as any death (`viewer_events`,
+  `combat_effects`: Placeholder (not in the design: no look of its own)).
 - **Numbers that follow** (`tests/crushing/`): an enemy Peacekeeper against the middle of a stopped Hand of Heaven's
   side dies in the tank's first tick of turning to face it, and the tank turns on and goes; an own Recruit holding
   there stops the turn at once, and nobody dies; an enemy Peacekeeper sent through an idle Hand of Heaven goes round
