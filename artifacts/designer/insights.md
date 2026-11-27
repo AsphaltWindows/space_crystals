@@ -30,7 +30,6 @@
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
-- **Minimap alerts** (2026-11-26): pings when attacked not yet decided (0415).
 - **Real in-game menu / game creation screen**: the F10 playtest menu (0414) and command-line flags (computer players, starting exploration 0416) are temporary.
 - **Supplies**: only 6 GDO units cost Supplies (0435); buildings/research Supply costs still open. Starting Supplies 1.
 - **Attack Move for units that can't stop (gliders)**: what it should mean is open (user, 2026-11-27, Q0148): today its 6 GU leash drops a looping Sparrow's target.

@@ -37,6 +37,13 @@ Placeholder (bookmarked by the user, 2026-11-23, to be designed with the HUD): s
 - **Right-click** on the minimap: the selection's **right-click on that ground point**, as a right-click on ground in the main view (systems/controls/interface.md > RightClickResolution; usually a Move). Designer's placeholder: the minimap targets only ground, never an object.
 - **While a target command waits** (AwaitingTarget, e.g. Attack, Move): a **left-click** on the minimap targets that ground point (e.g. Attack Move there), as a left-click on ground would (designer's placeholder). Building placement (AwaitingPlacement) is not possible from the minimap.
 
+### Alerts
+(user, 2026-11-26: minimal alerts)
+- **When**: one of the player's units or buildings **takes damage while it is off screen** (outside the camera's view). Fights already on screen give no alert.
+- **What**: a **red ping on the minimap** at that spot: a ring that shrinks and fades over about **2 s** (placeholder). No text and no sound.
+- **How often**: at most **one ping per area every 10 s** (placeholder; an area: within about 8 grid units of an earlier ping still in its 10 s), so a long fight doesn't keep flashing.
+- **Jump to the latest alert: Space** (user, 2026-11-26; default key): centres the camera on the **latest** alert's spot (snap, as Centering, core/camera.md). Later notifications of other kinds (none yet) will use the same key.
+
 ## SelectionPanel
 Displays a grid of portraits for the current selection. Only visible when 2 or more objects are selected. A selection of 2+ objects always consists of the player's own objects (units and/or structures, e.g. from a control group), since other players' and neutral objects are always selected alone (systems/controls/selection.md > Selection > Constraints). "Unit" below means any selected object. Each cell shows the portrait of one selected unit instance. Portraits belonging to the ActiveGroup are shown with a sheer highlight.
 
