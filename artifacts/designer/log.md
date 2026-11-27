@@ -2404,3 +2404,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0172 part 2 answered from docs: group Reverse uses magic box (0439).
 - Q0172 part 1 (user: a): idle tracked/drill vehicles stand, hover yields (0440). All questions through Q0172 answered.
 - Supply costs: Drone Operator 1, Twister 1 (0441).
+- Supply Chopper unit transport designed (0442): lands to load/unload instantly, takes off itself, passengers die with it.
