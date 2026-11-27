@@ -4,8 +4,8 @@
 use sc_sim::{Object, ObjectId, PlayerId, Tick, TilePos, Vec2, VisibilityState, gu};
 
 use super::{Army, Duty, at_rest, attack_move, search_points};
-use crate::tuning::army::SEARCH_RADIUS_GU;
-use crate::{Turn, View};
+use crate::tuning::army::{SEARCH_GROUND_OF, SEARCH_RADIUS_GU};
+use crate::{Start, Turn, View};
 
 /// A wave: its units, what it attacks, and what it gave up on or searched.
 #[derive(Clone, Debug)]
@@ -47,7 +47,7 @@ pub(super) enum Goal {
     /// The start location of an enemy still in the game.
     Start { player: PlayerId, at: Vec2 },
     /// A Space Crystals patch near an enemy's start, or a point of the ground around it ([`search_points`]), where a
-    /// building it hasn't seen may stand (the map's patches and the starts are known from the start).
+    /// building it hasn't seen may stand (the map's patches, the starts and the factions are known from the start).
     Search { at: Vec2 },
     /// Home: the staging point.
     Home { at: Vec2 },
@@ -69,8 +69,8 @@ impl Army {
     /// What a wave at `from` attacks: the nearest building of an enemy still in the game that the player knows of,
     /// seen or remembered, but those it gave up on; else the nearest start of an enemy still in the game that no wave
     /// has reached; else the nearest patch within [`SEARCH_RADIUS_GU`] of such a start that it hasn't searched and the
-    /// player doesn't see now; else the nearest such point of the ground around those starts ([`search_points`]); else
-    /// home. A `fresh` wave, about to form, tries every enemy start again once waves have reached them all.
+    /// player doesn't see now; else, when the player or that enemy is of a faction in [`SEARCH_GROUND_OF`], the nearest
+    /// such point of the ground around its start ([`search_points`]); else home. A `fresh` wave, about to form, tries every enemy start again once waves have reached them all.
     pub(super) fn choose(&mut self, view: &View<'_>, from: Vec2, done: &Done, fresh: bool) -> Goal {
         let standing: Vec<PlayerId> = view.enemy_starts().map(|s| s.player).collect();
         let enemy = |owner: Option<PlayerId>| owner.is_some_and(|p| standing.contains(&p));
@@ -104,8 +104,12 @@ impl Army {
         if let Some(k) = search {
             return Goal::Search { at: k.pos };
         }
-        // (A2a) Then the ground around those starts, where a Cults player's Halls may stand far from any patch.
+        // (A2a) Then the ground around the starts, in a game with a faction whose buildings may stand away from any
+        // patch: around such an enemy's start, or around every enemy's start when the player is of such a faction.
+        let mine = view.me().is_some_and(|p| SEARCH_GROUND_OF.contains(&p.faction));
+        let spreads = |s: &Start| mine || view.faction(s.player).is_some_and(|f| SEARCH_GROUND_OF.contains(&f));
         let around = (view.enemy_starts())
+            .filter(spreads)
             .flat_map(|s| search_points(view.map(), s.point()))
             .filter(|&p| unseen(p))
             .min_by(|&a, &b| nearest(a, b));

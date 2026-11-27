@@ -15,9 +15,9 @@
 //!   otherwise long (`FactionAi::waves`, [`Waves`]). A wave whose building is
 //!   gone (the player saw it go) retargets at once; one that comes to rest retargets too, giving up a building it
 //!   still knows of there. With no building known and every enemy start reached, it searches the patches near them
-//!   (a GDO's last buildings are often plates), then the ground around them ([`search_points`]: a Cults player's
-//!   Halls stand on open land, away from the patches); with nothing left to search, it goes home and its units are at
-//!   home again.
+//!   (a GDO's last buildings are often plates), then, in a game with a Cults player, the ground around them
+//!   ([`search_points`], `crate::tuning::army::SEARCH_GROUND_OF`: a Cults player's Halls stand on open land); with
+//!   nothing left to search, it goes home and its units are at home again.
 //! - **Defense**: when one of the player's buildings loses HP, the units at home (not in a wave) Attack Move to it, and
 //!   go back to staging [`DEFENSE_TICKS`] after the last damage. No wave forms meanwhile.
 //!
@@ -323,7 +323,8 @@ pub fn staging_point(view: &View<'_>) -> Option<Vec2> {
 }
 
 /// The points a wave searches around an enemy's start at `start` once it knows of nothing to attack and has searched
-/// the patches there (`waves`; slice A2a): a square grid of [`SEARCH_STEP_GU`] centred on it, the points within
+/// the patches there, when its player or the enemy is of a faction in `crate::tuning::army::SEARCH_GROUND_OF`
+/// (`waves`; slice A2a): a square grid of [`SEARCH_STEP_GU`] centred on it, the points within
 /// [`SEARCH_RADIUS_GU`] of it, each moved to the tile of open ground nearest it ([`open_near`]), row by row from the
 /// north and the west, without repeats. They depend only on the map and the start, both known from the start of the
 /// game (`core/game_rules.md > Computer players (playtest tool)`: "It also knows the map and every player's starting

@@ -5039,8 +5039,9 @@ playtest tool, started from the command line (`--ai`, see *QA mode*), whose beha
     footprints they place;
   - `build`: where a building goes, the nearest spot the placement check takes, with a free ring around it;
   - `army`, shared by every faction: the staging point, the waves and the defense. A wave that knows of nothing to
-    attack searches the patches near the enemy starts, then the ground around them (`army::search_points`, slice
-    A2a: a Cults player's Halls stand away from any patch);
+    attack searches the patches near the enemy starts, then, when it or the enemy is a Cults player, the ground around
+    the enemy's start (`army::search_points`, `tuning::army::SEARCH_GROUND_OF`, slice A2a: the Cults' Halls stand away
+    from any patch). The View tells every player's faction (`View::faction`), shown to every player at game start;
   - `factions`: one module per faction behind `FactionAi`. It decides what to build and train, which units fight and
     which buildings rally, and may size its army's waves (`FactionAi::waves`; the army layer's own by default).
 - **Numbers**: all placeholders, in `sc_ai::tuning` (*Tunables*).

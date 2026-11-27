@@ -5,7 +5,7 @@
 
 /// The army layer (`crate::army`): the staging point, the waves and the defense.
 pub mod army {
-    use sc_sim::Tick;
+    use sc_sim::{Faction, Tick};
 
     /// Placeholder (Q0147 point 2: "pulls its army home when its base is attacked"; the brief's "a staging point
     /// between its base and the map's center"): how far the army gathers from its start toward the map's centre, grid
@@ -40,6 +40,12 @@ pub mod army {
     /// (`factions/gdo/units/peacekeeper.md > SightRange - 5 grid units`, `factions/cults/units/gunner.md > SightRange -
     /// 5 grid units`), so a wave at each point and on its way between them sees nearly all the ground there.
     pub const SEARCH_STEP_GU: f32 = 8.0;
+    /// Placeholder (not in the design: a wave searches the ground around an enemy's start, [`SEARCH_STEP_GU`], when its
+    /// player or the enemy is of one of these factions; slice A2a): the Cults, whose Recruitment Halls go on open
+    /// Recruitable land, away from the patches. Their own waves search so too: without, the Cults' standard against the
+    /// Colonists' standard on `dev_skirmish` ends in no defeat (`crates/ai/tests/games.rs`, `ai_games`). Every player's
+    /// faction is known from the start of the game (`crate::View::faction`).
+    pub const SEARCH_GROUND_OF: &[Faction] = &[Faction::Cults];
     /// Placeholder (Q0147 point 2: "pulls its army home when its base is attacked"): how long the defense lasts after
     /// the last damage to one of its buildings, ticks (10 seconds).
     pub const DEFENSE_TICKS: Tick = 160;

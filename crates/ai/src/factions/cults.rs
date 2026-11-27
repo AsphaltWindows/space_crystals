@@ -19,11 +19,11 @@
 //! More Halls raise its Unit Control (`factions/cults/overview.md > CultsResources > Unit Control`: "Provided by
 //! Recruitment Halls in proportion to the number of Recruitable tiles each hall is actively recruiting from"): each
 //! goes on open Recruitable land, where it claims most of its area (`HALL_EFFECTIVENESS`), within the ground near its
-//! start that an enemy's waves search (`HALL_SEARCH_GU`, `crate::army::search_points`). The Halls make their
-//! Recruits by themselves (`factions/cults/structures/recruitment_hall.md > Production Behavior`), so the player has
-//! nothing to train but the Armory's units. The army layer (`crate::army`) leads the Militants and the Gunners. Every
-//! rule and number is a placeholder (Q0147 points 2 and 3, `crate::tuning::cults`). Costs and times come from the
-//! defs.
+//! start that an enemy's waves search (`HALL_SEARCH_GU`; `crate::army::search_points`, around the starts of the
+//! factions in `crate::tuning::army::SEARCH_GROUND_OF`). The Halls make their Recruits by themselves
+//! (`factions/cults/structures/recruitment_hall.md > Production Behavior`), so the player has nothing to train but the
+//! Armory's units. The army layer (`crate::army`) leads the Militants and the Gunners. Every rule and number is a
+//! placeholder (Q0147 points 2 and 3, `crate::tuning::cults`). Costs and times come from the defs.
 
 mod armory;
 mod builds;
