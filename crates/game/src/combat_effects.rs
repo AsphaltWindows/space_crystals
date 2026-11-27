@@ -190,8 +190,8 @@ impl Plugin for CombatEffectsPlugin {
 }
 
 /// How long ago `tick` was, in ticks, as drawn now: the sim's tick shows at alpha 1, so an effect of the latest tick
-/// is 0 ticks old then.
-fn age(sim: &Sim, alpha: f32, tick: Tick) -> f32 {
+/// is 0 ticks old then. (M5-MM2) The minimap's pings age by it too (`crate::hud::minimap::alerts`).
+pub(crate) fn age(sim: &Sim, alpha: f32, tick: Tick) -> f32 {
     (sim.tick().saturating_sub(tick) as f32 + alpha - 1.0).max(0.0)
 }
 

@@ -16,14 +16,18 @@
 //! - `regeneration`: a damaged Hideout back to full at 1% of its MaxHP a second, under fire too, and not once its
 //!   Tunnel is gone; the Laser Turret, which is repaired, regenerates nothing.
 //!
-//! A vehicle's repair, its repairers following it as it drives off, and a glider's refusal by its movement are the
-//! crate's own tests (`sim/repairs/tests.rs`): they need a test recipe, since no building makes a vehicle yet.
+//! - `vehicles` (slice M5-N6): one Recruit repairs a Seeker from 60 to 120 HP in 80 frames and two in 40, 19 Space
+//!   Crystals either way, by the Chop Shop's recipe.
+//!
+//! The repairers following a vehicle as it drives off, and a glider's refusal by its movement, are the crate's own
+//! tests (`sim/repairs/tests.rs`).
 
 mod agents;
 mod bank;
 mod rates;
 mod refusals;
 mod regeneration;
+mod vehicles;
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{

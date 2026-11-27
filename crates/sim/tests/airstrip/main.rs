@@ -9,8 +9,8 @@
 //!   out a Sparrow at full HP, its augmentations lost (design change 0330); X gives both back; Eject All lets the
 //!   Recruits out of side C's doorway, onto the ground; a right-click on the Airstrip is a Recruit's Enter, and a
 //!   Sparrow's Move: it never lands;
-//! - `combat`: it strafes a group of Agents, which can't hit it; Militants, Guards and the Laser Turret hit it, and
-//!   Peacekeepers, Legionnaires and Agents can't (their TargetDomain is Ground);
+//! - `combat`: it strafes a group of Agents, which can't hit it; Militants, Guards, the Laser Turret and (slice M5-N6)
+//!   the Seeker hit it, and Peacekeepers, Legionnaires and Agents can't (their TargetDomain is Ground);
 //! - `destruction`: a destroyed Airstrip evacuates its pool, refunded, and leaves the Sparrows in the air alone, one
 //!   still on its takeoff run, which flies on to its rally point, or circles 2 grid units past C without one, never
 //!   standing;

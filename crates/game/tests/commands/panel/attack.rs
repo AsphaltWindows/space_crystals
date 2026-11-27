@@ -178,7 +178,7 @@ fn cults_game() -> App {
 /// Design change 0397's Verification: "Select Militants and a Prayer-mobile, press A and click ground: the Militants
 /// Attack Move, and the Prayer-mobile moves with them", here with the Sparrow too (slice M5-H1; its panel is
 /// BasicCombatUnitInterfaceState's, its A Attack). With the Prayer-mobile in focus, which has no panel of its own yet
-/// (its Chop Shop's slice brings it), A is Attack, common, and so it is with the Militants' group and the Sparrow's. A
+/// (its own slice, M5-N11, brings it), A is Attack, common, and so it is with the Militants' group and the Sparrow's. A
 /// and a click on the ground give the four one AttackMove: the Militants and the Sparrow carry it out, and the
 /// Prayer-mobile moves there with them. The Prayer-mobile alone shows no A; the Sparrow alone does.
 #[test]

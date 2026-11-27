@@ -7,7 +7,8 @@ What to try in each milestone is in its own notes:
 - [M3](m3.md): the Colonists from the UI.
 - [M4](m4.md): the Syndicate from the UI.
 - [M5](m5.md): the Cults; slice M5-M writes it in full, and each slice adds what it built (so far the Airstrip and
-  the Sparrow, the Minimap, and full screen, the playtest menu and the map explored from the start).
+  the Sparrow, the Minimap and its alerts, full screen, the playtest menu and the map explored from the start, the
+  Arsenal and the Rocketman, and the Chop Shop and the Seeker).
 
 ## Starting a pairing
 
@@ -77,6 +78,10 @@ removes player 2's buildings and checks that player 1 wins.
   Right-click it to give the selection's right-click on that ground (a Move; Shift queues it). After A, or any command
   that awaits a target, left-click it to aim at that ground (an Attack Move). It aims at ground only, never at a unit
   or a building, and can't place a building: while you place one, a left-click on it only moves the camera.
+- **Alerts**: when a unit or building of yours is hit outside the camera's view, a red ring pings on the minimap at
+  that spot, shrinking and fading for 2 seconds (no sound). A fight in one place pings at most once every 10 seconds.
+  **Space** centres the camera on the latest ping. The pings are the side's you are on: after F2, the other side's
+  hits ping, and Space goes to that side's latest.
 - **Debug keys**: F2 and F3 above, G for the grid, P for the units' paths. F2 and F3 work while debug commands are on,
   as they are unless you start with `--no-debug`: don't use it for a hot-seat game.
 - **The end**: a player is defeated when they own no buildings, every structure counting
@@ -166,8 +171,9 @@ The replay records the computers' commands with yours.
 - Each game keeps its own replay: a game restarted from the playtest menu (F10) is recorded to a new file, with the
   time of its start, or with `--record game.json` to `game.restart1.json`, `game.restart2.json`, … beside it. The
   game before it is written complete first.
-- `cargo run -- --replay <file.json>` plays a recording back: Space pauses and resumes, `.` plays one tick, `-` and
-  `=` change the speed, F2 switches the player and F3 the fog.
+- `cargo run -- --replay <file.json>` plays a recording back: K pauses and resumes (Space did before the minimap's
+  alerts took it), `.` plays one tick, `-` and `=` change the speed, F2 switches the player and F3 the fog. The pings
+  show for the player you watch, and Space jumps to their latest, as in a game.
 - The top bar shows the tick, in a game and in a replay.
 
 ## Reporting a finding

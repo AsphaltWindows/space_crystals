@@ -37,8 +37,8 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use super::Sim;
 use super::gate::Checked;
+use super::{Sim, producers};
 use crate::command::HoldCommand;
 use crate::defs::{ExitRule, ObjectKind};
 use crate::events::SimEvent;
@@ -285,7 +285,8 @@ impl Sim {
     }
 
     /// Where unit `unit`, held in `building`, would come out now ([`Sim::release_held`]): the spot of the first door
-    /// in their order toward `rally` that is free and has one, for a unit of kind `becomes` if it comes out as one.
+    /// in their order toward `rally` that is free and has one, for a unit of kind `becomes` if it comes out as one,
+    /// its box turned to face out of the door (M5-N6, `producers::exit_half`: a vehicle's Silhouette isn't square).
     /// `None` while there is none: it waits inside.
     fn held_spot(
         &self,
@@ -299,8 +300,9 @@ impl Sim {
             return None;
         };
         let held = (self.held.get(&unit)).filter(|held| held.place == Place::Building(building))?;
-        let def = becomes.unwrap_or(held.object.kind).def();
-        let (Some(unit_def), Some(half)) = (&def.unit, def.half_extents()) else {
+        let kind = becomes.unwrap_or(held.object.kind);
+        let def = kind.def();
+        let (Some(unit_def), Some(_)) = (&def.unit, def.half_extents()) else {
             return None;
         };
         // The units this building let out that are still in its doorway, each keeping its door occupied.
@@ -311,7 +313,10 @@ impl Sim {
         let free = |door: &Door| released.iter().all(|&pos| doorway.door_at(pos) != *door);
         let toward = rally.map(|rally| rally.point() - centre);
         let mut doors = doorway.order(toward).filter(free);
-        let (door, pos) = doors.find_map(|door| Some((door, self.doorway_spot(&door, unit_def, half)?)))?;
+        let (door, pos, half) = doors.find_map(|door| {
+            let half = producers::exit_half(kind, &door);
+            Some((door, self.doorway_spot(&door, unit_def, half)?, half))
+        })?;
         Some(Spot {
             pos,
             outward: door.outward(),

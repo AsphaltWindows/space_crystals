@@ -5,7 +5,7 @@
 
 use glam::Vec2;
 
-use crate::defs::{ExitRule, ProductionDef, UnitDef};
+use crate::defs::{ExitRule, ObjectKind, ProductionDef, UnitDef};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::math;
@@ -22,6 +22,14 @@ const SPOT_CLEARANCE: f32 = 1.0 / 64.0;
 /// What `o`'s type produces, if anything.
 fn producer_def(o: &Object) -> Option<&'static ProductionDef> {
     o.def().structure.as_ref()?.production.as_ref()
+}
+
+/// (M5-N6) The half extents of the box of a unit of `kind` as it comes out of `door`, facing out of it
+/// (`Sim::put_on_map`): its Silhouette's bounding box turned to the door's outward direction (slice M5-V1,
+/// `Shape::bound_half`), the box the unit has where it appears. A Seeker out of a side facing north or south is 40 su
+/// wide across the door and 56 su long out of it; a square Silhouette's is its own.
+pub(in crate::sim) fn exit_half(kind: ObjectKind, door: &Door) -> Vec2 {
+    Shape::silhouette(kind, Vec2::ZERO, math::vector_angle(door.outward())).bound_half()
 }
 
 impl Sim {
@@ -67,17 +75,20 @@ impl Sim {
             .map(|o| o.pos)
             .collect();
         let recruits = producer_def(building).is_some_and(|def| def.recruitment.is_some());
-        // Where it appears, which way it faces, and the heading of a unit leaving an energy doorway.
-        let (pos, facing, heading) = match doorway {
+        // Where it appears, which way it faces, the heading of a unit leaving an energy doorway, and its box's half
+        // extents there (out of a side, turned to face out of it: [`exit_half`]).
+        let (pos, facing, heading, half) = match doorway {
             ExitDoor::Side(doorway) => {
                 let toward = rally.map(|rally| rally.point() - building.pos);
                 let free = |door: &Door| released.iter().all(|&pos| doorway.door_at(pos) != *door);
                 let mut doors = doorway.order(toward).filter(free);
-                let Some((door, pos)) = doors.find_map(|door| Some((door, self.doorway_spot(&door, unit, half)?)))
-                else {
+                let Some((door, pos, half)) = doors.find_map(|door| {
+                    let half = exit_half(kind, &door);
+                    Some((door, self.doorway_spot(&door, unit, half)?, half))
+                }) else {
                     return;
                 };
-                (pos, door.outward(), None)
+                (pos, door.outward(), None, half)
             }
             ExitDoor::Centre(_) if !released.is_empty() => return,
             ExitDoor::Centre(portal) => {
@@ -87,7 +98,7 @@ impl Sim {
                 let Some(release) = portal.release(unit, half, grid, &self.objects, rally, |n| rng.below(n)) else {
                     return;
                 };
-                (release.pos, release.heading, Some(release.heading))
+                (release.pos, release.heading, Some(release.heading), half)
             }
         };
         if let Some(production) = self.objects.get_mut(&producer).and_then(|o| o.production.as_mut()) {
@@ -111,8 +122,8 @@ impl Sim {
         }
     }
 
-    /// Where a unit with half extents `half` appears in `door`: "half inside the building, at the middle of the
-    /// exit side", or as far out as there is room when another unit or a blocked tile is right in front of the
+    /// Where a unit with half extents `half` (its box as it faces out of the door: [`exit_half`]) appears in `door`:
+    /// "half inside the building, at the middle of the exit side", or as far out as there is room when another unit or a blocked tile is right in front of the
     /// doorway (fully inside, against the exit side, at most: see `production::exit` for this reading of the
     /// design). Its box overlaps no unit of its layer and no blocked tile but the building's own, nor ground under
     /// those that the unit can't stand on (`production::ExitDoor::box_clear`, slice M5-Z1). `None` if there is no

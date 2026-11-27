@@ -24,6 +24,7 @@ mod fog_memory;
 #[path = "game_end/main.rs"]
 mod game_end;
 mod hud;
+mod minimap_alerts;
 mod pairings;
 #[path = "playtest_menu/main.rs"]
 mod playtest_menu;

@@ -40,6 +40,7 @@ use crate::nav;
 use crate::object::Placement;
 use crate::paths;
 use crate::production::QueueEntry;
+use crate::shape::Shape;
 use crate::sim::Sim;
 use crate::units::{SU_PER_GU, TilePos};
 
@@ -145,7 +146,7 @@ impl Sim {
                     .unwrap_or(held.object.kind);
                 let facing = math::facing_vector(held.object.facing);
                 let spot = (0..tiles.len()).map(|i| (next + i) % tiles.len()).find_map(|i| {
-                    let spot = self.footprint_spot(kind, &evacuation.placement, tiles[i])?;
+                    let spot = self.footprint_spot(kind, facing, &evacuation.placement, tiles[i])?;
                     Some((i, spot))
                 });
                 let Some((tile, pos)) = spot else {
@@ -165,14 +166,16 @@ impl Sim {
         }
     }
 
-    /// Where a unit of `kind` stands on `tile` of the footprint `placement` (module docs): the tile's centre, moved in
-    /// as far as it takes for the unit's box to lie inside the footprint (along an axis on which the box is longer
-    /// than the footprint, at the footprint's middle; no type the design's buildings hold is), if the terrain under
-    /// the box is all ground the unit's grid lets it stand on (`nav::box_on_terrain`). `None` if it isn't, or `kind`
-    /// is no unit.
-    fn footprint_spot(&self, kind: ObjectKind, placement: &Placement, tile: TilePos) -> Option<Vec2> {
+    /// Where a unit of `kind` facing `facing` stands on `tile` of the footprint `placement` (module docs): the tile's
+    /// centre, moved in as far as it takes for the unit's box to lie inside the footprint (along an axis on which the
+    /// box is longer than the footprint, at the footprint's middle; no type the design's buildings hold is), if the
+    /// terrain under the box is all ground the unit's grid lets it stand on (`nav::box_on_terrain`). The box is
+    /// (M5-N6) the bounding box of its Silhouette as it faces (`Shape::bound_half`), a Seeker's turned with it. `None`
+    /// if it isn't, or `kind` is no unit.
+    fn footprint_spot(&self, kind: ObjectKind, facing: Vec2, placement: &Placement, tile: TilePos) -> Option<Vec2> {
         let def = kind.def();
-        let (unit, half) = (def.unit.as_ref()?, def.half_extents()?);
+        let (unit, silhouette) = (def.unit.as_ref()?, def.silhouette()?);
+        let half = Shape::silhouette(kind, Vec2::ZERO, math::vector_angle(facing)).bound_half();
         let size = Vec2::new(placement.w as f32, placement.h as f32) * SU_PER_GU;
         let (lo, hi) = (
             placement.origin.corner() + half,
@@ -184,7 +187,8 @@ impl Sim {
             false => middle[axis],
         };
         let spot = Vec2::new(inside(0), inside(1));
-        let grid = paths::unit_grid(self.nav.nav(), unit.base_def(), half * 2.0);
+        // Its grid by its size class, which its Silhouette gives, however it is turned.
+        let grid = paths::unit_grid(self.nav.nav(), unit.base_def(), silhouette);
         grid.is_none_or(|grid| nav::box_on_terrain(grid, half, spot))
             .then_some(spot)
     }

@@ -196,6 +196,7 @@ impl Invariants {
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
         let tick = sim.tick();
         let overlapped = overlaps::overlapped_before(sim, &self.seen);
+        let landed_on = overlaps::landed_on(sim, &self.seen, evacuated);
         // (M5-N3) The research levels changed after the movement step of this tick: a level completed in the economy
         // phase (`SimEvent::ResearchCompleted`). The units moved at the MaxSpeeds of the levels before (I3). A defeat
         // changes none: the units turned neutral keep their research (design change 0379, `Object::kept_research`).
@@ -344,8 +345,8 @@ impl Invariants {
             let coasting = drag && had_momentum;
             // An idle unit that overlapped another moves off it (design change 0126, `movement::separate`), and so does
             // one evacuated in this tick, which may have come out in its commands phase, before the movement
-            // (`may_overlap`'s exception 3).
-            let separating = (overlapped.contains(&o.id) || evacuated.contains(&o.id))
+            // (`may_overlap`'s exception 3), and (M5-N6) one an evacuee came out on (`overlaps::landed_on`).
+            let separating = (overlapped.contains(&o.id) || evacuated.contains(&o.id) || landed_on.contains(&o.id))
                 && o.orders.as_ref().is_some_and(|orders| orders.is_idle());
             // (M5-H1) A Glider flies whether or not it has a goal (G1), and an air unit near another may be pushed off
             // it (`movement::air`).

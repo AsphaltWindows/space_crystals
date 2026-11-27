@@ -4,8 +4,8 @@
 //! every projectile but a grenade is (`crate::combat_effects::projectiles`), a placeholder (Q0001), its style a
 //! tracer's ([`ShotStyle::Tracer`], every weapon's but a laser's and a grenade's). Its panel is the BasicCombatUnit
 //! template ("ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **CanTargetGround** (Attack Ground), as every
-//! attack that can miss"). Its numbers are in the game since slice M5-G2, and nothing makes one yet: the Chop Shop
-//! builds it with its slice.
+//! attack that can miss"). Its numbers are in the game since slice M5-G2, and nothing makes one yet: the Chop Shop,
+//! which trains the Seeker since slice M5-N6, builds it with slice M5-N10.
 
 use crate::combat_effects::ShotStyle;
 use crate::command_ui::interface::templates::{InterfaceTemplate, PanelTemplate};

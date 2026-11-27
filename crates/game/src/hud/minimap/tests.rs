@@ -134,7 +134,7 @@ fn the_camera_rectangle_is_the_camera_s_view_at_two_zoom_levels() {
     let mut sizes = Vec::new();
     for zoom in [1.0, 2.0] {
         let view = view_rect(size, HUD_INSETS, center, zoom);
-        let rect = frame.camera_rect(center, view.size()).expect("on the map");
+        let rect = frame.camera_rect(view).expect("on the map");
         let expected = Rect::from_corners(frame.screen_at(view.min), frame.screen_at(view.max));
         for (corner, wanted) in [(rect.min, expected.min), (rect.max, expected.max)] {
             assert!(corner.distance(wanted) <= 0.71, "zoom {zoom}: {corner} for {wanted}");
@@ -147,10 +147,11 @@ fn the_camera_rectangle_is_the_camera_s_view_at_two_zoom_levels() {
         "zoom 2 shows twice as much: {sizes:?}"
     );
     let view = view_rect(size, HUD_INSETS, Vec2::ZERO, 1.0);
-    let cut = frame.camera_rect(Vec2::ZERO, view.size()).expect("on the map");
+    let cut = frame.camera_rect(view).expect("on the map");
     assert_eq!(cut.min, frame.area.min, "cut at the map's corner");
     assert!(cut.max.distance(frame.screen_at(view.max)) <= 0.71);
-    assert_eq!(frame.camera_rect(frame.map * 3.0, view.size()), None, "off the map");
+    let beyond = Rect::from_center_size(frame.map * 3.0, view.size());
+    assert_eq!(frame.camera_rect(beyond), None, "off the map");
 }
 
 /// The layers are redrawn only when what they show changed; at once the first time and while the sim stands still,

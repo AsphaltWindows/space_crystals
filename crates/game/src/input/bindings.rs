@@ -246,9 +246,9 @@ impl Bindings {
 
 /// The defaults: `core/camera.md > Panning`, `systems/controls/selection.md` (`> MapClickSelection`,
 /// `> SelectionPanel > Interactions`, `> AwaitingTarget`, `> GroupCycling`, `> ControlGroups > Default keys`,
-/// `> CommandPanel > Grid Layout`) and `systems/controls/commands.md > Unit Command` (design changes 0002, 0010 and
-/// 0011), and placeholder debug and replay playback keys; then the map editor's, which its F1 help lists (the design
-/// gives none).
+/// `> CommandPanel > Grid Layout`), `systems/controls/commands.md > Unit Command` (design changes 0002, 0010 and
+/// 0011) and `systems/controls/hud.md > Minimap > Alerts` (Space, design change 0443), and placeholder debug and replay
+/// playback keys; then the map editor's, which its F1 help lists (the design gives none).
 impl Default for Bindings {
     fn default() -> Self {
         use Binding::{DoubleTap, Modifiers as Held, Press, Wheel};
@@ -272,11 +272,13 @@ impl Default for Bindings {
             (A::ToggleSelection, Held(Modifiers::SHIFT)),
             (A::SelectSameType, Held(Modifiers::CTRL)),
             (A::CenterOnObject, Held(Modifiers::ALT)),
+            // (M5-MM2) `systems/controls/hud.md > Minimap > Alerts`: "Jump to the latest alert: Space".
+            (A::JumpToAlert, Press(key(KeyCode::Space))),
             // Placeholder: the design has no debug keys.
             (A::DebugSwitchPlayer, Press(key(KeyCode::F2))),
             (A::DebugToggleFog, Press(key(KeyCode::F3))),
-            // Placeholders: the design has no replays yet.
-            (A::ReplayPause, Press(key(KeyCode::Space))),
+            // Placeholders: the design has no replays yet. The pause on K (YouTube's), since the alerts took Space.
+            (A::ReplayPause, Press(key(KeyCode::KeyK))),
             (A::ReplayStep, Press(key(KeyCode::Period))),
             (A::ReplaySlower, Press(key(KeyCode::Minus))),
             (A::ReplayFaster, Press(key(KeyCode::Equal))),

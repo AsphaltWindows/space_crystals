@@ -11,10 +11,11 @@ use crate::units::SU_PER_GU;
 /// `factions/cults/units/hand_of_heaven.md`: "The Cults' **long-range, mobile, semi-ballistic missile platform**, built
 /// at the Chop Shop", "a **shoot-and-scoot** unit". Its numbers (slice M5-G2, plan decision T69): it drives by the
 /// tread law of SpeedTurnRadiusMovement (slice M5-V3, `crate::movement`), but nothing reads its turret's arc and rate
-/// yet, and its production at the Chop Shop comes with that building's slice, so no building makes it yet. Its
-/// missile is a DoublyDisjointed area attack, as the Grenadier's grenade is (`crate::combat::projectiles`,
-/// `crate::combat::area`): "**no homing**: the missile flies to where the target was at the end of Aiming, so targets
-/// can dodge; it can also be fired at the ground". Its numbers are the design's "Placeholder stats".
+/// yet, and its production at the Chop Shop comes with slice M5-N10 (the Chop Shop trains the Seeker since slice
+/// M5-N6), so no building makes it yet. Its missile is a DoublyDisjointed area attack, as the Grenadier's grenade is
+/// (`crate::combat::projectiles`, `crate::combat::area`): "**no homing**: the missile flies to where the target was at
+/// the end of Aiming, so targets can dodge; it can also be fired at the ground". Its numbers are the design's
+/// "Placeholder stats".
 pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
     kind: ObjectKind::HandOfHeaven,
     name: "Hand of Heaven",
@@ -102,10 +103,10 @@ mod tests {
     use crate::defs::cults::tests::timings;
 
     /// A 64×40 TrackedVehicle, MaxHP 200, PointArmor 2, FullArmor 2, SightRange 7, Groupable; SpeedTurnRadiusMovement
-    /// up to 5 su a frame on treads 30 su apart, backing up at 2.5, spinning 1/3 radian (about 19°) a frame; a launcher that turns 20° in all, 4° a frame; a DoublyDisjointed missile, so
-    /// it can target the ground, ground only, 600 damage over a circle of 1.5 grid units, from 4 to 14 grid units, at 8
-    /// su a frame, one every 150 frames (Aim 48, Fire 2, Cooldown 4, Reload 96); it never deploys; Unit Control 3, the
-    /// Recruits it is made of.
+    /// up to 5 su a frame on treads 30 su apart, backing up at 2.5, spinning 1/3 radian (about 19°) a frame; a launcher
+    /// that turns 20° in all, 4° a frame; a DoublyDisjointed missile, so it can target the ground, ground only, 600
+    /// damage over a circle of 1.5 grid units, from 4 to 14 grid units, at 8 su a frame, one every 150 frames (Aim 48,
+    /// Fire 2, Cooldown 4, Reload 96); it never deploys; Unit Control 3, the Recruits it is made of.
     #[test]
     fn the_hand_of_heaven_follows_the_design() {
         let def = ObjectKind::HandOfHeaven.def();

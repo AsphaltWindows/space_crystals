@@ -1,19 +1,18 @@
-//! The repairs of vehicles in a game, with test defs (`defs::test_defs`) for what the design's types can't show yet:
-//! a recipe for the Seeker, which no building makes until slice N6 (`crate::repair::tests::seeker_recipe`), and one
-//! for the Sparrow, a glider. Two Recruits repair a Seeker and follow it as it drives off (`orders::repair`: a vehicle
-//! is followed, its repairers parking within reach of it); the gate refuses a glider, by its movement.
+//! The repairs of vehicles in a game: the Seeker by the Chop Shop's recipe (slice M5-N6), and the Sparrow, a glider, by
+//! the Airstrip's (slice M5-N7), with a test def (`defs::test_defs`) for what the design's types can't show: a Seeker
+//! that glides. Two Recruits repair a Seeker and follow it as it drives off (`orders::repair`: a vehicle is followed,
+//! its repairers parking within reach of it); the gate refuses a glider, by its movement.
 
 use glam::Vec2;
 
 use super::*;
 use crate::command::{Command, PlayerCommand, TickInputs};
+use crate::defs::ObjectKind;
 use crate::defs::test_defs::TestDef;
-use crate::defs::{ObjectKind, Recipe};
 use crate::ids::PlayerId;
 use crate::mover::MoveStatus;
 use crate::orders::{OrderKind, Target};
 use crate::player::Faction;
-use crate::repair::tests::seeker_recipe;
 use crate::scenario::SpawnAt;
 use crate::shape::Shape;
 use crate::sim::gate::Reject;
@@ -97,7 +96,6 @@ fn gap(sim: &Sim, id: ObjectId) -> f32 {
 /// from 30 HP to 120, however the work was split.
 #[test]
 fn two_recruits_repair_a_vehicle_and_follow_it_when_it_drives_off() {
-    let _recipe = seeker_recipe();
     let (mut sim, mut invariants) = game(ObjectKind::Seeker);
     let max = sim.objects[&VEHICLE].max_hp().expect("HP");
     assert_eq!(max, 120.0);
@@ -165,19 +163,11 @@ fn two_recruits_repair_a_vehicle_and_follow_it_when_it_drives_off() {
 }
 
 /// "**Gliders can't be repaired** (they can't stop; user, 2026-11-26)": told by the movement (`repair::is_vehicle`),
-/// not by the name nor by what builds it. A damaged Sparrow, a glider, with a recipe (test data: 75 Space Crystals and
-/// 320 frames, as the Seeker's) is refused by the gate; so is the Seeker once it glides (a test def with the Sparrow's
-/// movement), and a driving Seeker is taken.
+/// not by the name nor by what builds it. A damaged Sparrow, a glider, with its recipe (the Airstrip's: 75 Space
+/// Crystals and 320 frames, as the Seeker's at the Chop Shop) is refused by the gate; so is the Seeker once it glides
+/// (a test def with the Sparrow's movement), and a driving Seeker is taken.
 #[test]
 fn the_gate_refuses_a_glider_by_its_movement() {
-    static SPARROW: [Recipe; 1] = [Recipe {
-        kind: ObjectKind::Sparrow,
-        cost: 75,
-        frames: 320,
-        requires: &[],
-    }];
-    let _seeker = seeker_recipe();
-    let _sparrow = TestDef::structure(ObjectKind::Airstrip, |structure| structure.constructs = &SPARROW);
     let repair = |sim: &Sim| {
         sim.validate(&PlayerCommand {
             player: P1,
