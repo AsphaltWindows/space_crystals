@@ -2428,3 +2428,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0182 parts 1–3: Chopper UC 2, Outpost Groupable true, mine sight 1 GU armour 12/12 (user) — 0457. Part 4 (Hornet missile) pending user.
 - Q0182 part 4: Hornet missile AoE ground-only, 45 over 32 su (0458).
 - Q0183: ejected vehicles without orders drive 3 GU out of the Tunnel exit and park around the point (0459).
+- Q0184: Bike MinRange 1 GU; Attack Ground repositions / MinRange back-off (0460).
