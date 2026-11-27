@@ -2506,17 +2506,36 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - Attack Ground at a spot in range but out of its arc circles the spot forever.
   - **Notes for SB, SL and ST1:** add your recipe const to the Vehicle Assembly's `recipes` in panel order, replace your `Planned` slot in `templates/syndicate/vehicle_assembly.rs`, and shrink `SK_KINDS`. Q0183's stall will meet every vehicle out of a Tunnel.
   - 2858 tests passed, 62 ignored, in 10 programs. The new golden `syndicate_vehicles` makes 24; no other golden moved. The seed sweep passes, the 192 computer-player games are identical, and X2's round trip passes with the kinds live.
+- **M6-GD The Drone Operator** (Opus; merged as `b35ce523`, squashed by the Director from the slice, a merge of master (SV) that resolved conflicts in the golden list and ARCHITECTURE.md, and the client's golden playback count; T89, T91; 0421, 0435, 0441). **The first Supply cost.**
+  - **Training:** the Barracks' R trains the operator behind a Career Campus for 100 SC and 1 Supply (`Recipe::supplies`, `QueueEntry::supplies`).
+    - Both costs are paid when it is queued, or neither is (`Reject::InsufficientSupplies`). Both are refunded on a cancel, or when the Barracks is lost.
+    - Without a Supply, R is greyed, and a press says "Not enough Supplies" (`Refusal::Supplies`).
+    - **For GF, GH1, GM and GS:** setting `supplies: N` in a live recipe is all it takes. The Field Engineer's Supply is GS's, with the starting Supply (0436).
+    - **Until GS,** the GDO has 0 Supplies, so in normal play R stays greyed. MQ's playtest notes must say so.
+  - **The stock** (`stock.rs`, `UnitDef::stock`): at most 1 drone, starting with 1.
+    - F (`Ability::Buy`) costs 50 SC and takes 160 frames. It starts only once the drone has ended.
+  - **The launch** (`OrderKind::Launch`, R, right after phase 5a) puts the drone over the operator and leaves the selection as it was.
+    - While the drone is out the operator can't move: the gate refuses Move-type orders (`Reject::DroneOut`), and the client greys them and says "The drone is out", on a right-click too.
+  - **How a drone ends** (`tether.rs`, right after phase 5d):
+    - its operator dies: it falls, with no explosion;
+    - it passes the 8 GU leash, measured edge to edge: it falls, and its explosion lands where it fell;
+    - its 320-frame battery runs out: it falls.
+  - **The explosion:** a one-use melee area attack, 150 damage within 48 su, ground units only, with friendly fire.
+  - **The client:** a blast ring for the explosion, and a leash ring round the operator while it or its drone is selected.
+  - **`Ruleset::check`** bounds a stock's frames (at most 65535) and its start (at most its maximum).
+  - **Perf:** an interleaved A/B against `36901a85` showed no regression in movement, battle, attack-moving, 40 Sparrows or the drones' economy.
+  - fmt, clippy and the 2,885 tests in 10 programs pass (62 ignored), as do the seed sweep, `data::`, the `tuning` program and the controls doc. The 192 computer-player games are identical. The new golden `gdo_drones` makes 25; no other golden moved.
 
 ## In progress
 - **Running:**
-  - **M6-GD The Drone Operator** (Opus; brief `scratchpad/briefs/m6gd-drone-operator.md`), launched at GK's merge, on 2026-11-27. It builds the second cost (Supplies) that GF, GH1, GM and GS reuse.
   - **M5-Mb M5's QA** (Opus; brief `scratchpad/briefs/m5mb-qa.md`), launched at X2's merge, on 2026-11-27, with M6 running beside it. The playtest build is the commit at its merge.
   - **M6-GR The Radar Station, Scan and the Defense System** (Opus; brief `scratchpad/briefs/m6gr-radar-defense.md`), launched at SV's merge, on 2026-11-27.
+  - **M6-GF The Factory, Advanced Mechanics, the Industrial Powerplant, the Raptor and the Twister** (Opus; brief `scratchpad/briefs/m6gf-factory.md`), launched at GD's merge, on 2026-11-27. It also pins the Raptor's close-range cases for Q0184.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** GF and SN (W3) as slots free, then W4.
+- **Next:** SD and GH1, the heads of the longest chains, as slots free. Then SN; SB after SN (it adds the Vault to SN's `network/services.rs`); CM; and GA after GF.
   - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
-  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK, SK and SV are merged, and GD and GR are running. GF and SN (W3) come next.
-  - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. `m6gr-radar-defense.md`, `m6gf-factory.md` and `m6sn-null-chamber.md` are drafted with what GK and SK landed. Mb's brief has the soak failure to bisect, and M6 running beside it.
+  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK, SK, SV and GD are merged, and GR and GF are running. SD and GH1 come next.
+  - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. `m6sn-null-chamber.md`, `m6sd-air-doors.md`, `m6gh1-airfield-hornet.md` and `m6cm-mirage.md` (0448) are drafted. Each brief's "Landed since" is filled in at its launch. Mb's brief has the soak failure to bisect, and M6 running beside it.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
@@ -2768,6 +2787,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
   - **The GDO:** GR, GD, GF, GA, GM, GP, GB, GH1, GH2, GL and GS.
   - **The Syndicate:** SV, SN, SB, SC, SL, SD, ST1, ST2, SP, SA and SR.
   - **The tail:** the answer sweeps S6a and S6b, and QA, MQ.
+  - **Added since:** **CM**, the Disciple's Mirage and the Shroud cloud's linger (0448). It works only in the Cults' files, so it fills any free slot.
 - **Waves:** W1–W11 from X1's merge, three builds a wave; X2 and M share W1 and W2.
   - **The longest chains:** GK → GH1 → GH2 → GL; SK → SV → SD → SP → SR; SK → SV → SD → ST1 → ST2.
   - **A partway playtest, if the user wants one:** the ground war after W6, with QA slice MQa in W7.
@@ -2968,7 +2988,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0173 | Rocketmen against a moving Sparrow: the normal missile always misses one in flight (it aims without leading, and a Sparrow never stops), and a lone group can't lock a strafing one (SightRange 6, LockRange 7). Keep it, raise the sight or shorten the lock, or make the missile lead? (from M5-K) | no | answered by 0445: option 1, kept as built; both missiles now burst as area damage, 40 over 32 su (**M5-S8**) |
 | Q0174 | The Chop Shop's keys for the Hand of Heaven and the Prayer-mobile, and whether its Production list misses the Prayer-mobile (for M5-N10 and N11. Assumed: W: Build Hand of Heaven, E: Build Prayer-mobile, E greyed until a Temple stands) | no | answered by 0444 (W: Hand of Heaven, E: Prayer-mobile, E greyed until a Temple stands), as assumed |
 | Q0175 | A vehicle building with no rally point stalls after its first vehicle: idle vehicles don't yield (0440), against the Exit Doorway's "so they don't cause stalls" (from M5-N6) | no | answered by 0446 (a default rally point 3 GU out of the exit) and 0447 (it can be cleared): **M5-S8** |
-| Q0176 | `combat.md`'s table says a tracked unit turns "unconstrained" while stationary or stopping, against the tread law's SpinRate at rest and the Hand of Heaven's "about 19° a frame" (from M5-V3) | no | open: built by the law |
+| Q0176 | `combat.md`'s table says a tracked unit turns "unconstrained" while stationary or stopping, against the tread law's SpinRate at rest and the Hand of Heaven's "about 19° a frame" (from M5-V3) | no | answered by 0449 (option 1, as built: the tread law at every speed) |
 | Q0177 | The default rally point, 3 GU out, holds three Seekers, and a fourth left alone stalls the doorway, though five can queue: keep 3 GU, take a longer distance, or have vehicles park around a taken rally point? (from M5-S8) | no | open |
 | Q0178 | Crushing: does a Stopping (braking or coasting) crusher crush, which the Trigger's "Moving or Reversing" leaves out; and does a crush ping the minimap, whose alert fires on damage? (from M5-V4) | no | open |
 | Q0179 | The Hand of Heaven: its MinRange back-off (to 9 GU) leaves its own 7 GU sight, so alone it loses the target; a wall can stop its hull aim for good; and `AttackingObject`'s step 4, which it doesn't follow (from M5-N10) | no | open |
@@ -2977,9 +2997,10 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0182 | Four GDO numbers the docs don't give: the Supply Chopper's UnitControlCost, the Outpost's Groupable, the mine's sight and armour, and the Hornet's TargetType (its dodgeable missile, single-target or a burst like the Rocketman's, 0445): proceeding on 2, true, 0 and 0/0, and SingleTarget (from M6-GK) | no | open |
 | Q0183 | Idle vehicles stall a Tunnel's exit: of five Bikes ejected with no order, two come out, since an idle vehicle doesn't yield (0440) and the Tunnels have no default rally point (0446); with a rally point straight ahead, four (from M6-SV) | no | open |
 | Q0184 | The Assault Bike at close range: a target inside its turning circle (it gives the Attack up), its own blast (it hits itself from 48 su, by Q0083), and Attack Ground out of its arc (it circles forever); options: a MinRange, a loop, giving up, other numbers (from M6-SV) | no | open |
+| Q0185 | What energy does an illusion show? Everyone sees a Disciple's energy bar (M5-N4a's placeholder), and 0448 says enemies can't tell illusions from Disciples: proceeding on the parent's current energy, live (for M6-CM) | no | open |
 
 ## Design change entries
-Last triaged: 0282.
+Last triaged: 0449.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -3399,4 +3420,6 @@ Last triaged: 0282.
 | 0445 **The Rocketman's missiles are area damage, and a Sparrow may dodge the normal one** (answers Q0173 with option 1: no leading, and no new sight or lock time). Both missiles burst, 40 over 32 su, with friendly fire as all area damage. The burst keeps the domain of what it was fired at: an air unit, only air; a ground unit or the ground, only ground and underground. An empty spot bursts harmlessly | done (**M5-S8**, `38e4ee72`) | Verification: Rocketmen firing at a clump of enemy infantry damage several per missile, and own infantry beside the target too; a missile fired at a Sparrow that flies on bursts harmlessly, and a ground unit under the spot isn't hit; a locked missile on a Sparrow in a group damages the neighbours within 32 su |
 | 0446 **Vehicle buildings start with a rally point 3 GU out of the exit** (answers Q0175 with option 4). Every building releasing wheeled or tracked vehicles through an exit side (the Chop Shop, and the GDO Factory) gets a RallyPoint 3 GU straight out from the middle of its exit side at placement, so during construction too. It is an ordinary rally point. Portals and Tunnels are unaffected | done for the Chop Shop (**M5-S8**, `38e4ee72`: `ProductionDef::default_rally`); **M6**'s Factory sets it too. Three Seekers fit before the door stalls: **Q0177** | Verification: a placed Chop Shop shows a rally point 3 GU out of side C; three Seekers built without touching it drive to the rally area, and the doorway never stalls; a moved rally point takes new vehicles there |
 | 0447 **Correction to 0446: the default rally point can be cleared,** by rallying on the building itself (right-click it, or C and click it). The doorway stall is then the player's | done (**M5-S8**, `38e4ee72`) | Verification: a new Chop Shop right-clicked loses its default rally point, and a second Seeker then stalls behind the first |
+| 0448 **The Disciple's Mirage; the Shroud cloud lingers 1.5 s** (the user's design). Mirage (F, 50 energy, instant) makes 4 illusions, north, east, south and west, 1 GU out. They have the parent's current HP, MaxHP and speed, take double damage, use no Unit Control and can't cast. Enemies see a Disciple; the owner sees a different look named "Disciple (illusion)". They mirror the parent's Shroud animation with no cloud, may garrison and fire for real, and end with their parent, a recast, or their own death. Casting it ends Shroud. The cloud stays where it was for 24 frames after its channel ends, still absorbing, and releases its buffer when it vanishes | queued (**M6-CM**, brief drafted; **Q0185**, an illusion's energy) | Verification: F makes four illusions for 50 energy, and an enemy sees five identical Disciples; Unit Control is unchanged; an illusion loses twice the HP; R on the parent makes the illusions play the animation, one stops alone, and stopping the parent stops all; F while channelling ends it and replaces the set; the parent's death ends them; a garrisoned illusion deals real damage; after a Stop the cloud stays 1.5 s, still absorbing, and releases as it vanishes, on death too |
+| 0449 **Tracked turning at rest follows the tread law** (answers Q0176, option 1): `combat.md`'s "unconstrained" Stationary and Stopping rows are corrected to the law of 0417 | done (no-op: M5-V3 built it so; `tests/tracked/spin.rs`) | Verification: a stopped Hand of Heaven turns about 19° a frame, never instantly; a braking one turns faster as it slows |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
