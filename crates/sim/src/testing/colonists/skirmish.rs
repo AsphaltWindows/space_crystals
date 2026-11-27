@@ -15,10 +15,11 @@
 //!
 //! Nothing here assumes the game goes as the goldens' do: the players stop once the game is over or they are
 //! defeated, a lost Bio Portal stops the Sabres, and a Sabre lost before it converts isn't converted. Played on to 10
-//! minutes (as of slice M3-K3, with the Drone's numbers of design change 0205), `versus_gdo` has its last
-//! Peacekeeper die at 2:54, after four Rifle Legionnaires (2:50 after three before 0205); then player 1 gathers and
-//! deploys on, stopping at its 30th Drone and its seventh Beacon site, player 2 has nothing left to do, and neither
-//! is defeated.
+//! minutes, `versus_gdo`'s two waves of five take the Colonists' base by 3:48, since design change 0323's contact step
+//! (slice M4-W3; until then its last Peacekeeper died at 2:54, after four Rifle Legionnaires). With the Peacekeepers
+//! sent one at a time ([`Skirmish::versus_gdo_in_waves`], `tests/skirmish_soak.rs`, slice M5-Mb) the last dies at
+//! 2:40, after two Rifle Legionnaires; then player 1 gathers and deploys on, stopping at its 30th Drone, player 2 has
+//! nothing left to do, and neither is defeated.
 
 use std::collections::BTreeSet;
 
@@ -98,6 +99,9 @@ pub struct Skirmish {
     sabres: Vec<(Tick, ObjectId)>,
     /// How many of them convert to Rifle Legionnaires, the first first.
     converts: usize,
+    /// How many Peacekeepers player 2 sends at a time: [`WAVE`], or (slice M5-Mb) the soak's
+    /// ([`Skirmish::versus_gdo_in_waves`]).
+    wave: usize,
 }
 
 impl Skirmish {
@@ -124,6 +128,17 @@ impl Skirmish {
         Self::new(colonists(30, 8, DEFENCE), Some(gdo), usize::MAX)
     }
 
+    /// [`Skirmish::versus_gdo`] with player 2's Peacekeepers sent `wave` at a time rather than [`WAVE`] (slice M5-Mb):
+    /// `tests/skirmish_soak.rs`'s game, whose Colonists must win the fight and gather on for 10 minutes. Since design
+    /// change 0323's contact step (slice M4-W3, `4ae8017a`) the first wave of five meets the Rifle Legionnaires at
+    /// [`DEFENCE`] one at a time, and the second takes the Colonists' base; the golden game keeps its waves of five.
+    pub fn versus_gdo_in_waves(wave: usize) -> Self {
+        Self {
+            wave: wave.max(1),
+            ..Self::versus_gdo()
+        }
+    }
+
     fn new(colonists: Colonists, gdo: Option<BuildOrder>, converts: usize) -> Self {
         Self {
             colonists,
@@ -132,6 +147,7 @@ impl Skirmish {
             sent: BTreeSet::new(),
             sabres: Vec::new(),
             converts,
+            wave: WAVE,
         }
     }
 
@@ -213,7 +229,7 @@ impl Skirmish {
                 .filter(|o| o.orders.as_ref().is_none_or(|orders| orders.is_idle()))
                 .map(|o| o.id)
                 .collect();
-            if waiting.len() >= WAVE {
+            if waiting.len() >= self.wave {
                 self.sent.extend(&waiting);
                 commands.push(PlayerCommand {
                     player: GDO,

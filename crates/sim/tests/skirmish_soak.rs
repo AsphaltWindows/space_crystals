@@ -3,9 +3,9 @@
 //! [`MINUTES`] minutes of `dev_skirmish` from its real start, each through the gate with their own commands, as
 //! players would. Player 1's Colonists gather, train 30 Drones, deploy Beacons as their Beacon Capacity needs them,
 //! warp in a Bio Portal and train eight Sabre Legionnaires, each converted to a Rifle Legionnaire; player 2's GDO
-//! plays the fastest clean Barracks and sends ten Peacekeepers to the Colonists' field in two waves of AttackMove.
-//! After the fight the Colonists gather on until their field runs out, at about 8½ minutes with the Drone's numbers
-//! of design change 0205 (its last patch at 8:36; at 9:02 before 0205).
+//! plays the fastest clean Barracks and sends each of its ten Peacekeepers to the Colonists' field by AttackMove as it
+//! is trained ([`WAVE`]). After the fight the Colonists gather on until their field runs out, at about 8½ minutes with
+//! the Drone's numbers of design change 0205 (its last patch at 8:53).
 //!
 //! It checks, after every tick:
 //! - the invariants: `TestSim`'s (the movement invariants and K1), and that nothing names a removed object
@@ -46,6 +46,14 @@ use sc_sim::{
 
 /// How long the game runs.
 const MINUTES: u32 = 10;
+/// How many Peacekeepers player 2 sends at a time (`Skirmish::versus_gdo_in_waves`): one, as each is trained (slice
+/// M5-Mb). In the golden game's two waves of five the Peacekeepers have won the fight since design change 0323's
+/// contact step (slice M4-W3, `4ae8017a`, found by `git bisect`): the first wave meets the Rifle Legionnaires 27
+/// ticks sooner and one at a time, they fire 25 shots in its fight rather than 60, and the second wave takes the
+/// Colonists' base by 3:48, so their line never runs to its end. In waves of four or three the Colonists still lose
+/// their base, in waves of two seven of their eight Rifle Legionnaires; one at a time, the last Peacekeeper dies at
+/// 2:40, after two Rifle Legionnaires.
+const WAVE: usize = 1;
 const END: Tick = MINUTES * 60 * TICKS_PER_SECOND;
 /// A hash is noted at every multiple of this tick.
 const CHECKPOINT: Tick = 64;
@@ -279,7 +287,7 @@ fn play() -> Run {
     let scenario = skirmish::scenario();
     let config = scenario.setup.config;
     let mut t = TestSim::with_config(scenario, config);
-    let mut players = Skirmish::versus_gdo();
+    let mut players = Skirmish::versus_gdo_in_waves(WAVE);
     let mut watch = Watch::default();
     let mut hashes = vec![(0, t.sim().state_hash())];
     let field: Vec<u32> = field().iter().filter_map(|&patch| remaining(t.sim(), patch)).collect();
