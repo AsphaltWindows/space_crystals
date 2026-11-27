@@ -3,13 +3,14 @@
 //! invariants, the gate, design change 0402's Verification).
 //!
 //! - **The default run** ([`a_standard_computer_attacks_a_passive_one`], and each faction's own, as
-//!   [`a_standard_syndicate_computer_attacks_a_passive_one`]): standard against passive of one faction on
-//!   `dev_skirmish` for [`DEFAULT_RUN`] of game time, with every invariant. At the end, the standard player's waves
-//!   have gone out and fought.
+//!   [`a_standard_cults_computer_attacks_a_passive_one`] and [`a_standard_syndicate_computer_attacks_a_passive_one`]):
+//!   standard against passive of one faction on `dev_skirmish` for [`DEFAULT_RUN`] of game time, with every
+//!   invariant. At the end, the standard player's waves have gone out and fought.
 //! - **0402's Verification** ([`computers_attack_only_buildings_they_know`]): standard against standard, where both
 //!   attack, to a defeat; and the check itself, on a planted target ([`an_attack_on_a_building_never_seen_is_caught`]).
 //! - **Determinism** ([`the_same_game_ends_the_same`], and each faction's own, as
-//!   [`the_same_syndicate_game_ends_the_same`]): the same game twice ends with the same state hash.
+//!   [`the_same_cults_game_ends_the_same`] and [`the_same_syndicate_game_ends_the_same`]): the same game twice ends
+//!   with the same state hash.
 //! - **`ai_games`** (ignored, a report, in release): every pairing whose factions both have a computer player, on every
 //!   Skirmish Default map, each profile against each that attacks, to a defeat or [`LIMIT`]: standard must beat its own
 //!   faction's passive within [`STANDARD_BEATS_PASSIVE`] from either slot, and standard against standard must end in a
@@ -60,6 +61,22 @@ fn gdo_vs_gdo(scenario: Scenario) -> Scenario {
 #[test]
 fn a_standard_computer_attacks_a_passive_one() {
     let scenario = gdo_vs_gdo(scenarios::dev_skirmish());
+    let report = play(&scenario, &[(P1, Standard), (P2, Passive)], DEFAULT_RUN, Checks::All);
+    let (standard, passive) = (report.side(P1), report.side(P2));
+    assert!(standard.waves >= 1, "the standard player sent no wave: {report:?}");
+    assert_eq!(passive.waves, 0, "the passive player never attacks: {report:?}");
+    assert!(
+        standard.trained >= 8 && passive.trained >= 8,
+        "both trained a wave's worth: {report:?}"
+    );
+    assert!(passive.lost >= 1 && standard.lost >= 1, "the wave fought: {report:?}");
+}
+
+/// The Cults' default run (slice A2a): as the GDO's. The standard player's first wave, of 8 Militants, leaves at about
+/// 3:00, and its first units fall at about 4:20.
+#[test]
+fn a_standard_cults_computer_attacks_a_passive_one() {
+    let scenario = with_factions(scenarios::dev_skirmish(), [Faction::Cults, Faction::Cults]);
     let report = play(&scenario, &[(P1, Standard), (P2, Passive)], DEFAULT_RUN, Checks::All);
     let (standard, passive) = (report.side(P1), report.side(P2));
     assert!(standard.waves >= 1, "the standard player sent no wave: {report:?}");
@@ -158,6 +175,17 @@ fn an_attack_on_a_building_never_seen_is_caught() {
 #[test]
 fn the_same_game_ends_the_same() {
     let scenario = gdo_vs_gdo(scenarios::dev_skirmish());
+    let game = || play(&scenario, &[(P1, Standard), (P2, Standard)], DEFAULT_RUN, Checks::Rules);
+    let (first, second) = (game(), game());
+    assert_eq!(first.hash, second.hash);
+    assert_eq!(first.sides, second.sides);
+    assert!(first.sides.iter().all(|s| s.waves >= 1), "both attacked: {first:?}");
+}
+
+/// The Cults' determinism (slice A2a), as the GDO's.
+#[test]
+fn the_same_cults_game_ends_the_same() {
+    let scenario = with_factions(scenarios::dev_skirmish(), [Faction::Cults, Faction::Cults]);
     let game = || play(&scenario, &[(P1, Standard), (P2, Standard)], DEFAULT_RUN, Checks::Rules);
     let (first, second) = (game(), game());
     assert_eq!(first.hash, second.hash);

@@ -4729,7 +4729,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--replay <file.json>` | Plays a recorded game back (see Replays and golden hashes) with its own map, players and game options: not with `--scenario`, `--map`, `--factions`, `--editor`, `--no-debug` or `--commands`. Pauses at the end, so no tick of the other flags may come after it. The other QA flags work with it. |
 | `--record <file.json>` | Records the game to that file. A game is recorded to `replays/` anyway; a QA run only with this flag. Not with `--editor` or `--replay`. |
 | `--no-record` | Doesn't record the game. |
-| `--ai <n>[:<profile>],...` | Computer players play players `n`, … (slice A1, see *Computer players*), each with a profile, `standard` (the default) or `passive`: `--ai 2`, `--ai 1,2:passive`. Their factions must have one (the GDO, so far). Not with `--editor` or `--replay` (a replay records their commands). The client gives a computer's player no command; F2 still switches to it. |
+| `--ai <n>[:<profile>],...` | Computer players play players `n`, … (slice A1, see *Computer players*), each with a profile, `standard` (the default) or `passive`: `--ai 2`, `--ai 1,2:passive`. Their factions must have one (`sc_ai::factions::with_ai`). Not with `--editor` or `--replay` (a replay records their commands). The client gives a computer's player no command; F2 still switches to it. |
 
 Taking a screenshot (no window appears; about one second plus `tick / 16` seconds, or add `--fast`):
 
@@ -5069,7 +5069,10 @@ playtest tool, started from the command line (`--ai`, see *QA mode*), whose beha
     game only as the last tick left it, so the turn counts what the tick's commands spend from the bank and the
     footprints they place;
   - `build`: where a building goes, the nearest spot the placement check takes, with a free ring around it;
-  - `army`, shared by every faction: the staging point, the waves and the defense;
+  - `army`, shared by every faction: the staging point, the waves and the defense. A wave that knows of nothing to
+    attack searches the patches near the enemy starts, then, when it or the enemy is a Cults player, the ground around
+    the enemy's start (`army::search_points`, `tuning::army::SEARCH_GROUND_OF`, slice A2a: the Cults' Halls stand away
+    from any patch). The View tells every player's faction (`View::faction`), shown to every player at game start;
   - `factions`: one module per faction behind `FactionAi`. It decides what to build and train, which units fight and
     which buildings rally, and may size its army's waves (`FactionAi::waves`; the army layer's own by default).
 - **Numbers**: all placeholders, in `sc_ai::tuning` (*Tunables*).
@@ -5120,7 +5123,8 @@ It never panics, whatever the game's state: an assumption that fails skips the a
 - **AI against AI, headless**: `crates/ai/tests/games.rs`, on `games/harness.rs`. After every step the harness checks
   the invariants, that the gate takes every command, and design change 0402's Verification ("an AI doesn't attack a
   building it has never seen or scouted, apart from the known start locations"): each Attack and Attack Move must aim
-  at a building the player knew of, a start, a patch or a point of its own. The tests:
+  at a building the player knew of, a start, a patch, a point of the ground a wave searches around a start
+  (`army::search_points`) or a point of its own. The tests:
   - the default run: standard against passive of each faction with a computer player, on `dev_skirmish` for 6
     minutes, every invariant checked;
   - 0402's check on a game to a defeat, and on a planted target;
@@ -5369,8 +5373,10 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   so the code that uses it still names it there.
 - **The computer players'** (`crates/ai/src/tuning.rs`, slice A1): `army` (the staging point, the waves, the
   defense), `build` (where a building goes) and one module per faction with a computer player (`gdo`: the opening,
-  the Barracks, the queues; `syndicate`: the Agents, the Tunnels, the expansions, the waves). Each is "Placeholder (Q0147 point N)" (2: how it plays; 3: build orders) or
-  "Placeholder (not in the design: why)": the behaviour is the Director's placeholder (*Computer players*).
+  the Barracks, the queues; `syndicate`: the Agents, the Tunnels, the expansions, the waves; `cults`: the field's
+  seats, the sites and crews of its buildings, the Halls, the Gunners). Each is "Placeholder (Q0147 point N)" (2:
+  how it plays; 3: build orders) or "Placeholder (not in the design: why)": the behaviour is the Director's
+  placeholder (*Computer players*).
 - Each constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where there is one,
   why it has its value.
 - Colours and drawing sizes stay with the drawing code. Technical constants stay where they are used: the sim's

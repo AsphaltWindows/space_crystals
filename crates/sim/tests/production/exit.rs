@@ -1,15 +1,18 @@
 //! The exit doorway (`core/entities.md > Structure Type > Exit Doorway`, design changes 0080 and 0086): a produced
 //! unit appears half inside its Barracks at the middle of side B and walks out. The doorway is the one place where a
-//! unit overlaps a structure, and only on its way out.
+//! unit overlaps a structure, and only on its way out. And a Barracks destroyed in combat while a unit walks out of it
+//! (the Director's reading, slice A2a).
 
+use sc_sim::mover::Locomotion;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
-    BuildingOrientation, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, Rotation, SimEvent, Target, Vec2,
-    math,
+    BuildingOrientation, DebugCommand, MoveGoal, MoveStatus, ObjectId, ObjectKind, OrderKind, ProductionCommand,
+    Rotation, SimEvent, Target, Tick, Vec2, math,
 };
 
 use super::doors::{DOOR, OUTSIDE, door_of, exit_of, produced, queue, rally, run_checked, step_checked};
-use super::{BARRACKS, P1, P2, PK, at, base, flat, tile};
+use super::queue::crystals;
+use super::{BARRACKS, P1, P2, PK, at, base, flat, production, tile};
 
 /// Design change 0080's Verification 1: "Queue 5 Peacekeepers at a Barracks with open ground in front of side B.
 /// Each one appears half inside the right end and walks out."
@@ -317,4 +320,97 @@ fn a_unit_that_is_out_cannot_go_back_in() {
         (Vec2::new(1000.0, 700.0), None)
     );
     assert_eq!(produced(&t).len(), 2, "and the doorway is free for the next unit");
+}
+
+/// [`base`] with six of player 2's Peacekeepers south of the Barracks (3 to 8), in range of its wall, which take an
+/// Attack on it in tick 2 and destroy it in combat. Auto-targeting is off: nothing else fights.
+fn under_fire() -> TestSim {
+    let mut builder = base();
+    for i in 0..6 {
+        builder = builder.spawn(PK, Some(P2), at(530.0 + 30.0 * i as f32, 500.0));
+    }
+    let mut t = builder.start();
+    t.without_auto_targeting();
+    let attackers: Vec<ObjectId> = (3..9).map(ObjectId).collect();
+    t.order_at(2, P2, &attackers, OrderKind::Attack(BARRACKS), false);
+    t
+}
+
+/// The tick in which [`under_fire`]'s Barracks is destroyed, with nothing in production.
+fn destroyed_in() -> Tick {
+    let mut t = under_fire();
+    let gone = (1..3000).find(|_| {
+        t.step();
+        t.sim().object(BARRACKS).is_none()
+    });
+    gone.expect("the Barracks is destroyed")
+}
+
+/// [`under_fire`], with a Peacekeeper trained so that it appears in the doorway two ticks before the Barracks goes,
+/// rallied to `rally_point` if there is one: it is still walking out when the Barracks is destroyed, in combat, after
+/// the tick's movement (phase 5e). Runs the game to the end of that tick, and returns it with the unit.
+fn destroyed_while_walking_out(rally_point: Option<Vec2>) -> (TestSim, ObjectId, Tick) {
+    let gone = destroyed_in();
+    let mut t = under_fire();
+    t.debug_at(1, crystals(P1, 50));
+    if let Some(point) = rally_point {
+        rally(&mut t, 1, BARRACKS, point);
+    }
+    // 80 ticks in production.
+    t.at(gone - 81, P1, production(&[BARRACKS], ProductionCommand::Train(PK)));
+    run_checked(&mut t, gone - 1);
+    let made = produced(&t);
+    assert_eq!(made.len(), 1);
+    let (appeared, unit) = made[0];
+    assert_eq!(appeared, gone - 2);
+    let mover = t.mover(unit.0);
+    assert_eq!(mover.exit, Some(BARRACKS), "in the doorway");
+    assert!(
+        mover.locomotion == Locomotion::Moving && mover.velocity != Vec2::ZERO,
+        "walking out: {mover:?}"
+    );
+    run_checked(&mut t, gone);
+    assert!(t.sim().object(BARRACKS).is_none(), "destroyed in tick {gone}");
+    (t, unit, gone)
+}
+
+/// `> Exit Doorway`, point 2: "the unit then walks out toward its RallyPoint (or straight out of the exit side if
+/// there is none)". It doesn't say what happens when the building is destroyed meanwhile; the Director's reading
+/// (slice A2a): a unit walking out with no goal stands where it is, as one that has walked out does. A unit with no
+/// rally point, whose Barracks is destroyed as it walks out, comes to rest in that tick, part way out, and stays there,
+/// idle, for the 100 ticks after, every invariant holding in each (I7: a unit without a goal is at rest).
+#[test]
+fn a_unit_walking_out_with_no_rally_point_stands_when_its_barracks_is_destroyed() {
+    let (mut t, unit, gone) = destroyed_while_walking_out(None);
+    let state = |t: &TestSim| {
+        let mover = t.mover(unit.0);
+        (mover.goal, mover.locomotion, mover.velocity, mover.exit)
+    };
+    let at_rest = (MoveGoal::None, Locomotion::Stationary, Vec2::ZERO, None);
+    assert_eq!(state(&t), at_rest);
+    let pos = t.pos(unit.0);
+    assert!(
+        pos.y == DOOR.y && pos.x > DOOR.x && pos.x < OUTSIDE.x,
+        "part way out: {pos}"
+    );
+    run_checked(&mut t, gone + 100);
+    assert_eq!(state(&t), at_rest);
+    assert_eq!(t.pos(unit.0), pos, "where it stopped");
+    assert!(t.sim().object(unit).unwrap().orders.as_ref().unwrap().is_idle());
+}
+
+/// The same with a rally point: one walking out toward its rally point keeps going there (the Director's reading).
+/// Its Barracks destroyed as it walks out, the unit carries on to its rally point and arrives there.
+#[test]
+fn a_unit_walking_out_to_its_rally_point_goes_on_there_when_its_barracks_is_destroyed() {
+    let point = Vec2::new(1300.0, 600.0);
+    let (mut t, unit, gone) = destroyed_while_walking_out(Some(point));
+    let mover = t.mover(unit.0);
+    assert_eq!(
+        (mover.goal, mover.locomotion, mover.exit),
+        (MoveGoal::Point(point), Locomotion::Moving, None)
+    );
+    run_checked(&mut t, gone + 300);
+    assert_eq!(t.pos(unit.0), point);
+    assert_eq!(t.status(unit.0), MoveStatus::Arrived);
 }

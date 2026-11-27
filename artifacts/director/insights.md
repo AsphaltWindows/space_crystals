@@ -143,6 +143,12 @@
   - **After a slice that changes the profile,** seed the main checkout's `target/` from its worktree (`cp -a --reflink=auto $WT/target/. target/`) before removing the worktree. Agents copy the main cache at launch, so a stale one costs each of them about 14 minutes.
   - `-p sc_sim` and `--workspace` build the sim with different features, so mixing them compiles it twice.
 - **M5 planning started early (2026-11-26).** M5-P, a read-only planning spike on Opus (brief `scratchpad/briefs/m5-planning.md`), drafts `scratchpad/m5/m5-plan-draft.md` while M4's last slices run. M5 ends at the user's first playtest, so the draft also plans playtest readiness for all four factions, and the user's "data files at playtest" step. Adopted as `artifacts/director/m5-plan.md` (2026-11-25), with the Director's decisions at its top; Q0092–Q0108 filed from its drafts. The user's product decisions (the opponent, a start screen) come before M5 starts.
+- **Check a planning spike's question drafts with a fresh agent before filing** (M6, 2026-11-26). M6-P's 17 drafts were good, but the read-only check M6-Q (brief `scratchpad/briefs/m6-questions-check.md`) changed all 16 it checked:
+  - quotes the docs didn't hold, or missed quotes that supported another option;
+  - points the docs or older entries already answered, dropped;
+  - the arithmetic of what the placeholder numbers mean in play.
+
+  Also check the spike's plan against the milestone it follows: M6-P found M5 had no slice for tracked movement or crushing, which N10 needs.
 
 ## Code layout after M4-R (R1 `8eab2290`, R2 `c60b8d0f`)
 `ARCHITECTURE.md > Adding a unit or structure` is the guide. Point every brief at it.

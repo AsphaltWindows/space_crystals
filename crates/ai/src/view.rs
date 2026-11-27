@@ -30,8 +30,9 @@ use sc_sim::economy::{ArmyCap, PowerSummary};
 use sc_sim::network::Held;
 use sc_sim::vision::{LastKnown, PlayerVision, VisibilityState};
 use sc_sim::{
-    AreaAbility, BuildArea, BuildingOrientation, Category, Command, Map, Object, ObjectId, ObjectKind, Placement,
-    PlacementCheck, Player, PlayerCommand, PlayerId, Reject, ResourceState, Scenario, Sim, Tick, TilePos, Vec2,
+    AreaAbility, BuildArea, BuildingOrientation, Category, Command, Faction, Map, Object, ObjectId, ObjectKind,
+    Placement, PlacementCheck, Player, PlayerCommand, PlayerId, Reject, ResourceState, Scenario, Sim, Tick, TilePos,
+    Vec2,
 };
 
 /// A player's start location (`core/game_rules.md > Computer players (playtest tool)`: a computer player "knows the
@@ -178,6 +179,12 @@ impl<'a> View<'a> {
     /// [`View::me`] for the player's.
     pub fn players(&self) -> impl Iterator<Item = (PlayerId, bool)> + 'a {
         self.sim.players().iter().map(|p| (p.id, p.is_defeated()))
+    }
+
+    /// A player's faction, shown to every player at game start (as [`View::players`]); `None` for a player not in the
+    /// game.
+    pub fn faction(&self, player: PlayerId) -> Option<Faction> {
+        self.sim.player(player).map(|p| p.faction)
     }
 
     /// Every player's start location, in player order.
