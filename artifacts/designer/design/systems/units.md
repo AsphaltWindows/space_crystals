@@ -78,7 +78,7 @@ Units whose UnitBase can crush (TrackedVehicle, Mech) crush enemy units whose Un
 - **Stationary crushers do not overlap**: a crusher that is not moving remains a normal hard obstacle; crushable units cannot walk into it.
 - **Crushable units avoid crushers**: crushable units still treat crushers as obstacles in their own pathing (they never walk into a crusher).
 - **No friendly crushing**: crushers cannot run over their own or allied crushable units; those remain hard obstacles and crushers must path around them.
-- TBD: whether a crusher turning in place (Stationary + Turning) can crush, or is blocked by, an adjacent crushable enemy.
+- **Turning in place crushes** (user, 2026-11-26; Q0153): a crusher turning in place (Stationary + Turning) **crushes the crushable enemies its turning Silhouette sweeps over**; they don't block the spin. Own and allied crushable units still block it (No friendly crushing): the spin stops at contact. A crusher that is stationary and **not** turning stays a hard obstacle, as above.
 
 ## MovementModel
 Defines how a unit moves, turns, accelerates, and decelerates. Each UnitBase uses one of five movement models.
