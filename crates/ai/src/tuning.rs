@@ -5,7 +5,7 @@
 
 /// The army layer (`crate::army`): the staging point, the waves and the defense.
 pub mod army {
-    use sc_sim::Tick;
+    use sc_sim::{Faction, Tick};
 
     /// Placeholder (Q0147 point 2: "pulls its army home when its base is attacked"; the brief's "a staging point
     /// between its base and the map's center"): how far the army gathers from its start toward the map's centre, grid
@@ -34,6 +34,18 @@ pub mod army {
     /// Placeholder (not in the design: a wave with nothing known to attack searches the patches this near an enemy's
     /// start, where its last buildings may stand unseen), grid units.
     pub const SEARCH_RADIUS_GU: f32 = 20.0;
+    /// Placeholder (not in the design: once those patches are searched, a wave searches the ground around the start, on
+    /// a square grid of points this far apart, within [`SEARCH_RADIUS_GU`] of it; slice A2a, for the buildings a Cults
+    /// player spreads over its Recruitable land), grid units. Each of a wave's units sees 5 grid units around it
+    /// (`factions/gdo/units/peacekeeper.md > SightRange - 5 grid units`, `factions/cults/units/gunner.md > SightRange -
+    /// 5 grid units`), so a wave at each point and on its way between them sees nearly all the ground there.
+    pub const SEARCH_STEP_GU: f32 = 8.0;
+    /// Placeholder (not in the design: a wave searches the ground around an enemy's start, [`SEARCH_STEP_GU`], when its
+    /// player or the enemy is of one of these factions; slice A2a): the Cults, whose Recruitment Halls go on open
+    /// Recruitable land, away from the patches. Their own waves search so too: without, the Cults' standard against the
+    /// Colonists' standard on `dev_skirmish` ends in no defeat (`crates/ai/tests/games.rs`, `ai_games`). Every player's
+    /// faction is known from the start of the game (`crate::View::faction`).
+    pub const SEARCH_GROUND_OF: &[Faction] = &[Faction::Cults];
     /// Placeholder (Q0147 point 2: "pulls its army home when its base is attacked"): how long the defense lasts after
     /// the last damage to one of its buildings, ticks (10 seconds).
     pub const DEFENSE_TICKS: Tick = 160;
@@ -78,6 +90,62 @@ pub mod gdo {
     /// Placeholder (Q0147 point 2: "training its basic units without pause"): the Peacekeepers each Barracks keeps
     /// queued.
     pub const TRAIN_QUEUE: usize = 2;
+}
+
+/// The Cults' computer player (`crate::factions::cults`).
+pub mod cults {
+    use sc_sim::Tick;
+
+    /// Placeholder (not in the design: the field is the patches the start sees as its own): its starting field is the
+    /// Space Crystals patches whose centres lie this near its start location, grid units. Every Skirmish Default map's
+    /// 8-patch field lies within 7 grid units of its start.
+    pub const FIELD_RADIUS_GU: f32 = 10.0;
+    /// `factions/cults/economy.md > Economy check`: "full efficiency at about **2 Recruits per tile of face length**":
+    /// the Recruits a patch seats for each Storage straight across a 1-tile gap from it, the patch's tile of face.
+    pub const SEATS_ACROSS: u32 = 2;
+    /// Placeholder (not in the design: a patch at a Storage's corner, a tile from it, has no face across from it): the
+    /// Recruits it seats for that Storage, as `sc_sim::testing::cults::skirmish`'s seats give such a patch one.
+    pub const SEATS_AT_CORNER: u32 = 1;
+    /// Placeholder (not in the design: a Storage worth its 100 Space Crystals): the fewest seats a new Storage must add.
+    pub const STORAGE_SEATS: u32 = 3;
+    /// Placeholder (not in the design: no building but a Storage goes this near the field, so that the Storages' sites
+    /// and the Recruits' ways stay free), tiles from a patch of the field: a 1-tile gap and a Storage's 3 tiles.
+    pub const FIELD_ZONE: i32 = 4;
+    /// Placeholder (Q0147 point 2: "one or two production buildings", for the Cults the Recruitment Halls whose
+    /// Recruits become the army; `factions/cults/overview.md > TheCults`: "Army size scales with territorial control of
+    /// Recruitable tiles, with no hard cap"): the most Halls it keeps, the starting one included. Fewer sites fit
+    /// ([`HALL_EFFECTIVENESS`], [`HALL_SEARCH_GU`]): four on `dev_skirmish`, five on `playtest.json`.
+    pub const HALLS: usize = 8;
+    /// Placeholder (not in the design; slice M5-S4: "A Hall at the map's edge recruits less"): a new Hall goes only
+    /// where it would claim at least this share of its area, percent, as far as the player knows the Halls there.
+    pub const HALL_EFFECTIVENESS: u32 = 90;
+    /// Placeholder (not in the design: a Hall's site is sought this near the start, grid units): the ground the army's
+    /// waves search around an enemy's start ([`super::army::SEARCH_RADIUS_GU`]), so that a game against it ends.
+    pub const HALL_SEARCH_GU: f32 = super::army::SEARCH_RADIUS_GU;
+    /// Placeholder (Q0147 point 3: the build order; the brief: "Gunners from a Gunworks, if they fit simply"): the
+    /// complete Halls it owns before it builds a Gunworks.
+    pub const GUNWORKS_AFTER_HALLS: usize = 2;
+    /// Placeholder (not in the design): once a Gunworks stands, one in this many units the Armory trains is a Gunner,
+    /// the rest Militants. 1, all Gunners: its Recruits' Unit Control bounds the Cults' army while Space Crystals pile up,
+    /// and a Gunner does more with its Recruit (`factions/cults/units/gunner.md > AttackAttributes`: "Damage: 16")
+    /// than a Militant (`factions/cults/units/militant.md > AttackAttributes`: "Damage: 4"). With 2, its standard
+    /// player took over 16 minutes to beat the GDO's passive one on `dev_skirmish` (`crates/ai/tests/games.rs`,
+    /// `ai_games`).
+    pub const GUNNER_EVERY: u32 = 1;
+    /// Placeholder (not in the design: who builds, `factions/cults/economy.md > BaseConstructionTime Scaling`: "2
+    /// Recruits halve it, 3 Recruits reduce it to a third"): the Recruits that build a Storage.
+    pub const STORAGE_BUILDERS: usize = 2;
+    /// Placeholder (not in the design; `sc_sim::testing::cults`' lines build their Armory and Halls with 3): the
+    /// Recruits that build the Armory and the Gunworks.
+    pub const ARMORY_BUILDERS: usize = 3;
+    /// Placeholder (not in the design): the Recruits that build a Recruitment Hall, a fourth of its 90 seconds each.
+    pub const HALL_BUILDERS: usize = 4;
+    /// Placeholder (not in the design: after a search finds no site for a building, the next waits this long), ticks
+    /// (10 seconds): a field whose Storages all stand stays so until one is lost.
+    pub const SITE_RETRY_TICKS: Tick = 160;
+    /// Placeholder (not in the design: a Build whose site hasn't started this long after it was ordered is given up,
+    /// its builders sent back to work, so that nothing waits for good, M3-G3), ticks (40 seconds).
+    pub const BUILD_PATIENCE_TICKS: Tick = 640;
 }
 
 /// The Colonists' computer player (`crate::factions::colonists`, slice A2c).

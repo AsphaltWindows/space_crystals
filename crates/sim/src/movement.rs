@@ -497,7 +497,7 @@ pub(crate) fn step(
 }
 
 /// The unit stands this tick.
-fn stand(mover: &mut Mover) {
+pub(crate) fn stand(mover: &mut Mover) {
     mover.velocity = Vec2::ZERO;
     mover.locomotion = Locomotion::Stationary;
     mover.orientation = Orientation::Maintaining;
