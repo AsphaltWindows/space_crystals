@@ -10,12 +10,20 @@ use crate::units::SU_PER_GU;
 
 /// `factions/cults/units/hand_of_heaven.md`: "The Cults' **long-range, mobile, semi-ballistic missile platform**, built
 /// at the Chop Shop", "a **shoot-and-scoot** unit". Its numbers (slice M5-G2, plan decision T69): it drives by the
-/// tread law of SpeedTurnRadiusMovement (slice M5-V3, `crate::movement`), but nothing reads its turret's arc and rate
-/// yet, and its production at the Chop Shop comes with slice M5-N10 (the Chop Shop trains the Seeker since slice
-/// M5-N6), so no building makes it yet. Its missile is a DoublyDisjointed area attack, as the Grenadier's grenade is
-/// (`crate::combat::projectiles`, `crate::combat::area`): "**no homing**: the missile flies to where the target was at
-/// the end of Aiming, so targets can dodge; it can also be fired at the ground". Its numbers are the design's
-/// "Placeholder stats".
+/// tread law of SpeedTurnRadiusMovement (slice M5-V3, `crate::movement`), and its launcher turns within its arc at its
+/// rate (`crate::combat::turret`). (M5-N10) The Chop Shop builds it of three Recruits (its "**W: Build Hand of
+/// Heaven**", design change 0444; `crate::defs::cults::structures::chop_shop`). Its hull aims it ("to aim at most
+/// targets the vehicle must **stop and turn its hull** to face them"), as its turret and its TrackedVehicle base say
+/// (`crate::combat::turret::aims_by_hull`): a target in range but outside the launcher's arc stops it, and phase 5d
+/// spins its hull toward the target at its SpinRate until the target is inside the arc, then it aims and fires
+/// (`crate::orders::engage`, `crate::movement`); on Hold its base engages nothing, and its launcher keeps to
+/// its arc (`systems/controls/command_behaviors.md > HoldingPosition` 2). Its base is free all
+/// through its attack sequence, as every turret unit's is (`crate::combat::base_is_free`), so a Move drives it off as
+/// soon as its missile is away, during its Cooldown and Reload. Its missile is a DoublyDisjointed area attack, as the
+/// Grenadier's grenade is (`crate::combat::projectiles`, `crate::combat::area`): "**no homing**: the missile flies to
+/// where the target was at the end of Aiming, so targets can dodge; it can also be fired at the ground". "**Can't be
+/// shot down** in flight" needs no code: no attack targets a projectile. Its numbers are the design's "Placeholder
+/// stats".
 pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
     kind: ObjectKind::HandOfHeaven,
     name: "Hand of Heaven",

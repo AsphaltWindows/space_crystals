@@ -1,7 +1,8 @@
 //! (M5-N6) The Chop Shop's panel as plain data: the pool buildings', as the Airstrip's is
 //! (`factions/cults/structures/chop_shop.md > Placeholder stats`: "Panel like the Armory's (choose a kind with Q/W/E/R
-//! first, then; README > Choosing Recruits, Release and Eject All): **Q: Build Seeker**, **A: Release** in the kind
-//! menu; **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production**"). In a game:
+//! first, then; README > Choosing Recruits, Release and Eject All): **Q: Build Seeker**, **W: Build Hand of Heaven**,
+//! **E: Build Prayer-mobile** [...], **A: Release** in the kind menu; **A: Eject All**, **C: Set Rally Point**, **X:
+//! Cancel Production**", design change 0444; (M5-N10) W, the Hand of Heaven's). In a game:
 //! `crates/game/tests/commands/chop_shop.rs`.
 
 use sc_sim::RecruitKind;
@@ -11,13 +12,15 @@ use super::*;
 
 const CHOP_SHOP: ObjectKind = ObjectKind::ChopShop;
 const SEEKER: ObjectKind = ObjectKind::Seeker;
+const HAND: ObjectKind = ObjectKind::HandOfHeaven;
 
 /// The Chop Shop's DefaultState is a pool building's: the four kinds with their counts of free Recruits inside, A Eject
-/// All, X Cancel Production and C Set Rally Point. KindMenu\[kind\] holds its one recipe's training, "**Q: Build
-/// Seeker**" (so named on its panel, `PanelCommand::name_on`, a Train elsewhere), labelled with the Seeker's "SKR", and
-/// "**A: Release**", each issued at once; Z goes back. Ungroupable (design change 0348 point 5: "the Chop Shop is
-/// Groupable false"), a command goes to the one Chop Shop Tabbed to. The Seeker's panel is the BasicCombatUnit's, its W
-/// Reverse available (slice M5-V2: it CanReverse), as the Guard's isn't.
+/// All, X Cancel Production and C Set Rally Point. KindMenu\[kind\] holds its recipes' trainings in their order,
+/// "**Q: Build Seeker**" and (M5-N10) "**W: Build Hand of Heaven**" (so named on its panel, `PanelCommand::name_on`,
+/// Trains elsewhere), labelled with the units' "SKR" and "HOH", and "**A: Release**", each issued at once; Z goes back.
+/// Ungroupable (design change 0348 point 5: "the Chop Shop is Groupable false"), a command goes to the one Chop Shop
+/// Tabbed to. The Seeker's panel is the BasicCombatUnit's, its W Reverse available (slice M5-V2: it CanReverse), as
+/// the Guard's isn't.
 #[test]
 fn the_chop_shop_builds_seekers_from_its_kind_menus() {
     use ButtonLook::{Back, Common, Disabled};
@@ -45,6 +48,11 @@ fn the_chop_shop_builds_seekers_from_its_kind_menus() {
     for from in RecruitKind::ALL {
         let menu = panel(&chop_shop, InterfaceState::KindMenu(from), &conditions);
         assert_eq!(menu.name(slot(0, 0)).as_deref(), Some("Build Seeker"), "{from:?}");
+        assert_eq!(
+            menu.name(slot(0, 1)).as_deref(),
+            Some("Build Hand of Heaven"),
+            "{from:?}"
+        );
     }
     assert_eq!(press(&default, slot(0, 2)), SlotPress::OpenKindMenu(Metabolism));
     let shown_menu = panel(&chop_shop, InterfaceState::KindMenu(Metabolism), &conditions);
@@ -52,24 +60,25 @@ fn the_chop_shop_builds_seekers_from_its_kind_menus() {
         shown(&shown_menu),
         [
             (slot(0, 0), command(TrainFrom(SEEKER, Metabolism)), Common),
+            (slot(0, 1), command(TrainFrom(HAND, Metabolism)), Common),
             (slot(1, 0), command(Release(Metabolism)), Common),
             (CommandSlot::BACK, PanelButton::Back, Back),
         ]
     );
-    let labels = [slot(0, 0), slot(1, 0)].map(|slot| shown_menu.get(slot).unwrap().label());
-    assert_eq!(labels, ["SKR", "Rel."]);
-    assert_eq!(
-        press(&shown_menu, slot(0, 0)),
-        SlotPress::Produce(
-            TrainFrom(SEEKER, Metabolism),
-            ProductionCommand::TrainFrom {
-                kind: SEEKER,
-                from: Metabolism
-            }
-        )
-    );
+    let labels = [slot(0, 0), slot(0, 1), slot(1, 0)].map(|slot| shown_menu.get(slot).unwrap().label());
+    assert_eq!(labels, ["SKR", "HOH", "Rel."]);
+    for (at, kind) in [(slot(0, 0), SEEKER), (slot(0, 1), HAND)] {
+        assert_eq!(
+            press(&shown_menu, at),
+            SlotPress::Produce(
+                TrainFrom(kind, Metabolism),
+                ProductionCommand::TrainFrom { kind, from: Metabolism }
+            )
+        );
+    }
     assert_eq!(press(&shown_menu, CommandSlot::BACK), SlotPress::Back);
     assert_eq!(TrainFrom(SEEKER, Plain).name(), "Train Seeker");
+    assert_eq!(TrainFrom(HAND, Plain).name(), "Train Hand of Heaven");
     let two = Selection::new([(id(1), CHOP_SHOP), (id(2), CHOP_SHOP)]);
     assert_eq!(two.groups().len(), 2, "Ungroupable");
     assert_eq!(recipients(&two, TrainFrom(SEEKER, Plain)), [id(1)]);
@@ -85,4 +94,35 @@ fn the_chop_shop_builds_seekers_from_its_kind_menus() {
         press(&shown_seeker, slot(0, 1)),
         SlotPress::AwaitTarget(PanelCommand::Reverse)
     );
+}
+
+/// (M5-N10) The Hand of Heaven's panel is the BasicCombatUnit's (`factions/cults/units/hand_of_heaven.md > Placeholder
+/// stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **CanTargetGround** (Attack Ground), as every
+/// attack that can miss"): its DoublyDisjointed missile can target the ground, so D, Attack Ground, is available and
+/// awaits its ground point, as the Seeker's machine gun and the Guard's rifle can't; and it CanReverse, a
+/// TrackedVehicle (slice M5-V2), so W, Reverse, is too.
+#[test]
+fn the_hand_of_heaven_has_attack_ground_and_reverse() {
+    use ButtonLook::Common;
+    use PanelCommand::{Attack, AttackGround, HoldPosition, Move, Patrol, Reverse, Stop};
+    assert_eq!(InterfaceTemplate::of(HAND), Some(InterfaceTemplate::BasicCombatUnit));
+    assert!(offers(HAND, AttackGround) && offers(HAND, Reverse));
+    assert!(!offers(SEEKER, AttackGround) && !offers(GUARD, AttackGround));
+    let hand = Selection::new([(id(1), HAND)]);
+    let shown_hand = panel(&hand, InterfaceState::DefaultState, &Conditions::default());
+    let command = PanelButton::Command;
+    assert_eq!(
+        shown(&shown_hand),
+        [
+            (slot(0, 0), command(Move), Common),
+            (slot(0, 1), command(Reverse), Common),
+            (slot(0, 2), command(HoldPosition), Common),
+            (slot(1, 0), command(Attack), Common),
+            (slot(1, 1), command(Patrol), Common),
+            (slot(1, 2), command(AttackGround), Common),
+            (slot(2, 1), command(Stop), Common),
+        ]
+    );
+    assert_eq!(press(&shown_hand, slot(1, 2)), SlotPress::AwaitTarget(AttackGround));
+    assert_eq!(press(&shown_hand, slot(0, 1)), SlotPress::AwaitTarget(Reverse));
 }

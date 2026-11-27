@@ -110,6 +110,8 @@ impl StateHash for Mover {
             strafe,
             takeoff,
             reverses,
+            // (M5-N10) Set in phase 5a and taken in 5d of the same tick: never set between ticks.
+            turn_to: _,
         } = self;
         goal.hash(h);
         status.hash(h);

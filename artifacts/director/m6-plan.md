@@ -39,7 +39,9 @@
 > - **X1 and X2 stay in M5**, and M6 is written in X1's form (T101), as recommended. M6 starts at X1's merge.
 > - **Answered since adoption** (each answer is a row of `plan.md`'s change table, and the slice's brief carries it):
 >   - Q0153 by 0417 (V3's tread law), 0418 (a spin crushes the enemies it sweeps) and 0419 (the surfaced Transport
->     crushes): V3 and V4;
+>     crushes): V3 and V4, both built. **ST1** gives the DrillUnit its surfaced mode and turns its `crushes` on there
+>     (V4 left it `false`). The AI test harness counts only `Died`, so a slice whose computer player builds a
+>     crusher counts `Crushed` too. Q0178 (open) asks whether a Stopping crusher crushes and whether a crush pings;
 >   - Q0154 by 0420: option (c), DragMovement numbers of each unit's own. The air HoverCraft still stop by drag alone,
 >     so the note for GK and GH1 above stands;
 >   - Q0155 by 0421: R at the Barracks, no rebuy while the drone is out, the leash edge to edge;

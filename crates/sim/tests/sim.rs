@@ -99,6 +99,8 @@ mod golden;
 mod grenadier;
 mod group_destinations;
 mod gunner;
+#[path = "hand_of_heaven/main.rs"]
+mod hand_of_heaven;
 #[path = "holding/main.rs"]
 mod holding;
 mod invariants_overlap;

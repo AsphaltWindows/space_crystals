@@ -21,6 +21,22 @@ pub(super) fn carries(movement: &MovementAttrs) -> bool {
     )
 }
 
+/// (M5-N10) I5 and I7: how far a unit with these movement numbers that turned in place toward its aim in a tick,
+/// without a goal (`movement::turn_in_place`, the hull aim), may move in it at `speed_factor`. A
+/// SpeedTurnRadiusMovement unit whose spin a contact cut short backs off it, or creeps toward its aim, by one tick's
+/// Acceleration at most, and no farther than its MaxSpeed (`Tracked::spin`, design change 0035). The other models turn
+/// in place without moving.
+pub(super) fn spin_creep(movement: &MovementAttrs, speed_factor: f32) -> f32 {
+    match *movement {
+        MovementAttrs::SpeedTurnRadius {
+            acceleration,
+            max_speed,
+            ..
+        } => acceleration.unwrap_or(f32::INFINITY).min(max_speed * speed_factor),
+        _ => 0.0,
+    }
+}
+
 /// I7: a unit with momentum braking it off without a goal (`before`, as it was a tick before): it is Stopping, its
 /// velocity is that momentum, or it met an obstacle in this tick, which left it none (design change 0035), and it is
 /// slower than a tick before, every tick, so it does come to rest.

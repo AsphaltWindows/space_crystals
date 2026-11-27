@@ -11,10 +11,11 @@ use crate::sides::SideLetter;
 /// garage where Recruits are turned into vehicles". Its numbers, its site and its pool (slice M5-G2, plan decision
 /// T69), and (M5-N6) its production: the Seeker, trained of two pooled Recruits as the Armory trains a Militant of one
 /// (plan decision T71: one pool path for every such building, `sim/producers/pool.rs`), which drives out of the exit
-/// doorway on side C. Recruits build it (`factions/cults/units/recruit.md > Constructs`) once their player owns an
-/// Armory. Its numbers are the design's "Placeholder stats". The Hand of Heaven (`> Production`: "missile platform; 3
-/// Recruits") is slice M5-N10's, and the Prayer-mobile (`factions/cults/units/prayer_mobile.md`) has no numbers yet,
-/// so neither is here.
+/// doorway on side C; (M5-N10) and the Hand of Heaven of three (`> Production`: "missile platform; 3 Recruits"), its
+/// recipe after the Seeker's, in the panel's order (design change 0444: "**Q: Build Seeker**, **W: Build Hand of
+/// Heaven**, **E: Build Prayer-mobile**"). Recruits build it (`factions/cults/units/recruit.md > Constructs`) once
+/// their player owns an Armory. Its numbers are the design's "Placeholder stats". The Prayer-mobile
+/// (`factions/cults/units/prayer_mobile.md`) is slice M5-N11's.
 pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
     kind: ObjectKind::ChopShop,
     name: "Chop Shop",
@@ -62,6 +63,17 @@ pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
                     kind: ObjectKind::Seeker,
                     cost: 75,
                     frames: 320,
+                    requires: &[],
+                },
+                // (M5-N10) "**W: Build Hand of Heaven**" (design change 0444, answering Q0174), "missile platform; 3
+                // Recruits": its 3 Recruits are its Unit Control cost, as the Seeker's are
+                // (`factions/cults/units/hand_of_heaven.md > Produced at - Chop Shop (consumes **3 Recruits**; Unit
+                // Control cost **3**)`), and "Cost: Chop Shop, 3 Recruits, **150 Space Crystals, 480 frames (30 s)**",
+                // with no TechPrerequisite of its own.
+                Recipe {
+                    kind: ObjectKind::HandOfHeaven,
+                    cost: 150,
+                    frames: 480,
                     requires: &[],
                 },
             ],
@@ -125,8 +137,9 @@ mod tests {
 
     /// 3×3, ABAC, MaxHP 450, PointArmor 1, FullArmor 9 (the building armour rule's n = 1), SightRange 4, not Groupable
     /// (design change 0348), behind an Armory. Its pool: Recruits walk in at side B and come out of side C, 10 of them,
-    /// reserved ones counted. It trains the Seeker of two Recruits for 75 Space Crystals in 320 frames, out of side C.
-    /// Recruits build it from outside for 200 Space Crystals in 640 frames with one of them, from 10% HP.
+    /// reserved ones counted. It trains the Seeker of two Recruits for 75 Space Crystals in 320 frames, and (M5-N10)
+    /// the Hand of Heaven of three for 150 in 480, in that order, out of side C. Recruits build it from outside for 200
+    /// Space Crystals in 640 frames with one of them, from 10% HP.
     #[test]
     fn the_chop_shop_follows_the_design() {
         let structure = assert_structure(
@@ -145,16 +158,25 @@ mod tests {
         assert_eq!(production.exits, ExitRule::Side(SideLetter::C));
         assert_eq!(
             production.recipes,
-            [Recipe {
-                kind: ObjectKind::Seeker,
-                cost: 75,
-                frames: 320,
-                requires: &[]
-            }]
+            [
+                Recipe {
+                    kind: ObjectKind::Seeker,
+                    cost: 75,
+                    frames: 320,
+                    requires: &[]
+                },
+                Recipe {
+                    kind: ObjectKind::HandOfHeaven,
+                    cost: 150,
+                    frames: 480,
+                    requires: &[]
+                }
+            ]
         );
         assert_eq!((production.recruitment, production.augment), (None, &[][..]));
-        let seeker = ObjectKind::Seeker.def().unit.as_ref();
-        assert_eq!(seeker.and_then(|u| u.unit_control_cost), Some(2), "2 Recruits");
+        let recruits = |kind: ObjectKind| kind.def().unit.as_ref().and_then(|u| u.unit_control_cost);
+        assert_eq!(recruits(ObjectKind::Seeker), Some(2), "2 Recruits");
+        assert_eq!(recruits(ObjectKind::HandOfHeaven), Some(3), "3 Recruits");
         let holds = structure.holds.expect("its pool");
         assert_eq!(
             (holds.entrance, holds.exit),

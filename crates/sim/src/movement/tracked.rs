@@ -145,6 +145,49 @@ impl Tracked {
         (self.spin * (1.0 - speed.abs() / self.max)).max(0.0)
     }
 
+    /// (M5-N10) Step 2 at rest alone, for a unit that turns in place toward the direction `dir` and doesn't drive
+    /// (`super::turn_in_place`, the hull aim): it spins by the law's rate at rest, its SpinRate, as far as its
+    /// Silhouette stays free (`World::turn`); a spin cut short is made all the same backing off by what its corners
+    /// sweep, at most one tick's acceleration, backwards along its heading (`World::back_off`), as step 2's spin at
+    /// rest is. One that backing off doesn't free stops at contact and creeps one tick's acceleration toward `dir`, as
+    /// far as its Silhouette lies free where the spin stopped (`World::clear`, `World::shuffle`): as a spin at rest cut
+    /// on a path takes the rules' step along its way (module docs), for "blocked units don't freeze; they creep and
+    /// turn out of the contact" (design change 0035). A hull 64 × 40 centred on a tile beside a wall turns only some
+    /// 26° either way before a corner meets it. Returns where it stands then, and the unit that stopped a spin that
+    /// backing off didn't free, if a unit did rather than the tiles; `touched` is scratch.
+    pub(super) fn spin(
+        &self,
+        from: Vec2,
+        facing: &mut f32,
+        dir: Vec2,
+        world: &mut World,
+        touched: &mut Vec<usize>,
+    ) -> (Vec2, Option<usize>) {
+        let start = *facing;
+        math::turn_toward(facing, math::wrap_angle(math::vector_angle(dir)), self.rate(0.0));
+        let turned = world.turn(from, start, *facing);
+        if !turned.cut {
+            return (from, None);
+        }
+        let swept = math::wrap_angle(*facing - start).abs() * world.body().oriented.map_or(0.0, |o| o.half.length());
+        let most = self.accel.min(self.top);
+        if let Some(at) = (swept > 0.0)
+            .then(|| world.back_off(from, *facing, -self.travel(start), swept.min(most)))
+            .flatten()
+        {
+            return (at, None);
+        }
+        *facing = turned.facing;
+        let step = dir.normalize_or_zero() * most;
+        touched.clear();
+        let at = if world.clear(from, step, touched) {
+            from + step
+        } else {
+            world.shuffle(from, step, touched)
+        };
+        (at, turned.blocker)
+    }
+
     /// The unit vector the leg drives along, for a unit facing `facing`: ahead, or behind it backing up.
     fn travel(&self, facing: f32) -> Vec2 {
         let ahead = math::facing_vector(facing);

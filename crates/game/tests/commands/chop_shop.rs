@@ -3,8 +3,11 @@
 //! Seeker**, **A: Release** in the kind menu"): Recruits right-clicked into it, the selected Chop Shop's door arrows, in
 //! at B and out at C, a kind of Recruit first, then KindMenu\[kind\], whose Q builds a Seeker of two Recruits and is
 //! greyed while fewer are free; the Seeker driving out of side C, its panel the BasicCombatUnit's, whose W awaits a
-//! Reverse's ground point. The panel as plain data is the unit tests' (`command_ui/interface/tests/chop_shop.rs`), the
-//! training and the exit the sim's (`crates/sim/tests/chop_shop`).
+//! Reverse's ground point. (M5-N10) Its W builds a Hand of Heaven of three Recruits (design change 0444: "**W: Build
+//! Hand of Heaven**"), priced in its hint and greyed while the bank can't pay or fewer are free; the Hand of Heaven's
+//! D awaits an Attack Ground's point. The panel as plain data is the unit tests' (`command_ui/interface/tests/
+//! chop_shop.rs`), the training and the exit the sim's (`crates/sim/tests/chop_shop`, `crates/sim/tests/
+//! hand_of_heaven`).
 
 use bevy::prelude::*;
 use sc_sim::testing::ScenarioBuilder;
@@ -12,7 +15,7 @@ use sc_sim::{
     BuildingOrientation, Faction, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, RecruitKind, Rotation,
     SpawnAt, Target, TilePos,
 };
-use space_crystals::command_ui::feedback::NO_RECRUIT_TEXT;
+use space_crystals::command_ui::feedback::{NO_CRYSTALS_TEXT, NO_RECRUIT_TEXT};
 use space_crystals::command_ui::indicators::{Indicator, MOVE_COLOR, RallyIndicator};
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand, PointerDisplay};
 use space_crystals::door_arrows::{Way, door_arrows};
@@ -23,13 +26,14 @@ use super::armory::{buttons, feedback, inside, on_map, until};
 use super::indicators::drawn_vertices;
 use super::rally::shown;
 use super::*;
-use KeyCode::{KeyQ, KeyW};
+use KeyCode::{KeyD, KeyQ, KeyW};
 use RecruitKind::{Both, Constitution, Metabolism, Plain};
 
 const P1: PlayerId = PlayerId(1);
 const CHOP_SHOP_KIND: ObjectKind = ObjectKind::ChopShop;
 const RECRUIT: ObjectKind = ObjectKind::Recruit;
 const SEEKER: ObjectKind = ObjectKind::Seeker;
+const HAND: ObjectKind = ObjectKind::HandOfHeaven;
 
 /// The objects of [`chop_shop_game`], by id, and where they are drawn (the map is flat). The Chop Shop, unturned
 /// (3 × 3), has its entrance, side B, to the east and its exit, side C, to the west.
@@ -82,9 +86,10 @@ fn object(app: &App, id: u32) -> Option<sc_sim::Object> {
 /// frames (20 seconds)". Selected, the Chop Shop shows its door arrows, in at the middle of B and out at the middle of
 /// C (design change 0394), and the pool buildings' DefaultState: each kind with its count of free Recruits inside, the
 /// kinds it has none of greyed, X greyed with nothing to cancel. Q opens KindMenu\[Plain\]: Q Build Seeker, whose hint
-/// names it and its price, A Release, Z Back. Q queues one Seeker for 75 Space Crystals, reserving two of the three
-/// Recruits, the menu staying open; with one free Recruit left Q is greyed, as the gate refuses it (0319's
-/// Verification: `Reject::NoRecruit`), and says why when pressed, giving nothing. The Recruit that went in first comes
+/// names it and (M5-N10) its price, W Build Hand of Heaven, A Release, Z Back. Q queues one Seeker for 75 Space
+/// Crystals, reserving two of the three Recruits, the menu staying open; with one free Recruit left Q and W are greyed,
+/// as the gate refuses them (0319's Verification: `Reject::NoRecruit`), and Q says why when pressed, giving nothing.
+/// The Recruit that went in first comes
 /// out 320 frames later a Seeker, half inside the middle of side C, facing west, the second gone into it, and drives
 /// out; its panel is the BasicCombatUnit's, whose W, Reverse (slice M5-V2), awaits a point of the ground, and a click
 /// there orders it.
@@ -123,12 +128,15 @@ fn q_q_builds_a_seeker_of_two_recruits_which_drives_out_of_side_c() {
         buttons(&mut app),
         [
             (slot(0, 0), c(TrainFrom(SEEKER, Plain)), Common, None),
+            (slot(0, 1), c(TrainFrom(HAND, Plain)), Common, None),
             (slot(1, 0), c(Release(Plain)), Common, None),
             (CommandSlot::BACK, PanelButton::Back, Back, None),
         ]
     );
-    let hint = hint_over(&mut app, slot(0, 0)).expect("a hint");
-    assert!(hint.starts_with("Q: Build Seeker"), "{hint}");
+    assert_eq!(
+        hint_over(&mut app, slot(0, 0)).as_deref(),
+        Some("Q: Build Seeker (75 Space Crystals)")
+    );
     tap(&mut app, &[], KeyQ);
     let train = ProductionCommand::TrainFrom {
         kind: SEEKER,
@@ -142,10 +150,11 @@ fn q_q_builds_a_seeker_of_two_recruits_which_drives_out_of_side_c() {
         buttons(&mut app),
         [
             (slot(0, 0), c(TrainFrom(SEEKER, Plain)), Disabled, None),
+            (slot(0, 1), c(TrainFrom(HAND, Plain)), Disabled, None),
             (slot(1, 0), c(Release(Plain)), Common, None),
             (CommandSlot::BACK, PanelButton::Back, Back, None),
         ],
-        "one Recruit free: no Seeker of it"
+        "one Recruit free: no Seeker of it, nor a Hand of Heaven"
     );
     tap(&mut app, &[], KeyQ);
     assert_eq!(feedback(&app), Some(NO_RECRUIT_TEXT));
@@ -191,6 +200,110 @@ fn q_q_builds_a_seeker_of_two_recruits_which_drives_out_of_side_c() {
     assert_eq!((given.units, given.queue), (vec![first], false));
     assert!(
         matches!(given.kind, OrderKind::Reverse(p) if near(p, ground)),
+        "{:?}",
+        given.kind
+    );
+}
+
+/// (M5-N10) "**W: Build Hand of Heaven**" (design change 0444; `factions/cults/units/hand_of_heaven.md > Placeholder
+/// stats`: "Cost: Chop Shop, 3 Recruits, **150 Space Crystals, 480 frames (30 s)**"). In KindMenu\[Plain\], the three
+/// Recruits inside, W's hint names it and its price. With 100 Space Crystals in the bank W is greyed, as the gate
+/// refuses it (`Reject::InsufficientCrystals`), while Q, the Seeker's 75, isn't, and W says why when pressed, giving
+/// nothing. With 1000 W queues one for 150, reserving all three Recruits, the menu staying open; then Q, W and A
+/// Release are greyed, none free, and W says so. The Recruit that went in first comes out 480 frames after the queue a Hand of
+/// Heaven, half inside the middle of side C, facing west, the other two gone into it, and drives out. Its panel is the
+/// BasicCombatUnit's, with W Reverse and D Attack Ground (its CanTargetGround), which awaits a point of the ground; a
+/// click there orders it.
+#[test]
+fn w_builds_a_hand_of_heaven_of_three_recruits_which_attacks_the_ground() {
+    use ButtonLook::{Back, Common, Disabled};
+    use PanelCommand::{AttackGround, Release, Reverse, TrainFrom};
+    let mut app = chop_shop_game();
+    let order_in = inside(&app, CHOP_SHOP);
+    click(&mut app, CHOP_SHOP_AT, &[]);
+    assert_eq!(selected(&app), [CHOP_SHOP]);
+    tap(&mut app, &[], KeyQ);
+    assert_eq!(interface(&app), InterfaceState::KindMenu(Plain));
+    let c = PanelButton::Command;
+    let menu = |seeker, hand, release| {
+        vec![
+            (slot(0, 0), c(TrainFrom(SEEKER, Plain)), seeker, None),
+            (slot(0, 1), c(TrainFrom(HAND, Plain)), hand, None),
+            (slot(1, 0), c(Release(Plain)), release, None),
+            (CommandSlot::BACK, PanelButton::Back, Back, None),
+        ]
+    };
+    assert_eq!(buttons(&mut app), menu(Common, Common, Common));
+    assert_eq!(
+        hint_over(&mut app, slot(0, 1)).as_deref(),
+        Some("W: Build Hand of Heaven (150 Space Crystals)")
+    );
+    set_crystals(&mut app, 100);
+    updates(&mut app, 2);
+    let short = menu(Common, Disabled, Common);
+    assert_eq!(buttons(&mut app), short, "100 Space Crystals: no Hand of Heaven");
+    tap(&mut app, &[], KeyW);
+    assert_eq!(feedback(&app), Some(NO_CRYSTALS_TEXT));
+    assert_eq!(productions(&app), [], "nothing given");
+
+    set_crystals(&mut app, 1000);
+    updates(&mut app, 2);
+    tap(&mut app, &[], KeyW);
+    let train = ProductionCommand::TrainFrom {
+        kind: HAND,
+        from: Plain,
+    };
+    assert_eq!(productions(&app), [(P1, vec![CHOP_SHOP], train)]);
+    assert_eq!(bank(&app), 1000 - 150);
+    assert_eq!(interface(&app), InterfaceState::KindMenu(Plain), "the menu stays open");
+    updates(&mut app, 2);
+    let none_free = menu(Disabled, Disabled, Disabled);
+    assert_eq!(
+        buttons(&mut app),
+        none_free,
+        "all three reserved, none to release either"
+    );
+    tap(&mut app, &[], KeyW);
+    assert_eq!(feedback(&app), Some(NO_RECRUIT_TEXT));
+    assert_eq!(productions(&app).len(), 1, "nothing more given");
+
+    let first = order_in[0];
+    until(&mut app, 500, |app| object(app, first).is_some());
+    let out = object(&app, first).expect("out");
+    assert_eq!((out.kind, out.pos), (HAND, EXIT), "half inside side C");
+    let facing = sc_sim::math::facing_vector(out.facing);
+    assert!(facing.x < -0.999, "facing out: {facing}");
+    for gone in &order_in[1..] {
+        assert!(
+            !on_map(&app, *gone) && !inside(&app, CHOP_SHOP).contains(gone),
+            "{gone} gone into it"
+        );
+    }
+    until(&mut app, 160, |app| {
+        let o = object(app, first).expect("out");
+        o.mover.as_ref().is_some_and(|mover| mover.exit.is_none()) && o.pos.x <= EXIT.x - 40.0
+    });
+
+    let at = pos(&app, first);
+    click(&mut app, at, &[]);
+    assert_eq!(selected(&app), [first]);
+    let shown: Vec<_> = buttons(&mut app)
+        .into_iter()
+        .map(|(slot, button, look, _)| (slot, button, look))
+        .collect();
+    assert!(shown.contains(&(slot(0, 1), c(Reverse), Common)), "{shown:?}");
+    assert!(shown.contains(&(slot(1, 2), c(AttackGround), Common)), "{shown:?}");
+    tap(&mut app, &[], KeyD);
+    assert_eq!(interface(&app), InterfaceState::awaiting(AttackGround));
+    // 400 su west, beyond its MinRange of 256 su, edge to edge: the view centred on it, so that the point is on screen.
+    app.world_mut().resource_mut::<CameraView>().center = at;
+    let ground = at + Vec2::new(-400.0, 0.0);
+    click(&mut app, ground, &[]);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    let given = orders(&app).pop().expect("an order");
+    assert_eq!((given.units, given.queue), (vec![first], false));
+    assert!(
+        matches!(given.kind, OrderKind::AttackGround(p) if near(p, ground)),
         "{:?}",
         given.kind
     );
