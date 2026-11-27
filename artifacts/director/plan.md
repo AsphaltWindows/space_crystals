@@ -2324,7 +2324,12 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **M5-N10 The Hand of Heaven** (Opus; brief `scratchpad/briefs/m5n10-hand-of-heaven.md`), launched in A2d's slot.
   - **M5-V4 Crushing** (Opus; brief `scratchpad/briefs/m5v4-crushing.md`; T86 with 0418 and 0419), launched in V3's slot.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** X1 → X2 → M, once V4, N10 and N11 are in. N10 and N11 each add one Chop Shop key (0444), and whichever lands second checks all three.
+- **Next:** X1 → X2 → Mb, once V4, N10 and N11 are in.
+  - **The Director split M:**
+    - **Ma, the playtest kit's generated tables,** runs beside X1, in the client and docs only: the controls table, which a test keeps current; the placeholders list; the deferred list; and "Starting a playtest".
+    - **Mb, the QA,** runs after X2: perf, the soak, the walkthrough, the ignored suite and readiness.
+  - **The briefs:** `scratchpad/briefs/m5x1-ruleset.md`, `m5x2-data-files.md`, `m5ma-playtest-kit.md` and `m5mb-qa.md`.
+  - N10 and N11 each add one Chop Shop key (0444), and whichever lands second checks all three.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
@@ -3020,7 +3025,7 @@ Last triaged: 0282.
 | 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | done (M4-L, `6d05e084`; the 1 GU opening layout replaced by 0294's 3 GU) | answers Q0070 |
 | 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | done (M4-O, `356d1a96`: the combat spike; M4-K, `bbdbea73`: the Chemical Plant; M4-U, `f34e4e6e`: the Grenadier; M4-S1, `50f51141`: the Laser Turret, upright; M4-S2, `0cee8bc4`: the pop-up) | answers Q0071 (scope B) |
 | 0261 Area damage never hits underground objects unless targeted | void (replaced by 0262) | — |
-| 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | partly done (M4-A, `fcd06dc`: damage never asks the hidden predicate; M4-O, `356d1a96`: area damage hits underground objects, even unseen); queued (S2: the pop-up turret's armour, per 0264) | answers Q0071's AoE-underground gap |
+| 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | done (M4-A, `fcd06dc`: damage never asks the hidden predicate; M4-O, `356d1a96`: area damage hits underground objects, even unseen; M4-S2, `0cee8bc4`: the lowered pop-up turret's armour, 6/6 per 0264) | answers Q0071's AoE-underground gap |
 | 0263 Confirmed: undeploy, held orders, the Transport's base, the Phantom's attack | queued (T44, the deploy model; gated N3 and N6) | answers Q0071's items to confirm |
 | 0264 Building armor rule: PointArmor n, FullArmor n × size in grid squares; underground expansions 6/24 for 2x2; the Laser Turret 1/1 raised, 6/6 underground | done (M4-A, `fcd06dc`: the Hideout 6/24; M4-B, `35e19634`: the defs test across factions; M4-O, `356d1a96`: "about 93" through a hidden Hideout's 6/24; M4-K, `bbdbea73`: the Optics Lab and the Chemical Plant at 6/24; M4-S1, `50f51141`: the turret at 1/1; M4-S2, `0cee8bc4`: 6/6 while lowered) | — |
 | 0265 Transport passengers always count against Tunnel Space | queued (gated N3) | answers Q0071's Tunnel Space gap |
