@@ -4051,7 +4051,8 @@ its `accepts` order,
 staff, "Staff: 3 / 6", those not on their way out, `Sim::staff`, and their kinds as the pool's, a placeholder too; a
 Shrine, slice M5-N5, its participants alike, "Participants: 8 / 8", a placeholder, beside its energy, "Energy 40 / 200",
 the body's line of any pool); its
-queue line names the entries, "Queue: Militant, Release (2 / 10)", of its capacity, and a
+queue line names the entries and the units they reserve of its capacity, "Queue: Militant, Release (2 / 10)" (slice
+M5-N6: a Seeker's entry reserves two, so the Chop Shop's two are "Queue: Seeker, Seeker (4 / 10)"), and a
 Release under way is "Releasing Recruit: 50%", an Altar's order "Augmenting Militant (Enhanced Constitution): 45%",
 its queue line naming its orders, a Temple's research "Researching Enhanced Constitution Level 1: 45%", its queue
 line naming the technologies, of its research queue, "Queue: Enhanced Constitution Level 1 (1 / 5)", and no rally
