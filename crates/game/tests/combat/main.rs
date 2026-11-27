@@ -16,6 +16,7 @@ use sc_sim::{
     Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SU_PER_GU, SimEvent, SpawnAt,
     Tick, TilePos, scenarios,
 };
+use space_crystals::combat_effects::blasts::ring_color;
 use space_crystals::combat_effects::{
     CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, ShotStyle, TRACER_TICKS, hp_bars,
     shows_flight,
@@ -23,7 +24,7 @@ use space_crystals::combat_effects::{
 use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, TARGET_TOO_CLOSE_TEXT, TargetFeedback};
 use space_crystals::coords::drawn_at_height;
 use space_crystals::fog::{FogOfWar, Sight};
-use space_crystals::object_render::object_height;
+use space_crystals::object_render::{flight_lift, object_height, player_color};
 use space_crystals::platform::DisplayMode;
 use space_crystals::selection::{ControlStates, Selection};
 use space_crystals::sim_driver::{LocalPlayer, PendingCommands, SimEventMessage, SimRes};
@@ -396,8 +397,96 @@ fn a_grenadiers_grenade_flies_as_a_grenade_and_blasts_where_it_lands() {
     assert!(effects.tracers.is_empty(), "no shot");
     let blast = effects.blasts.first().expect("the blast");
     assert_eq!((blast.tick, blast.at, blast.radius), (flight.lands_at, at, 40.0));
+    assert_eq!((blast.weapon, blast.owner), (Some(ObjectKind::Grenadier), Some(P1)));
+    assert_eq!(
+        ring_color(blast),
+        Color::from(Srgba::rgb(1.0, 0.55, 0.15)),
+        "a fire's orange"
+    );
     let hp = app.world().resource::<SimRes>().object(target).and_then(|o| o.hp);
     assert!(hp < ObjectKind::Peacekeeper.def().max_hp, "hit: {hp:?}");
+}
+
+/// Whether the effects mesh has a vertex of `color`, up to its alpha.
+fn drawn_in(app: &mut App, color: Color) -> bool {
+    let mut query = app.world_mut().query_filtered::<&Mesh2d, With<CombatEffectsMesh>>();
+    let mesh = query.single(app.world()).unwrap().0.clone();
+    let meshes = app.world().resource::<Assets<Mesh>>();
+    let Some(VertexAttributeValues::Float32x4(colors)) = meshes.get(&mesh).unwrap().attribute(Mesh::ATTRIBUTE_COLOR)
+    else {
+        panic!("no colours");
+    };
+    let rgb = color.to_linear().to_f32_array();
+    (colors.iter()).any(|c| c[3] > 0.0 && (0..3).all(|i| (c[i] - rgb[i]).abs() < 1e-4))
+}
+
+/// (M5-S8) Design change 0445: the Rocketman's missiles burst as area damage (`factions/gdo/units/rocketman.md`: "an
+/// AoERadius of **32 su**"), each burst the grenade's blast at that radius, its ring in its shooter's colour. Player
+/// 1's Rocketman attacks player 2's Peacekeeper, 256 su east: its missile flies 16 ticks (16 su a tick) and bursts
+/// there, on the ground, a ring in player 1's blue. Then it locks onto player 2's Sparrow, circling far off: its locked
+/// missile, whose flight the client keeps none of (it homes), bursts on the Sparrow, in the air at its flight, in the
+/// shooter's blue again.
+#[test]
+fn a_rocketmans_missile_bursts_in_a_ring_of_its_shooters_colour() {
+    let (shooter, target, sparrow) = (ObjectId(1), ObjectId(2), ObjectId(3));
+    let mut app = headless_app();
+    submit(
+        &mut app,
+        P1,
+        Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    );
+    app.update();
+    let (from, at) = (Vec2::new(300.0, 300.0), Vec2::new(556.0, 300.0));
+    spawn(&mut app, ObjectKind::Rocketman, P1, from);
+    spawn(&mut app, ObjectKind::Peacekeeper, P2, at);
+    spawn(&mut app, ObjectKind::Sparrow, P2, Vec2::new(300.0, 560.0));
+    app.update();
+    attack(&mut app, P1, shooter, target);
+    let ordered = tick(&app);
+    while effects(&app).flights.is_empty() {
+        assert!(tick(&app) < ordered + 20, "no missile was fired");
+        app.update();
+    }
+    let flight = effects(&app).flights[0].clone();
+    assert_eq!(ShotStyle::of(flight.weapon), ShotStyle::Missile);
+    assert_eq!((flight.to, flight.lands_at), (at, flight.tick + 16));
+    run_until(&mut app, flight.lands_at);
+    let blast = effects(&app).blasts.first().cloned().expect("the burst");
+    assert_eq!((blast.tick, blast.at, blast.radius), (flight.lands_at, at, 32.0));
+    assert_eq!(
+        (blast.weapon, blast.owner, blast.lift),
+        (Some(ObjectKind::Rocketman), Some(P1), 0.0),
+        "on the ground"
+    );
+    let blue = player_color(Some(P1));
+    assert_eq!(ring_color(&blast), blue);
+    assert!(
+        drawn_in(&mut app, blue.with_alpha(0.9)),
+        "its ring drawn in player 1's blue"
+    );
+
+    let lock = Command::Order {
+        units: vec![shooter],
+        kind: OrderKind::TargetLock(sparrow),
+        queue: false,
+    };
+    submit(&mut app, P1, lock);
+    let locked = tick(&app);
+    let burst = |app: &App| (effects(app).blasts.iter()).find(|b| b.tick > flight.lands_at).cloned();
+    while burst(&app).is_none() {
+        assert!(tick(&app) < locked + 120, "no locked missile burst");
+        app.update();
+    }
+    let blast = burst(&app).unwrap();
+    assert_eq!(blast.radius, 32.0);
+    assert_eq!((blast.weapon, blast.owner), (Some(ObjectKind::Rocketman), Some(P1)));
+    assert_eq!(
+        blast.lift,
+        flight_lift(ObjectKind::Sparrow),
+        "in the air, at its flight"
+    );
+    assert!(blast.lift > 0.0);
+    assert_eq!(ring_color(&blast), blue);
 }
 
 /// The feedback message that shows, if any.

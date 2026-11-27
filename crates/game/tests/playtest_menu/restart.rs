@@ -6,7 +6,9 @@
 
 use std::path::{Path, PathBuf};
 
+use sc_ai::Profile;
 use sc_sim::{ObjectKind, Sim, VisibilityState, scenarios};
+use space_crystals::ai_players::{AiPlayers, AiSlot};
 use space_crystals::camera::CameraView;
 use space_crystals::cli;
 use space_crystals::fog::FogAssets;
@@ -108,6 +110,30 @@ fn a_restarted_game_plays_out_as_a_fresh_launch_and_keeps_its_own_replay() {
         "the restarted game's replay plays it back"
     );
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A restart keeps each computer player's profile (slice A2d): the game of `--ai 1:rush,2:passive`, restarted, has a
+/// rush and a passive computer player again, made from the launch's slots (`AiPlayers::start`).
+#[test]
+fn a_restart_keeps_the_computer_players_profiles() {
+    let flags = ["--factions", "gdo,syndicate", "--ai", "1:rush,2:passive", "--no-record"].map(String::from);
+    let mut app = headless(cli::into_config(cli::parse(&flags).unwrap()).unwrap());
+    let slots = |app: &App| app.world().resource::<AiPlayers>().slots();
+    let launched = [
+        AiSlot {
+            player: P1,
+            profile: Profile::Rush,
+        },
+        AiSlot {
+            player: P2,
+            profile: Profile::Passive,
+        },
+    ];
+    assert_eq!(slots(&app), launched);
+    run_until(&mut app, 60);
+    restart(&mut app);
+    assert!(tick(&app) <= 1, "from 0:00");
+    assert_eq!(slots(&app), launched, "the same profiles");
 }
 
 /// The objects of `kind` that `player` owns, in id order.

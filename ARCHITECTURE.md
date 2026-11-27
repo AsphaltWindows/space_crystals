@@ -1269,15 +1269,19 @@ ticks spent in it. Hashed and serialized like all state.
   launch order: its shooter and the shooter's owner, the object it was locked on (cleared when that object leaves:
   `projectiles::forget`; (M5-K) a homing one's flight, *HeadDisjointed and Target Lock* below), its start, the locked
   point, its arrival tick (`flight_ticks`: the distance over the attack's ProjectileSpeed, rounded up: 32 ticks for 4
-  GU at 8 su per tick), and the attack's Damage, AoE radius and TargetDomain, copied at launch. The unit goes on into
-  Cooldown and Reloading, its base free from the launch (`base_is_free`). In 5e, after every attacker has acted, the
-  due projectiles land in launch order (`projectiles::land`), whether their shooter lives or not: each a
+  GU at 8 su per tick), and the attack's Damage, AoE radius and TargetDomain, copied at launch (slice M5-S8: the
+  TargetDomain its blast hits, `area::blast_domain`, the Rocketman's the domain of what it was fired at). The unit goes
+  on into Cooldown and Reloading, its base free from the launch (`base_is_free`). In 5e, after every attacker has acted,
+  the due projectiles land in launch order (`projectiles::land`), whether their shooter lives or not: each a
   `SimEvent::Blast` and its area's hits, put on the tick's list before the single-target hits. The store is serialized
   and hashed only while it holds a projectile, and `AttackState::location` only while set, so a game without them
   hashes as before (the goldens unchanged). Its golden, a fight of test throwers (`combat::testing`), is a unit test
   (`combat/projectiles/golden.rs`, see *Replays and golden hashes*), and so is the ignored `projectiles_perf` (200 in
-  flight). The game's thrower is the Grenadier (slice M4-U, `defs/syndicate/units/grenadier.rs`), played with its
-  own numbers in `tests/grenadier.rs`; the mechanics' tests keep their test throwers, whose numbers stay put.
+  flight). The game's throwers are the Grenadier (slice M4-U, `defs/syndicate/units/grenadier.rs`), played with its
+  own numbers in `tests/grenadier.rs`, and (slice M5-S8) the Rocketman, whose missiles burst
+  (`tests/rocketman/bursts.rs`); the mechanics' tests keep their test throwers, whose numbers stay put, among them a
+  single-target dart (`combat::testing::DART`, the Rocketman's missile before design change 0445), since no type of
+  the game fires a single-target projectile now.
 - **TailDisjointed attacks** (`combat/phases.rs`, slice M5-O3; `systems/combat.md > TailDisjointed`, the Cults'
   Gunner's, design change 0304): locked as a DoublyDisjointed attack is (`Shooter::locks`, `AttackPhase::FiringAt`),
   at an object or a location, with no projectile. At the end of Firing it strikes the locked spot (`phases::strike`):
@@ -1294,6 +1298,11 @@ ticks spent in it. Hashed and serialized like all state.
 - **Area damage** (`combat/area.rs`, plan decision T46; `systems/combat.md > AoEDamage`): the one path of every area
   attack, a blast's hits. A blast takes every object whose domain its TargetDomain hits (`hits_domain`: Ground hits
   ground and underground objects, Air the air, Universal all; design change 0262: underground and hidden ones too),
+  that TargetDomain fixed as the attack fires by its def (slice M5-S8, `TargetType::AoE`'s `BlastDomain`,
+  `area::blast_domain`): the attack's own for every area attack but the Rocketman's, whose missiles keep the domain
+  of what they were fired at (`factions/gdo/units/rocketman.md > AttackAttributes (normal attack)`, design change
+  0445: Air at an aircraft, Ground at anything else or the ground; Placeholder: Ground for a missile whose target
+  left the game during its Firing, launched at the spot alone),
   whoever owns it, its attacker and the attacker's own objects included (design change 0293, answering Q0083 point
   1: friendly fire), by the exact overlap of its circle with the object's shape (`area::overlap`, a closed form
   through `math::asin` and `math::sqrt`, whose bits a test pins): a share of the Damage of overlap / circle, the
@@ -1445,17 +1454,18 @@ ticks spent in it. Hashed and serialized like all state.
   flight of its own (`Projectile::homing`: where it is and was), which in each later phase 5e flies its
   ProjectileSpeed at its target's centre and lands on its target as it reaches it, within a step; it can't miss, and
   vision plays no part. Placeholder: one whose target leaves the game flies on to the target's last spot and hits
-  nothing. The Rocketman's Target Lock is an order, **`OrderKind::TargetLock`** (by plan decision T76's Shroud), which
-  begins **`AttackState::target_lock`**: in 5e the lock counts LockOnDuration (48 ticks) while the unit stands, never
-  yields and fires at nothing, then fires the unit's weapon at its target homing, from anywhere within LockRange (7 GU,
-  edge to edge) and inside its MinRange (`target_lock::attrs`). It breaks when its target leaves LockRange or its
-  owner's sight, at the start of an order given without Shift, or with its target, and the order completes in the next
-  5a; a Shift-queued order waits behind the lock and runs when it ends (design change 0438, answering Q0171).
-  Placeholders: no walk into range (a target beyond LockRange or unseen breaks it at once); a locked missile whose
-  Firing began is launched homing, whatever became of the lock. The gate takes it for a unit whose type has one, on an
-  enemy object the player sees (`Reject::NotAnEnemy` otherwise).
-  `TargetLock` and `Projectile::homing` are serialized and hashed only while set, so the goldens before them are
-  unchanged. Reading: the Rocketman's SightRange of 6 is shorter than its LockRange of 7, so without other eyes its
+  nothing (slice M5-S8: the Rocketman's, area damage since design change 0445, bursts there in its target's domain,
+  harmlessly or on what of that domain stands there). The Rocketman's Target Lock is an order,
+  **`OrderKind::TargetLock`** (by plan decision T76's Shroud), which begins **`AttackState::target_lock`**: in 5e the
+  lock counts LockOnDuration (48 ticks) while the unit stands, never yields and fires at nothing, then fires the unit's
+  weapon at its target homing, from anywhere within LockRange (7 GU, edge to edge) and inside its MinRange
+  (`target_lock::attrs`). It breaks when its target leaves LockRange or its owner's sight, at the start of an order
+  given without Shift, or with its target, and the order completes in the next 5a; a Shift-queued order waits behind the
+  lock and runs when it ends (design change 0438, answering Q0171). Placeholders: no walk into range (a target beyond
+  LockRange or unseen breaks it at once); a locked missile whose Firing began is launched homing, whatever became of the
+  lock. The gate takes it for a unit whose type has one, on an enemy object the player sees (`Reject::NotAnEnemy`
+  otherwise). `TargetLock` and `Projectile::homing` are serialized and hashed only while set, so the goldens before them
+  are unchanged. Reading: the Rocketman's SightRange of 6 is shorter than its LockRange of 7, so without other eyes its
   lock breaks on sight first; a strafing Sparrow's loop leaves the sight of a lone group of Rocketmen on every pass,
   and none of their locks completes (`tests/rocketman/anti_air.rs`).
 
@@ -2813,10 +2823,17 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   out, and the movement's doorway walk drives it straight out (`movement/doorway.rs`, slice M5-V2), to its rally point
   or, with none, to a stop just clear of the doorway; an idle vehicle doesn't yield (0353), so the next Seeker stands
   in the doorway behind it and the queue waits until the player moves the first (**the implementer's reading**, a jam
-  for the playtest notes). Recruits build it while their player owns an Armory, and it is the Machine Shop's and the
-  Airstrip's TechPrerequisite. Tests: `crates/sim/tests/chop_shop/` (`training.rs`: 0319's NoRecruit, the price, the
-  frames and the rally point, the queue of 5, X, Release and Eject All, the right-click; `exit.rs`: the four
-  orientations, no rally point, the doorway behind a stopped Seeker; `seeker.rs`: full HP and no Augmentation, the Unit
+  for the playtest notes). (M5-S8) **It starts with a rally point** 3 grid units out of side C (*Production > Rally
+  points*, design changes 0446 and 0447, answering Q0175), so that stall comes only with the rally point cleared ("A
+  cleared vehicle building leaves the stall to the player"); left alone, three Seekers park between the point and the
+  door (the first on it, the others 62 and 126 su behind), and a fourth stops in the doorway behind them (the
+  placeholder distance holds three). Recruits build it while their player owns an Armory, and it is the Machine
+  Shop's and the Airstrip's TechPrerequisite. Tests: `crates/sim/tests/chop_shop/` (`training.rs`: 0319's NoRecruit,
+  the price, the frames and the rally point, the queue of 5, X, Release and Eject All, the right-click; `exit.rs`: the
+  four orientations, no rally point (cleared first since slice M5-S8: 0447's Verification), the doorway behind a
+  stopped Seeker; `rally.rs` (slice M5-S8): the default rally point in the 16 orientations, a site's from its
+  placement through its completion, three Seekers to it with the doorway never stalling, a moved one, the map's edge
+  and water, a save with none; `seeker.rs`: full HP and no Augmentation, the Unit
   Control; `combat.rs`: a Militant killed on the move, the DirectionalArmor's three sides, Rugged terrain;
   `destruction.rs`; `normal_game.rs`: an Armory, a Chop Shop and a Seeker from the Cults' start, the Machine Shop and
   the Airstrip no longer greyed; `saves.rs`) and `tests/repair/vehicles.rs` (the Seeker repaired by the real recipe),
@@ -2943,13 +2960,32 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Chop Shop (slice M5-N6); not the Temple, the Garrison,
   whose panel has none, nor the Shrine), a site, an expansion's included, or under Warp In. Its functions held back
   (`Object::production` is `None`), it holds a `Production` with the rally alone while one is set, and `None` again
-  once it is cleared, so a game that sets none keeps its hashes (the goldens'). The gate's `SetRally` takes the
-  player's buildings of such a type, finished or not; its other production commands only producers at work
+  once it is cleared, so a game that sets none keeps its hashes (the goldens'), but for a vehicle building's site,
+  which holds its default one from its placement (below). The gate's `SetRally` takes the player's buildings of such
+  a type, finished or not; its other production commands only producers at work
   (`Object::is_operational`), so a Train to the site is `NoProducers`. `Sim::start_functions` keeps the rally as the
   functions start ("The rally point is kept when the building completes"); a cancelled Warp In takes it away with the
   portal. Tests: `tests/cults_construction/rally.rs` (0396's Verification in the sim, a Storage's and a Garrison's
   sites), `tests/warp_in/rally.rs` (a portal kept through completion and lost with a cancel, an Egress Node) and
   `tests/expansions/building.rs` (a Hideout's site).
+- **A vehicle building's default rally point** (slice M5-S8; `core/entities.md > Entrance and exit > Exit Doorway`
+  point 7, design changes 0446 and 0447, answering Q0175): idle wheeled and tracked vehicles don't step aside, so a
+  building that releases them through an exit side "**starts with a RallyPoint 3 grid units straight out from the
+  middle of its exit side** (placeholder distance)". A def field, `ProductionDef::default_rally` (grid units, `None`
+  for every other producer; `defs_are_consistent`: only with `ExitRule::Side`, for a type that makes a wheeled or
+  tracked vehicle), which the Chop Shop sets to 3, so that M6's Factory only sets it too. `production::default_rally`
+  places it (`Door::spot` of the type's one exit side, as the placement turns and flips it), and `Sim::new_object`
+  sets it as the building's object comes into the game, whichever way (a scenario's spawn, a site, a GDO placement),
+  so a site has it from its placement ("it is set at placement, so it exists during construction"):
+  `transform::hold_back` keeps a rally the object has, in a `Production` that holds it alone, and
+  `Sim::start_functions` keeps it at completion. It is an ordinary rally point, hashed and saved as any (a Chop Shop's
+  game moves from its first tick: `cults_vehicles` re-blessed), which the rally commands move or clear (on the
+  building itself). **Placeholder (not in the design: a spot off the map, or on ground a vehicle can't stand on)**:
+  the point of the map nearest to it (`Map::clamp_point`), one the gate would take, and kept on any ground, as one
+  set by hand may be. A saved game's building placed before it existed has none, and loads with none: loading
+  builds no object anew. Tests: `tests/chop_shop/rally.rs` and `exit.rs`; in the client,
+  `crates/game/tests/commands/chop_shop.rs` (0446's and 0447's Verifications: the marker 3 grid units out of side C,
+  a right-click on the Chop Shop clearing it, one turned a quarter).
 - **Tests**: `src/production.rs` and `production/exit/tests.rs` (the queue, the Barracks' door in all 8
   orientations and its rule, the room before a door, the Hall's four doors and their order), `recruitment/tests.rs`
   (slice M5-C: the area, the exact capacity, the claims and their order, the lineages' points),
@@ -3956,8 +3992,11 @@ these.
   clockwise over LockOnDuration outside the order's marker, four ticks closing in and a faint aiming line, a red ring
   once locked; and the
   blasts (`combat_effects/blasts.rs`, from `SimEvent::Blast`, `BLAST_TICKS`): a ring the size of the area, shown
-  while the tile under its centre is Visible (`shows_blast`), and (slice M5-K) a single-target one's, of radius 0, a
-  small puff at the height it struck (`Blast::lift`). One alpha-blended mesh in the overlays layer, rebuilt every
+  while the tile under its centre is Visible (`shows_blast`), (slice M5-S8) a missile's burst the same at its radius
+  of 32 su, its ring in its shooter's colour (`blasts::ring_color`, by `Blast::weapon` and `Blast::owner`, from the
+  landed flight or `SimEvent::Blast::attacker`) and in the air over an aircraft it was fired at (`Blast::lift`), and
+  (slice M5-K) a single-target one's, of radius 0, a small puff at the height it struck (none of the game's types
+  fires one now). One alpha-blended mesh in the overlays layer, rebuilt every
   frame while
   anything shows; effects age by the sim's tick and the render alpha, so screenshots stay deterministic.
 - **Shroud's clouds** (`shroud_view.rs`, slice M5-N4b; `factions/cults/units/disciple.md > Spells > Shroud`: "the
@@ -4984,7 +5023,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--replay <file.json>` | Plays a recorded game back (see Replays and golden hashes) with its own map, players and game options: not with `--scenario`, `--map`, `--factions`, `--editor`, `--no-debug` or `--commands`. Pauses at the end, so no tick of the other flags may come after it. The other QA flags work with it. |
 | `--record <file.json>` | Records the game to that file. A game is recorded to `replays/` anyway; a QA run only with this flag. Not with `--editor` or `--replay`. |
 | `--no-record` | Doesn't record the game. |
-| `--ai <n>[:<profile>],...` | Computer players play players `n`, … (slice A1, see *Computer players*), each with a profile, `standard` (the default) or `passive`: `--ai 2`, `--ai 1,2:passive`. Their factions must have one (`sc_ai::factions::with_ai`). Not with `--editor` or `--replay` (a replay records their commands). The client gives a computer's player no command; F2 still switches to it. |
+| `--ai <n>[:<profile>],...` | Computer players play players `n`, … (slice A1, see *Computer players*), each with a profile, `standard` (the default), `rush` (slice A2d) or `passive`: `--ai 2`, `--ai 2:rush`, `--ai 1,2:passive`. Their factions must have one (`sc_ai::factions::with_ai`). Not with `--editor` or `--replay` (a replay records their commands). The client gives a computer's player no command; F2 still switches to it. |
 
 Taking a screenshot (no window appears; about one second plus `tick / 16` seconds, or add `--fast`):
 
@@ -5144,15 +5183,19 @@ unchecked.
   `gdo_anti_air` (to 1:15, on a test map, debug commands on for player 1's 450 Space Crystals) the Deployment Center
   constructs an Arsenal and places it as it is ready, the Barracks refusing W until then, and the Barracks trains three
   Rocketmen, each out in its tick (`during`); at tick 820 they walk within range of two Sparrows of player 2's, spawned
-  on Hold, circling, and fire normal missiles, which the Sparrows dodge, every one; at tick 1000 the three lock onto
-  one Sparrow and, Shift-queued, onto the other, and each falls to three locked missiles; every missile of the game is
-  a Rocketman's at a Sparrow, normal before the locks and locked after. In `cults_vehicles` (to 1:15, on a test map,
-  debug commands on for the two Seekers' 150 Space Crystals) four Recruits go into a Chop Shop, which queues two
-  Seekers, each of the two Recruits inside the longest of those left: each comes out in its tick half inside the
-  middle of side C, facing west, the first of its Recruits, the second gone (`during`), and drives to the rally point;
-  at tick 760 the two attack-move onto two Militants and two Guards behind them (player 2's, the Syndicate), firing
-  their turrets on the move: they kill the Militants, a Guard kills one Seeker, and the other kills both Guards; every
-  hit of the game is a Seeker's on them or theirs on a Seeker. The
+  on Hold, circling, and fire normal missiles, which the Sparrows dodge, all but one, whose burst in the air grazes a
+  Sparrow's corner for 0.34 HP (re-blessed in slice M5-S8 for design change 0445's bursts of 40 over 32 su); at tick
+  1000 the three lock onto one Sparrow and, Shift-queued, onto the other, and each falls to three locked missiles,
+  each a whole burst of 19.9 on its centre; every missile of the game is a Rocketman's at a Sparrow, normal before the
+  locks and locked after, and no burst, all in the air, hits the Rocketmen under them. In `cults_vehicles` (to 1:15, on
+  a test map, debug commands on for the two Seekers' 150 Space Crystals) four Recruits go into a Chop Shop, which queues
+  two Seekers, each of the two Recruits inside the longest of those left: each comes out in its tick half inside the
+  middle of side C, facing west, the first of its Recruits, the second gone (`during`), and drives to the rally point
+  (re-blessed in slice M5-S8: the Chop Shop starts with its default rally point, 3 grid units out of side C, until
+  the game sets its own in tick 64, so the checkpoints of ticks 0 and 32 alone moved); at tick 760 the two
+  attack-move onto two Militants and two Guards behind them (player 2's, the Syndicate), firing their turrets on the
+  move: they kill the Militants, a Guard kills one Seeker, and the other kills both Guards; every hit of the game is a
+  Seeker's on them or theirs on a Seeker. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -5338,10 +5381,13 @@ playtest tool, started from the command line (`--ai`, see *QA mode*), whose beha
 
 ### The crate
 
-- **`Ai`** plays one player with a `Profile`: `standard`, or `passive` (the same but never attacks). `Ai::think(&sim)`
-  runs once a tick before the step: it reads the game as the last tick left it and returns the player's commands for
-  the next tick. They are the same `PlayerCommand`s a client sends, through the same gate, and the replay records
-  them. It gives none once its player is defeated or the game is over.
+- **`Ai`** plays one player with a `Profile`: `standard`; `rush` (slice A2d: its faction's opening cut short toward
+  an early army, and a small first wave, `FactionAi::waves`; then as standard); or `passive` (standard's play, but it
+  never attacks). Each faction's module plays its own rush (`Profile::rushes`), its numbers in `tuning::<faction>`
+  (`RUSH_WAVE`, and the GDO's `RUSH_OPENING`, the Cults' `RUSH_CREW`). `Ai::think(&sim)` runs once a tick before the
+  step: it reads the game as the last tick left it and returns the player's commands for the next tick. They are the
+  same `PlayerCommand`s a client sends, through the same gate, and the replay records them. It gives none once its
+  player is defeated or the game is over.
 - **Layers**:
   - `view`: what the player knows (below);
   - `turn`: one tick's commands. The gate checks each one (`View::validate`) before it is kept. The gate sees the
@@ -5349,9 +5395,10 @@ playtest tool, started from the command line (`--ai`, see *QA mode*), whose beha
     footprints they place;
   - `build`: where a building goes, the nearest spot the placement check takes, with a free ring around it;
   - `army`, shared by every faction: the staging point, the waves and the defense. A wave that knows of nothing to
-    attack searches the patches near the enemy starts, then, when it or the enemy is a Cults player, the ground around
-    the enemy's start (`army::search_points`, `tuning::army::SEARCH_GROUND_OF`, slice A2a: the Cults' Halls stand away
-    from any patch). The View tells every player's faction (`View::faction`), shown to every player at game start;
+    attack searches the patches near the enemy starts, then the ground around the enemy's start
+    (`army::search_points`; slice A2a, for the Cults' Halls away from any patch, and since slice A2d in every game,
+    for the Colonists' last Beacons too). The View tells every player's faction (`View::faction`), shown to every
+    player at game start;
   - `factions`: one module per faction behind `FactionAi`. It decides what to build and train, which units fight and
     which buildings rally, and may size its army's waves (`FactionAi::waves`; the army layer's own by default).
 - **Numbers**: all placeholders, in `sc_ai::tuning` (*Tunables*).
@@ -5397,7 +5444,7 @@ It never panics, whatever the game's state: an assumption that fails skips the a
 - **Restart** (slice M5-S7): the playtest menu's Restart gives the new game new `Ai`s of the same players and profiles
   (`AiPlayers::start`, as at launch), so a restarted game plays out as a fresh launch does
   (`tests/playtest_menu/restart.rs`: an AI-against-AI game restarted at tick 600 has, 1200 ticks later, a fresh
-  launch's hash).
+  launch's hash; and a rush and a passive player stay so, slice A2d).
 
 ### Tests
 
@@ -5409,14 +5456,23 @@ It never panics, whatever the game's state: an assumption that fails skips the a
   at a building the player knew of, a start, a patch, a point of the ground a wave searches around a start
   (`army::search_points`) or a point of its own. The tests:
   - the default run: standard against passive of each faction with a computer player, on `dev_skirmish` for 6
-    minutes, every invariant checked;
+    minutes, every invariant checked; and each faction's rush against its passive the same way (slice A2d), whose
+    first wave must leave before standard's would;
+  - the Syndicate's growth (slice A2d): on `maps/playtest.json`, explored or not, two crystal hatches staffed by 5:00;
   - 0402's check on a game to a defeat, and on a planted target;
-  - determinism: the same game twice gives the same hash, for each faction with a computer player;
+  - determinism: the same game twice gives the same hash, for each faction with a computer player, and with every
+    faction's rush;
   - the ignored `ai_games`, `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored --nocapture`. It
-    plays every pairing of factions that have a computer player on every Skirmish Default map. Standard must beat
-    its own faction's passive within 15 minutes from either slot, and standard against standard must end in a defeat.
-    Standard beating another faction's passive within 20 minutes is wanted, not required: it lists whether it did. It
-    prints who won, when, the units trained, the waves sent and what `Ai::think` cost.
+    plays every pairing of factions that have a computer player on every Skirmish Default map, standard against
+    passive from either slot and against standard, and in each faction's mirror its rush against passive and against
+    standard from either slot (slice A2d). Standard must beat its own faction's passive within 15 minutes from either
+    slot, standard against standard must end in a defeat, and a rush's first wave must leave before standard's in its
+    place. The Colonists' standard must bank under 500 Space Crystals on average from 3:00 to 10:00 in their mirror,
+    the Cults' under 1,000 against the GDO's passive. Standard beating another faction's passive within 20 minutes is
+    wanted, not required: it lists whether it did. It prints who won, when, the units trained, the waves sent, when
+    the first left, each side's mean bank and income from 3:00 to 10:00 (the harness's `Side::bank` and
+    `Side::income`; `harness::watch` shows an observer every step) and what `Ai::think` cost, and the rush's first
+    waves beside standard's.
 - **The client**:
   - `cli/ai/tests.rs`: the flags;
   - `tests/commands/computer.rs`: the input drop;
@@ -5657,10 +5713,11 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   so the code that uses it still names it there.
 - **The computer players'** (`crates/ai/src/tuning.rs`, slice A1): `army` (the staging point, the waves, the
   defense), `build` (where a building goes) and one module per faction with a computer player (`gdo`: the opening,
-  the Barracks, the queues; `syndicate`: the Agents, the Tunnels, the expansions, the waves; `cults`: the field's
-  seats, the sites and crews of its buildings, the Halls, the Gunners). Each is "Placeholder (Q0147 point N)" (2:
-  how it plays; 3: build orders) or "Placeholder (not in the design: why)": the behaviour is the Director's
-  placeholder (*Computer players*).
+  the Barracks, the queues; `syndicate`: the Agents, the Tunnels and where they add income, the runners, the
+  expansions, the waves; `cults`: the field's seats, the sites and crews of its buildings, the Halls, the Gunners, the
+  bank that stops the crew growing; `colonists`: the Warp Ins, the Drones, Beacon Capacity's lead, the Beacon sites),
+  each with its rush's (slice A2d). Each is "Placeholder (Q0147 point N)" (2: how it plays; 3: build orders) or
+  "Placeholder (not in the design: why)": the behaviour is the Director's placeholder (*Computer players*).
 - Each constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where there is one,
   why it has its value.
 - Colours and drawing sizes stay with the drawing code. Technical constants stay where they are used: the sim's

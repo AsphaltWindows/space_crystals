@@ -60,8 +60,10 @@
 >   - with no question, 0441 (the Drone Operator's Supply cost 1, the Twister's 1) and 0442 (the Supply Chopper carries
 >     units, landing to load and unload): GS grows by the transport, into a second slice if it needs one;
 >   - Q0175 by 0446 and 0447: the Factory starts with a rally point 3 GU out of its exit side, which can be moved or
->     cleared. M5-S8 adds the def field for the Chop Shop; GK sets it on the Factory's def, and the Factory's
->     production slice tests 0446's Verification.
+>     cleared. M5-S8 added the def field for the Chop Shop (`ProductionDef::default_rally`, `38e4ee72`); GK sets it
+>     on the Factory's def, and the Factory's production slice tests 0446's Verification. `Sim::new_object` sets the
+>     point, so a building that becomes a Factory by `change_kind` gets none: if one can, call
+>     `production::default_rally` there too. Q0177 (open) asks whether 3 GU, which holds three Seekers, is enough.
 
 # M6 plan: the GDO's and the Syndicate's remaining content (planning spike M6-P)
 

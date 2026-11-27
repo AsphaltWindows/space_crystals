@@ -1,6 +1,8 @@
 //! The Grenadier — `factions/syndicate/units/grenadier.md` (design changes 0187 and 0260; slice M4-U).
 
-use crate::defs::units::{AttackAttrs, AttackType, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef};
+use crate::defs::units::{
+    AttackAttrs, AttackType, BlastDomain, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
@@ -49,9 +51,11 @@ pub(crate) static GRENADIER: ObjectDef = ObjectDef {
             // dodged)
             attack_type: AttackType::DoublyDisjointed,
             target_domain: TargetDomain::Ground, // TargetDomain: Ground
-            // TargetType: AoE (moderate-high damage); AoE radius: 40 space units (0.625 grid units)
+            // TargetType: AoE (moderate-high damage); AoE radius: 40 space units (0.625 grid units); its blast hits
+            // the ground, its TargetDomain (`systems/combat.md > AoEDamage`).
             target_type: TargetType::AoE {
                 radius: 40.0 / SU_PER_GU,
+                blast: BlastDomain::Attack,
             },
             damage: 100.0,               // Damage: 100 (total over the circle)
             range: 4.0,                  // Range: 4 grid units
@@ -141,7 +145,13 @@ mod tests {
         let attack = ObjectKind::Grenadier.def().unit.as_ref().unwrap().attack.unwrap();
         assert_eq!(attack.attack_type, AttackType::DoublyDisjointed);
         assert_eq!(attack.target_domain, TargetDomain::Ground);
-        assert_eq!(attack.target_type, TargetType::AoE { radius: 0.625 });
+        assert_eq!(
+            attack.target_type,
+            TargetType::AoE {
+                radius: 0.625,
+                blast: BlastDomain::Attack
+            }
+        );
         assert_eq!(0.625 * SU_PER_GU, 40.0, "40 space units");
         assert_eq!((attack.damage, attack.range, attack.min_range), (100.0, 4.0, 0.0));
         assert_eq!(attack.projectile_speed, Some(8.0));

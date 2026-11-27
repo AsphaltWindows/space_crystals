@@ -49,7 +49,7 @@ fn rallies_since(app: &App, from: usize) -> Vec<(Vec<u32>, Target)> {
 }
 
 /// The rally indicators the local player sees now (no fog: see `main.rs`).
-fn shown(app: &App) -> Vec<RallyIndicator> {
+pub(super) fn shown(app: &App) -> Vec<RallyIndicator> {
     let world = app.world();
     let sim = world.resource::<SimRes>();
     let states = world.resource::<ControlStates>();

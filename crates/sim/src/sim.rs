@@ -368,7 +368,10 @@ impl Sim {
     }
 
     /// A new object `id` of `kind` with its type's initial state, not yet in the game: what [`Sim::insert_object`]
-    /// inserts, and what a producer releases into the Tunnel Network (`sim/network.rs`).
+    /// inserts, and what a producer releases into the Tunnel Network (`sim/network.rs`). (M5-S8) A vehicle building
+    /// starts with its rally point out of its exit side (`production::default_rally`, design change 0446: "it is set at
+    /// placement, so it exists during construction"): a site keeps it while its production waits
+    /// (`transform::hold_back`), and its completion keeps it (`Sim::start_functions`).
     fn new_object(
         &self,
         id: ObjectId,
@@ -391,7 +394,7 @@ impl Sim {
             worker,
             tunnel,
         } = kinds::Capabilities::fresh(&self.objects, kind, placement.as_ref(), self.tick);
-        Object {
+        let mut object = Object {
             id,
             kind,
             owner,
@@ -425,7 +428,13 @@ impl Sim {
             energy: crate::energy::start(kind),
             kept_research: None,
             buffs: Vec::new(),
+        };
+        if let Some(rally) = crate::production::default_rally(&self.map, &object)
+            && let Some(production) = &mut object.production
+        {
+            production.rally = Some(rally);
         }
+        object
     }
 
     /// `core/map.md > SupplyDeliveryStation`: the countdown runs only while empty. Stations from `first_new` on

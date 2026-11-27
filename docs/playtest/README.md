@@ -95,22 +95,35 @@ A computer player can take any player's slot: `--ai <n>[:<profile>],...`. It is 
 Cults and the Colonists.
 
 - **standard** (the default) trains its basic army without pause, gathering it at a staging point between its base
-  and the map's centre. It attacks in waves on the nearest building of yours it knows of, or else your start. When you
+  and the map's centre. It attacks in waves on the nearest building of yours it knows of, or else your start; with
+  nothing left that it knows of, a wave searches the patches near your start, then the ground around it. When you
   attack its base, the units at home defend it.
   - **The GDO** opens Plate, Generator, Generator, Barracks. It plates its whole field, builds a second Barracks and
     trains Peacekeepers: a first wave of 8, then waves of 32.
-  - **The Syndicate** keeps three Agents on its crystal hatch and one on Supplies at the Supply Delivery Station. That
-    one builds a Tunnel toward the staging point whenever the Supplies pay for one, up to six. Its Tunnel expands an
-    Optics Lab, and its Hideout then trains Guards: waves of 20.
+  - **The Syndicate** keeps three Agents on each crystal hatch, and one runner for each on Supplies at the Supply
+    Delivery Station. A runner builds a Tunnel whenever the Supplies pay for one, up to six: first where its crystal
+    hatch takes in patches no other hatch's Agents use (on `maps/playtest.json`, a second hatch on the starting field
+    at about 2:00, both staffed by 3:00; on `dev_skirmish` there is no room for one), then toward the staging point.
+    Its Tunnels expand a Hideout for each crystal hatch at work and an Optics Lab, and the Hideouts train Guards:
+    waves of 20.
   - **The Cults** mine with two Recruits on each patch for each Storage a tile across from it, and build another
     Storage once those places are all taken. The Recruits they don't need enter the Armory, which trains Militants,
-    and Gunners once a Gunworks stands. They build Recruitment Halls on open Recruitable land near their start, where
-    each recruits at nearly full effectiveness: a first wave of 8, then waves of 32.
-  - **The Colonists** fill their field with Drones, 3 to a patch, and the Drones their Robo Portal releases deploy
-    into Beacons to keep Beacon Capacity ahead of the army. A Bio Portal warps in on the first Beacon and two more as
-    the Drones grow. They train Sabre Legionnaires, converting every other one into a Rifle Legionnaire: a first
-    wave of 8, then waves of 32.
-- **passive** does the same but never attacks: an economy to race.
+    and Gunners once a Gunworks stands. Once the bank passes 600, the field takes no more Recruits, and every second
+    one of its miners leaves for the Armory, down to 8, until the bank is under 300. They build Recruitment Halls on
+    open Recruitable land near their start, where each recruits at nearly full effectiveness: a first wave of 8, then
+    waves of 32.
+  - **The Colonists** fill their field with Drones, 3 to a patch, and the Drones their Robo Portals release deploy
+    into Beacons to keep Beacon Capacity ahead of the army, two of each portal's next units. A Bio Portal warps in on
+    the first Beacon, a second Robo Portal at 8 Drones, and two more Bio Portals as the Drones grow, each a tile clear
+    of their other buildings (Beacons aside), so that units always get out of it. They train Sabre Legionnaires,
+    converting every other one into a Rifle Legionnaire: a first wave of 8, then waves of 32.
+- **rush** cuts its faction's opening short for an early army, sends a first wave of 6 as soon as they stand at its
+  staging point, and then plays as standard. On `dev_skirmish`: the GDO builds its Barracks before its second
+  Generator and trains Peacekeepers at once (its first wave leaves at about 1:40, standard's at 2:00); the Syndicate
+  trains Guards before its second Tunnel (2:05, standard's 4:40); the Cults build their Armory first and send every
+  Recruit beyond six into it (1:30, standard's 3:00); the Colonists train Sabres on their first Bio Portal before
+  more Drones (2:00, standard's 2:20).
+- **passive** does the same as standard but never attacks: an economy to race.
 - It knows only what its fog of war shows, as you do, and gives only the commands you could.
 - How it plays is a placeholder, every number in `crates/ai/src/tuning.rs`. Report what plays badly to the Director.
 
@@ -144,7 +157,8 @@ cargo run -- --factions gdo,colonists --ai 2 --map maps/playtest.json
 cargo run -- --factions colonists,colonists --ai 2 --map maps/playtest.json
 ```
 
-- `--ai 2:passive` gives you a passive opponent.
+- `--ai 2:passive` gives you a passive opponent, and `--ai 2:rush` one that rushes:
+  `cargo run -- --factions gdo,cults --ai 2:rush --map maps/playtest.json`.
 - The computer on player 1 and you on player 2: `cargo run -- --factions gdo,cults --ai 1 --player 2 --map
   maps/playtest.json`.
 - F2 switches to the computer's side to watch it. Its top bar says "(AI)", and you can select its units but not
@@ -155,6 +169,7 @@ Two computers against each other, to the end (add `--fast` to watch it at full s
 ```sh
 cargo run -- --factions gdo,gdo --ai 1,2 --map maps/playtest.json
 cargo run -- --factions gdo,gdo --ai 1,2:passive --map maps/playtest.json
+cargo run -- --factions gdo,gdo --ai 1:rush,2 --map maps/playtest.json
 cargo run -- --factions syndicate,syndicate --ai 1,2 --map maps/playtest.json
 cargo run -- --factions cults,cults --ai 1,2 --map maps/playtest.json
 cargo run -- --factions colonists,colonists --ai 1,2 --map maps/playtest.json

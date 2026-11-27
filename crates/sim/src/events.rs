@@ -408,6 +408,11 @@ pub enum SimEvent {
     Blast {
         at: Vec2,
         radius: f32,
+        /// (M5-S8) The object whose attack it is, which may be gone (a projectile's shooter), so that the client draws
+        /// it in its shooter's style (a missile's burst in its shooter's colour). Optional in files (none), so that the
+        /// states saved before it existed still load.
+        #[serde(default)]
+        attacker: Option<ObjectId>,
     },
     /// (M5-O3) `attacker`'s TailDisjointed attack took effect on nothing: its Firing phase ended with no object at
     /// `to`, the location locked at the end of its Aiming (`systems/combat.md > TailDisjointed`: "Targets can dodge by

@@ -6,8 +6,8 @@
 use super::*;
 use crate::combat::overlap;
 use crate::combat::phases::effects::at_the_spot;
-use crate::defs::UnitBase;
 use crate::defs::test_defs::TestDef;
+use crate::defs::{BlastDomain, UnitBase};
 use crate::events::SimEvent;
 use crate::orders::{OrderKind, Target};
 use crate::testing::{ScenarioBuilder, TestSim};
@@ -140,6 +140,7 @@ fn an_area_attack_blasts_the_spot_at_the_end_of_firing() {
         let attack = unit.attack.as_mut().unwrap();
         attack.target_type = TargetType::AoE {
             radius: 40.0 / SU_PER_GU,
+            blast: BlastDomain::Attack,
         };
         attack.damage = 100.0;
     });
@@ -161,7 +162,14 @@ fn an_area_attack_blasts_the_spot_at_the_end_of_firing() {
         .map(|(_, e)| e)
         .filter(|e| !matches!(e, SimEvent::Hit { .. }))
         .collect();
-    assert_eq!(fired, [&SimEvent::Blast { at, radius: 40.0 }]);
+    assert_eq!(
+        fired,
+        [&SimEvent::Blast {
+            at,
+            radius: 40.0,
+            attacker: Some(GUNNER)
+        }]
+    );
     let circle = PI * 40.0 * 40.0;
     let share = 100.0 * (24.0 * 24.0 / circle);
     assert_eq!(

@@ -4,7 +4,8 @@
 //! - **What it wants** ([`Cults::build`]), in order: a **Storage** once every seat of the field is taken and none is
 //!   under construction (`factions/cults/economy.md > Economy check`: "add Storages **as they're needed**: whenever the
 //!   mining Recruits outnumber the room at the existing Storages"); the **Armory** while it has none; a **Recruitment
-//!   Hall** while it has fewer than [`HALLS`]; the **Gunworks** once [`wants_gunworks`]. A kind whose site isn't found
+//!   Hall** while it has fewer than [`HALLS`]; the **Gunworks** once [`wants_gunworks`]. A rush's opening wants the
+//!   Armory alone (`super` module docs, "The rush"). A kind whose site isn't found
 //!   waits [`SITE_RETRY_TICKS`] before the next search, and the kinds after it go on meanwhile. The gate checks the
 //!   TechPrerequisites (`factions/cults/units/recruit.md > Constructs`: the Armory "Requires: Storage", the Gunworks
 //!   "Requires: Armory").
@@ -101,11 +102,13 @@ impl Cults {
         }
         let view = turn.view();
         let building = |kind| own(view, kind).any(|o| o.is_site());
+        // A rush's opening builds the Armory alone (`super` module docs, "The rush").
+        let opening = self.rushing();
         let wanted = [
-            (Storage, self.field_full(field) && !building(Storage)),
+            (Storage, !opening && self.field_full(field) && !building(Storage)),
             (Armory, own(view, Armory).next().is_none()),
-            (RecruitmentHall, halls(view) < HALLS),
-            (Gunworks, wants_gunworks(view)),
+            (RecruitmentHall, !opening && halls(view) < HALLS),
+            (Gunworks, !opening && wants_gunworks(view)),
         ];
         for (kind, wants) in wanted {
             if !wants || self.retry.contains_key(&kind) {

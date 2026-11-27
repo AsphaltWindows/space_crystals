@@ -26,7 +26,9 @@
 //!   Placeholder (not in the design, which says only "The projectile cannot miss"): the missile flies on to where its
 //!   target last stood and lands there, hitting nothing, as a FullyConnected shot at a target destroyed before it lands
 //!   "hits nothing" (`systems/combat.md > FullyConnected > Hit timing and overkill`: "Overkill is intentionally
-//!   wasteful").
+//!   wasteful"). (M5-S8) The Rocketman's locked missile, area damage since design change 0445 ("bursting on the
+//!   target"), bursts there all the same, in the domain of what it was fired at, fixed as it left: harmlessly, or on
+//!   whatever of that domain is there.
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};

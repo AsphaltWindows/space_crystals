@@ -9,15 +9,19 @@
 //! - **A launch** ([`Projectile::launch`]), at the end of a DoublyDisjointed attack's Firing (`super::phases`): from the
 //!   shooter's centre to the locked point, with its attack's parameters copied, so that a projectile whose shooter has
 //!   died lands with them all the same, and its arrival tick ([`flight_ticks`]). There is no path and no collision in
-//!   flight: the design has none.
+//!   flight: the design has none. (M5-S8) The TargetDomain its blast hits is fixed then too: the attack's, or for the
+//!   Rocketman's missiles the domain of what they were fired at (`area::blast_domain`; design change 0445: "domain
+//!   fixed at fire time").
 //! - **A landing** ([`land`]), in phase 5e of its arrival tick, in launch order: an area attack's blast where it lands
-//!   (`super::area`), whose hits go on the tick's list ahead of the tick's new hits. (M5-K) A single-target projectile
-//!   (the Rocketman's missile, `factions/gdo/units/rocketman.md`) hits the object at the spot where it lands
-//!   (`Targets::at_the_spot`), or nothing: "The effect applies to whatever units are at the target location when the
-//!   projectile arrives". Placeholder (not in the design: which object, of those at the spot, a single-target
-//!   projectile hits, and whether a structure counts): TailDisjointed's rule (`systems/combat.md > TailDisjointed`,
-//!   Q0126: "whatever object (unit or structure) covers the locked point is hit; if several do, the one the shot was
-//!   aimed at"), whose words for the spot are DoublyDisjointed's.
+//!   (`super::area`), whose hits go on the tick's list ahead of the tick's new hits: the Grenadier's grenade's, and
+//!   (M5-S8) the Rocketman's missiles' bursts, normal and locked (`factions/gdo/units/rocketman.md > AttackAttributes
+//!   (normal attack)`, design change 0445: "the missile bursts at the spot it flies to"). (M5-K) A single-target
+//!   projectile (no type of the game fires one since 0445; the sim's tests' dart, `super::testing::DART`) hits the
+//!   object at the spot where it lands (`Targets::at_the_spot`), or nothing: "The effect applies to whatever units are
+//!   at the target location when the projectile arrives". Placeholder (not in the design: which object, of those at
+//!   the spot, a single-target projectile hits, and whether a structure counts): TailDisjointed's rule
+//!   (`systems/combat.md > TailDisjointed`, Q0126: "whatever object (unit or structure) covers the locked point is
+//!   hit; if several do, the one the shot was aimed at"), whose words for the spot are DoublyDisjointed's.
 //! - **(M5-K) HeadDisjointed projectiles** track their target, and land on it wherever it is ([`homing`]): the
 //!   projectiles of the store with a flight of their own ([`Projectile::homing`]). A TailDisjointed attack has no
 //!   projectile: it strikes the spot it locked at the end of its Firing (`super::phases`, slice M5-O3).
@@ -64,7 +68,8 @@ pub struct Projectile {
     pub damage: f32,
     /// The attack's AoERadius, space units; 0 for a single-target attack (module docs).
     pub radius: f32,
-    /// The attack's TargetDomain.
+    /// The attack's TargetDomain, which its blast hits, or its one hit is in; (M5-S8) for the Rocketman's missiles, the
+    /// domain of what it was fired at, fixed at its launch (`area::blast_domain`).
     pub domain: TargetDomain,
     /// (M5-K) A HeadDisjointed projectile's flight ([`homing`]); none for a DoublyDisjointed one, which flies straight
     /// to `to`. Left out of files, and of the hash, while unset.
@@ -86,30 +91,32 @@ pub fn flight_ticks(from: Vec2, to: Vec2, speed: Option<f32>) -> Tick {
 impl Projectile {
     /// The projectile `shooter` (of `owner`) launches in tick `tick` from `from` to `to` with its attack `attrs`, aimed
     /// at `target`, if at an object (module docs); (M5-K) a HeadDisjointed attack's homes in on `target` ([`homing`]),
-    /// `to` its centre as it leaves.
+    /// `to` its centre as it leaves. (M5-S8) The TargetDomain its blast hits is fixed now, from the domain of what it
+    /// is fired at for the Rocketman's missiles (`area::blast_domain`; design change 0445: "domain fixed at fire
+    /// time").
     pub(super) fn launch(
         shooter: ObjectId,
         owner: Option<PlayerId>,
         attrs: &AttackAttrs,
         from: Vec2,
         to: Vec2,
-        target: Option<ObjectId>,
+        target: Option<&TargetView>,
         tick: Tick,
     ) -> Self {
         let radius = match attrs.target_type {
-            TargetType::AoE { radius } => gu(radius),
+            TargetType::AoE { radius, .. } => gu(radius),
             TargetType::SingleTarget => 0.0,
         };
         Self {
             shooter,
             owner,
-            target,
+            target: target.map(|t| t.id),
             from,
             to,
             lands_at: tick + flight_ticks(from, to, attrs.projectile_speed),
             damage: attrs.damage,
             radius,
-            domain: attrs.target_domain,
+            domain: area::blast_domain(attrs, target.map(|t| t.domain)),
             homing: matches!(attrs.attack_type, AttackType::HeadDisjointed)
                 .then(|| Homing::leaving(from, attrs.projectile_speed)),
         }
@@ -148,6 +155,7 @@ pub(super) fn land(
         events.push(SimEvent::Blast {
             at: p.to,
             radius: p.radius,
+            attacker: Some(p.shooter),
         });
         origins.mark(hits.len(), p.from);
         if p.radius > 0.0 {

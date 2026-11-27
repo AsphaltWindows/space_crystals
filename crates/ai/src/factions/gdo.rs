@@ -17,8 +17,16 @@
 //!    while Unit Control has room (`factions/gdo/overview.md > GDOResources > Unit Control`).
 //!
 //! A step that its bank can't pay for yet holds the bank: the steps after it wait. The army layer (`crate::army`)
-//! leads the Peacekeepers, which the Barracks rally to the staging point. Every rule and number is a placeholder
-//! (Q0147 points 2 and 3, `crate::tuning::gdo`). Costs, times and Power come from the defs.
+//! leads the Peacekeepers, which the Barracks rally to the staging point.
+//!
+//! **The rush** (`Profile::Rush`, slice A2d; Q0147 point 2: "a small early army and an early first attack"): the
+//! Deployment Center opens [`RUSH_OPENING`], a Barracks before the second Generator, and step 4 comes first, before
+//! steps 2 and 3, until it has ordered its first wave's [`RUSH_WAVE`] Peacekeepers: Peacekeepers at once, the plates
+//! and the Generators from what is left. Its first wave is those [`RUSH_WAVE`] (`FactionAi::waves`); then it plays,
+//! and reinforces, as standard does.
+//!
+//! Every rule and number is a placeholder (Q0147 points 2 and 3, `crate::tuning::gdo`). Costs, times and Power come
+//! from the defs.
 
 use std::collections::BTreeMap;
 
@@ -26,24 +34,32 @@ use sc_sim::construction::recipe;
 use sc_sim::{Command, ConstructionCommand, Constructor, Object, ObjectId, ObjectKind, ProductionCommand, Tick, Vec2};
 
 use super::{FactionAi, Hook};
+use crate::army::Waves;
 use crate::build::{plate_spot, plate_spots, spot};
 use crate::tuning::build::{PRODUCER_SHARE, SPOT_RETRY_TICKS};
-use crate::tuning::gdo::{BARRACKS, OPENING, SECOND_BARRACKS_PLATES, TRAIN_QUEUE};
+use crate::tuning::gdo::{BARRACKS, OPENING, RUSH_OPENING, RUSH_WAVE, SECOND_BARRACKS_PLATES, TRAIN_QUEUE};
 use crate::{Profile, Turn, View};
 
 use ObjectKind::{Barracks, DeploymentCenter, ExtractionFacility, ExtractionPlate, Generator, Peacekeeper};
 
 pub(super) const HOOK: Option<Hook> = Some(new);
 
-fn new(_view: &View<'_>, _profile: Profile) -> Box<dyn FactionAi> {
-    Box::new(Gdo::default())
+fn new(_view: &View<'_>, profile: Profile) -> Box<dyn FactionAi> {
+    Box::new(Gdo {
+        rush: profile.rushes(),
+        ..Gdo::default()
+    })
 }
 
 /// The GDO's computer player (module docs).
 #[derive(Debug, Default)]
 struct Gdo {
-    /// How many of the Deployment Center's opening buildings ([`OPENING`]) it has started.
+    /// Whether it plays the rush (module docs).
+    rush: bool,
+    /// How many of the Deployment Center's opening buildings ([`OPENING`], or [`RUSH_OPENING`]) it has started.
     opened: usize,
+    /// The Peacekeepers it has ordered.
+    ordered: usize,
     /// For each constructor whose ready building found no spot, the tick from which it looks again.
     retry: BTreeMap<ObjectId, Tick>,
 }
@@ -51,8 +67,11 @@ struct Gdo {
 impl FactionAi for Gdo {
     fn think(&mut self, turn: &mut Turn<'_, '_>) {
         self.place(turn);
-        if self.construct(turn) {
-            train(turn);
+        if self.rushing() {
+            self.ordered += train(turn);
+            self.construct(turn);
+        } else if self.construct(turn) {
+            self.ordered += train(turn);
         }
     }
 
@@ -63,9 +82,35 @@ impl FactionAi for Gdo {
     fn rallies(&self, building: &Object) -> bool {
         building.kind == Barracks
     }
+
+    /// The army layer's waves (`crate::tuning::army`), but a rush's first: its [`RUSH_WAVE`] Peacekeepers (module
+    /// docs).
+    fn waves(&self) -> Waves {
+        let waves = Waves::default();
+        match self.rush {
+            true => Waves {
+                first: RUSH_WAVE,
+                ..waves
+            },
+            false => waves,
+        }
+    }
 }
 
 impl Gdo {
+    /// Whether it still plays its rush opening (module docs): a rush that hasn't ordered its first wave yet.
+    fn rushing(&self) -> bool {
+        self.rush && self.ordered < RUSH_WAVE
+    }
+
+    /// The Deployment Center's opening (module docs).
+    fn opening(&self) -> &'static [ObjectKind] {
+        match self.rush {
+            true => &RUSH_OPENING,
+            false => &OPENING,
+        }
+    }
+
     /// 1: places each building ready to place, at a spot the placement check takes now; a constructor whose building
     /// finds none looks again [`SPOT_RETRY_TICKS`] later.
     fn place(&mut self, turn: &mut Turn<'_, '_>) {
@@ -119,8 +164,9 @@ impl Gdo {
                 Started::No => {}
             }
         }
+        let opening = self.opening();
         for dc in idle(DeploymentCenter) {
-            let next = match OPENING.get(self.opened) {
+            let next = match opening.get(self.opened) {
                 Some(&kind) => Some(kind),
                 None => plan.next(),
             };
@@ -130,7 +176,7 @@ impl Gdo {
             match start(turn, dc, kind) {
                 Started::Yes => {
                     plan.started(kind);
-                    self.opened = (self.opened + 1).min(OPENING.len());
+                    self.opened = (self.opened + 1).min(opening.len());
                 }
                 Started::Short => return false,
                 Started::No => {}
@@ -140,8 +186,9 @@ impl Gdo {
     }
 }
 
-/// 4: keeps [`TRAIN_QUEUE`] Peacekeepers queued at each Barracks, while Unit Control has room for them.
-fn train(turn: &mut Turn<'_, '_>) {
+/// 4: keeps [`TRAIN_QUEUE`] Peacekeepers queued at each Barracks, while Unit Control has room for them. Returns how
+/// many it ordered.
+fn train(turn: &mut Turn<'_, '_>) -> usize {
     let view = turn.view();
     let cap = view.army_cap();
     let room_for = cap.map(|cap| cap.resource.cost_of(Peacekeeper));
@@ -150,6 +197,7 @@ fn train(turn: &mut Turn<'_, '_>) {
         .filter_map(|o| o.production.as_ref())
         .map(|p| p.queue.len() as u32)
         .sum();
+    let mut ordered = 0;
     for barracks in view.own().filter(|o| o.kind == Barracks) {
         let Some(production) = &barracks.production else {
             continue;
@@ -160,7 +208,7 @@ fn train(turn: &mut Turn<'_, '_>) {
         if let (Some(cap), Some(cost)) = (cap, room_for)
             && cap.used.saturating_add(queued).saturating_add(cost) > cap.available
         {
-            return;
+            return ordered;
         }
         let Some(price) = trains(barracks, Peacekeeper) else {
             continue;
@@ -171,8 +219,10 @@ fn train(turn: &mut Turn<'_, '_>) {
         };
         if turn.buy(price, command) {
             queued += 1;
+            ordered += 1;
         }
     }
+    ordered
 }
 
 /// What the player's Power will be, and what the base still wants (module docs, step 3).

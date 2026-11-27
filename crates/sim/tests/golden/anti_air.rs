@@ -1,7 +1,8 @@
 //! The GDO's anti-air golden game (slice M5-K, design change 0356; `factions/gdo/structures/arsenal.md`,
 //! `factions/gdo/units/rocketman.md`): a Deployment Center constructs and places an Arsenal, the Barracks trains three
 //! Rocketmen, and they shoot down two Sparrows, spawned directly, first with normal missiles, which the circling
-//! Sparrows dodge, then with Target Locks, one after the other.
+//! Sparrows dodge (almost always, design change 0445: a burst may graze one), then with Target Locks, one after the
+//! other, whose bursts (M5-S8) land on them.
 
 use std::cell::RefCell;
 
@@ -37,16 +38,23 @@ const LOCK: Tick = 1000;
 /// The game's last tick, a few seconds after the second Sparrow fell.
 const END: Tick = 1200;
 
-/// What the missiles did: the normal missiles fired at the Sparrows (shooter, landing tick), and their hits; the
-/// locked ones and their hits; and the Sparrows' hits on the Rocketmen.
+/// What the missiles did: the normal missiles fired at the Sparrows (shooter, landing tick), their hits and the HP
+/// those took; the locked ones, their hits and the HP each took; and the Sparrows' hits on the Rocketmen.
 #[derive(Default)]
 struct Missiles {
     normal: Vec<(u32, Tick)>,
     normal_hits: u32,
+    normal_taken: f32,
     locked: u32,
     locked_hits: u32,
+    locked_taken: Vec<f32>,
     on_rocketmen: u32,
 }
+
+/// (M5-S8) A missile's burst on a Sparrow's centre, as a locked one lands: its Damage of 40 over its AoERadius of 32 su
+/// (`factions/gdo/units/rocketman.md > AttackAttributes (normal attack)`, design change 0445), all of the Sparrow's 40 ×
+/// 40 Silhouette inside the circle (its corners 28.3 su out), no armour: 40 × 1600 / (π × 32²) ≈ 19.9.
+const LOCKED_BURST: f32 = 40.0 * 1600.0 / (std::f32::consts::PI * 32.0 * 32.0);
 
 thread_local! {
     static MISSILES: RefCell<Missiles> = RefCell::new(Missiles::default());
@@ -74,11 +82,14 @@ fn train() -> Command {
 /// (`factions/cults/units/sparrow.md > Flight rules`). Player 1's Deployment Center constructs an Arsenal from tick 1
 /// and places it at [`PLACE`], the Barracks refusing W until then ("Requires an Arsenal"); at [`TRAIN`] the Barracks
 /// queues three Rocketmen, all the bank, with a rally point east of it. At [`MOVE`] the three walk east, within their
-/// Range of both Sparrows and in sight of them, and fire normal missiles, which the circling Sparrows dodge (every one,
-/// as the game played when it was made), while the Sparrows' guns hit them when they circle within range. At [`LOCK`]
-/// they lock onto Sparrow 4 and, Shift-queued, onto Sparrow 5 (a queued order waits behind the lock, design change
-/// 0438): after LockOnDuration each fires locked missiles, which can't miss, and Sparrow 4 falls to three of them; the
-/// locks on Sparrow 5 start at once, and it falls to three more. The Rocketmen all stand.
+/// Range of both Sparrows and in sight of them, and fire normal missiles, which the circling Sparrows dodge (all but
+/// one, as the game played when it was re-blessed for design change 0445 in slice M5-S8: that one's burst of 32 su,
+/// in the air, grazed a Sparrow's corner for 0.34 HP), while the Sparrows' guns hit them when they circle within
+/// range. At [`LOCK`] they lock onto Sparrow 4 and, Shift-queued, onto Sparrow 5 (a queued order waits behind the
+/// lock, design change 0438): after LockOnDuration each fires locked missiles, which can't miss, and Sparrow 4 falls to
+/// three of them, each bursting on its centre ([`LOCKED_BURST`]); the locks on Sparrow 5 start at once, and it falls
+/// to three more. Every burst is in the air, fired at an aircraft, and none hits the Rocketmen under it. The Rocketmen
+/// all stand.
 pub(crate) fn gdo_anti_air() -> Game {
     let builder = ScenarioBuilder::new(&open(40, 18))
         .spawn(
@@ -185,10 +196,21 @@ pub(crate) fn gdo_anti_air() -> Game {
                                 false => missiles.normal.push((shooter.0, lands_at)),
                             }
                         }
-                        SimEvent::Hit { attacker, target, .. } if rocketman(attacker) && sparrow(target) => {
+                        SimEvent::Hit {
+                            attacker,
+                            target,
+                            damage,
+                            ..
+                        } if rocketman(attacker) && sparrow(target) => {
                             match missiles.normal.contains(&(attacker.0, tick)) {
-                                true => missiles.normal_hits += 1,
-                                false => missiles.locked_hits += 1,
+                                true => {
+                                    missiles.normal_hits += 1;
+                                    missiles.normal_taken += damage;
+                                }
+                                false => {
+                                    missiles.locked_hits += 1;
+                                    missiles.locked_taken.push(damage);
+                                }
                             }
                         }
                         SimEvent::Hit { attacker, target, .. } if sparrow(attacker) && rocketman(target) => {
@@ -216,8 +238,18 @@ pub(crate) fn gdo_anti_air() -> Game {
             assert!(sim.object(ARSENAL).is_some(), "the Arsenal stands");
             MISSILES.with_borrow(|missiles| {
                 assert!(missiles.normal.len() >= 3, "normal missiles: {}", missiles.normal.len());
-                assert_eq!(missiles.normal_hits, 0, "the circling Sparrows dodged them all");
+                assert!(
+                    missiles.normal_hits <= 1 && missiles.normal_taken < 1.0,
+                    "the circling Sparrows dodged them, but for a graze: {} hits, {} HP",
+                    missiles.normal_hits,
+                    missiles.normal_taken
+                );
                 assert_eq!(missiles.locked_hits, 6, "three locked missiles a Sparrow");
+                assert!(
+                    (missiles.locked_taken.iter()).all(|&taken| (taken - LOCKED_BURST).abs() < 1e-3),
+                    "each locked missile bursts on its Sparrow: {:?}",
+                    missiles.locked_taken
+                );
                 assert!(missiles.locked >= missiles.locked_hits);
                 assert!(missiles.on_rocketmen > 0, "the Sparrows hit back");
             });

@@ -1,6 +1,6 @@
-//! An AI-against-AI game, headless ([`play`]): each computer player thinks before each step, on the game as the last
-//! tick left it, as the client runs them (`ARCHITECTURE.md > Computer players`), and after every step the game is
-//! checked:
+//! An AI-against-AI game, headless ([`play`], or [`watch`] with an observer): each computer player thinks before each
+//! step, on the game as the last tick left it, as the client runs them (`ARCHITECTURE.md > Computer players`), and
+//! after every step the game is checked:
 //! - `sc_sim::testing`'s invariants ([`Invariants::check`], as the sim's pairings check them, or the rules' alone for
 //!   [`Checks::Rules`]), and no object names a removed one;
 //! - the gate takes every command a computer player gives (`core/game_rules.md > Computer players (playtest tool)`:
@@ -12,6 +12,10 @@
 //!   (`core/game_rules.md > Computer players (playtest tool)`: "It also knows the map"), where a wave searches for the
 //!   last buildings, a point of the ground a wave searches around a start (`sc_ai::army::search_points`, slice A2a), or
 //!   a point of its own: its staging point or where one of its buildings stands or stood.
+//!
+//! The report (slice A2d) also tells when each side's first wave left ([`Side::first_wave`]), and how it spent its
+//! income from [`FOLLOW_FROM`] to [`FOLLOW_TO`]: what its bank held on average ([`Side::bank`]) and what it mined
+//! ([`Side::income`]).
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -20,9 +24,15 @@ use sc_ai::army::search_points;
 use sc_ai::{Ai, Profile, Start, View};
 use sc_sim::testing::{self, invariants::Invariants};
 use sc_sim::{
-    Category, Command, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Scenario, Sim, SimEvent, Tick,
-    TickInputs, Vec2,
+    Category, Command, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ResourceState, Scenario, Sim,
+    SimEvent, TICKS_PER_SECOND, Tick, TickInputs, Vec2,
 };
+
+/// From when the report follows each side's bank and income ([`Side::bank`], [`Side::income`]): 3:00 of game time
+/// (the A2d brief's "from 3:00 to 10:00").
+pub const FOLLOW_FROM: Tick = 3 * 60 * TICKS_PER_SECOND;
+/// To when: 10:00, or the game's end if it ends sooner.
+pub const FOLLOW_TO: Tick = 10 * 60 * TICKS_PER_SECOND;
 
 /// What a game came to.
 #[derive(Clone, Debug)]
@@ -64,12 +74,21 @@ pub struct Side {
     pub lost: u32,
     /// The waves their computer player sent.
     pub waves: u32,
+    /// The tick their computer player's first wave's orders applied in, if it sent one.
+    pub first_wave: Option<Tick>,
     /// The commands their computer player gave.
     pub commands: u32,
     /// Their computer player's Attacks and Attack Moves aimed at an enemy building it knew of ([`Aim::Building`]).
     pub at_buildings: u32,
     /// Their buildings at the end.
     pub buildings: u32,
+    /// Their Space Crystals bank from [`FOLLOW_FROM`] to [`FOLLOW_TO`], sampled every second: the mean, if the game
+    /// reached [`FOLLOW_FROM`].
+    pub bank: Option<u32>,
+    /// What they mined from [`FOLLOW_FROM`] to [`FOLLOW_TO`], Space Crystals a second, if the game reached
+    /// [`FOLLOW_FROM`]: what left the patches nearer their start than any other player's (ties to the first player),
+    /// by whomever it was mined. On the Skirmish Default maps each player mines only the field by their start.
+    pub income: Option<u32>,
 }
 
 /// The time of each call to `Ai::think`.
@@ -106,6 +125,17 @@ pub enum Checks {
 /// Plays `scenario` with a computer player of each of `ais`' profiles in each of its players' slots, at most `limit`
 /// ticks, checking it after every step (module docs). Panics at the first check that fails.
 pub fn play(scenario: &Scenario, ais: &[(PlayerId, Profile)], limit: Tick, checks: Checks) -> Report {
+    watch(scenario, ais, limit, checks, |_| {})
+}
+
+/// [`play`], with `observe` shown the game after every step.
+pub fn watch(
+    scenario: &Scenario,
+    ais: &[(PlayerId, Profile)],
+    limit: Tick,
+    checks: Checks,
+    mut observe: impl FnMut(&Sim),
+) -> Report {
     let mut sim = Sim::new(scenario);
     let starts = Start::all(scenario);
     let mut players: Vec<Ai> = (ais.iter())
@@ -118,13 +148,17 @@ pub fn play(scenario: &Scenario, ais: &[(PlayerId, Profile)], limit: Tick, check
             trained: 0,
             lost: 0,
             waves: 0,
+            first_wave: None,
             commands: 0,
             at_buildings: 0,
             buildings: 0,
+            bank: None,
+            income: None,
         })
         .collect();
     let mut knowledge: BTreeMap<PlayerId, Knowledge> = BTreeMap::new();
     let mut think = Cost::default();
+    let mut follow = Follow::new(&sim, &starts);
     while sim.tick() < limit && sim.outcome().is_none() {
         let tick = sim.tick() + 1;
         let mut commands = Vec::new();
@@ -146,6 +180,9 @@ pub fn play(scenario: &Scenario, ais: &[(PlayerId, Profile)], limit: Tick, check
                     Err(unfair) => panic!("tick {tick}: {unfair}"),
                 }
             }
+            if side.first_wave.is_none() && ai.army().waves_sent() > 0 {
+                side.first_wave = Some(tick);
+            }
             side.commands += given.len() as u32;
             commands.extend(given);
         }
@@ -164,7 +201,10 @@ pub fn play(scenario: &Scenario, ais: &[(PlayerId, Profile)], limit: Tick, check
             "tick {tick}: objects name removed ones"
         );
         count(&sim, &mut sides);
+        follow.step(&sim);
+        observe(&sim);
     }
+    follow.end(&sim, &mut sides);
     for side in &mut sides {
         let building = |o: &&Object| o.owner == Some(side.player) && o.kind.def().category == Category::Structure;
         side.buildings = sim.objects().filter(building).count() as u32;
@@ -178,6 +218,90 @@ pub fn play(scenario: &Scenario, ais: &[(PlayerId, Profile)], limit: Tick, check
         sides,
         hash: sim.state_hash(),
         think,
+    }
+}
+
+/// Each side's bank and what it mined, from [`FOLLOW_FROM`] to [`FOLLOW_TO`] ([`Side::bank`], [`Side::income`]).
+struct Follow {
+    /// Each Space Crystals patch the map placed, by id: the player whose start is nearest it, and its amount at the
+    /// start.
+    patches: BTreeMap<ObjectId, (PlayerId, u32)>,
+    /// Each player's bank, summed over the seconds sampled, and how many.
+    banks: BTreeMap<PlayerId, (u64, u64)>,
+    /// What each player had mined by [`FOLLOW_FROM`], and by [`FOLLOW_TO`].
+    mined_from: BTreeMap<PlayerId, u32>,
+    mined_to: Option<BTreeMap<PlayerId, u32>>,
+}
+
+impl Follow {
+    fn new(sim: &Sim, starts: &[Start]) -> Self {
+        let patches = (sim.objects())
+            .filter_map(|o| match o.resource {
+                Some(ResourceState::CrystalPatch { remaining }) => {
+                    let nearest = (starts.iter()).min_by(|a, b| {
+                        let d = |s: &Start| s.point().distance_squared(o.pos);
+                        d(a).total_cmp(&d(b)).then(a.player.cmp(&b.player))
+                    })?;
+                    Some((o.id, (nearest.player, remaining)))
+                }
+                _ => None,
+            })
+            .collect();
+        Self {
+            patches,
+            banks: BTreeMap::new(),
+            mined_from: BTreeMap::new(),
+            mined_to: None,
+        }
+    }
+
+    /// What each player has mined by now: what has left the patches nearest their start (a patch gone left all).
+    fn mined(&self, sim: &Sim) -> BTreeMap<PlayerId, u32> {
+        let mut mined = BTreeMap::new();
+        for (&id, &(player, start)) in &self.patches {
+            let remaining = match sim.object(id).and_then(|o| o.resource.as_ref()) {
+                Some(&ResourceState::CrystalPatch { remaining }) => remaining,
+                _ => 0,
+            };
+            *mined.entry(player).or_insert(0) += start.saturating_sub(remaining);
+        }
+        mined
+    }
+
+    /// Samples the game once a second from [`FOLLOW_FROM`] to [`FOLLOW_TO`].
+    fn step(&mut self, sim: &Sim) {
+        let now = sim.tick();
+        if now == FOLLOW_FROM {
+            self.mined_from = self.mined(sim);
+        }
+        if now == FOLLOW_TO {
+            self.mined_to = Some(self.mined(sim));
+        }
+        if !(FOLLOW_FROM..=FOLLOW_TO).contains(&now) || !now.is_multiple_of(TICKS_PER_SECOND) {
+            return;
+        }
+        for p in sim.players() {
+            let (sum, n) = self.banks.entry(p.id).or_insert((0, 0));
+            *sum += u64::from(p.crystals);
+            *n += 1;
+        }
+    }
+
+    /// Writes each side's mean bank and income, if the game reached [`FOLLOW_FROM`].
+    fn end(&self, sim: &Sim, sides: &mut [Side]) {
+        if sim.tick() < FOLLOW_FROM {
+            return;
+        }
+        let mined = self.mined_to.clone().unwrap_or_else(|| self.mined(sim));
+        let seconds = (sim.tick().min(FOLLOW_TO) - FOLLOW_FROM) / TICKS_PER_SECOND;
+        let of = |mined: &BTreeMap<PlayerId, u32>, player| mined.get(&player).copied().unwrap_or(0);
+        for side in sides {
+            if let Some(&(sum, n)) = self.banks.get(&side.player) {
+                side.bank = (n > 0).then(|| (sum / n) as u32);
+            }
+            let gained = of(&mined, side.player).saturating_sub(of(&self.mined_from, side.player));
+            side.income = (seconds > 0).then(|| gained / seconds);
+        }
     }
 }
 

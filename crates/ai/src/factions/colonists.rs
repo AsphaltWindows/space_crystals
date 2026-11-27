@@ -4,10 +4,12 @@
 //! and four Drones"), each tick, in this order of priority for the bank:
 //!
 //! 1. **Warp In** ([`WARP_INS`]): the buildings it keeps, each on one of its complete Beacons whose Warp In the
-//!    placement check takes now (`View::warp_in_check`, the gate's own), the Beacon nearest where the building serves:
-//!    an Egress Node and a Robo Portal if it has none, a Bio Portal on its first Beacon (as the golden game
-//!    `colonists_opening` does), and two more as its Drones grow (`factions/colonists/economy.md > Warp In`).
-//! 2. **The Robo Portal** trains Drones without pause, [`DRONE_QUEUE`] queued, while its gathering Drones fall short of
+//!    placement check takes now (`View::warp_in_check`, the gate's own), the Beacon nearest where the building serves,
+//!    a tile clear of its other buildings but its Beacons ([`beacons`], "Doorways", slice A2d): an Egress Node and a
+//!    Robo Portal if it has none, a Bio Portal on its first Beacon (as the golden game `colonists_opening` does), a
+//!    second Robo Portal (slice A2d), and two more Bio Portals as its Drones grow (`factions/colonists/economy.md >
+//!    Warp In`).
+//! 2. **The Robo Portals** train Drones without pause, [`DRONE_QUEUE`] queued, while its gathering Drones fall short of
 //!    what its field seats ([`DRONES_PER_PATCH`] a patch, [`field`]) or a Beacon is wanted (step 4).
 //! 3. **Each Bio Portal** trains Sabre Legionnaires without pause (`factions/colonists/structures/bio_portal.md >
 //!    Produces`), [`TRAIN_QUEUE`] queued, while Beacon Capacity has room for them
@@ -24,33 +26,47 @@
 //!    Legionnaires convert into Rifle Legionnaires, so that one in [`RIFLE_EVERY`] is a Rifle.
 //!
 //! The army layer (`crate::army`) leads the Legionnaires, Sabres and Rifles, which the Bio Portals rally to the staging
-//! point; the Drones never fight. Every rule and number is a placeholder (Q0147 points 2 and 3,
-//! `crate::tuning::colonists`). Costs, times and Beacon Capacity come from the defs.
+//! point; the Drones never fight.
+//!
+//! **The rush** (`Profile::Rush`, slice A2d; Q0147 point 2: "a small early army and an early first attack"): Sabres at
+//! once. Until its Bio Portals have been ordered [`RUSH_WAVE`] Sabre Legionnaires, it warps in only what it wants
+//! from the start (the Bio Portal on its first Beacon), and trains them before the Robo Portal's Drones; its first
+//! wave is those [`RUSH_WAVE`] Legionnaires, half of them Rifles by then (step 6, `FactionAi::waves`). Then it plays,
+//! and reinforces, as standard does.
+//!
+//! Every rule and number is a placeholder (Q0147 points 2 and 3, `crate::tuning::colonists`). Costs, times and Beacon
+//! Capacity come from the defs.
 
 mod beacons;
 mod field;
 
-use sc_sim::transform::warp_in_recipe;
+use sc_sim::nav::TileRect;
+use sc_sim::transform::{warp_in_footprint, warp_in_recipe};
 use sc_sim::{
     Ability, ArmyResource, BuildingOrientation, Command, ConstructionCommand, Object, ObjectId, ObjectKind,
     ProductionCommand, Vec2,
 };
 
 use super::{FactionAi, Hook};
-use crate::tuning::colonists::{DRONE_QUEUE, DRONES_PER_PATCH, RIFLE_EVERY, TRAIN_QUEUE, WARP_INS};
+use crate::army::Waves;
+use crate::tuning::colonists::{DRONE_QUEUE, DRONES_PER_PATCH, RIFLE_EVERY, RUSH_WAVE, TRAIN_QUEUE, WARP_INS};
 use crate::{Known, Profile, Turn, View};
 
 use ObjectKind::{Beacon, BioPortal, Drone, EgressNode, RifleLegionnaire, RoboPortal, SabreLegionnaire};
 
 pub(super) const HOOK: Option<Hook> = Some(new);
 
-fn new(view: &View<'_>, _profile: Profile) -> Box<dyn FactionAi> {
-    Box::new(Colonists::new(view))
+fn new(view: &View<'_>, profile: Profile) -> Box<dyn FactionAi> {
+    Box::new(Colonists::new(view, profile))
 }
 
 /// The Colonists' computer player (module docs).
 #[derive(Debug)]
 struct Colonists {
+    /// Whether it plays the rush (module docs).
+    rush: bool,
+    /// The Sabre Legionnaires it has ordered.
+    ordered: usize,
     /// Where its Beacon sites gather ([`beacons`]): its Robo Portal as it took over, else its Egress Node, else its
     /// start.
     anchor: Vec2,
@@ -59,15 +75,22 @@ struct Colonists {
 }
 
 impl Colonists {
-    fn new(view: &View<'_>) -> Self {
+    fn new(view: &View<'_>, profile: Profile) -> Self {
         let first = |kind| view.own().find(|o| o.kind == kind).map(|o| o.pos);
         let anchor = (first(RoboPortal).or_else(|| first(EgressNode)))
             .or_else(|| view.my_start().map(|s| s.point()))
             .unwrap_or_default();
         Self {
+            rush: profile.rushes(),
+            ordered: 0,
             anchor,
             deploys: beacons::Deploys::default(),
         }
+    }
+
+    /// Whether it still plays its rush opening (module docs): a rush that hasn't ordered its first wave yet.
+    fn rushing(&self) -> bool {
+        self.rush && self.ordered < RUSH_WAVE
     }
 }
 
@@ -75,8 +98,14 @@ impl FactionAi for Colonists {
     fn think(&mut self, turn: &mut Turn<'_, '_>) {
         self.deploys.review(turn);
         let mut base = Base::of(turn);
-        if warp_in(turn, &mut base, self.anchor) && train_drones(turn, &mut base) {
-            train_army(turn, &mut base);
+        let opening = self.rushing();
+        if warp_in(turn, &mut base, self.anchor, opening) {
+            if opening {
+                self.ordered += train_army(turn, &mut base);
+                train_drones(turn, &mut base);
+            } else if train_drones(turn, &mut base) {
+                self.ordered += train_army(turn, &mut base);
+            }
         }
         let deployer = self.deploys.send(turn, &base, self.anchor);
         field::gather(turn, &base, deployer);
@@ -89,6 +118,19 @@ impl FactionAi for Colonists {
 
     fn rallies(&self, building: &Object) -> bool {
         building.kind == BioPortal
+    }
+
+    /// The army layer's waves (`crate::tuning::army`), but a rush's first: its [`RUSH_WAVE`] Sabre Legionnaires
+    /// (module docs).
+    fn waves(&self) -> Waves {
+        let waves = Waves::default();
+        match self.rush {
+            true => Waves {
+                first: RUSH_WAVE,
+                ..waves
+            },
+            false => waves,
+        }
     }
 }
 
@@ -170,17 +212,20 @@ impl<'v> Base<'v> {
 }
 
 /// 1: warps in what [`WARP_INS`] wants and the player lacks, each on the complete Beacon nearest where it serves
-/// whose Warp In the placement check takes now. Returns whether the steps after it may spend: `false` when the bank
-/// doesn't cover a Warp In that is ready.
-fn warp_in(turn: &mut Turn<'_, '_>, base: &mut Base<'_>, anchor: Vec2) -> bool {
+/// whose Warp In the placement check takes now; while a rush plays its `opening` (module docs), only those it wants
+/// from the start. Returns whether the steps after it may spend: `false` when the bank doesn't cover a Warp In that is
+/// ready.
+fn warp_in(turn: &mut Turn<'_, '_>, base: &mut Base<'_>, anchor: Vec2, opening: bool) -> bool {
     let view = turn.view();
     let orientation = BuildingOrientation::default();
     let owned = |kind| view.own().filter(|o| o.kind == kind).count();
     let mut planned: Vec<ObjectKind> = Vec::new();
+    // What this turn's Warp Ins cover, which the next keep clear (`beacons::apart`).
+    let mut covered: Vec<TileRect> = Vec::new();
     for &(kind, drones) in &WARP_INS {
         planned.push(kind);
         let nth = planned.iter().filter(|&&k| k == kind).count();
-        if base.workers.len() < drones || owned(kind) >= nth {
+        if base.workers.len() < drones || owned(kind) >= nth || (opening && drones > 0) {
             continue;
         }
         let Some(cost) = warp_in_recipe(Beacon, kind).map(|r| r.cost) else {
@@ -200,11 +245,16 @@ fn warp_in(turn: &mut Turn<'_, '_>, base: &mut Base<'_>, anchor: Vec2) -> bool {
                 .total_cmp(&b.pos.distance_squared(toward)))
             .then(a.id.cmp(&b.id))
         });
-        let ready = (beacons.into_iter()).find(|b| {
-            view.warp_in_check(b.id, kind, orientation)
-                .is_some_and(|check| check.is_valid())
+        let footprint = |b: &Object| {
+            let p = warp_in_footprint(&b.placement?, kind, orientation)?;
+            Some(TileRect::new(p.origin, p.w, p.h))
+        };
+        let ready = (beacons.into_iter()).find_map(|b| {
+            let footprint = footprint(b).filter(|&rect| beacons::apart(view, rect, &covered))?;
+            let valid = (view.warp_in_check(b.id, kind, orientation)).is_some_and(|check| check.is_valid());
+            valid.then_some((b, footprint))
         });
-        let Some(beacon) = ready else {
+        let Some((beacon, footprint)) = ready else {
             // None on the way either: a Beacon is wanted for it (step 4).
             base.beacon_wanted |= base.beacons.is_empty() && base.deploying == 0 && base.walking == 0;
             continue;
@@ -218,6 +268,7 @@ fn warp_in(turn: &mut Turn<'_, '_>, base: &mut Base<'_>, anchor: Vec2) -> bool {
         };
         if turn.buy(cost, command) {
             base.beacons.retain(|b| b.id != beacon.id);
+            covered.push(footprint);
         }
     }
     true
@@ -254,13 +305,14 @@ fn train_drones(turn: &mut Turn<'_, '_>, base: &mut Base<'_>) -> bool {
 }
 
 /// 3: keeps [`TRAIN_QUEUE`] Sabre Legionnaires queued at each Bio Portal, while Beacon Capacity has room for them
-/// once the units already queued have started.
-fn train_army(turn: &mut Turn<'_, '_>, base: &mut Base<'_>) {
+/// once the units already queued have started. Returns how many it ordered.
+fn train_army(turn: &mut Turn<'_, '_>, base: &mut Base<'_>) -> usize {
     let view = turn.view();
     let Some(cap) = view.army_cap() else {
-        return;
+        return 0;
     };
     let cost = cap.resource.cost_of(SabreLegionnaire);
+    let mut ordered = 0;
     for portal in view.own().filter(|o| o.kind == BioPortal && o.is_operational()) {
         let Some(production) = &portal.production else {
             continue;
@@ -269,15 +321,17 @@ fn train_army(turn: &mut Turn<'_, '_>, base: &mut Base<'_>) {
             continue;
         }
         if cap.used.saturating_add(base.waiting).saturating_add(cost) > cap.available {
-            return;
+            return ordered;
         }
         let Some(price) = trains(portal, SabreLegionnaire) else {
             continue;
         };
         if turn.buy(price, train(portal.id, SabreLegionnaire)) {
             base.waiting += cost;
+            ordered += 1;
         }
     }
+    ordered
 }
 
 /// 6: converts its newest Sabre Legionnaires (the highest ids) into Rifle Legionnaires, so that one Legionnaire in

@@ -62,7 +62,7 @@ fn launches(t: &TestSim) -> Vec<(Tick, ObjectId, Vec2, Vec2, Tick)> {
 /// The blasts of the run so far: (tick, centre, radius).
 fn blasts(t: &TestSim) -> Vec<(Tick, Vec2, f32)> {
     let blast = |(tick, e): &(Tick, SimEvent)| match *e {
-        SimEvent::Blast { at, radius } => Some((*tick, at, radius)),
+        SimEvent::Blast { at, radius, .. } => Some((*tick, at, radius)),
         _ => None,
     };
     t.events().iter().filter_map(blast).collect()
