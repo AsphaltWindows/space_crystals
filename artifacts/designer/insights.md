@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 
-- Q0176 (non-blocking): combat.md table says tracked at rest turns "unconstrained" vs tread law SpinRate.
 - Q0177 (non-blocking): default rally point (3 GU) holds three Seekers; a fourth stalls the doorway.
 - Q0178 (non-blocking): does a Stopping crusher crush; does a crush ping the minimap?
 - Q0179 (non-blocking): Hand of Heaven MinRange back-off leaves its sight; wall blocks hull aim forever.

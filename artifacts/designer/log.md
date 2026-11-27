@@ -2418,3 +2418,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Designer placeholders: 50 energy, 1 GU offset, hotkey F (W is Reverse slot).
 - Files: factions/cults/units/disciple.md, structures/garrison.md, README.md, units/README.md. Change entry 0448.
 - Q0176–Q0184 recorded (non-blocking), not yet presented.
+- Q0176 answered from docs (0449): combat.md stale rows fixed.
