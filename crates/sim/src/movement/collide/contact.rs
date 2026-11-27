@@ -11,9 +11,10 @@
 //!   squarely that is 90° to its heading; for one that leans, the quarter turn of its heading leans into the blocker
 //!   on one side and is never free there. The width is the box's extent along that face. (M5-V1) Where a Silhouette
 //!   that turns with its facing meets another shape, the face is the edge direction the two meet on, no axis
-//!   (`space::Face`): the glance, the lean and the step along the face follow it. The contact step itself stays
-//!   along the axis nearest to it, by the extent of the unit's bounding box (`StepAside` keeps an axis): the Hand of
-//!   Heaven's, a TrackedVehicle's, for a later slice to turn.
+//!   (`space::Face`): the glance, the lean and the step along the face follow it. (M5-V3) So does the contact step
+//!   of a turned Silhouette (the Hand of Heaven's, a TrackedVehicle's): straight along the face, by the turned
+//!   shape's own extent along it (`StepAside::end`), which is its width where the face lies across its heading. A
+//!   box's stays along the axis of the face, by its extent along it.
 //! - **Over several ticks** (`Mover::step_aside`, `mover::StepAside`): the step is to a coordinate fixed when it
 //!   begins, the unit's own width along the face from where it stands. Each tick the unit moves its speed towards
 //!   it, the last part exactly onto it, and nothing else: no step forward, no lane seeking, even if its way ahead
@@ -69,8 +70,18 @@ pub(super) fn turned_45(d: Vec2, side: Side) -> Vec2 {
 }
 
 /// Where this tick's part of the contact step `aside` takes a unit at `pos` that moves `speed` space units a tick:
-/// `speed` nearer to the step's end along its axis, or exactly onto it.
+/// `speed` nearer to the step's end along its axis, or exactly onto it; (M5-V3) a turned Silhouette's straight
+/// towards its end point.
 fn part_of(aside: StepAside, pos: Vec2, speed: f32) -> Vec2 {
+    if let Some(end) = aside.end {
+        let left = end - pos;
+        let length = left.length();
+        return if length <= speed {
+            end
+        } else {
+            pos + left * (speed / length)
+        };
+    }
     let axis = aside.axis();
     let left = aside.to - pos[axis];
     let mut at = pos;
@@ -224,13 +235,29 @@ impl World<'_> {
                 Some((pos + along, false))
             }
             ContactStep::Sideways => {
-                // (M5-V1) Along the axis nearest to the face of a turned shape: a step aside is along an axis.
                 let along_y = along.y.abs() > along.x.abs();
                 let axis = usize::from(along_y);
-                let width = 2.0 * self.body().half[axis];
-                let aside = StepAside {
-                    along_y,
-                    to: pos[axis] + width.copysign(along[axis]),
+                let aside = match self.body().oriented {
+                    // (M5-V3) A Silhouette that turns steps straight along the face it met, by its own extent along
+                    // it: its width where the face lies across its heading (0323: "the size of its Silhouette across
+                    // its heading").
+                    Some(oriented) if along != Vec2::ZERO => {
+                        let dir = along.normalize();
+                        let across = Vec2::new(-oriented.axis.y, oriented.axis.x);
+                        let extent =
+                            oriented.half.x * oriented.axis.dot(dir).abs() + oriented.half.y * across.dot(dir).abs();
+                        StepAside {
+                            along_y,
+                            to: pos[axis],
+                            end: Some(pos + dir * (2.0 * extent)),
+                        }
+                    }
+                    // A box steps along the axis of the face, by its extent along it.
+                    _ => StepAside {
+                        along_y,
+                        to: pos[axis] + (2.0 * self.body().half[axis]).copysign(along[axis]),
+                        end: None,
+                    },
                 };
                 let at = part_of(aside, pos, speed);
                 if !self.clear_to(pos, at, touched) {
@@ -271,7 +298,8 @@ impl World<'_> {
     ) -> Option<Moved> {
         let aside = mover.step_aside?;
         let axis = aside.axis();
-        if aside.to == pos[axis] || speed <= 0.0 {
+        let there = aside.end.map_or(aside.to == pos[axis], |end| end == pos);
+        if there || speed <= 0.0 {
             mover.step_aside = None;
             return None;
         }
@@ -281,7 +309,11 @@ impl World<'_> {
         let mut at = part_of(aside, pos, speed);
         if !self.clear_to(pos, at, touched) {
             mover.step_aside = None;
-            at = self.along_axis(pos, axis, at[axis] - pos[axis], touched);
+            at = match aside.end {
+                // (M5-V3) A turned Silhouette's step: as far along it as is free.
+                Some(_) => self.free_part(pos, at - pos, 1.0),
+                None => self.along_axis(pos, axis, at[axis] - pos[axis], touched),
+            };
         }
         Some(Moved {
             pos: at,

@@ -157,10 +157,15 @@ impl StateHash for Mover {
             h.tag(4);
         }
         // (M4-W3, design change 0323) Likewise only while the unit is taking a contact step.
-        if let Some(StepAside { along_y, to }) = step_aside {
+        if let Some(StepAside { along_y, to, end }) = step_aside {
             h.tag(5);
             along_y.hash(h);
             to.hash(h);
+            // (M5-V3) A turned Silhouette's step: hashed only where there is one, so a box's step hashes as before.
+            if let Some(end) = end {
+                h.tag(1);
+                end.hash(h);
+            }
         }
         // (M5-H1) Likewise only while a Glider circles a point, and while it is on a strafing run: games without a
         // Glider hash as before the fields existed (`mover::flight`).

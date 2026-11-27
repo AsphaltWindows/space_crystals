@@ -102,8 +102,11 @@ pub struct UnitBaseDef {
     /// unit of this base steps aside for a blocked unit of its owner, and moves off a unit it overlaps (design change
     /// 0126, "the same units that yield"). Design change 0353, answering Q0119 point 1: "an idle vehicle doesn't
     /// yield (it can't take a sidestep; it stands like a unit on Hold Position)". False for the WheeledVehicle, the
-    /// base Q0119 asked about, which can't step sideways nor turn in place; a HoverVehicle steps any way (0323 gives
-    /// it the sideways contact step) and yields as before.
+    /// base Q0119 asked about, which can't step sideways nor turn in place, and (M5-V3) for the TrackedVehicle: design
+    /// change 0440, answering Q0172 point 1, "WheeledVehicle, TrackedVehicle and a DrillUnit in its above-ground mode
+    /// stand (they don't yield and don't take the idle push-apart nudge)". A HoverVehicle steps any way (0323 gives it
+    /// the sideways contact step) and yields as before. The DrillUnit has no above-ground mode yet (slice M6-ST1 gives
+    /// it one, and its standing with it): underground it yields as before.
     pub yields: bool,
     /// (M5-H2) `systems/units.md > Air Collision`: how strongly the soft separation of air units pushes a unit of this
     /// base off another (`movement::air`), as the share it takes of the full push (half of what the pair lacks, at
@@ -228,7 +231,7 @@ static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
     contact_step: ContactStep::Sideways, // 0323: "and TrackedVehicles"
-    yields: true,
+    yields: false,                       // 0440: an idle TrackedVehicle stands
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };

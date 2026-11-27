@@ -70,7 +70,7 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1", "W1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1", "W1", "S1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -301,12 +301,12 @@ impl Invariants {
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));
             }
-            // (M5-V2) W1: a wheeled unit turns by its speed, never in place (`momentum::turns_by_its_speed`).
+            // (M5-V2) W1: a wheeled unit turns by its speed, never in place; (M5-V3) S1: a tracked one by the tread law.
             let wheeled = o.movement(sim.research()).zip(before);
-            if let Some(message) =
+            if let Some((invariant, message)) =
                 wheeled.and_then(|(movement, b)| momentum::turns_by_its_speed(&movement, o.facing, b))
             {
-                return fail("W1", message);
+                return fail(invariant, message);
             }
             if let Some(before) = before
                 && before.pos != o.prev_pos

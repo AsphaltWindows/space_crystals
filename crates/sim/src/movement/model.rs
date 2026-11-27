@@ -1,5 +1,6 @@
 //! The movement models with momentum, which carry a unit's velocity from tick to tick (`Mover::momentum`): DragMovement
-//! (`super::drag`, slice M3-G) and (M5-V2) FixedTurnRadiusMovement (`super::wheeled`). Each replaces only the "desired
+//! (`super::drag`, slice M3-G), (M5-V2) FixedTurnRadiusMovement (`super::wheeled`) and (M5-V3) SpeedTurnRadiusMovement
+//! (`super::tracked`). Each replaces only the "desired
 //! direction → facing and velocity" part of a unit's tick (`docs/movement.md > 6.3`, `> 6.7`): the shared rules give
 //! it the step a unit without momentum would take (`super::follow`), and the model drives towards it. A unit of
 //! TurnRateMovement stops within the tick and has none, and a Glider flies by its own model (`super::glider`).
@@ -8,6 +9,7 @@ use glam::Vec2;
 
 use super::collide::World;
 use super::drag::Drag;
+use super::tracked::Tracked;
 use super::wheeled::Wheeled;
 use crate::defs::MovementAttrs;
 use crate::mover::Mover;
@@ -17,6 +19,7 @@ use crate::mover::Mover;
 pub(super) enum Model {
     Drag(Drag),
     Wheeled(Wheeled),
+    Tracked(Tracked),
 }
 
 impl Model {
@@ -27,6 +30,7 @@ impl Model {
         Drag::of(movement, mover.speed_factor, rugged)
             .map(Model::Drag)
             .or_else(|| Wheeled::of(movement, mover).map(Model::Wheeled))
+            .or_else(|| Tracked::of(movement, mover).map(Model::Tracked))
     }
 
     /// The speed the unit approaches a goal `dist` space units along its path at, from which it stops on it.
@@ -34,6 +38,7 @@ impl Model {
         match self {
             Model::Drag(drag) => drag.approach(dist),
             Model::Wheeled(wheeled) => wheeled.approach(dist),
+            Model::Tracked(tracked) => tracked.approach(dist),
         }
     }
 
@@ -43,6 +48,7 @@ impl Model {
         match self {
             Model::Drag(drag) => drag.along(dir, want, facing, turn_rate, momentum),
             Model::Wheeled(wheeled) => wheeled.along(dir, want, facing, momentum),
+            Model::Tracked(tracked) => tracked.along(dir, want, facing, momentum),
         }
     }
 
@@ -58,6 +64,7 @@ impl Model {
         match self {
             Model::Drag(drag) => drag.coast(pos, facing, mover, world, touched),
             Model::Wheeled(wheeled) => wheeled.coast(pos, facing, mover, world, touched),
+            Model::Tracked(tracked) => tracked.coast(pos, facing, mover, world, touched),
         }
     }
 }

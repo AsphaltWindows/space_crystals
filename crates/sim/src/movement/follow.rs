@@ -1,8 +1,10 @@
 //! One unit's tick along its path — `docs/movement.md > 6.2`, `> 6.3`: the steering waypoint, the turn, the step
 //! by the shared rules (`super::collide`), arrival, and the stuck clock (`super::stuck`). Shared by every movement
 //! model; the model decides how fast the unit approaches and what becomes of the step: a unit that stops within
-//! the tick takes it as it is, a DragMovement unit thrusts towards it (`super::drag`, slice M3-G), and (M5-V2) a
-//! FixedTurnRadiusMovement unit turns to head along it and drives (`super::wheeled`).
+//! the tick takes it as it is, a DragMovement unit thrusts towards it (`super::drag`, slice M3-G), (M5-V2) a
+//! FixedTurnRadiusMovement unit turns to head along it and drives (`super::wheeled`), and (M5-V3) a
+//! SpeedTurnRadiusMovement unit does so by the tread law, at the speed its corner choice gives each turn
+//! (`super::tracked`).
 
 use glam::Vec2;
 
@@ -103,6 +105,9 @@ pub(super) fn step_unit_on(
 ///   then moves in its turned shape; a turn cut short is a blocked move, and the unit creeps on ([`creep_on`]).
 ///   (M5-V2) A FixedTurnRadiusMovement unit turns by its speed as it drives (`super::wheeled`), and steers straight
 ///   on while its waypoint lies inside its turning circle: the forward loop (`Wheeled::steer`, design change 0353).
+///   (M5-V3) A SpeedTurnRadiusMovement unit turns by the tread law as it drives (`super::tracked`), slowing for each
+///   turn to the speed of its corner choice, and for the turn at its steering waypoint in time (`Tracked::ahead`). A
+///   unit that spins in place stands to turn, as a TurnRate unit does: its stuck clock doesn't run meanwhile.
 /// - **Arrival**: when the goal is within one step and the way is free, the unit stands exactly on it and stops
 ///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots. A DragMovement
 ///   unit's step is its approach speed ([`Drag::approach`]), which brings it onto the goal at a speed it stops
@@ -186,8 +191,6 @@ fn follow(
         Some(Model::Wheeled(wheeled)) if dist > 0.0 => wheeled.steer(*facing, to),
         _ => (to, false),
     };
-    // TurnRate, Drag and (M5-V2) FixedTurnRadius are modelled. TODO(M5-V3): SpeedTurnRadiusMovement turns without
-    // limit here.
     let mut turning = false;
     // The locomotion a model drove by, where it isn't Moving.
     let mut locomotion = None;
@@ -220,6 +223,16 @@ fn follow(
         model.approach(stuck::remaining(*pos, &mover.path, usize::from(mover.next)))
     });
     let arriving = !looping && usize::from(mover.next) == last_index && dist <= reach;
+    // (M5-V3) A tracked unit slows in time for the turn at its steering waypoint, onto the path's next leg.
+    let ahead = match model {
+        Some(Model::Tracked(tracked)) if usize::from(mover.next) < last_index => {
+            let beyond = mover.path[usize::from(mover.next) + 1];
+            tracked.ahead(world, *pos, target, beyond, step)
+        }
+        _ => f32::INFINITY,
+    };
+    // (M5-V3) It spins in place this tick: it stands to turn.
+    let mut spinning = false;
     let d = if dist > reach { to * (reach / dist) } else { to };
     touched.clear();
     // (G) First a step towards a lane clear of the units it has to pass, if there are some ahead; else the rules
@@ -285,12 +298,43 @@ fn follow(
             }
             driven.moved
         }
+        // (M5-V3) A tracked unit takes a contact step as it is, sideways, its facing kept and no speed carried; else it
+        // heads along that step by the tread law, at the speed of the corner choice.
+        Some(Model::Tracked(_)) if stepping.is_some() => {
+            *steered = true;
+            mover.momentum = Vec2::ZERO;
+            moved
+        }
+        Some(Model::Tracked(tracked)) => {
+            *steered = true;
+            let lands = arriving && moved.pos == target;
+            let driven = tracked.drive(from, facing, d, moved, lands, ahead, dist, mover, world, touched);
+            *turned = driven.turned;
+            turning = driven.turned != 0.0;
+            locomotion = Some(driven.locomotion);
+            spinning = driven.velocity == Vec2::ZERO && turning && driven.cut.is_none();
+            if let Some(blocker) = driven.cut {
+                creep_on(from, to, blocker, mover, world, requests, chased);
+            }
+            if driven.moved.blocker != moved.blocker {
+                yielding::ask(world, from, driven.velocity, &driven.moved, false, mover, requests);
+            }
+            driven.moved
+        }
         None => moved,
     };
+    if spinning {
+        // Turning in place for the whole tick, as a TurnRate unit stands to turn: it waits for its turn, and its stuck
+        // clock doesn't run.
+        mover.momentum = Vec2::ZERO;
+        wait(mover, tick);
+        mover.orientation = Orientation::Turning(target);
+        return false;
+    }
     *pos = moved.pos;
     // (0323) The contact step is made once the unit is on its end, or past it.
     if let Some(aside) = mover.step_aside
-        && aside.is_done(from[aside.axis()], pos[aside.axis()])
+        && aside.is_done(from, *pos)
     {
         mover.step_aside = None;
     }

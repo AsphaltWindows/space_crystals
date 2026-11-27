@@ -41,12 +41,18 @@ pub enum MovementAttrs {
         reverse_max_speed: f32,
         deceleration: Option<f32>,
     },
-    /// `systems/units.md > SpeedTurnRadiusMovement`.
+    /// `systems/units.md > SpeedTurnRadiusMovement` (design change 0417: the tread law, which TrackWidth and
+    /// ReverseMaxSpeed replace SpeedToTurnRadiusRatio for).
     SpeedTurnRadius {
-        speed_to_turn_radius_ratio: f32,
+        /// TrackWidth: the distance between the two treads, space units.
+        track_width: f32,
+        /// Speeding up either way, forward or backing up.
         acceleration: Option<f32>,
         deceleration: Option<f32>,
+        /// Space units per tick: each tread's top speed, and the forward speed's.
         max_speed: f32,
+        /// ReverseMaxSpeed, space units per tick.
+        reverse_max_speed: f32,
     },
     /// `systems/units.md > DragMovement`: top speed is where thrust and drag balance.
     Drag {
@@ -108,9 +114,8 @@ impl MovementAttrs {
 
     /// (M5-V2) How the unit backs up on the Reverse order (`systems/controls/command_behaviors.md >
     /// ReversingToLocation`), for the models that reverse: a FixedTurnRadiusMovement unit by its ReverseMaxSpeed and
-    /// ReverseAcceleration. `None` for the others. A lookup per model: SpeedTurnRadiusMovement gets a ReverseMaxSpeed of
-    /// its own and backs up with its Acceleration (design change 0417), its arm for slice M5-V3 to add; until then a
-    /// TrackedVehicle can't take the order ([`UnitDef::can_reverse`]).
+    /// ReverseAcceleration, (M5-V3) a SpeedTurnRadiusMovement unit by its ReverseMaxSpeed and its one Acceleration
+    /// (design change 0417: "reverse is capped at ReverseMaxSpeed"). `None` for the others.
     pub fn reverse_speed(&self) -> Option<ReverseSpeed> {
         match *self {
             MovementAttrs::FixedTurnRadius {
@@ -121,10 +126,27 @@ impl MovementAttrs {
                 max_speed: reverse_max_speed,
                 acceleration: reverse_acceleration,
             }),
-            MovementAttrs::TurnRate { .. }
-            | MovementAttrs::SpeedTurnRadius { .. }
-            | MovementAttrs::Drag { .. }
-            | MovementAttrs::Glider { .. } => None,
+            MovementAttrs::SpeedTurnRadius {
+                reverse_max_speed,
+                acceleration,
+                ..
+            } => Some(ReverseSpeed {
+                max_speed: reverse_max_speed,
+                acceleration,
+            }),
+            MovementAttrs::TurnRate { .. } | MovementAttrs::Drag { .. } | MovementAttrs::Glider { .. } => None,
+        }
+    }
+
+    /// (M5-V3) SpinRate, radians per tick, for SpeedTurnRadiusMovement: `2 × MaxSpeed ÷ TrackWidth`, the rate it turns
+    /// at when stopped, treads in opposite directions (`systems/units.md > SpeedTurnRadiusMovement > The turning
+    /// law`, design change 0417). `None` for the other models.
+    pub fn spin_rate(&self) -> Option<f32> {
+        match *self {
+            MovementAttrs::SpeedTurnRadius {
+                track_width, max_speed, ..
+            } => Some(2.0 * max_speed / track_width),
+            _ => None,
         }
     }
 }
@@ -475,8 +497,8 @@ impl UnitDef {
     }
 
     /// (M5-V2) Whether it takes the Reverse order (`systems/controls/commands.md > Reverse`: "Only available to bases
-    /// with CanReverse = true"): its base can reverse, and its movement model knows how ([`MovementAttrs::reverse_speed`],
-    /// which slice M5-V3 gives SpeedTurnRadiusMovement). The gate and the client's command card ask this.
+    /// with CanReverse = true"): its base can reverse, and its movement model knows how ([`MovementAttrs::reverse_speed`]:
+    /// FixedTurnRadiusMovement and, M5-V3, SpeedTurnRadiusMovement). The gate and the client's command card ask this.
     pub fn can_reverse(&self) -> bool {
         self.base_def().can_reverse && self.movement.reverse_speed().is_some()
     }

@@ -1,7 +1,8 @@
-//! (M3-G, M5-V2) The movement models with momentum (`movement::model`): DragMovement and FixedTurnRadiusMovement carry
-//! a unit's velocity from tick to tick (`Mover::momentum`), and a unit of them without a goal brakes off what it has
-//! left, moving meanwhile (`Locomotion::Stopping`; `docs/movement.md > 6.7`, `> 6.11`). What I3, I5 and I7 allow it,
-//! and (M5-V2) the wheeled invariant W1, that a FixedTurnRadiusMovement unit turns by its speed alone.
+//! (M3-G, M5-V2, M5-V3) The movement models with momentum (`movement::model`): DragMovement, FixedTurnRadiusMovement
+//! and SpeedTurnRadiusMovement carry a unit's velocity from tick to tick (`Mover::momentum`), and a unit of them without
+//! a goal brakes off what it has left, moving meanwhile (`Locomotion::Stopping`; `docs/movement.md > 6.7`, `> 6.11`,
+//! `> 6.12`). What I3, I5 and I7 allow it, (M5-V2) the wheeled invariant W1, that a FixedTurnRadiusMovement unit turns
+//! by its speed alone, and (M5-V3) the tracked invariant S1, that a SpeedTurnRadiusMovement unit turns by the tread law.
 
 use glam::Vec2;
 
@@ -13,7 +14,10 @@ use crate::mover::{Locomotion, Mover};
 /// Whether a unit with these movement numbers carries momentum. No other model has any, ever (a Glider's is its speed:
 /// `super::gliders`).
 pub(super) fn carries(movement: &MovementAttrs) -> bool {
-    matches!(movement.model(), MovementModel::Drag | MovementModel::FixedTurnRadius)
+    matches!(
+        movement.model(),
+        MovementModel::Drag | MovementModel::FixedTurnRadius | MovementModel::SpeedTurnRadius
+    )
 }
 
 /// I7: a unit with momentum braking it off without a goal (`before`, as it was a tick before): it is Stopping, its
@@ -29,8 +33,38 @@ pub(super) fn braking(mover: &Mover, before: Option<&Seen>) -> bool {
 /// FixedTurnRadiusMovement`: "Unit cannot turn in place"). In a tick it turns by at most its speed in it over its
 /// MinimumTurnRadius, and that speed is at most the momentum it carried in (`before`) and one tick's acceleration or
 /// braking: a unit pressed against a wall, which carried none in, turns by its single-tick acceleration's (design
-/// change 0035). The violation, if any; units of the other models have none.
-pub(super) fn turns_by_its_speed(movement: &MovementAttrs, facing: f32, before: &Seen) -> Option<String> {
+/// change 0035). The violation, if any, and its invariant; units of the models that turn at a fixed rate have none.
+///
+/// (M5-V3) S1: a SpeedTurnRadiusMovement unit turns in a tick by at most the tread law's rate at the slowest speed it
+/// may have had in it, `SpinRate × (1 − s ÷ MaxSpeed)` for `s` the momentum it carried in less one tick's braking or
+/// acceleration, at least 0 (`systems/units.md > SpeedTurnRadiusMovement > The turning law`, design change 0417): at
+/// most SpinRate in place, nothing at MaxSpeed.
+pub(super) fn turns_by_its_speed(
+    movement: &MovementAttrs,
+    facing: f32,
+    before: &Seen,
+) -> Option<(&'static str, String)> {
+    let turned = math::wrap_angle(facing - before.facing).abs();
+    if let MovementAttrs::SpeedTurnRadius {
+        acceleration,
+        deceleration,
+        max_speed,
+        ..
+    } = *movement
+    {
+        let change = [acceleration, deceleration]
+            .into_iter()
+            .map(|a| a.unwrap_or(f32::INFINITY))
+            .fold(0.0, f32::max);
+        let slowest = (before.momentum.length() - change).max(0.0);
+        let rate = movement.spin_rate().unwrap_or(0.0) * (1.0 - slowest / max_speed).max(0.0);
+        return (turned > rate * 1.0001 + 1e-5).then(|| {
+            let message = format!(
+                "turned {turned} rad in one tick, more than the {rate} its speed of at least {slowest} su allows"
+            );
+            ("S1", message)
+        });
+    }
     let MovementAttrs::FixedTurnRadius {
         minimum_turn_radius,
         forward_acceleration,
@@ -46,7 +80,8 @@ pub(super) fn turns_by_its_speed(movement: &MovementAttrs, facing: f32, before: 
         .map(|a| a.unwrap_or(f32::INFINITY))
         .fold(0.0, f32::max);
     let speed = before.momentum.length() + change;
-    let turned = math::wrap_angle(facing - before.facing).abs();
-    (turned > speed / minimum_turn_radius * 1.0001 + 1e-5)
-        .then(|| format!("turned {turned} rad in one tick, more than its speed of at most {speed} su allows"))
+    (turned > speed / minimum_turn_radius * 1.0001 + 1e-5).then(|| {
+        let message = format!("turned {turned} rad in one tick, more than its speed of at most {speed} su allows");
+        ("W1", message)
+    })
 }
