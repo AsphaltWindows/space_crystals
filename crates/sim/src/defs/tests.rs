@@ -343,7 +343,7 @@ fn attack_is_consistent(name: &str, attack: &AttackAttrs) {
         flies,
         "{name}: ProjectileSpeed {speed:?}"
     );
-    if let TargetType::AoE { radius } = attack.target_type {
+    if let TargetType::AoE { radius, .. } = attack.target_type {
         assert!(radius.is_finite() && radius > 0.0, "{name}: AoE radius {radius}");
     }
 }

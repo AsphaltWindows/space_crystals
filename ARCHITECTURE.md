@@ -1268,15 +1268,19 @@ ticks spent in it. Hashed and serialized like all state.
   launch order: its shooter and the shooter's owner, the object it was locked on (cleared when that object leaves:
   `projectiles::forget`; (M5-K) a homing one's flight, *HeadDisjointed and Target Lock* below), its start, the locked
   point, its arrival tick (`flight_ticks`: the distance over the attack's ProjectileSpeed, rounded up: 32 ticks for 4
-  GU at 8 su per tick), and the attack's Damage, AoE radius and TargetDomain, copied at launch. The unit goes on into
-  Cooldown and Reloading, its base free from the launch (`base_is_free`). In 5e, after every attacker has acted, the
-  due projectiles land in launch order (`projectiles::land`), whether their shooter lives or not: each a
+  GU at 8 su per tick), and the attack's Damage, AoE radius and TargetDomain, copied at launch (slice M5-S8: the
+  TargetDomain its blast hits, `area::blast_domain`, the Rocketman's the domain of what it was fired at). The unit goes
+  on into Cooldown and Reloading, its base free from the launch (`base_is_free`). In 5e, after every attacker has acted,
+  the due projectiles land in launch order (`projectiles::land`), whether their shooter lives or not: each a
   `SimEvent::Blast` and its area's hits, put on the tick's list before the single-target hits. The store is serialized
   and hashed only while it holds a projectile, and `AttackState::location` only while set, so a game without them
   hashes as before (the goldens unchanged). Its golden, a fight of test throwers (`combat::testing`), is a unit test
   (`combat/projectiles/golden.rs`, see *Replays and golden hashes*), and so is the ignored `projectiles_perf` (200 in
-  flight). The game's thrower is the Grenadier (slice M4-U, `defs/syndicate/units/grenadier.rs`), played with its
-  own numbers in `tests/grenadier.rs`; the mechanics' tests keep their test throwers, whose numbers stay put.
+  flight). The game's throwers are the Grenadier (slice M4-U, `defs/syndicate/units/grenadier.rs`), played with its
+  own numbers in `tests/grenadier.rs`, and (slice M5-S8) the Rocketman, whose missiles burst
+  (`tests/rocketman/bursts.rs`); the mechanics' tests keep their test throwers, whose numbers stay put, among them a
+  single-target dart (`combat::testing::DART`, the Rocketman's missile before design change 0445), since no type of
+  the game fires a single-target projectile now.
 - **TailDisjointed attacks** (`combat/phases.rs`, slice M5-O3; `systems/combat.md > TailDisjointed`, the Cults'
   Gunner's, design change 0304): locked as a DoublyDisjointed attack is (`Shooter::locks`, `AttackPhase::FiringAt`),
   at an object or a location, with no projectile. At the end of Firing it strikes the locked spot (`phases::strike`):
@@ -1293,6 +1297,11 @@ ticks spent in it. Hashed and serialized like all state.
 - **Area damage** (`combat/area.rs`, plan decision T46; `systems/combat.md > AoEDamage`): the one path of every area
   attack, a blast's hits. A blast takes every object whose domain its TargetDomain hits (`hits_domain`: Ground hits
   ground and underground objects, Air the air, Universal all; design change 0262: underground and hidden ones too),
+  that TargetDomain fixed as the attack fires by its def (slice M5-S8, `TargetType::AoE`'s `BlastDomain`,
+  `area::blast_domain`): the attack's own for every area attack but the Rocketman's, whose missiles keep the domain
+  of what they were fired at (`factions/gdo/units/rocketman.md > AttackAttributes (normal attack)`, design change
+  0445: Air at an aircraft, Ground at anything else or the ground; Placeholder: Ground for a missile whose target
+  left the game during its Firing, launched at the spot alone),
   whoever owns it, its attacker and the attacker's own objects included (design change 0293, answering Q0083 point
   1: friendly fire), by the exact overlap of its circle with the object's shape (`area::overlap`, a closed form
   through `math::asin` and `math::sqrt`, whose bits a test pins): a share of the Damage of overlap / circle, the
@@ -1444,17 +1453,18 @@ ticks spent in it. Hashed and serialized like all state.
   flight of its own (`Projectile::homing`: where it is and was), which in each later phase 5e flies its
   ProjectileSpeed at its target's centre and lands on its target as it reaches it, within a step; it can't miss, and
   vision plays no part. Placeholder: one whose target leaves the game flies on to the target's last spot and hits
-  nothing. The Rocketman's Target Lock is an order, **`OrderKind::TargetLock`** (by plan decision T76's Shroud), which
-  begins **`AttackState::target_lock`**: in 5e the lock counts LockOnDuration (48 ticks) while the unit stands, never
-  yields and fires at nothing, then fires the unit's weapon at its target homing, from anywhere within LockRange (7 GU,
-  edge to edge) and inside its MinRange (`target_lock::attrs`). It breaks when its target leaves LockRange or its
-  owner's sight, at the start of an order given without Shift, or with its target, and the order completes in the next
-  5a; a Shift-queued order waits behind the lock and runs when it ends (design change 0438, answering Q0171).
-  Placeholders: no walk into range (a target beyond LockRange or unseen breaks it at once); a locked missile whose
-  Firing began is launched homing, whatever became of the lock. The gate takes it for a unit whose type has one, on an
-  enemy object the player sees (`Reject::NotAnEnemy` otherwise).
-  `TargetLock` and `Projectile::homing` are serialized and hashed only while set, so the goldens before them are
-  unchanged. Reading: the Rocketman's SightRange of 6 is shorter than its LockRange of 7, so without other eyes its
+  nothing (slice M5-S8: the Rocketman's, area damage since design change 0445, bursts there in its target's domain,
+  harmlessly or on what of that domain stands there). The Rocketman's Target Lock is an order,
+  **`OrderKind::TargetLock`** (by plan decision T76's Shroud), which begins **`AttackState::target_lock`**: in 5e the
+  lock counts LockOnDuration (48 ticks) while the unit stands, never yields and fires at nothing, then fires the unit's
+  weapon at its target homing, from anywhere within LockRange (7 GU, edge to edge) and inside its MinRange
+  (`target_lock::attrs`). It breaks when its target leaves LockRange or its owner's sight, at the start of an order
+  given without Shift, or with its target, and the order completes in the next 5a; a Shift-queued order waits behind the
+  lock and runs when it ends (design change 0438, answering Q0171). Placeholders: no walk into range (a target beyond
+  LockRange or unseen breaks it at once); a locked missile whose Firing began is launched homing, whatever became of the
+  lock. The gate takes it for a unit whose type has one, on an enemy object the player sees (`Reject::NotAnEnemy`
+  otherwise). `TargetLock` and `Projectile::homing` are serialized and hashed only while set, so the goldens before them
+  are unchanged. Reading: the Rocketman's SightRange of 6 is shorter than its LockRange of 7, so without other eyes its
   lock breaks on sight first; a strafing Sparrow's loop leaves the sight of a lone group of Rocketmen on every pass,
   and none of their locks completes (`tests/rocketman/anti_air.rs`).
 
@@ -3917,8 +3927,11 @@ these.
   clockwise over LockOnDuration outside the order's marker, four ticks closing in and a faint aiming line, a red ring
   once locked; and the
   blasts (`combat_effects/blasts.rs`, from `SimEvent::Blast`, `BLAST_TICKS`): a ring the size of the area, shown
-  while the tile under its centre is Visible (`shows_blast`), and (slice M5-K) a single-target one's, of radius 0, a
-  small puff at the height it struck (`Blast::lift`). One alpha-blended mesh in the overlays layer, rebuilt every
+  while the tile under its centre is Visible (`shows_blast`), (slice M5-S8) a missile's burst the same at its radius
+  of 32 su, its ring in its shooter's colour (`blasts::ring_color`, by `Blast::weapon` and `Blast::owner`, from the
+  landed flight or `SimEvent::Blast::attacker`) and in the air over an aircraft it was fired at (`Blast::lift`), and
+  (slice M5-K) a single-target one's, of radius 0, a small puff at the height it struck (none of the game's types
+  fires one now). One alpha-blended mesh in the overlays layer, rebuilt every
   frame while
   anything shows; effects age by the sim's tick and the render alpha, so screenshots stay deterministic.
 - **Shroud's clouds** (`shroud_view.rs`, slice M5-N4b; `factions/cults/units/disciple.md > Spells > Shroud`: "the
@@ -5105,11 +5118,13 @@ unchecked.
   `gdo_anti_air` (to 1:15, on a test map, debug commands on for player 1's 450 Space Crystals) the Deployment Center
   constructs an Arsenal and places it as it is ready, the Barracks refusing W until then, and the Barracks trains three
   Rocketmen, each out in its tick (`during`); at tick 820 they walk within range of two Sparrows of player 2's, spawned
-  on Hold, circling, and fire normal missiles, which the Sparrows dodge, every one; at tick 1000 the three lock onto
-  one Sparrow and, Shift-queued, onto the other, and each falls to three locked missiles; every missile of the game is
-  a Rocketman's at a Sparrow, normal before the locks and locked after. In `cults_vehicles` (to 1:15, on a test map,
-  debug commands on for the two Seekers' 150 Space Crystals) four Recruits go into a Chop Shop, which queues two
-  Seekers, each of the two Recruits inside the longest of those left: each comes out in its tick half inside the
+  on Hold, circling, and fire normal missiles, which the Sparrows dodge, all but one, whose burst in the air grazes a
+  Sparrow's corner for 0.34 HP (re-blessed in slice M5-S8 for design change 0445's bursts of 40 over 32 su); at tick
+  1000 the three lock onto one Sparrow and, Shift-queued, onto the other, and each falls to three locked missiles,
+  each a whole burst of 19.9 on its centre; every missile of the game is a Rocketman's at a Sparrow, normal before the
+  locks and locked after, and no burst, all in the air, hits the Rocketmen under them. In `cults_vehicles` (to 1:15, on
+  a test map, debug commands on for the two Seekers' 150 Space Crystals) four Recruits go into a Chop Shop, which queues
+  two Seekers, each of the two Recruits inside the longest of those left: each comes out in its tick half inside the
   middle of side C, facing west, the first of its Recruits, the second gone (`during`), and drives to the rally point;
   at tick 760 the two attack-move onto two Militants and two Guards behind them (player 2's, the Syndicate), firing
   their turrets on the move: they kill the Militants, a Guard kills one Seeker, and the other kills both Guards; every

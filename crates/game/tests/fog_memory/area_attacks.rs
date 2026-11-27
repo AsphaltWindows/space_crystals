@@ -170,12 +170,20 @@ fn a_hidden_hideout_under_a_blast_shows_nothing_to_the_other_players() {
         (o.pos, Hiding::of(o))
     };
     let blasted = tick(&app) + 1;
-    hand(&mut app, SimEvent::Blast { at, radius: 40.0 });
+    hand(
+        &mut app,
+        SimEvent::Blast {
+            at,
+            radius: 40.0,
+            attacker: None,
+        },
+    );
     hand(
         &mut app,
         SimEvent::Blast {
             at: centre(22, 5),
             radius: 40.0,
+            attacker: None,
         },
     );
     let tracers_before = app.world().resource::<CombatEffects>().tracers.len();

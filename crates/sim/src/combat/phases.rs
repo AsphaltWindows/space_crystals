@@ -416,7 +416,7 @@ fn end(
         AttackPhase::Firing { target } => {
             if let Some(t) = target.and_then(|id| targets.get(id)) {
                 if shooter.homes() {
-                    launch(shooter, t.pos, Some(t.id), volley, events);
+                    launch(shooter, t.pos, Some(t), volley, events);
                 } else {
                     volley.origins.mark(volley.hits.len(), shooter.muzzle(t.pos));
                     fire(shooter, t, &mut volley.hits, events);
@@ -430,7 +430,10 @@ fn end(
                     volley.origins.mark(volley.hits.len(), shooter.muzzle(at));
                     strike(shooter, at, target, targets, &mut volley.hits, events);
                 }
-                _ => launch(shooter, at, target, volley, events),
+                _ => {
+                    let aimed = target.and_then(|id| targets.get(id));
+                    launch(shooter, at, aimed, volley, events)
+                }
             }
             Some(AttackPhase::Cooldown)
         }

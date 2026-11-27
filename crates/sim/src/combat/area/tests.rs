@@ -395,3 +395,36 @@ fn a_blast_hits_by_domain_whoever_owns_what() {
     assert_eq!(hit(TargetDomain::Air), [ObjectId(3)]);
     assert_eq!(hit(TargetDomain::Universal), [ObjectId(1), ObjectId(2), ObjectId(3)]);
 }
+
+/// (M5-S8) [`blast_domain`], by the attack's def: the Rocketman's missile's burst takes the domain of what it was fired
+/// at (`factions/gdo/units/rocketman.md > AttackAttributes (normal attack)`, design change 0445), Air for an aircraft
+/// and Ground for anything else, a ground or an underground object or the ground (an Attack Ground); every other area
+/// attack's is its TargetDomain, a Universal one's every domain (`systems/combat.md > AoEDamage`), and a single-target
+/// attack's too.
+#[test]
+fn a_blast_takes_its_domain_by_its_def() {
+    let attack = |kind: ObjectKind| kind.def().unit.as_ref().unwrap().attack.unwrap();
+    let rocketman = attack(ObjectKind::Rocketman);
+    assert_eq!(blast_domain(&rocketman, Some(Domain::Air)), TargetDomain::Air);
+    assert_eq!(blast_domain(&rocketman, Some(Domain::Ground)), TargetDomain::Ground);
+    assert_eq!(
+        blast_domain(&rocketman, Some(Domain::Underground)),
+        TargetDomain::Ground
+    );
+    assert_eq!(blast_domain(&rocketman, None), TargetDomain::Ground, "the ground");
+    let universal = AttackAttrs {
+        target_type: TargetType::AoE {
+            radius: 0.5,
+            blast: BlastDomain::Attack,
+        },
+        ..rocketman
+    };
+    let guard = attack(ObjectKind::Guard);
+    for target in [Some(Domain::Air), Some(Domain::Ground), Some(Domain::Underground), None] {
+        assert_eq!(blast_domain(&universal, target), TargetDomain::Universal, "{target:?}");
+        for kind in [ObjectKind::Grenadier, ObjectKind::HandOfHeaven] {
+            assert_eq!(blast_domain(&attack(kind), target), TargetDomain::Ground, "{kind:?}");
+        }
+        assert_eq!(blast_domain(&guard, target), guard.target_domain, "single-target");
+    }
+}

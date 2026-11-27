@@ -66,17 +66,20 @@ pub(super) fn strike(
     hits: &mut Vec<Hit>,
     events: &mut Vec<SimEvent>,
 ) {
-    if let TargetType::AoE { radius } = shooter.attrs.target_type {
+    if let TargetType::AoE { radius, .. } = shooter.attrs.target_type {
+        // (M5-S8) In the domain of what it was fired at, for an attack whose blast takes it (`area::blast_domain`).
+        let aimed = target.and_then(|id| targets.get(id)).map(|t| t.domain);
         let blast = Blast {
             attacker: shooter.id,
             at,
             radius: gu(radius),
             damage: shooter.attrs.damage,
-            domain: shooter.attrs.target_domain,
+            domain: area::blast_domain(shooter.attrs, aimed),
         };
         events.push(SimEvent::Blast {
             at,
             radius: blast.radius,
+            attacker: Some(shooter.id),
         });
         area::strike(&blast, targets, hits);
         return;
@@ -118,12 +121,13 @@ pub(super) fn at_the_spot<'t>(
 /// (M4-O) `systems/combat.md > DoublyDisjointed`: "The Firing phase is short and spawns a projectile which travels to
 /// the location the target was at at the end of the Aiming phase": at the end of Firing, from the shooter's centre
 /// (`Shooter::muzzle`) to `at`, the location locked (plan decision T48). `target`: the object it was aimed at, if
-/// any. (M5-K) A HeadDisjointed attack's (`systems/combat.md > HeadDisjointed`: "spawns a projectile which tracks the
+/// any, as the phase's snapshot has it, whose domain (M5-S8) the Rocketman's missile keeps (`area::blast_domain`).
+/// (M5-K) A HeadDisjointed attack's (`systems/combat.md > HeadDisjointed`: "spawns a projectile which tracks the
 /// target") leaves for `at`, its target's centre, and homes in on `target` (`super::super::projectiles::Homing`).
 pub(super) fn launch(
     shooter: &Shooter,
     at: Vec2,
-    target: Option<ObjectId>,
+    target: Option<&TargetView>,
     volley: &mut Volley,
     events: &mut Vec<SimEvent>,
 ) {

@@ -5,6 +5,9 @@
 //!   Sparrows, one lock after the other; a circling Sparrow dodges the normal missiles and takes every locked one; and
 //!   a strafing Sparrow, which player 1's buildings keep in sight, falls to locks given again whenever none is under
 //!   way, as a player would;
+//! - `bursts` (M5-S8): design change 0445's Verification, the missiles' bursts of 32 su: one into a clump of infantry
+//!   hits several and the shooter's own infantry beside the target; one at a Sparrow that flies on bursts harmlessly
+//!   in the air, over a ground unit it spares; a locked one on a Sparrow in a group hits the neighbours too;
 //! - `min_range`: the normal attack never fires within its MinRange of 2 grid units, backing off first; a locked
 //!   Rocketman fires from where it stands at any distance up to LockRange;
 //! - `prerequisites`: the Barracks' W refused without an Arsenal, the Arsenal without a Barracks; losing the last
@@ -15,6 +18,7 @@
 //! `combat/projectiles/homing/tests.rs`. Every `TestSim` game runs under the invariants.
 
 mod anti_air;
+mod bursts;
 mod min_range;
 mod prerequisites;
 
@@ -27,10 +31,18 @@ const ROCKETMAN: ObjectKind = ObjectKind::Rocketman;
 const ARSENAL: ObjectKind = ObjectKind::Arsenal;
 const SPARROW: ObjectKind = ObjectKind::Sparrow;
 
-/// `factions/gdo/units/rocketman.md > Placeholder stats`: the missile's Damage 20, which the Sparrow's PointArmor 0
-/// leaves whole, against its MaxHP 50 (`factions/cults/units/sparrow.md`): three hits bring it down.
-const DAMAGE: f32 = 20.0;
+/// (M5-S8) A missile's burst on a Sparrow's centre, as a locked one lands: `factions/gdo/units/rocketman.md >
+/// AttackAttributes (normal attack)`, "Damage **40** total over an AoERadius of **32 su**" (design change 0445), all
+/// of the Sparrow's 40 × 40 Silhouette inside the circle, its share 40 × 1600 / (π × 32²) ≈ 19.9 (`systems/combat.md >
+/// AoEDamage`), which its FullArmor 0 leaves whole, against its MaxHP 50 (`factions/cults/units/sparrow.md`): three
+/// bring it down.
+const BURST: f32 = 40.0 * 1600.0 / (std::f32::consts::PI * 32.0 * 32.0);
 const SPARROW_HP: f32 = 50.0;
+
+/// Whether `damage` is a whole [`BURST`], up to rounding.
+fn whole_burst(damage: f32) -> bool {
+    (damage - BURST).abs() < 1e-3
+}
 /// `factions/gdo/units/rocketman.md > Target Lock`: LockOnDuration 48 frames.
 const LOCK_ON: Tick = 48;
 

@@ -190,10 +190,24 @@ pub enum TargetDomain {
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TargetType {
     SingleTarget,
-    /// With its `AoERadius`, grid units.
+    /// With its `AoERadius`, grid units, and (M5-S8) the domain its blast hits ([`BlastDomain`]).
     AoE {
         radius: f32,
+        blast: BlastDomain,
     },
+}
+
+/// (M5-S8) Which objects an area attack's blast hits, by their domain (`systems/combat.md > AoEDamage`; `combat::area`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BlastDomain {
+    /// The attack's TargetDomain: `systems/combat.md > AoEDamage`, "AoE only affects units whose domain matches the
+    /// attack's TargetDomain", a Universal blast every domain. Every area attack's but the Rocketman's.
+    Attack,
+    /// The domain of what it was fired at, fixed as it is fired: `factions/gdo/units/rocketman.md > AttackAttributes
+    /// (normal attack)`, "**Domain of the burst** (user, 2026-11-26): it keeps the domain of what it was fired at: fired
+    /// at an **air** unit it hits only air units; fired at a **ground** unit or the ground, only ground (and
+    /// underground) objects" (design change 0445, answering Q0173). The Rocketman's rule, not AoEDamage's.
+    Target,
 }
 
 /// `systems/combat.md > AttackAttributes`, read by the attack sequence (`combat`).

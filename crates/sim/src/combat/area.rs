@@ -1,8 +1,10 @@
 //! Area damage — `systems/combat.md > AoEDamage` (plan decision T46): the one path of every area attack in the game.
-//! A grenade's blast calls it now (`super::projectiles`); the mortar's, the bombs', the shells' and the mines' will.
-//! Single-target damage keeps its own path (`super::damage`).
+//! A grenade's blast calls it now (`super::projectiles`), and (M5-S8) the Rocketman's missiles' bursts, normal and
+//! locked (design change 0445); the mortar's, the bombs', the shells' and the mines' will. Single-target damage keeps
+//! its own path (`super::damage`).
 //!
-//! - **Who is hit** ([`hits_domain`]): every destructible object whose domain the attack's TargetDomain reaches, any
+//! - **Who is hit** ([`hits_domain`]): every destructible object whose domain the blast's TargetDomain reaches, the
+//!   attack's, or (M5-S8) for the Rocketman's missiles the domain of what they were fired at ([`blast_domain`]), any
 //!   owner, the attacker's own objects and the attacker itself included: `systems/combat.md > AoEDamage`, "**Friendly
 //!   fire** ... area damage hits **every** object in the circle whose domain matches, **whoever owns it**: own units
 //!   and structures, the attacker itself, allies, enemies and neutral objects" (design change 0293, answering Q0083
@@ -21,7 +23,7 @@ use glam::Vec2;
 
 use super::damage::{Hit, directional_multiplier};
 use super::targeting::{TargetView, Targets};
-use crate::defs::{Domain, TargetDomain};
+use crate::defs::{AttackAttrs, BlastDomain, Domain, TargetDomain, TargetType};
 use crate::ids::ObjectId;
 use crate::math::{self, PI};
 use crate::tuning::combat::MINIMUM_DAMAGE;
@@ -52,6 +54,47 @@ pub fn hits_domain(attack: TargetDomain, target: Domain) -> bool {
         | (TargetDomain::Ground, Domain::Ground | Domain::Underground)
         | (TargetDomain::Air, Domain::Air) => true,
         (TargetDomain::Ground, Domain::Air) | (TargetDomain::Air, Domain::Ground | Domain::Underground) => false,
+    }
+}
+
+/// (M5-S8) The TargetDomain of the blast of attack `attrs` fired at an object of domain `target`, or at the ground with
+/// none (an Attack Ground), fixed as it is fired: by its def's [`BlastDomain`] (`TargetType::AoE`).
+/// - **The attack's** (`BlastDomain::Attack`, every area attack's but the Rocketman's): its TargetDomain, "AoE only
+///   affects units whose domain matches the attack's TargetDomain" (`systems/combat.md > AoEDamage`), a Universal
+///   blast every domain. A single-target attack's projectile hits in its TargetDomain too (`super::projectiles`).
+/// - **The target's** (`BlastDomain::Target`, the Rocketman's missiles: `factions/gdo/units/rocketman.md >
+///   AttackAttributes (normal attack)`, design change 0445): "it keeps the domain of what it was fired at: fired at an
+///   **air** unit it hits only air units; fired at a **ground** unit or the ground, only ground (and underground)
+///   objects", Air for an air target and Ground for any other, a ground or an underground one, or the ground (the
+///   Ground blast hits ground and underground objects alike: [`hits_domain`]).
+///
+/// Placeholder (not in the design: what a missile fired at an object that left the game while it was being fired, in
+/// its Firing, keeps): it is launched at the spot alone (`AttackPhase::FiringAt`'s target is cleared then), as at the
+/// ground, a Ground blast.
+pub(super) fn blast_domain(attrs: &AttackAttrs, target: Option<Domain>) -> TargetDomain {
+    match (attrs.target_type, target) {
+        (
+            TargetType::AoE {
+                blast: BlastDomain::Target,
+                ..
+            },
+            Some(Domain::Air),
+        ) => TargetDomain::Air,
+        (
+            TargetType::AoE {
+                blast: BlastDomain::Target,
+                ..
+            },
+            Some(Domain::Ground | Domain::Underground) | None,
+        ) => TargetDomain::Ground,
+        (
+            TargetType::SingleTarget
+            | TargetType::AoE {
+                blast: BlastDomain::Attack,
+                ..
+            },
+            _,
+        ) => attrs.target_domain,
     }
 }
 
