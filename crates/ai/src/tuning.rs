@@ -80,6 +80,66 @@ pub mod gdo {
     pub const TRAIN_QUEUE: usize = 2;
 }
 
+/// The Colonists' computer player (`crate::factions::colonists`, slice A2c).
+pub mod colonists {
+    use sc_sim::{ObjectKind, Tick};
+
+    /// Placeholder (not in the design: the field it saturates is the patches this near its Egress Node, where its
+    /// Drones deliver), grid units: a Skirmish Default start's 8 patches lie within 6 of it.
+    pub const FIELD_RADIUS_GU: f32 = 8.0;
+    /// Placeholder (Q0147 point 2: "workers up to what its field seats"; `factions/colonists/units/drone.md > Patch
+    /// Occupancy`: 8 patches 2 grid units from the Egress Node "saturate at about **24 working Drones** (3 per
+    /// patch, 32 Space Crystals per second)"): the gathering Drones it keeps for each patch of its field with crystals
+    /// left.
+    pub const DRONES_PER_PATCH: usize = 3;
+    /// Placeholder (Q0147 point 2: "training its basic units without pause"; `factions/gdo/economy.md > Economy
+    /// Targets (GDO vs Colonists)`: "one Robo Portal producing Drones nonstop"): the Drones each Robo Portal keeps
+    /// queued while its field wants more or a Beacon is wanted.
+    pub const DRONE_QUEUE: usize = 1;
+    /// Placeholder (Q0147 point 2: "one or two production buildings"; point 3: the scripted lines' "a Bio Portal
+    /// warps in on the first Beacon", the golden game `colonists_opening`'s): the buildings it warps in, each once it
+    /// has this many gathering Drones, in their order of priority for the bank. An Egress Node and a Robo Portal (the
+    /// Starting Conditions' own, warped in again if lost), a Bio Portal on its first Beacon, and two more as its
+    /// income grows: a second at 12 Drones, and a third at 18, 2 a patch (`factions/gdo/economy.md > Economy Targets
+    /// (GDO vs Colonists)`: "Colonists at 2 Drones per patch ≈ 23 Space Crystals per second for 18 Drones", 32 fully
+    /// saturated). Three Bio Portals and the Robo Portal spend 35 a second.
+    pub const WARP_INS: [(ObjectKind, usize); 5] = [
+        (ObjectKind::EgressNode, 0),
+        (ObjectKind::RoboPortal, 0),
+        (ObjectKind::BioPortal, 0),
+        (ObjectKind::BioPortal, 12),
+        (ObjectKind::BioPortal, 18),
+    ];
+    /// Placeholder (Q0147 point 2: "training its basic units without pause"): the Sabre Legionnaires each Bio Portal
+    /// keeps queued, while Beacon Capacity has room for them.
+    pub const TRAIN_QUEUE: usize = 2;
+    /// Placeholder (Q0147 point 2: "its basic units", the Sabre Legionnaire and the Rifle Legionnaire it converts
+    /// into, `factions/colonists/units/weapon_conversion.md`): one Legionnaire in this many is a Rifle. Sabres alone
+    /// trade evenly with a passive player's at its staging point, so that on `dev_skirmish` neither side wins in 20
+    /// minutes; with half of them Rifles, firing over the Sabres in front, the waves beat it within 15 minutes
+    /// (`crates/ai/tests/games.rs`, `ai_games`).
+    pub const RIFLE_EVERY: usize = 2;
+    /// Placeholder (not in the design: Beacon Capacity kept ahead of the army, `factions/colonists/units/drone.md >
+    /// BeaconCapacityCost`: "roughly every 6th Drone must deploy as a Beacon to keep Drone production going"): a
+    /// Drone deploys once the room under Beacon Capacity, the Beacons on their way counted, falls short of what the
+    /// queued units take plus this many of each portal's next units: one, a portal's next 10 seconds.
+    pub const BEACON_LEAD: u32 = 1;
+    /// Placeholder (not in the design: where Beacons go): how far from the Robo Portal the Beacon sites reach, each
+    /// way, tiles. A site takes a Beacon's 2 x 2 (a Bio Portal's 3 x 3 while one to come lacks a Beacon) and a free
+    /// tile round it, so that 16 tiles each way hold the 40 buildings of Beacon Capacity's 200
+    /// (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`) and more.
+    pub const SITE_REACH: i32 = 16;
+    /// Placeholder (not in the design: the most deploy checks one search for a Beacon site makes, so that a full base
+    /// costs little).
+    pub const SITE_CHECKS: usize = 24;
+    /// Placeholder (not in the design: a Drone sent to deploy that hasn't begun its deployment this long after its
+    /// order is stopped, its Deploy failed), ticks (20 seconds: a walk across the Beacon sites' reach takes 10).
+    pub const DEPLOY_PATIENCE_TICKS: Tick = 320;
+    /// Placeholder (not in the design: a Drone whose Deploy failed, and that Deploy's site, are left out of the next
+    /// Deploys this long), ticks (1 minute).
+    pub const FAILED_DEPLOY_TICKS: Tick = 960;
+}
+
 /// The Syndicate's computer player (`crate::factions::syndicate`).
 pub mod syndicate {
     use sc_sim::{ObjectKind, Tick};

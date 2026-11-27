@@ -17,7 +17,9 @@
 //!   "Wanted"): the report lists whether it did. It prints a table of who won, when, and how many units each side
 //!   trained, and what `Ai::think` cost: `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored
 //!   --nocapture`.
+//! - **The Colonists** (slice A2c, [`colonists`]): their default run and determinism.
 
+mod colonists;
 mod harness;
 
 use std::fs;

@@ -134,14 +134,15 @@ pub fn plate_spot(turn: &Turn<'_, '_>, plate: ObjectKind, anchor: Vec2) -> Optio
 }
 
 /// The tiles the footprints the player knows of cover: its own buildings', the others' it knows (seen or remembered),
-/// the map's resources', and those a Place of the turn takes.
-struct Occupied {
+/// the map's resources', and those a Place of the turn takes. [`spot`]'s, and a faction's own search for its sites
+/// (the Colonists' Beacon sites, slice A2c).
+pub(crate) struct Occupied {
     width: i32,
     cells: Vec<bool>,
 }
 
 impl Occupied {
-    fn of(turn: &Turn<'_, '_>) -> Self {
+    pub(crate) fn of(turn: &Turn<'_, '_>) -> Self {
         let view = turn.view();
         let map = view.map();
         let (width, height) = (map.width() as i32, map.height() as i32);
@@ -172,7 +173,7 @@ impl Occupied {
 
     /// Whether no footprint covers `rect`, nor, with the `ring`, the [`MARGIN`] tiles around it, which must then lie on
     /// the map and be open ground (Traversible, not Rugged).
-    fn free(&self, map: &Map, rect: TileRect, ring: bool) -> bool {
+    pub(crate) fn free(&self, map: &Map, rect: TileRect, ring: bool) -> bool {
         let margin = if ring { MARGIN } else { 0 };
         tiles(rect, margin).all(|tile| match self.index(map, tile) {
             Some(i) => !self.cells[i] && (!ring || contains(rect, tile) || open(map, tile)),
