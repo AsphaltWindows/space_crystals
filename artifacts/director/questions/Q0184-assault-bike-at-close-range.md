@@ -44,3 +44,10 @@ These can combine.
 - **(c) Give the target up** when it can't be reached, as built for Attack. For Attack Ground, end the order the same way, rather than circling.
 - **(d) A wider turret or a tighter turning circle** for the Bike, so that fewer targets fall outside what it can reach.
 - **For its own blast:** keep the friendly-fire rule as written (the Bike shells itself at point-blank range, a cost of the weapon), or exempt a shooter from its own blast.
+
+## Update (2026-11-27T13:25:38-05:00): 0454 seems to settle the first case
+Design change 0454 (answering Q0179) added `command_behaviors.md > AttackingObject > Can't aim from where it stands`. It says a unit in range that can't bring its weapon to bear from where it stands keeps trying to reach a spot it can attack from, rather than giving up.
+- **Case 1:** the Bike in range of a target inside its turning circle is such a unit, so the Director reads 0454 as settling it. The Bike will reposition instead of giving the Attack up. It is being built with 0454 in slice M6-S6a. The Raptor (60° turret) is handled the same way.
+- **Still open:**
+  - case 2, the Bike's own blast from 48 su;
+  - case 3, Attack Ground at a spot out of its arc. That is `AttackingLocation`, which 0454 doesn't cover. As built, the Bike circles the spot forever.
