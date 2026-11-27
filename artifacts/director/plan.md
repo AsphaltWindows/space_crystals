@@ -2644,15 +2644,34 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **A bug, for SL to fix:** an order Shift-queued behind a queued Undeploy is judged at the gate against the deployed type, so a Move there is refused. The Rig's doc checks each order once the switch has finished. SL's brief has the fix, tested on both pairs.
   - **Placeholders (not in the design):** the feedback texts "Cannot move while deployed" and "Still switching modes"; the InfoPanel's "Deploying: N%" and "Undeploying: N%"; and the label "Undep." (labels have six characters).
   - **As the doc reads, so no question:** an order given while undeploying is held, and dropped at completion if the mobile type can't carry it out (D stays lit meanwhile). A deployed Rig's Attack Move is refused (`CannotMove`). An immobile unit neither backs off (0454, 0460) nor follows (0461): S6a's brief says so.
+- **M6-SN The Null Chamber** (Opus; brief `scratchpad/briefs/m6sn-null-chamber.md`): **merged** (`c5469988`, squashed from two commits and three merges of master, the last of them resolving GA's shared lines).
+  - **The queue** (`network/services.rs`, `services::step`) runs in `step_network`, after regeneration and before the eject lanes.
+    - The manned units in a player's network whose turn isn't done are ordered by owner, `Held::since` and id. The first N take a tick, where N is 4 per working chamber; sites and neutral chambers serve no one.
+    - A turn takes 32 ticks. A chamber finished in tick C serves in tick C.
+    - `Held::service` hashes and saves only while set (Held tag 2, Service sub-tag 0).
+  - **The buff:** `Sim::leave_network`, which both eject lanes call, gives `BuffKind::NullChamber` for 320 ticks, if the turn is done and the owner owns a working chamber.
+    - Its effects: +2 GU in the unit's eye (`sight::range`, which `Vision::eye` now reads), and ×0.8 damage before armour (`pre_armor_multiplier`).
+    - A later exit restarts it only after a new turn. A Phantom leaving by the air door is buffed.
+    - `BuffKind::Area` hashes and saves as `AreaAbility` did; NullChamber hashes as 1<<16.
+  - **Q0187, filed:** does the +2 GU widen targeting too, and does a unit leave buffed when no chamber is left? As built: vision only, and only with a working chamber.
+  - **Checks:**
+    - the golden `syndicate_null_chamber`: five Guards come out at ticks 562–601, in the order they went in, and take hits of 7 where unbuffed ones take 9;
+    - the other goldens are unchanged, and so are the 192 computer-player rows;
+    - perf, an A/B against `0cf082c4`: network 0.0897/0.0897 ms.
+  - **Merging GA:** two counts merged without a conflict but wrong, since both sides had made the same edit: the client's playback count (30) and `Planned::ALL` (30). SN fixed both.
+  - **For S6b (0459):** both eject lanes call `Sim::leave_network(unit, pos, facing)` instead of `put_on_map`. Nothing else in `sim/network/ejects.rs` changed.
+  - **For SB:** add `vault: Option<Progress>` beside `Service::chamber`, under Service sub-tag 1 and in `Service::is_none`, with its own pass in `services::step`, so a unit is served by both at once (0424).
+  - **For SP:** there is no `UnitDef::satellite` yet, so the Prism counts as manned. SP adds the flag, and makes the buff skip satellites.
+  - **Outside its files:** one line in `vision.rs` (`Vision::eye` reads `sight::range(o)`), and in `buffs.rs` `hold` moved out of the cast path and gained `effect()` adapters, with the behaviour unchanged.
 
 ## In progress
 - **Running:**
   - **M6-CM The Disciple's Mirage, and the Shroud cloud's linger** (Opus; brief `scratchpad/briefs/m6cm-mirage.md`), launched at GF's merge, on 2026-11-27: 0448, with 0450 (Disciples don't fire from a Garrison) and 0452 (an illusion shows its parent's energy).
-  - **M6-SN The Null Chamber** (Opus; brief `scratchpad/briefs/m6sn-null-chamber.md`), launched at GH1's merge, on 2026-11-27. It heads the longest chain left: SN, then SB, then SA and SC.
+  - **M6-GH2 Landing and rearming, and the Hornet's burst** (Opus; brief `scratchpad/briefs/m6gh2-landing.md`), launched at SN's merge, on 2026-11-27. It heads GH2 → GL → SA and GH2 → GS1 → GS2.
   - **M6-S6a The answer sweep: 0453, 0454, 0460, 0461 and Z4** (Opus; brief `scratchpad/briefs/m6s6a-sweep.md`), launched at GA's merge, on 2026-11-27.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next:** the heads of the two-slice chains: GH2 (then GL and GS1, and GS2 after GS1 and ST1), ST1 (then ST2) and SP (then SR); SB after SN (it adds the Vault to SN's `network/services.rs`); GM; GP and SL (GA has merged); GB; and S6b.
-  - **S6b, a second sweep, after SN:** 0455 (Metabolism and Inspire as percentages, and the attack-speed rule), 0456 and 0457 (the air radii, and the Chopper's and the Raptor's marks), and 0459 (vehicles drive clear of a Tunnel's exit; SN changes `sim/network/ejects.rs`, so S6b waits for it).
+- **Next:** the heads of the two-slice chains: ST1 (then ST2) and SP (then SR); SB (SN has merged; it adds the Vault to `network/services.rs`); then, after GH2, GL and GS1 (and GS2 after GS1 and ST1); GM; GP and SL (GA has merged); GB; and S6b.
+  - **S6b, a second sweep (SN has merged):** 0455 (Metabolism and Inspire as percentages, and the attack-speed rule), 0456 and 0457 (the air radii, and the Chopper's and the Raptor's marks), and 0459 (vehicles drive clear of a Tunnel's exit; SN changes `sim/network/ejects.rs`, so S6b waits for it).
   - **GS splits in two** (at its brief, 2026-11-27): **GS1**, the Supply Tower, the Chopper's supply runs, the schedule and the starting Supply (0435 part 2, 0436), after GH2's landing; and **GS2**, the Chopper's unit transport (0442), after GS1 and ST1, whose carrier it reuses. The plan's "gated on D41" is settled: 0435 gave six GDO units Supply costs, so the GDO needs the loop to train them.
   - **Answers folded into unlaunched briefs** (2026-11-27): 0458, the Hornet's burst, into GH2; 0457's mine numbers and the Twister's mark into GM, the Outpost's mark into GP, and the Dragonfly's into GL; a note on the mine's armour into ST2.
   - **SN waited for SD:** SD's branch split `network.rs` (its paths are now in `network/paths.rs`), and SN's plan splits it too, for `network/services.rs`. CM took GF's slot instead, and GA SD's.
@@ -2665,7 +2684,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - under `--fast`, the key or click right after a menu key is lost;
     - the two `recruit_gathering::jam` tests fail by design (0320): make them pins of the accepted jam.
   - **M5 is done:** N11 was its last content slice, and M's QA, split into **Ma** and **Mb**, is merged. The playtest build is at Mb's merge.
-  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK, SK, SV, GD, GR, GF, SD, GH1 and GA are merged, and CM, SN and S6a are running.
+  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK, SK, SV, GD, GR, GF, SD, GH1, GA and SN are merged, and CM, S6a and GH2 are running.
   - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. Every remaining M6 slice is drafted (`m6<id>-*.md`): SB, S6a, S6b, GH2, SP, ST1, ST2, GM, GB, GP, SL, GL, GS1, GS2, SR, SA, SC and MQ. Each brief names its hash tags from `artifacts/director/hash-tags.md`. Each brief's "Landed since" is filled in at its launch. Mb's brief has the soak failure to bisect, and M6 running beside it.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
@@ -3131,6 +3150,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0185 | What energy does an illusion show? Everyone sees a Disciple's energy bar (M5-N4a's placeholder), and 0448 says enemies can't tell illusions from Disciples: proceeding on the parent's current energy, live (for M6-CM) | no | answered by 0452 (a: the parent's energy, live, as assumed): **M6-CM** |
 | Q0186 | An explicit Attack on a target some units' weapons can't hit (the Twister's anti-air gun at a ground unit): in a mixed selection, are they left out (built) or do they follow the target, as 0398's non-attackers do; alone, is the click an invalid target (built) or a follow? The rule covers every unit (from M6-GF) | no | answered by 0461 (mixed: a unit that can't hit the target follows it; alone: invalid target, as built): **M6-S6a** |
 | Q0187 | The Null Chamber's exit buff: does its +2 GU SightRange also widen the range at which the unit picks targets (AttackMove, Patrol and idle targeting scan "within SightRange")? Does a unit whose turn is done leave buffed when no working chamber is left? Proceeding on vision only, and buffed only with a working chamber (from M6-SN) | no | open |
+| Q0188 | Mirage: do illusions copy the buffs their parent has when it casts (Inspire's speed, say), and is Mirage Shift-queueable (Shift+F during a Shroud channel: wait for the channel, or cast at once)? Proceeding on no buffs, and Shift ignored (from M6-CM) | no | open |
 
 ## Design change entries
 Last triaged: 0461.
