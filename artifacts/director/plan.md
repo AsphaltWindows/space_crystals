@@ -2041,6 +2041,29 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **The Director's finding:** the Cults bank 4,000–6,000 SC by 7–9 minutes, while 40+ mining Recruits use the Unit Control their army needs (95/95 at the end of a mirror). That is A2d's part 4.
   - **Perf:** `think` averages 8–16 µs on the Cults rows.
   - 2461 tests passed, 57 ignored. No golden moved.
+- **M5-V1 Oriented silhouettes** (Opus; merged in `011fdc79`):
+  - **The geometry** (`shape.rs`):
+    - a non-square Silhouette turns with its facing (`ObjectDef::silhouette_turns`);
+    - overlap is a strict separating-axis test, the gap the least corner-to-shape distance, and collision a separating-axis sweep;
+    - tile work uses the bounding box, with exact shape-against-tile tests where the box isn't clear;
+    - two boxes keep the old arithmetic.
+    - The module docs' promise that "oriented boxes change this module only" holds for range and proximity, but not for collision. `movement/space.rs`, invariants I1 and I2, the debug teleport, placement, pop-ups and release changed too, and picking uses the turned box (`selection/pick.rs`).
+  - **A blocked turn** departs from T78, and the Director accepted it:
+    - the turn is tried before the move, in parts along which the corners move at most 4 su (`TURN_TRY_SU`);
+    - the first blocked part is halved 5 times, and the free part is kept;
+    - a cut turn zeroes the speed, asks its blocker to yield, runs the stuck clock and creeps on (0035).
+    - Why: halving a whole step tests only where it ends, and a long unit's corner can pass through another's corner in a 20° turn.
+  - **Tests:**
+    - shapes touching, corner to edge, edge to edge, and against tiles;
+    - a wall cuts a turn at 8.59°, and the unit creeps off and arrives;
+    - a 48 su gap: the unit passes when pointed through it, and its turn across it is cut at 11.3°;
+    - range measured to a Seeker's long side and to its short side;
+    - a new oriented soak (72 units, a third of them Seekers): I1 and I2 every tick, every move ends, deterministic.
+  - **Perf:**
+    - `movement_perf` A/B: 1.15 ms on master against 1.08 ms, within noise;
+    - the new `vehicles_perf` (15 Seekers and 15 Hands of Heaven driven through each other): 0.038 ms a tick on average, 0.12–0.13 ms p99.
+  - **For V2:** turned shapes jam. In an 8-seed soak, Seekers had 105 failed and 403 arrived moves, against 19 and 548 with turning off. V2's brief measures the same soak.
+  - 2479 tests passed, 58 ignored (V1 merged after A2a and tested with it). No golden moved, and the computer players' games are unchanged.
 
     | Map | Standard as P1 vs passive | Passive vs standard as P2 | Standard vs standard |
     |---|---|---|---|
@@ -2058,10 +2081,10 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 ## In progress
 - **Running:**
   - **M5-MM The Minimap** (Opus; brief `scratchpad/briefs/m5mm-minimap.md`): 0415, which the user asked to be prioritised. Launched in A2a's slot.
-  - **M5-V1 Oriented silhouettes** (Opus; brief `scratchpad/briefs/m5v1-oriented-silhouettes.md`), launched in A2b's slot, since it heads M5's critical path.
+  - **M5-V2 Wheeled movement and Reverse** (Opus; brief `scratchpad/briefs/m5v2-wheeled-movement.md`, with 0353's rules), launched in V1's slot. It heads M5's critical path.
   - **M5-N7 The Airstrip and the Sparrow** (Opus; brief `scratchpad/briefs/m5n7-airstrip-sparrow.md`, with 0408, 0410, 0411's test and 0412 folded in), launched in A2c's slot.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
-- **Next, as slots free:** K (brief `scratchpad/briefs/m5k-rocketman-arsenal.md`, with HeadDisjointed, Target Lock and 0407's Verification test) (V1 and N7 are running); then **M5-S7** (0413, 0414 and 0416: full screen, the cursor kept in the window, the 8 px margin, the F10 menu with Restart and Quit, and the map explored at start; brief `scratchpad/briefs/m5s7-window-and-playtest-menu.md`) and A2d; V2 → V3 and N6 → N10 and V4, then N11; then X1 → X2 → M.
+- **Next, as slots free:** K (brief `scratchpad/briefs/m5k-rocketman-arsenal.md`, with HeadDisjointed, Target Lock and 0407's Verification test) (V1 and N7 are running); then **M5-S7** (0413, 0414 and 0416: full screen, the cursor kept in the window, the 8 px margin, the F10 menu with Restart and Quit, and the map explored at start; brief `scratchpad/briefs/m5s7-window-and-playtest-menu.md`) and A2d; V3 and N6 (after V2) → N10 and V4, then N11; then X1 → X2 → M.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
