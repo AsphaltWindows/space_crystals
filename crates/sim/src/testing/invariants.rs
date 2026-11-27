@@ -98,6 +98,8 @@ struct Seen {
     /// (M5-N11) What its buffs add to its MaxSpeed (`crate::buffs::max_speed_bonus`), for I3 in a tick whose end takes an
     /// Inspire.
     speed_bonus: f32,
+    /// (M5-Mb) Whether it had an owner, for I5/I7 in the tick a defeat makes it neutral.
+    owned: bool,
 }
 
 /// Checks the invariants between ticks (module docs). It remembers each unit's state, and each player's banks, of the
@@ -125,6 +127,7 @@ fn seen(o: &Object, mover: &Mover, research: Research) -> Seen {
         momentum: mover.momentum,
         max_speed: o.max_speed(research),
         speed_bonus: crate::buffs::max_speed_bonus(o),
+        owned: o.owner.is_some(),
     }
 }
 
@@ -364,11 +367,14 @@ impl Invariants {
             // (M5-N10) A unit that turned in place toward its aim in this tick without a goal
             // (`movement::turn_in_place`, the hull aim: its Orientation Turning, which a unit without a goal has from
             // nothing else, as the step stands every other one) may creep out of the contact of a spin cut short, by at
-            // most one tick's Acceleration (`momentum::spin_creep`).
+            // most one tick's Acceleration (`momentum::spin_creep`). (M5-Mb) So may one a defeat made neutral in this
+            // tick: the defeat check ends the economy phase, after 5d, and stops it (`economy::defeat`, `Mover::stop`),
+            // its Orientation Maintaining as the tick ends whatever its turn in 5d was.
+            let neutralized = before.is_some_and(|b| b.owned) && o.owner.is_none();
             let creeping = mover.goal == MoveGoal::None
                 && mover.exit.is_none()
                 && !glides
-                && matches!(mover.orientation, Orientation::Turning(_))
+                && (matches!(mover.orientation, Orientation::Turning(_)) || neutralized)
                 && o.movement(sim.research()).is_some_and(|movement| {
                     o.pos.distance(o.prev_pos) <= momentum::spin_creep(&movement, mover.speed_factor) * 1.0001 + 1e-3
                 });

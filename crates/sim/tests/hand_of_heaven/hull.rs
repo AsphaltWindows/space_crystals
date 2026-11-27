@@ -10,8 +10,9 @@
 //! drives into range as any attacker does ("resume MovingToObject", step 4).
 
 use sc_sim::math::{self, PI};
+use sc_sim::mover::{MoveGoal, Orientation};
 use sc_sim::testing::invariants::Invariants;
-use sc_sim::{Sim, TickInputs};
+use sc_sim::{DebugCommand, Sim, TickInputs};
 
 use super::*;
 
@@ -218,6 +219,49 @@ fn only_a_unit_turning_to_its_aim_creeps_and_only_by_its_acceleration() {
         edited(|hand| hand["mover"]["orientation"] = "Maintaining".into()),
         Some("I5/I7"),
         "not turning"
+    );
+}
+
+/// (M5-Mb, found by the soak sweep) I5/I7's exception for the hull aim holds for a unit a defeat makes neutral in the
+/// tick it creeps: the defeat check ends the economy phase, after the movement (`core/game_rules.md > On Defeat`:
+/// "their orders are cleared and they stay idle where they are"), so its Orientation is Maintaining as the tick ends.
+/// [`beside_a_wall`]'s game with a Storage of player 1's (5), removed in tick 2: player 1 is defeated in the tick the
+/// Hand of Heaven creeps 0.5 su, its first spin cut short, and the invariants hold (`TestSim`).
+#[test]
+fn a_unit_that_creeps_in_the_tick_its_owner_is_defeated_keeps_the_invariants() {
+    let mut rows = vec![".".repeat(20); 16];
+    rows[3] = "M".repeat(20);
+    let mut t = ScenarioBuilder::new(&rows.join("\n"))
+        .faction(P1, Faction::Cults)
+        .faction(P2, Faction::Cults)
+        .spawn(HAND, Some(P1), point(centre(6, 4)))
+        .spawn(ObjectKind::ChopShop, Some(P2), tile(5, 11))
+        .spawn(ObjectKind::Recruit, Some(P1), point(centre(9, 10)))
+        .spawn(ObjectKind::Storage, Some(P2), tile(15, 6))
+        .spawn(ObjectKind::Storage, Some(P1), tile(15, 12))
+        .start();
+    t.without_auto_targeting();
+    order(&mut t, 1, P1, &[1], OrderKind::Attack(id(2)));
+    t.debug_at(2, DebugCommand::Remove { id: id(5) });
+    t.run_until(1);
+    let at = t.pos(1);
+    t.step();
+    assert!(
+        t.sim().player(P1).is_some_and(|p| p.is_defeated()),
+        "player 1 is defeated in tick 2"
+    );
+    let hand = t.sim().object(id(1)).expect("the Hand of Heaven stays");
+    assert_eq!(hand.owner, None, "neutral");
+    assert_eq!(
+        t.pos(1) - at,
+        Vec2::new(0.0, 0.5),
+        "it crept in tick 2, as it does with an owner"
+    );
+    let mover = hand.mover.as_ref().expect("a unit moves");
+    assert_eq!(
+        (mover.goal, mover.orientation),
+        (MoveGoal::None, Orientation::Maintaining),
+        "stopped"
     );
 }
 

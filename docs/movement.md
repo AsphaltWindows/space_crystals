@@ -1244,7 +1244,8 @@ among Peacekeepers, Recruits and Guards.
   turned in place toward its aim in it (`movement::turn_in_place`: the step stands every other unit without a goal,
   Maintaining, but in a doorway or in flight), and may have moved in it by at most one tick's Acceleration, the
   back-off or creep of a spin cut short (6.12, `momentum::spin_creep`). A test breaks it on purpose
-  (`tests/hand_of_heaven/hull.rs`).
+  (`tests/hand_of_heaven/hull.rs`). **(M5-Mb)** So may a unit a defeat made neutral in the tick, whatever its
+  Orientation: the defeat check comes after 5d and stops it (`economy::defeat`), Maintaining as the tick ends.
   **(D)** The switch (`TestSim::check_invariants`) is on by default, so every test that uses a `TestSim` runs them;
   `sc_sim::testing::invariants` has the checker for tests that step a bare `Sim`.
 - **Scenario tests** (`crates/sim/tests/movement_*.rs`, inline ASCII maps): straight move arrives exactly at
