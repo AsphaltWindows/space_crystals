@@ -40,5 +40,5 @@ GDO artillery vehicle produced at the Factory; requires Advanced Mechanics. Has 
 - **Deploy 48 frames (3 s), Undeploy 48 frames.**
 - Deployed attack: Damage **300** total over the circle (AoEDamage); AoERadius **64 su (1 GU)**; Range **12 grid units**; MinRange **3 grid units**; AimDuration 16, FiringDuration **16** (the shell's flight: the gap in which targets can leave the locked area), CooldownDuration 8, ReloadDuration 64 frames (one shell per 104 frames, 6.5 s).
 - Turret TurnRate 3°/frame.
-- Cost: Factory, 250 Space Crystals, 480 frames.
+- Cost: Factory, 250 Space Crystals **+ 5 Supplies** (user, 2026-11-26; Q0169), 480 frames.
 - Panel: BasicCombatUnitInterfaceState plus **R: Deploy** (mobile) / **R: Undeploy** (deployed); the mobile Rig has no attack commands.

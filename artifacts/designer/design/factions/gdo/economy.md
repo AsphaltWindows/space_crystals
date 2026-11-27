@@ -194,7 +194,7 @@ GDO supply collection structure. Serves as the drop-off point for supplies gathe
 - One Supply Chopper is spawned on the tower at no additional cost (included in tower's construction cost). This chopper is automatically attached to the tower.
 
 ### Landing and Attachment:
-- A Supply Chopper that lands on its attached Supply Tower drops off all carried supplies and is gradually repaired at no cost.
+- A Supply Chopper that lands on its attached Supply Tower drops off all carried supplies and is gradually repaired at no cost, at the **repairers' rate** (0 to full in half its build time: 80 frames, about 30 HP a second; designer placeholder, 2026-11-26; Q0169).
 - When a Supply Chopper attaches to a Supply Tower, it immediately evicts any existing landed Supply Chopper that is not the attached chopper.
 - When a Supply Tower has an attached Supply Chopper, no other Supply Chopper may land on it.
 - Any command given to an attached Supply Chopper breaks its attachment to the tower.

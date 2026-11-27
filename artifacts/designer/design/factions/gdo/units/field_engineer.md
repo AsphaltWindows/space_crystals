@@ -25,5 +25,5 @@ The Field Engineer carries **no weapon**.
 **Placeholder stats** (designer, 2026-11-26, user's standing permission; tune in the numbers pass):
 - UnitBase LightInfantry; Silhouette 24x24 space units; MaxHP 50; PointArmor 0, FullArmor 0; SightRange 5 grid units; **Groupable false** (user, 2026-11-26; Q0163: only one Engineer can build a site, so, as the Agent, it is Ungroupable: Construct with one, Tab to the next); UnitControlCost 1.
 - Movement as the Peacekeeper (MaxSpeed 4 space units/frame).
-- Cost: Barracks, 75 Space Crystals, 160 frames (10 seconds).
+- Cost: Barracks, 75 Space Crystals **+ 1 Supply** (user, 2026-11-26; Q0169), 160 frames (10 seconds).
 - Panel (rearranged 2026-11-27 (user, 2026-11-27: A is Attack on every unit, systems/controls/interface.md > CommandPanel > Standard Slot Assignments)): **Q** Move; **W** Construct (a menu: **Q** Bunker, **W** First Aid Tent; **Z** back); **D** Repair (targeted: a damaged own building or vehicle); **X** Stop. Right-click a damaged own building or vehicle: Repair (Enter wins on a building it can enter, as for Recruits). Repair works through the same shared rules as the Recruit's.

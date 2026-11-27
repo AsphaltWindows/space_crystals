@@ -21,6 +21,19 @@ Core resource. Gathered from Space Crystals Patches via Extraction Facilities an
 ### Supplies
 Tactical and tech resource. Gathered from Supply Delivery Stations via Supply Towers and Supply Choppers. Spent on advanced buildings, units, and research.
 
+**Supply costs (first set)** (user, 2026-11-26; Q0169), on top of each unit's Space Crystals cost:
+
+| Unit | Supplies |
+|---|---|
+| Field Engineer | 1 |
+| Drone Operator | 2 |
+| Hornet | 2 |
+| Dragonfly | 4 |
+| Artillery Rig | 5 |
+| Prospector | 8 |
+
+Paid with the Space Crystals at the moment of queueing (the order needs enough of both), and refunded with them on cancel. No GDO building or research costs Supplies yet.
+
 ### Power
 Flat capacity system. Each GDO building has a static Power value — positive for generators, negative for consumers. The player's total Power is the sum across all owned buildings. If total Power is negative, all power-consuming buildings and Extraction Plates operate slower in proportion to total available power versus total required power (affecting construction speed, unit production speed, and mining rate).
 

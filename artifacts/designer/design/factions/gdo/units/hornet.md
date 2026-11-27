@@ -18,5 +18,5 @@ GDO air-to-ground attack aircraft produced at the Airfield. A HoverCraft (a chop
 - Silhouette 48x48 space units; MaxHP 120; PointArmor 1, FullArmor 1; SightRange 7 grid units; Groupable true; UnitControlCost 2.
 - HoverCraft movement (DragMovement, as the HoverCraft base; designer placeholder 2026-11-26, Q0154: high drag and high thrust, like the Supply Chopper): ForwardAcceleration 0.8; OmniDirectionalAcceleration 0.1; DragRatio 0.1 (top speed 9 su/frame); TurnRate 8°/frame. No turret (fires forward; it turns in place to aim).
 - Attack: **DoublyDisjointed** (not homing: the missile flies to where the target was, so it can be dodged; it can Attack Ground. user, 2026-11-27); Damage 30; Range 5 grid units; ProjectileSpeed 14 su/frame; Aim 4, Firing 2, Cooldown 4, Reload 22 frames; **RearmTimePerAmmo 32 frames** (5 missiles in 10 s).
-- Cost: Airfield, 150 Space Crystals, 320 frames.
+- Cost: Airfield, 150 Space Crystals **+ 2 Supplies** (user, 2026-11-26; Q0169), 320 frames.
 - Panel: BasicCombatUnitInterfaceState plus **F: Return to Base**.

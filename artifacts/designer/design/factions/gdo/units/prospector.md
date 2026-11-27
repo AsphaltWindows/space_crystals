@@ -15,5 +15,5 @@ GDO expansion vehicle produced at the Factory once the player owns Advanced Mech
 - Silhouette 64x48 space units; MaxHP 300; PointArmor 2, FullArmor 2; SightRange 6 grid units; Groupable true; UnitControlCost 2.
 - SpeedTurnRadiusMovement: MaxSpeed 4 su/frame; Acceleration 0.4; Deceleration 1; TrackWidth 36 su; ReverseMaxSpeed 2 (Q0153; spins about 12.7° a frame).
 - **No weapon** (as assumed). **Deploy 64 frames (4 s)**; it follows the vehicle deploy model: an order that **can't be cancelled** once started (the Artillery Rig's rules; user, 2026-11-27).  **HP** (user, 2026-11-26; Q0161): the **damage taken carries over unchanged**: the Outpost starts at its MaxHP minus the Prospector's damage (200/300 → 500/600), as a Drone deploying into a Beacon and a Tunnel upgrade.
-- Cost: Factory, 300 Space Crystals, 480 frames.
+- Cost: Factory, 300 Space Crystals **+ 8 Supplies** (user, 2026-11-26; Q0169), 480 frames.
 - Panel: Q Move, X Stop, **R: Deploy into Outpost** (targeted: a location; it drives there and deploys).
