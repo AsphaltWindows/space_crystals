@@ -189,7 +189,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   for a Legionnaire whose form isn't its type, `conversion` (`Conversion`, `conversion.rs`: the form it has, and the
   frames left of the conversion under way, none while it waits for its Cooldown; see *Type and form* below and
   *Combat > Weapon Conversion*); for a Tunnel, `tunnel` (`TunnelState`, `tunnel.rs`: its tier, plan decision T39;
-  see *The Syndicate* below). The rest arrives as more optional fields, each with its own module. Never add them as separate
+  see *The Syndicate* below); (slice M6-GD) for a unit whose type has a stock, the Drone Operator, `stock` (`Stock`,
+  `stock.rs`: the items it holds and the purchase under way) and `drone` (the drone it has out), and for that drone
+  `tether` (`Tether`, `tether.rs`: its operator and the tick its battery runs out; see *The Drone Operator* below).
+  The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`core/entities.md > Object Type`), in the type's own
@@ -244,6 +247,29 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   and that nothing makes them; `tests/gdo_kinds.rs` that no player's command constructs, trains, builds or spawns
   one. The deployed Rig doesn't move (`defs/tests.rs`'s `IMMOBILE`: speed 0, no reverse): a Move given it ends
   without moving it.
+- **The Drone Operator** (slice M6-GD; `factions/gdo/units/drone_operator.md`, design changes 0421 and 0441; plan
+  decisions T89 and T91): the Barracks' R (its recipe out of `PLANNED_RECIPES`, into the Barracks' production),
+  requiring a Career Campus, for 100 Space Crystals **and 1 Supply**, the first recipe with a Supply cost
+  (`Recipe::supplies`, `QueueEntry::supplies`): both are paid as it is queued, or neither (`Sim::plan_training`
+  checks the crystals, then the Supplies: `Reject::InsufficientSupplies`, `Refusal::Supplies` for a passed-over
+  producer), and both are refunded on a cancel or the producer's loss. Slices M6-GF, GH1, GM and GS reuse it as
+  data, a `Recipe::supplies` and nothing more. **Its stock** (`UnitDef::stock`, a `StockDef` of item, max, start,
+  price and frames; `stock.rs`) holds its drones, at most 1, 1 at the start; `Ability::Buy` (its F) buys one for 50
+  Space Crystals paid at the press, in 160 frames counted in the economy phase whatever the Power
+  (`SimEvent::StockBought`), only once its drone has ended (`Reject::DroneOut`, `StockFull`, `PurchaseUnderWay`).
+  **Its launch** (`OrderKind::Launch`, its R; `orders/launch.rs`) spends one, right after 5a: the drone, an
+  `OperatorDrone` (a HoverCraft, air), comes out over the operator with a `Tether` (`UnitDef::tether`, a `TetherDef`:
+  leash 8 grid units, battery 320 frames; `SimEvent::DroneLaunched`; `Reject::StockEmpty` with none in stock,
+  `DroneOut` with one out). While its drone is out the operator holds still (`tether::holds`): `combat::may_move`
+  keeps it where it is, and the gate refuses it every order that would move it (`tether::allows`; `Reject::DroneOut`
+  when no unit of the command takes it). **The tether's step**, right after 5d (`tether::ends`, `sim/drones.rs`),
+  ends a drone, the first that applies (`tether::Fall`): its operator gone (the removal path takes it along: no
+  explosion), its Silhouette past its leash from the operator's, edge to edge (`tether::past_leash`, `Shape::gap`:
+  its explosion dropped where it fell, `combat::Projectile::dropped`, landing in the tick's 5e), its battery spent
+  (no explosion); each with a `SimEvent::DroneFell` and a `Died`. **Its attack is its explosion**: a melee
+  FullyConnected area attack of 150 on the ground units within 48 su, whoever owns them, which a tethered attacker
+  spends (`phases::Volley::spent`: it leaves with 5e's dead). `Ruleset::check` bounds a stock's frames as a recipe's
+  and its start by its max. `tests/drone_operator/` tests it; the golden game is `gdo_drones`.
 - **The Colonists** (`defs/colonists/`; `factions/colonists/units/`, `factions/colonists/economy.md`, slice M3-A):
   the Drone, the Beacon, the Egress Node, the Robo Portal, the Bio Portal and the Sabre and Rifle Legionnaires, after
   the M2 kinds. Three def fields came before their slices: `ObjectDef::max_shields` (MaxShields, set for exactly
@@ -953,6 +979,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      and its next queued one starts in the next tick, with `SimEvent::TargetTooClose`; and so does each whose Attack
      Ground 5a found with its location inside (`AttackGround::too_close`, slice M5-O3), with
      `SimEvent::LocationTooClose`.
+   - Launches, `Sim::step_launches` (slice M6-GD, `sim/drones.rs`; *Object model > The Drone Operator*): part of 5a,
+     right after the attacks on a target too close, in id order. Each operator whose Launch 5a started takes a drone
+     out of its stock and spawns it over itself, tethered (`SimEvent::DroneLaunched`), and the Launch ends. Before
+     5b, so that the drone has its grids from its first tick; a new object, it moves and attacks from the next.
    - Clouds, `Clouds::update` (slice M5-N4b, `shroud.rs`; *Combat > Shroud*): the end of 5a, after the attacks on a
      target too close. The clouds follow the channels as 5a leaves them (`orders::update` returns the units that
      channel): a channel started in the tick protects in its 5e, and a cloud that an ended channel, a split or a join
@@ -971,6 +1001,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      Drones apart (design change 0106). (M5-V4) A crusher's move passes through its crushable enemies and crushes
      those it overlaps or sweeps: they leave the game at the end of 5d, before 5e, through the removal path, each with
      a `SimEvent::Crushed` (see *Movement and collision > Crushing*).
+   - Tethers, `Sim::step_tethers` (slice M6-GD, `sim/drones.rs`, `tether.rs`): right after 5d, for the drones before
+     the tick's new objects, in id order. A drone whose end came (its operator gone, past its leash where 5d left it,
+     its battery spent) leaves the game through the removal path with `SimEvent::DroneFell` and `Died`, and one past
+     its leash drops its explosion where it fell. Before 5e, so that a fallen drone attacks nothing in the tick and
+     its explosion lands in it.
    - 5e `combat::step`: attack phases (a unit's turret turning first) and launches, then those of the units that
      fire from inside a building (slice M5-N2, `combat::occupants`), the projectiles due landing in launch order, the
      tick's list of
@@ -1050,6 +1085,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      two is free; after the transformations, so that a Beacon completed in the tick gives its room in it, as the
      deaths of 5e do theirs. After 5d, so a released unit never moves in its own tick; before 5f, so it is seen in
      it.
+   - Stocks, `Sim::step_stocks` (slice M6-GD, `stock.rs`): part of the economy phase, right after the producers. Each
+     unit's purchase under way advances a frame, whatever its owner's Power, and one whose frames are done adds its
+     item to the stock (`SimEvent::StockBought`).
    - The Tunnel Network, `Sim::step_network` (slice M4-C, `sim/network.rs`): part of the economy phase, right after
      the producers. Every held unit regenerates; then each Tunnel with an eject queue, in id order, lets its first
      unit out onto the exit spot if that is clear of tiles, footprints and units of its layer (`Sim::check_unit_fits`,
@@ -4948,6 +4986,23 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   objects, and a structure the player only remembers (Placeholder) are invalid targets. Shift queues it, as any unit
   order. The Barracks trains it in W, greyed "Requires an Arsenal" until one stands; the Arsenal, the Deployment
   Center's BuildMenu[Basic] S (greyed "Requires a Barracks"), has no panel (`PanelTemplate::NONE`).
+- **The Drone Operator's panel** (slice M6-GD; `factions/gdo/units/drone_operator.md`, design changes 0421 and
+  0441): `templates/gdo/drone_operator.rs` is the BasicCombatUnit's grid without attack commands, with **R Launch
+  Drone** (`PanelCommand::Launch`, "Launch", `OrderKind::Launch` at once; Shift queues it) and **F Build Drone**
+  (`PanelCommand::Buy(item)`, "DRN" by the item's tag, `Ability::Buy`, with its price in the hint), which
+  `templates::grid` puts in R and F for a kind whose stock holds a tethered item. F's button shows the purchase's
+  progress bar (`Conditions::purchase`); the gate's answer greys R and F ("The drone is out", "No drone to launch",
+  "Already carries a drone", "Already building a drone"). While every recipient's drone is out
+  (`Modes::tethered`), Move, Reverse, Patrol and Attack Ground are greyed "The drone is out", and a right-click that
+  would move it gives no order and says so (`Reject::DroneOut` through `CommandRefused`); with other units selected
+  they take the command. The drone's grid (`templates/gdo/operator_drone.rs`, `InterfaceTemplate::OperatorDrone`) is
+  Q Move, A Attack and X Stop, and the right-click the BasicCombatUnit's. **The leash ring** (`indicators/leash.rs`,
+  placeholder look): while a launched drone of the local player's, or its operator, is selected, a thin pale blue
+  line on the terrain round the operator where the drone's Silhouette meets the leash edge to edge, the operator's
+  and the drone's square half extents rounded by the leash (`leash::ring`), each operator's once. The drone's
+  explosion is drawn as a blast's ring on the ground (`combat_effects/blasts.rs`). The Barracks trains it in R,
+  greyed "Requires a Career Campus" until one stands and "Not enough Supplies" while its owner has no Supply
+  (`Refusal::Supplies`; the GDO has none to start with until slice M6-GS's Supply Tower).
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
   its count in its bottom-right corner. **Every label keeps
@@ -5245,8 +5300,8 @@ unchecked.
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
-  `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs` and `main.rs`, the recording and the comparison in
-  `harness.rs`): twenty-four games, a 3v3 duel, a 40-unit
+  `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs` and `main.rs`, the recording and the
+  comparison in `harness.rs`): twenty-five games, a 3v3 duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
   fire and lower them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1
@@ -5257,7 +5312,8 @@ unchecked.
   M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below), `cults_shroud` (slice
   M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
   M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below),
-  `cults_prayer_mobile` (slice M5-N11, below) and `syndicate_vehicles` (slice M6-SV, below), are blessed as replays
+  `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below) and `gdo_drones` (slice
+  M6-GD, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5360,7 +5416,11 @@ unchecked.
   rally point, is ejected by hand, the other two auto-ejected by a surface rally point in the tick each is finished,
   each out of Side A's exit path, facing north (`during`); at tick 1262 they AttackMove onto four Guards on Hold in a
   block, shell them from beyond the Guards' range, the first round's blast hitting all four, and kill them all by tick
-  1476 without a hit on a Bike. The
+  1476 without a hit on a Bike. In `gdo_drones` (to 1:35, on a test map, debug commands on for player 1's Supply) a
+  Barracks trains a Drone Operator for 100 Space Crystals and 1 Supply, and its four drones end each in its own way:
+  the first explodes on a group of player 2's Peacekeepers, the second falls past its leash and explodes there, the
+  third runs out of battery, and the fourth falls with its operator, which the Peacekeepers kill; between them the
+  operator buys each next drone once the last has ended. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

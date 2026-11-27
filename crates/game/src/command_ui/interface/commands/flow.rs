@@ -15,7 +15,8 @@ impl PanelCommand {
     /// "targeted: left-click an enemy unit or structure"). The others are issued at once: HoldPosition and Stop, a
     /// Disciple's Shroud, (M5-N11) a Prayer-mobile's casts, round it and ahead of it
     /// (`factions/cults/units/prayer_mobile.md > Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target)",
-    /// "**Suppress** (hotkey **F**, instant, no target)"), Raise and Lower Shield, Convert, a producer's Train and
+    /// "**Suppress** (hotkey **F**, instant, no target)"), (M6-GD) a Drone Operator's Launch Drone, over itself, and
+    /// Build Drone, Raise and Lower Shield, Convert, a producer's Train and
     /// Cancel Production, a constructor's
     /// Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the
     /// EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct
@@ -70,7 +71,9 @@ impl PanelCommand {
             | PanelCommand::Research(_)
             | PanelCommand::Researching(_)
             | PanelCommand::ReleaseOne(_)
-            | PanelCommand::Shroud => false,
+            | PanelCommand::Shroud
+            | PanelCommand::Launch
+            | PanelCommand::Buy(_) => false,
         }
     }
 
@@ -161,7 +164,10 @@ impl PanelCommand {
     /// Target Lock an order (`sc_sim::OrderKind::TargetLock`), which Shift queues behind the Rocketman's others, as the
     /// orders Shift queues behind it wait for it to end (`factions/gdo/units/rocketman.md > Target Lock`: "a
     /// Shift-queued order waits behind the lock and runs when it ends", design change 0438, answering Q0171; plan
-    /// decision T76: "Shift+R after a Move queues a lock").
+    /// decision T76: "Shift+R after a Move queues a lock"). (M6-GD) So is a Drone Operator's Launch Drone, an order
+    /// (`sc_sim::OrderKind::Launch`, plan decision T91: "untargeted and queueable"): Shift+R after a Move launches where
+    /// the walk ends. Its Build Drone is an ability (`sc_sim::Ability::Buy`), which keeps the orders as a Riot Shield
+    /// does: Shift changes nothing.
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -177,7 +183,8 @@ impl PanelCommand {
             | PanelCommand::Assist
             | PanelCommand::Repair
             | PanelCommand::Shroud
-            | PanelCommand::TargetLock => true,
+            | PanelCommand::TargetLock
+            | PanelCommand::Launch => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)
@@ -212,7 +219,8 @@ impl PanelCommand {
             | PanelCommand::Research(_)
             | PanelCommand::Researching(_)
             | PanelCommand::ReleaseOne(_)
-            | PanelCommand::Cast(_) => false,
+            | PanelCommand::Cast(_)
+            | PanelCommand::Buy(_) => false,
         }
     }
 }

@@ -1,8 +1,9 @@
 //! (M6-GK) The GDO's kinds of design change 0366 before the slices that make them live (plan decision T84, after T69's
 //! rule): no player makes one. The Deployment Center constructs none of the new buildings and the Barracks trains none
-//! of the new units; a Field Engineer builds no Bunker and no First Aid Tent; the new buildings produce and construct
-//! nothing; and no game start spawns one. The debug spawn, the map editor's, places every one, the new units take
-//! orders and move, and a deployed Artillery Rig given a Move stays where it is (plan decision T87).
+//! of the new units but (M6-GD) the Drone Operator; a Field Engineer builds no Bunker and no First Aid Tent; the new
+//! buildings produce and construct nothing; and no game start spawns one. The debug spawn, the map editor's, places
+//! every one, the new units take orders and move, and a deployed Artillery Rig given a Move stays where it is (plan
+//! decision T87).
 
 use sc_sim::defs::PLANNED_RECIPES;
 use sc_sim::scenario::DEFAULT_SEED;
@@ -135,21 +136,22 @@ fn the_deployment_center_constructs_none_of_them() {
     assert_eq!(gate(&t, construct(DC, ObjectKind::Generator)), Ok(()));
 }
 
-/// `factions/gdo/structures/barracks.md > Produces`, its Drone Operator held: the Barracks trains none of the new
-/// units, nor a mine (`Reject::CannotProduce`), and still trains a Peacekeeper.
+/// `factions/gdo/structures/barracks.md > Produces`: the Barracks trains none of the new units but (M6-GD) the Drone
+/// Operator, which requires a Career Campus (`Reject::Requires`), nor a mine (`Reject::CannotProduce`), and still trains
+/// a Peacekeeper.
 #[test]
-fn the_barracks_trains_none_of_them() {
+fn the_barracks_trains_none_of_them_but_the_drone_operator() {
     let t = base();
     let units: Vec<ObjectKind> = (new_kinds().iter().copied())
         .filter(|kind| kind.def().category != Category::Structure)
         .collect();
     assert_eq!(units.len(), 11);
     for kind in units {
-        assert_eq!(
-            gate(&t, train(BARRACKS, kind)),
-            Err(Reject::CannotProduce(kind)),
-            "{kind:?}"
-        );
+        let refused = match kind {
+            ObjectKind::DroneOperator => Reject::Requires(ObjectKind::CareerCampus),
+            _ => Reject::CannotProduce(kind),
+        };
+        assert_eq!(gate(&t, train(BARRACKS, kind)), Err(refused), "{kind:?}");
     }
     assert_eq!(gate(&t, train(BARRACKS, ObjectKind::Peacekeeper)), Ok(()));
 }

@@ -222,6 +222,11 @@ impl Sim {
             // Kept: whose research applies to it doesn't depend on its kind.
             kept_research: _,
             buffs,
+            // (M6-GD) Kept: no type of the design gains or loses a stock or a drone by a change of kind
+            // (`crate::stock`, `crate::tether`).
+            stock: _,
+            tether: _,
+            drone: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

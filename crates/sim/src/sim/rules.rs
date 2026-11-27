@@ -12,17 +12,18 @@
 //!   started on, and its vision records the objects as those rules left them; the next one sees them follow.
 //! - **Objects keep their state** but for what stays within a maximum that the rules give: HP and Shields follow
 //!   their maxima the way a transformation's do, the damage taken staying (`transform::follow_max`, design change
-//!   0110: never a rescale, and never a kill), and energy stays within its MaxEnergy. What is under way goes on by the
-//!   new numbers, which it reads as it goes (a production's remaining time, a refund at the new price); what was fixed
-//!   as it started stays (a projectile's damage, a path planned).
+//!   0110: never a rescale, and never a kill), energy stays within its MaxEnergy and (M6-GD) a stock within its max
+//!   (`crate::stock`). What is under way goes on by the new numbers, which it reads as it goes (a production's
+//!   remaining time, a refund at the new price); what was fixed as it started stays (a projectile's damage, a path
+//!   planned, (M6-GD) a purchase's frames and a drone's battery).
 
 use super::Sim;
 use crate::augmentation::Research;
-use crate::energy;
 use crate::events::SimEvent;
 use crate::object::Object;
 use crate::ruleset::{self, Ruleset};
 use crate::transform;
+use crate::{energy, stock};
 
 impl Sim {
     /// The rules the game plays by (module docs): the built-in ones ([`Ruleset::BUILTIN`]) unless a
@@ -81,7 +82,8 @@ impl Maxima {
 }
 
 /// `o`, whose maxima were `before`, on the current rules (module docs): its HP and its Shields go as far as their
-/// maxima do, the damage staying (`transform::follow_max`: never to 0), and its energy stays within its MaxEnergy.
+/// maxima do, the damage staying (`transform::follow_max`: never to 0), its energy stays within its MaxEnergy, and
+/// (M6-GD) its stock within its max.
 fn follow(o: &mut Object, before: Maxima, research: Research) {
     let after = Maxima::of(o, research);
     if let (Some(hp), Some(before), Some(after)) = (o.hp, before.hp, after.hp) {
@@ -92,5 +94,9 @@ fn follow(o: &mut Object, before: Maxima, research: Research) {
     }
     if let (Some(energy), Some(max)) = (o.energy, energy::max(o.kind)) {
         o.energy = Some(energy.min(max));
+    }
+    // (M6-GD) A stock holds at most its max (`crate::stock`).
+    if let (Some(stock), Some(def)) = (&mut o.stock, stock::def_of(o.kind)) {
+        stock.count = stock.count.min(def.max);
     }
 }

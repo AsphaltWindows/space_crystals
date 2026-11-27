@@ -90,6 +90,7 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
             .map_or(0.0, |unit| unit.movement.max_speed()),
         may_attack: true,
         converting: false,
+        tethered: false,
         worker: None,
         energy: None,
     };
@@ -208,6 +209,7 @@ fn unit<'a>(mover: &'a mut Mover, attack: Option<&'a mut AttackState>) -> Unit<'
             .map_or(0.0, |unit| unit.movement.max_speed()),
         may_attack: true,
         converting: false,
+        tethered: false,
         worker: None,
         energy: None,
     }

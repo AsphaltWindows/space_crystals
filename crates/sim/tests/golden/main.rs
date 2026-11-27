@@ -23,14 +23,15 @@
 //! and two Guards), `hand_of_heaven.rs` (a Chop Shop's Hand of Heaven shelling a Deployment Center from beyond its own
 //! sight, a Recruit spotting, and driving off as its last missile flies), `prayer_mobile.rs` (a Prayer-mobile's
 //! Inspire on a group of Recruits, and another's Suppress over a fight), `syndicate_vehicles.rs` (a Vehicle Assembly's
-//! three Assault Bikes out of the Tunnel Network, shelling a group of Guards) and below (the Riot Shield game), and
-//! every test is below.
+//! three Assault Bikes out of the Tunnel Network, shelling a group of Guards), `drones.rs` (a Drone Operator trained for
+//! a Supply, and its four drones' four ends) and below (the Riot Shield game), and every test is below.
 
 mod air;
 mod altar;
 mod anti_air;
 mod colonists;
 mod cults;
+mod drones;
 mod garrison;
 mod gdo;
 mod hand_of_heaven;
@@ -276,4 +277,9 @@ fn golden_cults_prayer_mobile() {
 #[test]
 fn golden_syndicate_vehicles() {
     golden("syndicate_vehicles", syndicate_vehicles::syndicate_vehicles);
+}
+
+#[test]
+fn golden_gdo_drones() {
+    golden("gdo_drones", drones::gdo_drones);
 }

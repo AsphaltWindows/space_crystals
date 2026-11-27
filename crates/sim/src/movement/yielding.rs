@@ -78,6 +78,8 @@ fn in_attack_sequence(o: &Object) -> bool {
 ///   take a sidestep; it stands like a unit on Hold Position)"): not a WheeledVehicle, and (M5-V3) not a
 ///   TrackedVehicle (design change 0440). Own idle infantry yield to a moving vehicle "as to any unit": who asks
 ///   doesn't matter.
+/// - (M6-GD) It doesn't hold still for its drone (`crate::tether::holds`: "The Drone Operator **cannot move** while it
+///   has a drone active"): it stands like a unit on Hold Position.
 pub(super) fn can_yield(o: &Object, mover: &Mover, movement: &MovementAttrs) -> bool {
     o.def().unit.as_ref().is_some_and(|unit| unit.base_def().yields)
         && o.owner.is_some()
@@ -87,6 +89,7 @@ pub(super) fn can_yield(o: &Object, mover: &Mover, movement: &MovementAttrs) -> 
         && mover.exit_heading.is_none()
         && !in_attack_sequence(o)
         && mover.can_move(movement.max_speed())
+        && !crate::tether::holds(o)
 }
 
 /// Whether `other` yields to a moving unit of `owner` that moves under the order group `group`.

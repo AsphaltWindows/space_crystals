@@ -11,7 +11,7 @@ use crate::sim::Sim;
 /// engaged by themselves, its move's goal object, its attack's target, its turret's LockedTarget (slice M5-U1), its
 /// Target Lock's (slice M5-K) and the target of its attack phase, the patch a plate mines, the object a producer's
 /// rally point is on, the building whose exit doorway a unit is leaving, a worker's drop-off, a Tunnel's operation's
-/// site and an expansion's building Tunnel (slice M4-F).
+/// site and an expansion's building Tunnel (slice M4-F), (M6-GD) an operator's drone and a drone's operator.
 pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     let mut ids = Vec::new();
     if let Some(orders) = &o.orders {
@@ -47,6 +47,9 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     }
     ids.extend((o.tunnel.as_ref()).and_then(|tunnel| tunnel.operation?.site()));
     ids.extend(o.construction.and_then(|site| site.builder.tunnel()));
+    // (M6-GD) An operator's drone, and a drone's operator (`crate::tether`).
+    ids.extend(o.drone);
+    ids.extend(o.tether.map(|tether| tether.operator));
     // Not a unit's lineage (`Object::lineage`, plan decision T56): its entries name the Halls that produced its
     // Recruits, and they stay when a Hall is gone, the unit's points then being orphaned
     // (`factions/cults/structures/recruitment_hall.md > On Destruction`: "Surviving units produced by this hall remain

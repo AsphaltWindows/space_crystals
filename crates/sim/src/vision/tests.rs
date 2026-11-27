@@ -39,6 +39,9 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         energy: None,
         kept_research: None,
         buffs: Vec::new(),
+        stock: None,
+        tether: None,
+        drone: None,
     }
 }
 

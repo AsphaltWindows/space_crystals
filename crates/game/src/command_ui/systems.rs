@@ -27,13 +27,13 @@ mod panel;
 mod placing;
 
 use bevy::prelude::*;
-use sc_sim::{ObjectId, OrderKind, ProductionCommand, Target};
+use sc_sim::{ObjectId, OrderKind, ProductionCommand, Reject, Target};
 
-use super::InvalidTarget;
-use super::interface::{InterfaceState, Modes, PanelCommand, commandable, recipients};
+use super::interface::{InterfaceState, Modes, PanelCommand, WhyUnavailable, commandable, recipients};
 use super::resolution::{
     MapTarget, Resolved, UnitCapabilities, capabilities, object_right_click, target_resolution, unit_target_order,
 };
+use super::{CommandRefused, InvalidTarget};
 use crate::hud::minimap::MinimapPointer;
 use crate::input::{ActionState, Bindings, InputAction, MapClick, Modifiers};
 use crate::selection::LocalControl;
@@ -235,7 +235,7 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
                     Some((id, unit_target_order(unit, kind)))
                 })
                 .collect();
-            outbox.give_each(control.player(), orders, click.queue)
+            outbox.give_each(control.player(), orders, click.queue).is_ok()
         }
         Some(Resolved::Rally(target)) => {
             outbox.produce(control.player(), recipients, ProductionCommand::SetRally(target))
@@ -271,6 +271,11 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
 /// right-click on that ground point, as a right-click on ground in the main view", the same function's
 /// ([`right_click`]) on the ground point the minimap shows there (`MapTarget::on_ground`, the designer's placeholder:
 /// ground only); in AwaitingTarget and AwaitingPlacement it cancels, as anywhere.
+///
+/// (M6-GD) A right-click none of whose orders the gate takes, one of them refused for a drone out (`Reject::DroneOut`:
+/// a Drone Operator alone, its drone launched, "**cannot move**"), says so ([`CommandRefused`]), as a greyed Move does:
+/// "The operator refuses Move, with feedback, until the drone is gone" (plan §GD). The gate's other refusals of a
+/// right-click stay unsaid, as before.
 pub(super) fn right_click_orders(
     actions: Res<ActionState>,
     mut clicks: MessageReader<MapClick>,
@@ -278,6 +283,7 @@ pub(super) fn right_click_orders(
     bindings: Res<Bindings>,
     mut control: LocalControl,
     mut outbox: OrderOutbox,
+    mut refused: MessageWriter<CommandRefused>,
 ) {
     let clicks: Vec<MapClick> = clicks
         .read()
@@ -299,25 +305,35 @@ pub(super) fn right_click_orders(
         (minimap.right_click).map(|click| (MapTarget::on_ground(sim, player, click.ground), click.modifiers));
     let targets: Vec<(MapTarget, Modifiers)> = on_map.chain(on_minimap).collect();
     for (target, modifiers) in targets {
-        if !right_click(
-            &control,
-            &mut outbox,
-            &target,
-            bindings.holds(InputAction::Queue, modifiers),
-        ) {
-            return;
+        let queue = bindings.holds(InputAction::Queue, modifiers);
+        match right_click(&control, &mut outbox, &target, queue) {
+            None => return,
+            Some(Err(Reject::DroneOut)) => {
+                let why = WhyUnavailable::Refused(Reject::DroneOut);
+                refused.write(CommandRefused {
+                    why,
+                    tick: control.sim().tick(),
+                });
+            }
+            Some(_) => {}
         }
     }
 }
 
 /// One right-click on `target`, queued or not, as [`right_click_orders`] has it: each selected object's own
-/// resolution, the units' orders grouped and the producers' rally point. Whether the selection may be commanded at
-/// all: nothing is given otherwise.
-fn right_click(control: &LocalControl, outbox: &mut OrderOutbox, target: &MapTarget, queue: bool) -> bool {
+/// resolution, the units' orders grouped and the producers' rally point. `None` if the selection may not be commanded
+/// at all, nothing being given; else what became of the units' orders ([`OrderOutbox::give_each`]: `Ok` if any went,
+/// else the first one's refusal).
+fn right_click(
+    control: &LocalControl,
+    outbox: &mut OrderOutbox,
+    target: &MapTarget,
+    queue: bool,
+) -> Option<Result<(), Reject>> {
     let state = control.state();
     let player = control.player();
     if !commandable(control.sim(), player, &state.selection) {
-        return false;
+        return None;
     }
     let modes = Modes::of(control.sim(), &state.selection);
     let mut orders: Vec<(ObjectId, OrderKind)> = Vec::new();
@@ -331,9 +347,9 @@ fn right_click(control: &LocalControl, outbox: &mut OrderOutbox, target: &MapTar
             Some(Resolved::Ability(_) | Resolved::Cast(..)) | None => {}
         }
     }
-    outbox.give_each(player, orders, queue);
+    let given = outbox.give_each(player, orders, queue);
     if let Some((on, producers)) = rally {
         outbox.produce(player, producers, ProductionCommand::SetRally(on));
     }
-    true
+    Some(given)
 }

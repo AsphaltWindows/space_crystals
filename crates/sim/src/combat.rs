@@ -102,6 +102,7 @@ use crate::conversion;
 use crate::defs::{AttackAttrs, AttackType, ObjectKind, TargetDomain};
 use crate::ids::ObjectId;
 use crate::object::Object;
+use crate::tether;
 
 pub use area::{hits_domain, overlap};
 pub use damage::{Hit, Taken, directional_multiplier, hit_damage, pre_armor_multiplier, resolve};
@@ -329,9 +330,11 @@ impl AttackState {
 /// `TurretSourceBaseActions`), and so may every object without an attack. The movement step (5d) holds a unit that may
 /// not, keeping its goal; the behaviours (5a) don't start a chase then. Before 5e it reads the phase the last tick
 /// left, which is the one this tick runs in; a Stop or a new target in 5a has already cancelled an aim. A unit that
-/// converts its weapon holds still whatever its attack (`conversion`: "The unit converts in place").
+/// converts its weapon holds still whatever its attack (`conversion`: "The unit converts in place"), and so (M6-GD)
+/// does an operator with its drone out (`crate::tether`: "The Drone Operator **cannot move** while it has a drone
+/// active").
 pub fn may_move(o: &Object) -> bool {
-    base_is_free(o.kind, o.attack.as_ref()) && !conversion::is_converting(o)
+    base_is_free(o.kind, o.attack.as_ref()) && !conversion::is_converting(o) && !tether::holds(o)
 }
 
 /// `systems/combat.md > AttackPhase > UnitBaseSourceActions`: whether anything but the attack may turn `o`'s base

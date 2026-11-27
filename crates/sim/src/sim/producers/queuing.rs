@@ -12,10 +12,20 @@ use crate::production::{ProductionCommand, QueueEntry, Refusal, takes_rally};
 use crate::sim::gate::Checked;
 use crate::sim::{Reject, Sim};
 
-/// A producer that may take a `Train`, a `TrainFrom` ([`Sim::plan_training`]) or an `Augment` ([`Sim::plan_augment`]):
-/// the work it has queued, its id, the entry's cost, why it can't take the entry whatever the bank, and the units the
-/// entry would reserve.
-type Candidate = (u64, ObjectId, u32, Option<Refusal>, Vec<ObjectId>);
+/// A producer that may take a `Train`, a `TrainFrom` ([`Sim::plan_training`]) or an `Augment` ([`Sim::plan_augment`]).
+struct Candidate {
+    /// The work it has queued (`Production::remaining_work`), by which it is served.
+    work: u64,
+    id: ObjectId,
+    /// The entry's price there: its Space Crystals and (M6-GD) its Supplies (`QueueEntry::cost`,
+    /// `QueueEntry::supplies`).
+    crystals: u32,
+    supplies: u32,
+    /// Why it can't take the entry whatever the bank.
+    passed_over: Option<Refusal>,
+    /// The units the entry would reserve.
+    units: Vec<ObjectId>,
+}
 
 impl Sim {
     /// The gate's rules for `Command::Production` (`factions/gdo/structures/barracks.md >
@@ -28,11 +38,13 @@ impl Sim {
     ///   has the recipe, or only a Recruitment Hall, which trains nothing on command: `sim/recruitment.rs`),
     ///   [`Reject::Requires`] (the player owns none of a type its entry requires, slice M4-K:
     ///   `core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`, `crate::tech`; a unit already queued
-    ///   goes on whatever is lost later), [`Reject::InsufficientCrystals`] or [`Reject::QueueFull`]. Queuing "needs
-    ///   only its Space Crystals (paid when queued) and a free queue slot; it does **not** check or reserve Unit
-    ///   Control" (design change 0143, `factions/gdo/overview.md > GDOResources > Unit Control > Reserved when
-    ///   production starts`; the Colonists' Beacon Capacity alike): the army cap is checked when production starts
-    ///   (`producers/step.rs`).
+    ///   goes on whatever is lost later), [`Reject::InsufficientCrystals`], (M6-GD) [`Reject::InsufficientSupplies`]
+    ///   or [`Reject::QueueFull`]. Queuing "needs only its Space Crystals (paid when queued) and a free queue slot; it
+    ///   does **not** check or reserve Unit Control" (design change 0143, `factions/gdo/overview.md > GDOResources >
+    ///   Unit Control > Reserved when production starts`; the Colonists' Beacon Capacity alike): the army cap is
+    ///   checked when production starts (`producers/step.rs`). (M6-GD) A recipe with Supplies (`Recipe::supplies`)
+    ///   needs them too, paid with its crystals (design changes 0435 and 0441: "deducts 100 Space Crystals and 1
+    ///   Supply", "the player has sufficient Space Crystals and Supplies").
     ///   Design change 0083: the producers are served by the work they have queued, least first, ties by id, each
     ///   check counting what the ones before it in this command took, **until the crystal check fails** (0143: 0083
     ///   no longer considers the army cap); a full queue is passed over. A pool producer (`producers/pool.rs`, slice
@@ -156,7 +168,14 @@ impl Sim {
                     }
                     None => (production.is_full().then_some(Refusal::QueueFull), Vec::new()),
                 };
-                Some((production.remaining_work(def), id, recipe.cost, passed_over, units))
+                Some(Candidate {
+                    work: production.remaining_work(def),
+                    id,
+                    crystals: recipe.cost,
+                    supplies: recipe.supplies,
+                    passed_over,
+                    units,
+                })
             })
             .collect();
         if able.is_empty() {
@@ -200,7 +219,14 @@ impl Sim {
                 } else {
                     units.is_empty().then_some(Refusal::NoRecruit)
                 };
-                Some((production.remaining_work(def), id, recipe.cost, passed_over, units))
+                Some(Candidate {
+                    work: production.remaining_work(def),
+                    id,
+                    crystals: recipe.cost,
+                    supplies: 0,
+                    passed_over,
+                    units,
+                })
             })
             .collect();
         if able.is_empty() {
@@ -211,8 +237,11 @@ impl Sim {
 
     /// Design change 0083's serving of `able`, the producers that may queue `entry` for `player`, which may take units of
     /// kind `from` ([`Sim::plan_training`], [`Sim::plan_augment`]): by the work they have queued, least first, ties by id,
-    /// each paying out of what the ones before it in this command left, **until the crystal check fails**; one passed
-    /// over refuses it whatever the bank. If none takes it, the first reason: the crystals' before a passed over one's.
+    /// each paying out of what the ones before it in this command left, **until the check of the bank fails**: its Space
+    /// Crystals, then (M6-GD) its Supplies, both paid when the entry is queued ("crystals or any other resource paid at
+    /// queue time", `systems/controls/selection.md > Group production with limited resources`; "both are required"). One
+    /// passed over refuses it whatever the bank. If none takes it, the first reason: the bank's before a passed over
+    /// one's, the crystals' before the Supplies' when both are short.
     fn serve(
         &self,
         player: PlayerId,
@@ -220,30 +249,38 @@ impl Sim {
         mut able: Vec<Candidate>,
         from: Option<RecruitKind>,
     ) -> Result<ProductionPlan, Reject> {
-        able.sort_unstable_by_key(|&(work, id, ..)| (work, id));
-        let mut crystals = self.player(player).map_or(0, |p| p.crystals);
+        able.sort_unstable_by_key(|candidate| (candidate.work, candidate.id));
+        let bank = self.player(player);
+        let mut crystals = bank.map_or(0, |p| p.crystals);
+        let mut supplies = bank.map_or(0, |p| p.supplies);
         let (mut accepted, mut refused) = (Vec::new(), Vec::new());
         let (mut stopped, mut passed): (Option<Refusal>, Option<Refusal>) = (None, None);
-        for (_, id, cost, passed_over, units) in able {
-            if let Some(reason) = passed_over {
+        for candidate in able {
+            let id = candidate.id;
+            if let Some(reason) = candidate.passed_over {
                 passed.get_or_insert(reason);
                 refused.push((id, reason));
                 continue;
             }
-            if stopped.is_none() && crystals < cost {
+            if stopped.is_none() && crystals < candidate.crystals {
                 stopped = Some(Refusal::Crystals);
+            }
+            if stopped.is_none() && supplies < candidate.supplies {
+                stopped = Some(Refusal::Supplies);
             }
             match stopped {
                 Some(reason) => refused.push((id, reason)),
                 None => {
-                    crystals -= cost;
-                    accepted.push((id, units));
+                    crystals -= candidate.crystals;
+                    supplies -= candidate.supplies;
+                    accepted.push((id, candidate.units));
                 }
             }
         }
         if accepted.is_empty() {
             return Err(match stopped.or(passed) {
                 Some(Refusal::Crystals) => Reject::InsufficientCrystals,
+                Some(Refusal::Supplies) => Reject::InsufficientSupplies,
                 Some(Refusal::NoRecruit) => from.map_or(Reject::QueueFull, Reject::NoRecruit),
                 Some(Refusal::QueueFull) | None => Reject::QueueFull,
             });

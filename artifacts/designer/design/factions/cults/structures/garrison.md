@@ -8,7 +8,7 @@ The Cults' defensive structure. Infantry enter the Garrison and fire from inside
 ## GarrisonCapacity - 4 units
 
 ## Garrisoning
-- **Who can enter**: Recruits, Militants, Gunners, and Disciples. Units enter with the Enter command (right-click own Garrison with eligible infantry selected), up to 4 units total.
+- **Who can enter**: Recruits, Militants, Gunners, and Disciples (**illusions** of Disciples too, and they fire for real; user, 2026-11-27; factions/cults/units/disciple.md > Mirage). Units enter with the Enter command (right-click own Garrison with eligible infantry selected), up to 4 units total.
 - **Weapons**: a Recruit or Disciple inside attacks with the Militant's AttackAttributes (see Militant); Militants and Gunners use their own AttackAttributes. **No spells from inside** (user, 2026-11-26; Q0115). **Augmentations don't change the borrowed attack** (user, 2026-11-26; Q0115): a Recruit or Disciple inside fires the Militant's attack unchanged.
 - **Range bonus**: **Militants and Gunners** inside get **+1 grid unit of Range** on their attack. Recruits and Disciples (firing with the Militant's attack) do not get the bonus — they fire at the Militant's normal Range.
 - **Seen as a threat** (user, 2026-11-27; Q0139): enemies' target scans treat the Garrison as a threatening target while any occupant could attack the scanner's domain (systems/controls/behaviors.md > TurretAutonomousScanning > Target Selection Priority).

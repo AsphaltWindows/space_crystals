@@ -18,7 +18,9 @@
 //! duration and only a kind the ability affects holds it, held units too: `buffs`), (M5-H1) the Glider invariant G1 (a
 //! Glider in flight never stops, keeps within its IdleSpeed and MaxSpeed, and counts as being on the map: `gliders`),
 //! (M5-V2) the wheeled invariant W1 (a FixedTurnRadiusMovement unit turns by its speed, never in place: `momentum`),
-//! and an ASCII picture of the map with its units for readable failures.
+//! (M6-GD) the drone invariant D1 (stocks within their max, a drone and its operator naming each other, the drone
+//! within its leash and battery, its operator standing still: `tethers`), and an ASCII picture of the map with its
+//! units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step, as the golden games do (slice M5-M1); the fuzz's
@@ -38,6 +40,7 @@ mod picture;
 mod projectiles;
 mod research;
 mod reservations;
+mod tethers;
 
 use std::collections::BTreeMap;
 
@@ -111,6 +114,17 @@ pub struct Invariants {
     books: banks::Books,
 }
 
+/// The units a debug command teleported in the tick of `inputs` (`DebugCommand::SetPosition`): they may "move" without a
+/// goal.
+fn teleported(inputs: &TickInputs) -> Vec<ObjectId> {
+    (inputs.commands.iter())
+        .filter_map(|c| match c.command {
+            Command::Debug(DebugCommand::SetPosition { id, .. }) => Some(id),
+            _ => None,
+        })
+        .collect()
+}
+
 fn leg_of(o: &Object) -> Option<Tick> {
     o.orders.as_ref()?.current.as_ref().map(|active| active.since)
 }
@@ -148,14 +162,7 @@ impl Invariants {
     /// Checks the state after a step that applied `inputs` (teleports are read from them: a teleported unit may
     /// "move" without a goal). Returns the first violation.
     pub fn check(&mut self, sim: &Sim, inputs: &TickInputs) -> Result<(), Violation> {
-        let teleported: Vec<ObjectId> = inputs
-            .commands
-            .iter()
-            .filter_map(|c| match c.command {
-                Command::Debug(DebugCommand::SetPosition { id, .. }) => Some(id),
-                _ => None,
-            })
-            .collect();
+        let teleported = teleported(inputs);
         // (M5-F3) The units evacuated in this tick (design change 0349), which came onto the map overlapping.
         let evacuated: Vec<ObjectId> = (sim.events().iter())
             .filter_map(|e| match *e {
@@ -175,11 +182,11 @@ impl Invariants {
     }
 
     /// (M5-M1) Of [`Invariants::check`]'s invariants, those of the game's rules alone: P1, O1, R1, H1, B1, A1, E1
-    /// (slice M5-N4a), T1 (slice M5-N3), C1 (slice M5-N4b), F1 (slice M5-N5) and G1 (slice M5-H1), which hold whatever
-    /// the input and cost little. Not the movement invariants, whose I6 bounds how far a scenario may fall behind, nor
-    /// V1 and K1, which rebuild every player's vision and planning grids and make most of a check's cost. For a harness
-    /// of many games of random input:
-    /// `tests/robustness.rs`, whose seed sweep V1 and K1 would take from 5 s to 26 s.
+    /// (slice M5-N4a), T1 (slice M5-N3), C1 (slice M5-N4b), F1 (slice M5-N5), G1 (slice M5-H1) and D1 (slice M6-GD),
+    /// which hold whatever the input and cost little. Not the movement invariants, whose I6 bounds how far a scenario
+    /// may fall behind, nor V1 and K1, which rebuild every player's vision and planning grids and make most of a
+    /// check's cost. For a harness of many games of random input: `tests/robustness.rs`, whose seed sweep V1 and K1
+    /// would take from 5 s to 26 s.
     pub fn check_rules(&mut self, sim: &Sim, inputs: &TickInputs) -> Result<(), Violation> {
         let result = self.rules(sim, inputs);
         *self = Self::new(sim);
@@ -187,6 +194,7 @@ impl Invariants {
     }
 
     fn rules(&self, sim: &Sim, inputs: &TickInputs) -> Result<(), Violation> {
+        let teleported = teleported(inputs);
         projectiles::projectiles(sim)
             .and_then(|()| operations::operations(sim))
             .and_then(|()| reservations::reservations(sim))
@@ -198,6 +206,7 @@ impl Invariants {
             .and_then(|()| clouds::clouds(sim))
             .and_then(|()| buffs::buffs(sim))
             .and_then(|()| gliders::gliders(sim, &self.seen))
+            .and_then(|()| tethers::tethers(sim, &self.seen, &teleported))
     }
 
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
@@ -515,7 +524,7 @@ fn floats_finite(o: &Object) -> bool {
                     }
                     OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => true,
                     OrderKind::Enter(_) | OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => true,
-                    OrderKind::Shroud | OrderKind::TargetLock(_) => true,
+                    OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => true,
                 }
         })
     });

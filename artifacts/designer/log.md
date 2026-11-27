@@ -2412,3 +2412,10 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0175 (user: 4): default rally point 3 GU out for vehicle buildings (0446).
 - 0447: correction, default rally can be cleared by rallying on the building.
 - Session pause (2026-11-26, later): Q0173–Q0175 answered (0444–0447). User away to think about unit designs.
+
+## 2026-11-27 — Disciple: Mirage; Shroud lingers
+- User designed Mirage (instant, 4 illusions N/E/S/W, ×2 damage, indistinguishable to enemies, owner sees "(illusion)", no Unit Control, controllable, have sight, Shroud animation mirrored without cloud, can garrison and fire for real; end on death/parent death/recast; casting Mirage cancels Shroud). Shroud cloud lingers 1.5 s after the channel ends.
+- Designer placeholders: 50 energy, 1 GU offset, hotkey F (W is Reverse slot).
+- Files: factions/cults/units/disciple.md, structures/garrison.md, README.md, units/README.md. Change entry 0448.
+- Q0176–Q0184 recorded (non-blocking), not yet presented.
+- Q0176 answered from docs (0449): combat.md stale rows fixed.

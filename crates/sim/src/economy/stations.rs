@@ -120,6 +120,9 @@ mod tests {
             energy: None,
             kept_research: None,
             buffs: Vec::new(),
+            stock: None,
+            tether: None,
+            drone: None,
         }
     }
 

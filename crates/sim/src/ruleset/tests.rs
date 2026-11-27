@@ -1,5 +1,5 @@
 use super::*;
-use crate::defs::{Footprint, ProductionDef, Recipe, Tech, TechDef, UnitDef};
+use crate::defs::{Footprint, ProductionDef, Recipe, StockDef, Tech, TechDef, UnitDef};
 
 fn unit(rules: &mut Ruleset) -> &mut UnitDef {
     rules.defs.get_mut(ObjectKind::Peacekeeper).unit.as_mut().unwrap()
@@ -136,6 +136,58 @@ fn only_numbers_change_without_a_new_game() {
     assert_eq!(
         changed(&|r| tech(r).requires = None),
         change("ImprovedMetabolismL2", "requires")
+    );
+}
+
+/// (M6-GD) The Drone Operator's stock and its drone's tether (`crate::stock`, `crate::tether`): their numbers apply
+/// live (the stock's size, start, price and frames, the leash and the battery); having one, and what a stock holds, are
+/// structure.
+#[test]
+fn a_stock_and_a_tether_are_structure_and_their_numbers_live() {
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    let change = |entry, field| Some(RuleField { entry, field });
+    fn operator(rules: &mut Ruleset) -> &mut UnitDef {
+        rules.defs.get_mut(ObjectKind::DroneOperator).unit.as_mut().unwrap()
+    }
+    fn drone(rules: &mut Ruleset) -> &mut UnitDef {
+        rules.defs.get_mut(ObjectKind::OperatorDrone).unit.as_mut().unwrap()
+    }
+
+    assert_eq!(
+        changed(&|r| {
+            let stock = operator(r).stock.as_mut().unwrap();
+            (stock.max, stock.start, stock.price, stock.frames) = (3, 2, 75, 200);
+        }),
+        None
+    );
+    assert_eq!(
+        changed(&|r| {
+            let tether = drone(r).tether.as_mut().unwrap();
+            (tether.leash, tether.battery) = (10.0, 400);
+        }),
+        None
+    );
+    assert_eq!(changed(&|r| operator(r).stock = None), change("DroneOperator", "stock"));
+    assert_eq!(
+        changed(&|r| operator(r).stock.as_mut().unwrap().item = ObjectKind::Peacekeeper),
+        change("DroneOperator", "item")
+    );
+    assert_eq!(changed(&|r| drone(r).tether = None), change("OperatorDrone", "tether"));
+    let stock = StockDef {
+        item: ObjectKind::OperatorDrone,
+        max: 1,
+        start: 1,
+        price: 50,
+        frames: 160,
+    };
+    assert_eq!(
+        changed(&|r| unit(r).stock = Some(stock)),
+        change("Peacekeeper", "stock")
     );
 }
 

@@ -96,6 +96,7 @@ fn with_no_patch_left_a_job_ends_or_delivers_its_load_first() {
                 .map_or(0.0, |unit| unit.movement.max_speed()),
             may_attack: true,
             converting: false,
+            tethered: false,
             worker: Some(&mut worker),
             energy: None,
         };

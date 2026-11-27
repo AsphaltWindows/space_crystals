@@ -2,7 +2,7 @@
 
 ## Files
 
-- `disciple.md` — **Disciple**: Spell caster (Cathedral)
+- `disciple.md` — **Disciple**: Spell caster: Shroud, Mirage (Cathedral)
 - `prayer_mobile.md` — **Prayer-mobile**: Wheeled caster vehicle, Inspire and Suppress (Chop Shop, 2 Recruits, needs a Temple)
 - `militant.md` — **Militant**: Basic combat infantry
 - `gunner.md` — **Gunner**: Heavier-hitting infantry

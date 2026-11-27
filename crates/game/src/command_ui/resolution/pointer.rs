@@ -61,7 +61,7 @@ impl PointerDisplay {
     /// "will issue AttackMove"); GatherResources for a Gather ("Cursor over resource (resource gatherer selected)"),
     /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"), Enter for
     /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"), Assist for an Assist and Repair for a
-    /// Repair (design change 0322). No click gives Hold, Stop or (M5-N4b) a Shroud.
+    /// Repair (design change 0322). No click gives Hold, Stop, (M5-N4b) a Shroud or (M6-GD) a Launch.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
             // No click gives a Deploy (slice M3-J1 places it), nor a Build.
@@ -77,7 +77,7 @@ impl PointerDisplay {
             OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::TargetLock(_) => PointerDisplay::Attack,
             OrderKind::Patrol(_) => PointerDisplay::Patrol,
             OrderKind::AttackGround(_) => PointerDisplay::AttackGround,
-            OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud => PointerDisplay::Inactive,
+            OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch => PointerDisplay::Inactive,
         }
     }
 

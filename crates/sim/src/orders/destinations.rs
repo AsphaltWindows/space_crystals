@@ -102,8 +102,9 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Reverse(_) => {
                 return order.destination();
             }
-            // (M5-N4b) A channel, as a Hold, leaves the unit where the orders before it did; (M5-K) a Target Lock too.
-            OrderKind::Stop | OrderKind::Hold | OrderKind::Shroud | OrderKind::TargetLock(_) => {}
+            // (M5-N4b) A channel, as a Hold, leaves the unit where the orders before it did; (M5-K) a Target Lock too,
+            // and (M6-GD) a Launch.
+            OrderKind::Stop | OrderKind::Hold | OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => {}
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Patrol(_) => return None,
             // A worker's job ends wherever its drop-off is by then; a Deploy leaves no unit to go on.
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => return None,

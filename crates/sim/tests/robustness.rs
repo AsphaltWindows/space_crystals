@@ -119,8 +119,12 @@ fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
         })
         .collect();
     if rng.below(6) == 0 {
-        let ability = Ability::RiotShield {
-            raise: rng.below(2) == 0,
+        let raise = rng.below(2) == 0;
+        // (M6-GD) A Buy in place of a Riot Shield for a group whose first unit's id is a multiple of 3, so that the
+        // stream of random numbers stays the same.
+        let ability = match units.first() {
+            Some(unit) if unit.0.is_multiple_of(3) => Ability::Buy,
+            _ => Ability::RiotShield { raise },
         };
         return Command::Ability { units, ability };
     }
@@ -143,7 +147,12 @@ fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
         }
         2 => OrderKind::AttackMove(random_point(rng, sim)),
         3 => OrderKind::Patrol(random_point(rng, sim)),
-        4 => OrderKind::Hold,
+        // (M6-GD) A Launch in place of a Hold for a group whose first unit's id is a multiple of 3, the stream of random
+        // numbers the same.
+        4 => match units.first() {
+            Some(unit) if unit.0.is_multiple_of(3) => OrderKind::Launch,
+            _ => OrderKind::Hold,
+        },
         5 => OrderKind::Stop,
         // (M5-K) A Target Lock on the nearest object, in place of a Shroud for a group whose first unit's id is even,
         // so that the stream of random numbers stays the same.
@@ -426,7 +435,10 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ShroudEnded { .. }
                 | SimEvent::ShroudReleased { .. }
                 | SimEvent::Cast { .. }
-                | SimEvent::RulesChanged => {}
+                | SimEvent::RulesChanged
+                | SimEvent::DroneLaunched { .. }
+                | SimEvent::DroneFell { .. }
+                | SimEvent::StockBought { .. } => {}
             }
         }
         unit_steps += sim

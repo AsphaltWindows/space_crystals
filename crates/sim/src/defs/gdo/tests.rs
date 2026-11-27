@@ -131,10 +131,18 @@ fn the_gdo_kinds_are_every_designed_one() {
     assert_eq!(named(Category::Mine), BTreeSet::from(["Mine".to_owned()]));
 }
 
+/// The kinds of [`NEW`] that a slice since M6-GK has made live, each with the kind whose list makes it, in the order
+/// the slices landed: (M6-GD) the Barracks' Drone Operator, and its drone, which the operator's stock launches
+/// (`UnitDef::stock`).
+const LIVE: &[(ObjectKind, ObjectKind)] = &[
+    (ObjectKind::Barracks, ObjectKind::DroneOperator),
+    (ObjectKind::DroneOperator, ObjectKind::OperatorDrone),
+];
+
 /// The kinds that some live list makes, each with the kind whose list it is: a constructor's `Constructs` list
 /// (`StructureDef::constructs`), a Beacon's Warp In list, a producer's `Produces` list, a builder's builds, a unit's
-/// deploy, its Riot Shield's two types and a Legionnaire's two forms; and the menus of the Cults' Recruits and of the
-/// Syndicate's Agents, whose builders are their builds' (already listed).
+/// deploy, its Riot Shield's two types, a Legionnaire's two forms and (M6-GD) a unit's stock; and the menus of the
+/// Cults' Recruits and of the Syndicate's Agents, whose builders are their builds' (already listed).
 fn made() -> Vec<(ObjectKind, ObjectKind)> {
     let mut made = Vec::new();
     for &maker in ObjectKind::ALL {
@@ -156,6 +164,7 @@ fn made() -> Vec<(ObjectKind, ObjectKind)> {
                     .into_iter()
                     .flat_map(|c| c.forms.map(|form| (maker, form))),
             );
+            made.extend(unit.stock.map(|stock| (maker, stock.item)));
         }
     }
     for slot in CONSTRUCT_MENU {
@@ -172,15 +181,19 @@ fn made() -> Vec<(ObjectKind, ObjectKind)> {
 }
 
 /// T69's rule, for plan decision T84: no live list makes a kind of slice M6-GK's (no `constructs`, `production`,
-/// `builds` or menu entry goes live with the kinds), and the entries that will are held, each once, in
-/// [`PLANNED_RECIPES`]: a GDO maker's, for a kind of slice M6-GK's, every one of them but the Outpost (deployed of a
-/// Prospector, `factions/gdo/units/prospector.md`), the deployed Rig, the drone (launched by its operator) and the mine
-/// (laid by a Twister), which no recipe makes.
+/// `builds` or menu entry goes live with the kinds) until its slice makes it live ([`LIVE`]), and the entries that will
+/// are held, each once, in [`PLANNED_RECIPES`]: a GDO maker's, for a kind of slice M6-GK's, every one of them but
+/// those made live, the Outpost (deployed of a Prospector, `factions/gdo/units/prospector.md`), the deployed Rig and
+/// the mine (laid by a Twister), which no recipe makes.
 #[test]
 fn no_new_kind_is_made_yet() {
     for (maker, kind) in made() {
-        assert!(!NEW.contains(&kind), "{maker:?} makes {kind:?}");
+        assert!(
+            !NEW.contains(&kind) || LIVE.contains(&(maker, kind)),
+            "{maker:?} makes {kind:?}"
+        );
     }
+    let live: Vec<ObjectKind> = LIVE.iter().map(|&(_, kind)| kind).collect();
     let held: Vec<ObjectKind> = PLANNED_RECIPES.iter().map(|(_, recipe)| recipe.kind).collect();
     let unique: BTreeSet<ObjectKind> = held.iter().copied().collect();
     assert_eq!(unique.len(), held.len(), "each held once");
@@ -195,13 +208,11 @@ fn no_new_kind_is_made_yet() {
                 .all(|kind| kind.def().faction == Some(Faction::Gdo))
         );
     }
-    let unmade: Vec<ObjectKind> = NEW.iter().copied().filter(|kind| !held.contains(kind)).collect();
-    let others = [
-        ObjectKind::Outpost,
-        ObjectKind::ArtilleryRigDeployed,
-        ObjectKind::OperatorDrone,
-        ObjectKind::Mine,
-    ];
+    assert!(held.iter().all(|kind| !live.contains(kind)), "a live kind isn't held");
+    let unmade: Vec<ObjectKind> = (NEW.iter().copied())
+        .filter(|kind| !held.contains(kind) && !live.contains(kind))
+        .collect();
+    let others = [ObjectKind::Outpost, ObjectKind::ArtilleryRigDeployed, ObjectKind::Mine];
     assert_eq!(unmade, others);
 }
 

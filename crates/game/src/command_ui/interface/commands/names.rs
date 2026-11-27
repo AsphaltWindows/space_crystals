@@ -30,7 +30,8 @@ impl PanelCommand {
     /// M5-N4b). A Shrine's casts are their names' first words, "Health" and "Energy" (slice M5-N5; the names are TBD,
     /// `factions/cults/structures/shrine.md > Abilities`). A Rocketman's Target Lock is "Lock", its name's second word,
     /// which says what it does (slice M5-K). A Prayer-mobile's casts shorten their names, "Insp." and "Suppr." (slice
-    /// M5-N11).
+    /// M5-N11). A Drone Operator's Launch Drone is its name's first word, "Launch", and its Build Drone the drone's tag,
+    /// "DRN", what it makes, as a Train shows its unit's (slice M6-GD).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -51,7 +52,8 @@ impl PanelCommand {
             | PanelCommand::Eject(kind)
             | PanelCommand::Build(kind)
             | PanelCommand::Expand(kind)
-            | PanelCommand::Place(kind) => short_label(kind),
+            | PanelCommand::Place(kind)
+            | PanelCommand::Buy(kind) => short_label(kind),
             PanelCommand::Planned(planned) => planned.label(),
             PanelCommand::CancelProduction
             | PanelCommand::CancelConstruction
@@ -84,6 +86,7 @@ impl PanelCommand {
             PanelCommand::Cast(AreaAbility::Inspire) => "Insp.",
             PanelCommand::Cast(AreaAbility::Suppress) => "Suppr.",
             PanelCommand::TargetLock => "Lock",
+            PanelCommand::Launch => "Launch",
         }
     }
 
@@ -134,6 +137,8 @@ impl PanelCommand {
             PanelCommand::ReleaseOne(kind) => format!("Release one {} Recruit", kind.name()),
             PanelCommand::Cast(ability) => ability.def().name.into(),
             PanelCommand::TargetLock => "Target Lock".into(),
+            PanelCommand::Launch => "Launch Drone".into(),
+            PanelCommand::Buy(kind) => named("Build", kind),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol

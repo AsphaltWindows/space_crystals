@@ -37,7 +37,11 @@
 //!   unavailable command`, design change 0162: "nothing is issued, and the player gets the same feedback as when an
 //!   order is refused, naming the reason (e.g. "Not enough Space Crystals", "Queue is full")"), and a Warp In whose
 //!   click the sim refused (`super::CommandRefused`): the button's reason ([`unavailable_text`]), placeholder
-//!   wordings but the design's two.
+//!   wordings but the design's two;
+//! - (M6-GD) a right-click that moves nothing for the units' drones (`factions/gdo/units/drone_operator.md > Launching
+//!   and piloting`: "The Drone Operator **cannot move** while it has a drone active"; plan §GD's acceptance: "The
+//!   operator refuses Move, with feedback, until the drone is gone"): every order it gives refused, one of them for a
+//!   drone out (`sc_sim::Reject::DroneOut`), said as a greyed Move is ([`DRONE_OUT_TEXT`], `super::CommandRefused`).
 //!
 //! The sim's events among these come through the filter of events (`crate::viewer_events`), which gives each to the
 //! owner of its producer, constructor or unit alone.
@@ -172,6 +176,20 @@ pub const TOP_TIER_TEXT: &str = "Already at the top tier";
 /// that something blocks it"): it never says what, as the owner may not see it. Placeholder wording (the brief's
 /// "something blocks it").
 pub const UPGRADE_BLOCKED_TEXT: &str = "Something blocks the upgrade";
+/// (M6-GD) The message of an order that would move a Drone Operator whose drone is out (`Reject::DroneOut`;
+/// `factions/gdo/units/drone_operator.md > Launching and piloting`: "The Drone Operator **cannot move** while it has a
+/// drone active"), of a second Launch Drone ("Only **one drone can be active at a time** per operator") and of a Build
+/// Drone meanwhile (design change 0421: "Build Drone can start only once the operator's drone has **ended**").
+/// Placeholder wording.
+pub const DRONE_OUT_TEXT: &str = "The drone is out";
+/// (M6-GD) The message of a Build Drone with the stock full (`Reject::StockFull`; `factions/gdo/units/drone_operator.md >
+/// Drone Stock`: "holds a **maximum of 1**"). Placeholder wording.
+pub const STOCK_FULL_TEXT: &str = "Already carries a drone";
+/// (M6-GD) The message of a Build Drone while one is bought (`Reject::PurchaseUnderWay`). Placeholder wording.
+pub const PURCHASE_UNDER_WAY_TEXT: &str = "Already building a drone";
+/// (M6-GD) The message of a Launch Drone with none in stock (`Reject::StockEmpty`; `factions/gdo/units/drone_operator.md
+/// > Drone Stock`: "once its drone has been used, it purchases/builds a replacement"). Placeholder wording.
+pub const STOCK_EMPTY_TEXT: &str = "No drone to launch";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -259,10 +277,13 @@ fn spawn_feedback(mut commands: Commands) {
 }
 
 /// The message of a producer that didn't queue a unit others of its command took (design change 0083): for want of
-/// Space Crystals, or of a free Recruit of the kind at a pool building (slice M5-F2); none for a full queue.
+/// Space Crystals, (M6-GD) of Supplies (the Drone Operator's: design change 0441, "greyed without it, with a feedback
+/// line that names Supplies"), or of a free Recruit of the kind at a pool building (slice M5-F2); none for a full
+/// queue.
 fn refusal_text(reason: Refusal) -> Option<&'static str> {
     match reason {
         Refusal::Crystals => Some(NO_CRYSTALS_TEXT),
+        Refusal::Supplies => Some(NO_SUPPLIES_TEXT),
         Refusal::QueueFull => None,
         Refusal::NoRecruit => Some(NO_RECRUIT_TEXT),
     }
@@ -329,7 +350,9 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 /// M4-F: its operation, an expansion's Tier Requirement above its tier, nothing to cancel), a prerequisite missing
 /// ([`requires_text`], slice M4-K), the Tunnel's Upgrade's (slice M4-G: its top tier, something blocking it), a pool
 /// building's (slice M5-F2: no free Recruit of the kind, nothing to eject), a Temple's key's (slice M5-N3: in progress,
-/// completed, its previous level missing), and placeholders for the others.
+/// completed, its previous level missing), (M6-GD) a Drone Operator's (its drone out, its stock full, empty or being
+/// filled; Supplies short for the Barracks' R, "a feedback line that names Supplies", design change 0441), and
+/// placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -358,6 +381,10 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::Researched(_) => RESEARCHED_TEXT,
         Reject::RequiresTech(tech) => requires_tech_text(tech),
         Reject::NotEnoughEnergy => NOT_ENOUGH_ENERGY_TEXT,
+        Reject::DroneOut => DRONE_OUT_TEXT,
+        Reject::StockFull => STOCK_FULL_TEXT,
+        Reject::PurchaseUnderWay => PURCHASE_UNDER_WAY_TEXT,
+        Reject::StockEmpty => STOCK_EMPTY_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

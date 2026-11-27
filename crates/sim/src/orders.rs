@@ -26,7 +26,9 @@
 //! - [`shroud`]: a Disciple channelling Shroud where it stands, its energy drained each tick (slice M5-N4b); the
 //!   phase lists the units that channel as it ends, for their clouds (`crate::shroud`);
 //! - [`target_lock`]: a Rocketman locking onto its target and firing at it where it stands, until the lock breaks
-//!   (slice M5-K; the lock itself is phase 5e's, `crate::combat::target_lock`).
+//!   (slice M5-K; the lock itself is phase 5e's, `crate::combat::target_lock`);
+//! - [`launch`]: a Drone Operator stopping to launch its drone, which the step right after the phase does (slice
+//!   M6-GD, `crate::tether`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
@@ -41,6 +43,7 @@ mod engage;
 mod enter;
 pub(crate) mod gather;
 mod hash;
+pub(crate) mod launch;
 pub(crate) mod reach;
 mod repair;
 pub mod resolution;
@@ -168,6 +171,12 @@ pub enum OrderKind {
     /// until the lock breaks (`crate::combat::target_lock`), which ends the order ([`target_lock`]). Only a unit whose
     /// type has a Target Lock takes it (`UnitDef::target_lock`, the gate).
     TargetLock(ObjectId),
+    /// (M6-GD) `factions/gdo/units/drone_operator.md > Launching and piloting`: "The Drone Operator launches a drone
+    /// from its stock" (the operator's R; plan decision T91: an order, untargeted and queueable, so that it waits behind
+    /// a Move). The unit stops, and the step right after phase 5a launches its drone over it, ending the order
+    /// ([`launch`], `crate::tether`). Only a unit whose stock holds drones takes it, with one in stock and none out
+    /// (the gate).
+    Launch,
 }
 
 impl OrderKind {
@@ -184,7 +193,7 @@ impl OrderKind {
             | OrderKind::TargetLock(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } | OrderKind::Build { .. } => None,
-            OrderKind::AttackGround(_) | OrderKind::Shroud | OrderKind::Reverse(_) => None,
+            OrderKind::AttackGround(_) | OrderKind::Shroud | OrderKind::Reverse(_) | OrderKind::Launch => None,
         }
     }
 }
@@ -214,8 +223,8 @@ impl Order {
             OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => None,
             // The unit goes only as near the location as its attack needs (`attack_ground`).
             OrderKind::Enter(_) | OrderKind::AttackGround(_) => None,
-            // (M5-N4b) A channel holds the unit where it stands; (M5-K) so does a Target Lock.
-            OrderKind::Shroud | OrderKind::TargetLock(_) => None,
+            // (M5-N4b) A channel holds the unit where it stands; (M5-K) so does a Target Lock, and (M6-GD) a Launch.
+            OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => None,
         }
     }
 

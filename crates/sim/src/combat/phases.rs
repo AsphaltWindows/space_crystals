@@ -31,6 +31,12 @@
 //! (M5-N11) A suppressed unit holds its fire (`crate::suppress`; `factions/cults/units/prayer_mobile.md > Abilities`:
 //! "Affected units **temporarily can't attack**"): its shooter starts no sequence, and an aim under way is cancelled,
 //! as a new command cancels one, while a Firing, a Cooldown and a Reloading under way run on to their ends.
+//!
+//! (M6-GD) A FullyConnected area attack (the operator's drone's explosion, `factions/gdo/units/drone_operator.md >
+//! Launching and piloting`: "It takes normal Attack orders and attacks like any melee unit") aims at its target as a
+//! melee attack does, and at the end of its Firing blasts the circle round its attacker (`effects::strike`, by
+//! `super::area`'s rule: every object of its TargetDomain in the circle, whoever owns it), whatever became of its
+//! target. A tethered unit's attack spends it then ("using its attack destroys it"): it leaves with the tick's dead.
 
 use glam::Vec2;
 
@@ -39,7 +45,7 @@ use super::projectiles::Projectile;
 use super::targeting::{TargetView, Targets, domain_allows, reaches, reaches_point};
 use super::turret::{self, Source, TurretState};
 use super::{AttackPhase, AttackState};
-use crate::defs::{AttackAttrs, AttackType};
+use crate::defs::{AttackAttrs, AttackType, TargetType};
 use crate::elevation::Elevation;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
@@ -59,12 +65,15 @@ use effects::{fire, launch, strike};
 
 /// What one tick of attack sequences puts out (`super::step`): the hits of single-target attacks, for the tick's list,
 /// and the projectiles launched, for the store (plan decision T48); (M5-N4b) where each attack with hits leaves from,
-/// while there is a cloud (`super::damage::Origins`).
+/// while there is a cloud (`super::damage::Origins`); (M6-GD) the units their attack spent, in the order they attacked.
 pub(super) struct Volley {
     pub tick: Tick,
     pub hits: Vec<Hit>,
     pub origins: Origins,
     pub launched: Vec<Projectile>,
+    /// (M6-GD) The units whose attack was their end ([`Shooter::spent_by_attack`]): the drones that exploded, which
+    /// leave with the tick's dead (`super::step`).
+    pub spent: Vec<ObjectId>,
 }
 
 impl Volley {
@@ -75,6 +84,7 @@ impl Volley {
             hits: Vec::new(),
             origins: Origins::new(origins),
             launched: Vec::new(),
+            spent: Vec::new(),
         }
     }
 }
@@ -105,6 +115,9 @@ pub(super) struct Shooter<'a> {
     inside: bool,
     /// (M5-N11) It holds its fire, suppressed (`crate::suppress::holds_fire`): it starts no sequence ([`run`]).
     holds_fire: bool,
+    /// (M6-GD) Its attack is its end, "a melee-range attack that it can use only once" (`UnitDef::tether`: the
+    /// operator's drone, `crate::tether`): the end of its Firing spends it ([`Volley::spent`]).
+    spent_by_attack: bool,
 }
 
 impl<'a> Shooter<'a> {
@@ -135,6 +148,7 @@ impl<'a> Shooter<'a> {
             sight,
             inside: false,
             holds_fire: suppress::holds_fire(o),
+            spent_by_attack: unit.is_some_and(|unit| unit.tether.is_some()),
         }
     }
 
@@ -162,6 +176,7 @@ impl<'a> Shooter<'a> {
             sight,
             inside: true,
             holds_fire: false,
+            spent_by_attack: false,
         }
     }
 
@@ -224,6 +239,14 @@ impl<'a> Shooter<'a> {
     /// HeadDisjointed one (module docs), instead of hitting it there and then.
     fn homes(&self) -> bool {
         matches!(self.attrs.attack_type, AttackType::HeadDisjointed)
+    }
+
+    /// (M6-GD) Whether its attack bursts round it at the end of its Firing (module docs): a FullyConnected area attack,
+    /// the operator's drone's explosion, a blast centred on the attacker (plan decision T91: "a melee area hit, centred
+    /// on the drone").
+    fn bursts(&self) -> bool {
+        matches!(self.attrs.attack_type, AttackType::FullyConnected(_))
+            && matches!(self.attrs.target_type, TargetType::AoE { .. })
     }
 
     /// `systems/combat.md > ValidTarget` 2: whether its owner sees `t` (`PlayerVision::object_box_state`: `t` isn't
@@ -446,13 +469,21 @@ fn end(
         },
         AttackPhase::AimingAt { at } => Some(AttackPhase::FiringAt { at, target: None }),
         AttackPhase::Firing { target } => {
-            if let Some(t) = target.and_then(|id| targets.get(id)) {
+            if shooter.bursts() {
+                // (M6-GD) Round the attacker, whatever became of its target: the blast needs none.
+                volley.origins.mark(volley.hits.len(), shooter.pos);
+                strike(shooter, shooter.pos, target, targets, &mut volley.hits, events);
+            } else if let Some(t) = target.and_then(|id| targets.get(id)) {
                 if shooter.homes() {
                     launch(shooter, t.pos, Some(t), volley, events);
                 } else {
                     volley.origins.mark(volley.hits.len(), shooter.muzzle(t.pos));
                     fire(shooter, t, &mut volley.hits, events);
                 }
+            }
+            // (M6-GD) "using its attack destroys it".
+            if shooter.spent_by_attack {
+                volley.spent.push(shooter.id);
             }
             Some(AttackPhase::Cooldown)
         }

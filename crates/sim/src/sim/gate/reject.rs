@@ -74,7 +74,9 @@ pub enum Reject {
     InsufficientCrystals,
     /// The player's Supplies don't cover a Build order's price (`factions/syndicate/tunnels.md > Cost Scaling >
     /// Construction Cost`, design change 0233: "The order is refused, with feedback, if the player can't pay";
-    /// `Sim::build_price`, slice M4-E).
+    /// `Sim::build_price`, slice M4-E), or (M6-GD) a unit's (`Recipe::supplies`; `factions/gdo/structures/barracks.md >
+    /// ObjectInterfaceState[Barracks]`: "Only available if [...] the player has sufficient Space Crystals and
+    /// Supplies").
     InsufficientSupplies,
     /// Cancel Production: no producer has anything queued.
     NothingQueued,
@@ -242,6 +244,19 @@ pub enum Reject {
     /// (M5-X2) A `DebugCommand::SetRules` whose rules have a number the game isn't made for, here first
     /// (`Ruleset::check`): `why` says what it must be ("must be positive", ...).
     RulesInvalid { field: RuleField, why: &'static str },
+    /// (M6-GD) Every unit of a Buy that has a stock holds as many items as it can (`crate::stock`;
+    /// `factions/gdo/units/drone_operator.md > Drone Stock`: "holds a **maximum of 1**").
+    StockFull,
+    /// (M6-GD) Every unit of a Buy that has a stock is buying one already (plan decision T89: "refused while a purchase
+    /// runs").
+    PurchaseUnderWay,
+    /// (M6-GD) Every unit of the command has its drone out (`crate::tether`; `factions/gdo/units/drone_operator.md`):
+    /// a Buy ("Build Drone can start only once the operator's drone has **ended**", design change 0421), a Launch ("Only
+    /// **one drone can be active at a time** per operator"), and an order that would move it ("The Drone Operator
+    /// **cannot move** while it has a drone active").
+    DroneOut,
+    /// (M6-GD) None of the units of a Launch has an item in its stock to launch (`crate::stock`).
+    StockEmpty,
 }
 
 impl fmt::Display for Reject {
@@ -324,6 +339,10 @@ impl fmt::Display for Reject {
             Reject::RulesNotFinite(field) => write!(f, "{field} isn't a finite number in the rules"),
             Reject::RulesFull => write!(f, "no generation of rules is left; restart the game"),
             Reject::RulesInvalid { field, why } => write!(f, "{field} {why}"),
+            Reject::StockFull => write!(f, "the stock is full"),
+            Reject::PurchaseUnderWay => write!(f, "a purchase is under way"),
+            Reject::DroneOut => write!(f, "its drone is out"),
+            Reject::StockEmpty => write!(f, "there is nothing in stock to launch"),
         }
     }
 }

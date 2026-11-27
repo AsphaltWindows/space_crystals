@@ -65,7 +65,9 @@
 //! `production`'s, and the Deployment Center's D, the Career Campus, `construction`'s. The GDO's Rocketman (slice
 //! M5-K: R Target Lock on the enemy clicked, its pointer, an invalid target on the ground, and Shift+R after a Move,
 //! a lock on a structure queued behind it): `rocketman_ui`. A Barracks in focus with units, whose A sends them to
-//! attack (design change 0407), is in `panel::attack`.
+//! attack (design change 0407), is in `panel::attack`. The Drone Operator (slice M6-GD: the Barracks' R greyed for want
+//! of a Supply, then paid in both resources and refunded; the operator's R launching its drone, the selection kept, and
+//! its refusal to move, with feedback, until the drone is gone): `drone_operator_ui`.
 //!
 //! A computer player's player (slice A1, `--ai`: no command from the client's input while it is the local player, the
 //! top bar's "(AI)", F2 to a human player): `computer`.
@@ -84,6 +86,7 @@ mod colonists;
 mod computer;
 mod construction;
 mod convert;
+mod drone_operator_ui;
 mod expansions;
 mod field_engineer_ui;
 mod indicators;

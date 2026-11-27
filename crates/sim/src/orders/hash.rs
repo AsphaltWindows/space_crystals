@@ -105,6 +105,8 @@ impl StateHash for OrderKind {
                 h.tag(16);
                 target.hash(h);
             }
+            // (M6-GD) A new tag, hashed only while a unit carries the order.
+            OrderKind::Launch => h.tag(17),
         }
     }
 }

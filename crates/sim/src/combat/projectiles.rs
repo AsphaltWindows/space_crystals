@@ -122,6 +122,24 @@ impl Projectile {
         }
     }
 
+    /// (M6-GD) The blast of `shooter`'s area attack `attrs`, dropped at `at` in tick `tick`, which lands there in that
+    /// tick's phase 5e ([`land`]), whatever became of `shooter`: a drone that falls past its leash explodes where it
+    /// falls (`crate::tether`). It flies nowhere, so no event of a launch comes with it, and it homes in on nothing; its
+    /// blast hits its attack's TargetDomain (`area::blast_domain`, fired at nothing).
+    pub(crate) fn dropped(
+        shooter: ObjectId,
+        owner: Option<PlayerId>,
+        attrs: &AttackAttrs,
+        at: Vec2,
+        tick: Tick,
+    ) -> Self {
+        Self {
+            lands_at: tick,
+            homing: None,
+            ..Self::launch(shooter, owner, attrs, at, at, None, tick)
+        }
+    }
+
     /// The event of its launch.
     pub(super) fn launched(&self) -> SimEvent {
         SimEvent::ProjectileLaunched {

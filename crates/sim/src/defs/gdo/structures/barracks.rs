@@ -1,5 +1,6 @@
 //! The Barracks — `factions/gdo/structures/barracks.md`.
 
+use crate::defs::gdo::units::drone_operator;
 use crate::defs::structures::{ExitRule, ProductionDef, Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
@@ -29,9 +30,8 @@ pub(crate) const BARRACKS: ObjectDef = ObjectDef {
         power: -30,                   // Power - -30
         production: Some(ProductionDef {
             exits: ExitRule::Side(SideLetter::B), // "Units exit from one of the short sides (B side ...)"
-            // Produces: the Peacekeeper, the Rocketman (slice M5-K) and the Field Engineer (slice M5-N9), in the
-            // design's order. The Drone Operator is registered (slice M6-GK), its recipe held in
-            // `crate::defs::PLANNED_RECIPES` until the slice that makes it trained (plan decision T69).
+            // Produces: the Peacekeeper, the Rocketman (slice M5-K), the Drone Operator (slice M6-GD, its def module's
+            // recipe, with its Supply) and the Field Engineer (slice M5-N9), in the design's order.
             recipes: &[
                 Recipe {
                     kind: ObjectKind::Peacekeeper, // "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"
@@ -49,6 +49,10 @@ pub(crate) const BARRACKS: ObjectDef = ObjectDef {
                     requires: &[ObjectKind::Arsenal],
                     supplies: 0,
                 },
+                // "Drone Operator: 100 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns at
+                // least one Career Campus." and "**R: Build Drone Operator** [...] deducts 100 Space Crystals and 1
+                // Supply" (design changes 0421 and 0441).
+                drone_operator::RECIPE,
                 Recipe {
                     // "Field Engineer: 75 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns
                     // at least one Career Campus." (design change 0328)

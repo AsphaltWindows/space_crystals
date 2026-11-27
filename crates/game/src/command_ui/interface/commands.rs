@@ -27,7 +27,8 @@ use super::{BuildMenu, Planned};
 /// (`factions/cults/structures/temple.md > Placeholder stats`, slice M5-N3), and the Disciple's spell
 /// (`factions/cults/units/disciple.md > Placeholder stats`, slice M5-N4b), and the Shrine's casts
 /// (`factions/cults/structures/shrine.md > Placeholder stats`, slice M5-N5), and the Rocketman's Target Lock
-/// (`factions/gdo/units/rocketman.md > Placeholder stats`, slice M5-K).
+/// (`factions/gdo/units/rocketman.md > Placeholder stats`, slice M5-K), and the Drone Operator's Launch Drone and Build
+/// Drone (`factions/gdo/units/drone_operator.md > Placeholder stats`, slice M6-GD).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -258,4 +259,21 @@ pub enum PanelCommand {
     /// order on it (`sc_sim::OrderKind::TargetLock`, `crate::command_ui::resolution::target_order`) to every selected
     /// Rocketman, the Rocketman being Groupable ("Groupable true"). Shift queues it, as any unit order.
     TargetLock,
+    /// (M6-GD) The Drone Operator's R (`factions/gdo/units/drone_operator.md > Placeholder stats`: "**Launch Drone**
+    /// (hotkey **R**)"; `> Launching and piloting`: "The Drone Operator launches a drone from its stock"): a Launch
+    /// order, at once, where the operator stands (`sc_sim::OrderKind::Launch`, plan decision T91: "untargeted and
+    /// queueable"), to every operator of the ActiveGroup, the operator being Groupable ("Groupable true"): each puts
+    /// its drone over itself, and the selection stays as it is ("**Launching doesn't change the selection**"). Shift
+    /// queues it, as any unit order. Greyed while the gate would refuse it: its drone out ("Only **one drone can be
+    /// active at a time** per operator", `sc_sim::Reject::DroneOut`), or none in stock (`sc_sim::Reject::StockEmpty`).
+    Launch,
+    /// (M6-GD) The Drone Operator's F, "**Build Drone** (hotkey **F**): 50 Space Crystals, 160 frames (10 s)": the
+    /// purchase of one more of its stock's item, this kind (`sc_sim::defs::StockDef::item`, the drone), at once
+    /// (`sc_sim::Ability::Buy`, plan decision T89), which keeps the operator's orders, as a Riot Shield does, so Shift
+    /// changes nothing; to every operator of the ActiveGroup, each that may buy one paying at the press while the
+    /// bank allows. Greyed while the gate would refuse it: "**Not while a drone is out**" (design change 0421,
+    /// `sc_sim::Reject::DroneOut`), the stock full (`sc_sim::Reject::StockFull`), a purchase under way
+    /// (`sc_sim::Reject::PurchaseUnderWay`), too few Space Crystals; with the purchase's progress on its bar while it
+    /// runs (`super::PanelSlot::progress`), and its price in its hint (`super::Conditions::price`).
+    Buy(ObjectKind),
 }

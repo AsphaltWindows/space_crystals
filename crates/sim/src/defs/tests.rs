@@ -577,6 +577,27 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
             "{name} deploys into {deploy:?}"
         );
     }
+    // (M6-GD) A stock holds units of its own faction, a tethered one (`crate::stock`, `crate::tether`: the Drone
+    // Operator's drones), starting with at most its max; a purchase takes time, short enough for its progress in fixed
+    // point (`crate::progress`), and costs crystals. A tethered unit has a leash and a battery, and an attack, its end.
+    if let Some(stock) = unit.stock {
+        let item = stock.item.def();
+        let tethered = item.unit.as_ref().is_some_and(|unit| unit.tether.is_some());
+        assert!(
+            tethered && item.faction == def.faction && stock.start <= stock.max && stock.max >= 1,
+            "{name}: its stock {stock:?}"
+        );
+        assert!(
+            (1..=u32::MAX / crate::economy::RATIO_ONE).contains(&stock.frames) && stock.price >= 1,
+            "{name}: its stock's purchase {stock:?}"
+        );
+    }
+    if let Some(tether) = unit.tether {
+        assert!(
+            tether.leash.is_finite() && tether.leash > 0.0 && tether.battery >= 1 && unit.attack.is_some(),
+            "{name}: its tether {tether:?}"
+        );
+    }
 }
 
 /// Only a plate and a patch share tiles, in either order.

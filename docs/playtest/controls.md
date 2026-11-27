@@ -280,7 +280,9 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q | Move | Move | click a target; Shift queues |
 | W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
 | E | Hold | Hold Position | Shift queues |
+| R | Launch | Launch Drone | Shift queues |
 | S | Patrol | Patrol | click a target; Shift queues |
+| F | DRN | Build Drone |  |
 | X | Stop | Stop | Shift queues |
 
 #### Drone (DRN)
@@ -288,9 +290,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Keys | Button | Command | Notes |
 |---|---|---|---|
 | Q | Move | Move | click a target; Shift queues |
-| W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
-| E | Hold | Hold Position | Shift queues |
-| S | Patrol | Patrol | click a target; Shift queues |
+| A | Attack | Attack | click a target; Shift queues |
 | X | Stop | Stop | Shift queues |
 
 #### Supply Chopper (SCR)
@@ -336,6 +336,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q | PK | Train Peacekeeper |  |
 | W | RN | Train Rocketman | Requires an Arsenal |
 | E | FEN | Train Field Engineer | Requires a Career Campus |
+| R | DO | Train Drone Operator | Requires a Career Campus |
 | X | Cancel | Cancel Production |  |
 | C | Rally | Set Rally Point | click a target |
 

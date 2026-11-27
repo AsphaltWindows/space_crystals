@@ -210,13 +210,13 @@ Defines the valid combinations of Locomotion and Orientation channel states for 
 
 ## LocomotionOrientationConstraints[SpeedTurnRadiusMovement]
 
-- Stationary + Turning: unconstrained
+- Stationary + Turning: maxTurnRate = SpinRate (the turning law at speed 0; Q0176: "unconstrained" was text from before 0417)
 - Stationary + Maintaining: valid
 - Moving + Turning: maxTurnRate = SpinRate × (1 − |currentSpeed| ÷ MaxSpeed) (systems/units.md > SpeedTurnRadiusMovement > The turning law)
 - Moving + Maintaining: valid
 - Reversing + Turning: maxTurnRate = SpinRate × (1 − |currentSpeed| ÷ MaxSpeed), the same law
 - Reversing + Maintaining: valid
-- Stopping + Turning: unconstrained
+- Stopping + Turning: maxTurnRate = SpinRate × (1 − |currentSpeed| ÷ MaxSpeed), the law at the current speed (Q0176)
 - Stopping + Maintaining: valid
 
 ## LocomotionOrientationConstraints[DragMovement]

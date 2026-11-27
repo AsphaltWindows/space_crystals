@@ -15,7 +15,8 @@
 //!   stays within [`WIDEST_RECRUITMENT_AREA`] tiles a side; an air unit's SeparationRadius is longer than its
 //!   Silhouette's longer side (`systems/units.md > Air Collision`: "Must be larger than the unit's Silhouette"); a
 //!   default rally point lies out of its building (`ProductionDef::default_rally`, which isn't structure, so the
-//!   signs don't take it).
+//!   signs don't take it); (M6-GD) a stock's purchase takes at most [`LONGEST_RECIPE`] ticks, as a recipe, and a unit
+//!   starts with at most its stock's max (`UnitDef::stock`).
 
 use super::structure::{Skeleton, variant_name};
 use super::{RuleField, Ruleset};
@@ -118,6 +119,16 @@ fn def_bounds(kind: ObjectKind, def: &ObjectDef) -> Option<Invalid> {
         && radius <= silhouette.max_element()
     {
         return invalid("separation_radius", "must be longer than the Silhouette");
+    }
+    // (M6-GD) A stock's purchase counts its progress in fixed point as a recipe does (`crate::stock`), and a unit
+    // starts with no more than its stock holds.
+    if let Some(stock) = def.unit.as_ref().and_then(|unit| unit.stock) {
+        if stock.frames > LONGEST_RECIPE {
+            return invalid("frames", "must be at most 65535 ticks");
+        }
+        if stock.start > stock.max {
+            return invalid("start", "must be at most the stock's max");
+        }
     }
     None
 }
