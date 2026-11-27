@@ -2426,3 +2426,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0180: Metabolism ±15%/increment additive (attack + movement), Inspire ×1.25 multiplicative (both), new combat.md > AttackSpeed frame rule — 0455.
 - Q0181: air SeparationRadius = side + 8 su placeholders (0456).
 - Q0182 parts 1–3: Chopper UC 2, Outpost Groupable true, mine sight 1 GU armour 12/12 (user) — 0457. Part 4 (Hornet missile) pending user.
+- Q0182 part 4: Hornet missile AoE ground-only, 45 over 32 su (0458).
