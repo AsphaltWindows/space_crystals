@@ -425,6 +425,8 @@ impl<'a> Arrival<'a> {
             // before it (`core/game_rules.md > On Defeat`: "**Everyone learns of it**", design change 0357), in the
             // defeat notice (`hud::notices`).
             SimEvent::PlayerDefeated { .. } | SimEvent::GameOver { .. } => Audience::Everyone,
+            // (M5-X1b) The game's rules are everyone's (`DebugCommand::SetRules`).
+            SimEvent::RulesChanged => Audience::Everyone,
             SimEvent::ResourcesDelivered { worker, .. }
             | SimEvent::BuildFailed { worker, .. }
             | SimEvent::BuildRefunded { worker, .. } => self.owner(worker),

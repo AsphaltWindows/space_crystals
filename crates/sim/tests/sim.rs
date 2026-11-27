@@ -1,6 +1,7 @@
 //! The sim's integration tests, in one test program (slice M5-T): every test file is a module of it, so that an edit
 //! to `sc_sim` compiles and links one program rather than one for each file. The timings are a program of their own,
-//! `perf.rs`. `Cargo.toml` lists both, with `autotests = false`.
+//! `perf.rs`, and so are (M5-X1b) the games on other rules than the built-in ones, `rules.rs`, which change the rules
+//! of the whole process. `Cargo.toml` lists all three, with `autotests = false`.
 //!
 //! - **A test file** `tests/foo.rs` is `mod foo;` here, and a folder `tests/foo/` (its root `main.rs`, its modules
 //!   beside it) is `#[path = "foo/main.rs"] mod foo;`, in name order. A test file that no program includes fails

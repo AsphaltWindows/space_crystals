@@ -1,10 +1,10 @@
-//! A `Sim`'s serialized form: the objects as a list in id order, and a save checked before it becomes a `Sim`
-//! (unique ids below the next id, the vision's records); the derived data (the grids, the Visible tiles) is
-//! rebuilt from the objects.
+//! A `Sim`'s serialized form: the objects as a list in id order, (M5-X1b) the rules as themselves while they aren't
+//! the built-in ones, and a save checked before it becomes a `Sim` (unique ids below the next id, the vision's records,
+//! rules of this build's structure); the derived data (the grids, the Visible tiles) is rebuilt from the objects.
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 
 use super::{Sim, SimConfig};
 use crate::combat::Projectile;
@@ -18,6 +18,7 @@ use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::player::Player;
 use crate::rng::Rng;
+use crate::ruleset::{self, Generation, Ruleset};
 use crate::shroud::Clouds;
 use crate::units::Tick;
 use crate::vision;
@@ -31,6 +32,34 @@ pub(super) fn serialize_objects<S: Serializer>(
 
 pub(super) fn serialize_held<S: Serializer>(held: &BTreeMap<ObjectId, Held>, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.collect_seq(held.values())
+}
+
+/// (M5-X1b) A game's rules (`Sim::rules`) as the rules themselves: a generation's number is the process's.
+pub(super) fn serialize_rules<S: Serializer>(rules: &Generation, serializer: S) -> Result<S::Ok, S::Error> {
+    rules.rules().serialize(serializer)
+}
+
+/// (M5-X1b) The rules the next tick starts on (`Sim::next_rules`), as [`serialize_rules`].
+pub(super) fn serialize_next_rules<S: Serializer>(
+    rules: &Option<Generation>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    rules.map(Generation::rules).serialize(serializer)
+}
+
+/// (M5-X1b) A save's rules as a generation, installed (`crate::ruleset`): the built-in rules' for none. An error for
+/// rules whose structure isn't this build's (a save of a build with other kinds or footprints,
+/// `Ruleset::structural_diff`) and when the process has no generation left for them.
+fn generation(rules: Option<&Ruleset>) -> Result<Generation, String> {
+    let Some(rules) = rules else {
+        return Ok(Generation::BUILTIN);
+    };
+    if let Some(change) = Ruleset::builtin_ref().structural_diff(rules) {
+        return Err(format!(
+            "the saved rules change {change}, which this build's rules don't"
+        ));
+    }
+    ruleset::install(rules).ok_or_else(|| "no generation of rules is left for the saved rules".to_owned())
 }
 
 /// The serialized form of [`Sim`], checked before it becomes one.
@@ -62,6 +91,14 @@ pub(super) struct SimState {
     events: Vec<SimEvent>,
     vision: Vec<vision::SavedVision>,
     path_knowledge: PathKnowledge,
+    /// (M5-X1b) The rules the game plays by, while they aren't the built-in ones (`Sim::rules`). Optional, so that the
+    /// states saved before rules could change still load, and those of games on the built-in rules.
+    #[serde(default)]
+    rules: Option<Box<Ruleset>>,
+    /// (M5-X1b) The rules of the last tick's `DebugCommand::SetRules`, which the next one starts on; optional, as
+    /// `rules`.
+    #[serde(default)]
+    next_rules: Option<Box<Ruleset>>,
 }
 
 impl TryFrom<SimState> for Sim {
@@ -86,7 +123,13 @@ impl TryFrom<SimState> for Sim {
             events,
             vision: saved,
             path_knowledge,
+            rules,
+            next_rules,
         } = state;
+        // (M5-X1b) The rules first, the current ones from here on: what follows reads the defs (`sim/rules.rs`).
+        let rules = generation(rules.as_deref())?;
+        let next_rules = next_rules.as_deref().map(|rules| generation(Some(rules))).transpose()?;
+        ruleset::select(rules);
         let mut objects = BTreeMap::new();
         for mut o in list {
             // An object saved before it had Shields (slice M3-B, `Object::shields`) is at full Shields.
@@ -172,6 +215,8 @@ impl TryFrom<SimState> for Sim {
             vision,
             path_knowledge,
             nav,
+            rules,
+            next_rules,
         })
     }
 }

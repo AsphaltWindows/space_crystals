@@ -68,12 +68,13 @@ fn a_ruleset_reads_back_as_it_was_written() {
 fn only_numbers_change_without_a_new_game() {
     let builtin = Ruleset::builtin();
     assert_eq!(builtin.structural_diff(&builtin), None);
+    assert_eq!(builtin.non_finite(), None);
     let changed = |change: &dyn Fn(&mut Ruleset)| {
         let mut rules = Ruleset::builtin();
         change(&mut rules);
         builtin.structural_diff(&rules)
     };
-    let change = |entry, field| Some(StructuralChange { entry, field });
+    let change = |entry, field| Some(RuleField { entry, field });
 
     // Numbers.
     assert_eq!(changed(&|r| unit(r).attack.as_mut().unwrap().damage = 99.0), None);
@@ -135,5 +136,29 @@ fn only_numbers_change_without_a_new_game() {
     assert_eq!(
         changed(&|r| tech(r).requires = None),
         change("ImprovedMetabolismL2", "requires")
+    );
+}
+
+/// (M5-X1b) `Ruleset::non_finite` names the first number that isn't finite: an attack's NaN Damage, an infinite
+/// MaxHP, a tunable; none of the built-in rules'.
+#[test]
+fn a_number_that_isnt_finite_is_named() {
+    assert_eq!(Ruleset::builtin().non_finite(), None);
+    let named = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        rules.non_finite().map(|at| (at.entry, at.field))
+    };
+    assert_eq!(
+        named(&|r| unit(r).attack.as_mut().unwrap().damage = f32::NAN),
+        Some(("Peacekeeper", "damage"))
+    );
+    assert_eq!(
+        named(&|r| r.defs.get_mut(ObjectKind::Guard).max_hp = Some(f32::INFINITY)),
+        Some(("Guard", "max_hp"))
+    );
+    assert_eq!(
+        named(&|r| r.tuning.vision.elevation_modifier = f32::NEG_INFINITY),
+        Some(("tuning", "elevation_modifier"))
     );
 }

@@ -19,16 +19,17 @@ use std::fmt;
 
 use serde::ser::{self, Serialize};
 
-/// Where a ruleset's structure differs from another's ([`super::Ruleset::structural_diff`]): the entry (the kind, the
-/// unit base, the tech or the ability, by name, or the part of the ruleset: `factions`, `tuning`) and the field, the
-/// innermost one named.
+/// A place in a ruleset: the entry (the kind, the unit base, the tech or the ability, by name, or the part of the
+/// ruleset: `factions`, `tuning`) and the field, the innermost one named. Where a ruleset's structure differs from
+/// another's ([`super::Ruleset::structural_diff`]), or (M5-X1b) where a number isn't finite
+/// ([`super::Ruleset::non_finite`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct StructuralChange {
+pub struct RuleField {
     pub entry: &'static str,
     pub field: &'static str,
 }
 
-impl fmt::Display for StructuralChange {
+impl fmt::Display for RuleField {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}'s {}", self.entry, self.field)
     }
@@ -74,7 +75,7 @@ enum Token {
     End,
 }
 
-/// A token with where it was: the entry and the innermost field ([`StructuralChange`]).
+/// A token with where it was: the entry and the innermost field ([`RuleField`]).
 #[derive(Copy, Clone, Debug)]
 struct Step {
     token: Token,
@@ -96,6 +97,11 @@ pub(super) struct Skeleton {
     in_key: bool,
     /// Whether the number being serialized is structure ([`KEPT`]).
     keep_number: bool,
+    /// (M5-X1b) Whether the value being serialized stays out of the skeleton: a field in [`FREE`], whose numbers are
+    /// checked all the same ([`Skeleton::non_finite`]).
+    muted: bool,
+    /// (M5-X1b) The first number that isn't finite, if one isn't, and where.
+    pub(super) non_finite: Option<RuleField>,
 }
 
 impl Skeleton {
@@ -113,8 +119,8 @@ impl Skeleton {
     }
 
     /// Where `other`'s structure first differs from this one's, if it does.
-    pub(super) fn diff(&self, other: &Skeleton) -> Option<StructuralChange> {
-        let at = |step: &Step| StructuralChange {
+    pub(super) fn diff(&self, other: &Skeleton) -> Option<RuleField> {
+        let at = |step: &Step| RuleField {
             entry: step.entry,
             field: step.field,
         };
@@ -131,11 +137,25 @@ impl Skeleton {
     }
 
     fn push(&mut self, token: Token) {
+        if self.muted {
+            return;
+        }
         self.steps.push(Step {
             token,
             entry: self.entry,
             field: self.field,
         });
+    }
+
+    /// A float, by its bits: noted where it is if it isn't finite.
+    fn float(&mut self, bits: u64, finite: bool) {
+        if !finite && self.non_finite.is_none() {
+            self.non_finite = Some(RuleField {
+                entry: self.entry,
+                field: self.field,
+            });
+        }
+        self.number(bits);
     }
 
     fn number(&mut self, bits: u64) {
@@ -170,6 +190,9 @@ impl Skeleton {
         self.push(Token::Field(key));
         if FREE.contains(&(within, key)) {
             self.push(Token::Blank);
+            let muted = std::mem::replace(&mut self.muted, true);
+            value.serialize(&mut *self)?;
+            self.muted = muted;
         } else {
             let keep = std::mem::replace(&mut self.keep_number, KEPT.contains(&(within, key)));
             value.serialize(&mut *self)?;
@@ -249,12 +272,12 @@ impl ser::Serializer for &mut Skeleton {
     }
 
     fn serialize_f32(self, v: f32) -> Result<(), Never> {
-        self.number(v.to_bits().into());
+        self.float(v.to_bits().into(), v.is_finite());
         Ok(())
     }
 
     fn serialize_f64(self, v: f64) -> Result<(), Never> {
-        self.number(v.to_bits());
+        self.float(v.to_bits(), v.is_finite());
         Ok(())
     }
 

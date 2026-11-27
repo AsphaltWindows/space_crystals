@@ -28,3 +28,8 @@ path = "tests/sim.rs"
 [[test]]
 name = "perf"
 path = "tests/perf.rs"
+
+# (M5-X1b) The games on other rules than the built-in ones, apart: the rules a game reads are the process's.
+[[test]]
+name = "rules"
+path = "tests/rules.rs"

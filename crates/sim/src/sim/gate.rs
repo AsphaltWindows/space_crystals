@@ -114,6 +114,9 @@ pub(super) enum Checked {
         ability: AreaAbility,
         at: Vec2,
     },
+    /// (M5-X1b) The rules of the `DebugCommand::SetRules`, which have the game's structure, finite numbers and a
+    /// generation (`sim/rules.rs`).
+    SetRules,
 }
 
 impl Sim {

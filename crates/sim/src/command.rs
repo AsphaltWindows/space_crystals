@@ -14,6 +14,7 @@ use crate::defs::{AreaAbility, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
 use crate::production::ProductionCommand;
+use crate::ruleset::Ruleset;
 use crate::scenario::{BuildingOrientation, SpawnAt};
 use crate::units::TilePos;
 
@@ -205,6 +206,17 @@ pub enum DebugCommand {
     /// stays as MaxHP goes up, HP drops to a lower MaxHP only if above it). Rejected for an object that isn't a unit,
     /// and for Augmentations to a unit that can't have them (`Reject::NotAugmentable`).
     SetAugmentation { id: ObjectId, augmentation: Augmentation },
+    /// (M5-X1b) Play on with `rules` from the next tick on (plan decision T66, `crate::ruleset`): their numbers apply
+    /// as the tick of the command ends, every object keeping its state, its HP and Shields following their new maxima
+    /// with the damage kept (`transform::follow_max`) and its energy at most its new MaxEnergy; what is under way goes
+    /// on by the new numbers (a refund, for one, at the new price), and what is fixed as it starts (a shot in flight, a
+    /// path planned) stays as it started. [`crate::SimEvent::RulesChanged`] tells it. The ruleset travels in the
+    /// command, so that a replay plays a tuned game back. Rejected for rules whose structure differs from the game's
+    /// (`Ruleset::structural_diff`: `Reject::RulesStructural`), which need a new game, for rules with a number that
+    /// isn't finite (`Reject::RulesNotFinite`), and when the process has no generation left for them
+    /// (`Reject::RulesFull`). For the data files' tuning, which the client reads and sends (slice M5-X2), and the tests
+    /// of tuned rules.
+    SetRules(Box<Ruleset>),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

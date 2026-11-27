@@ -528,4 +528,8 @@ pub enum SimEvent {
         hiding: Hiding,
         crusher: ObjectId,
     },
+    /// (M5-X1b) The game's rules changed, as the tick ended, to those of a `DebugCommand::SetRules` of the tick
+    /// (`crate::ruleset`): the next tick plays by them, and every object's HP, Shields and energy already follow their
+    /// new maxima. Told to everyone.
+    RulesChanged,
 }

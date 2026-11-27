@@ -874,7 +874,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 
 `Sim::step(&TickInputs)` advances exactly one tick. It runs fixed phases in this order (`sim/phase.rs`):
 
-1. **Clear events**, so that `Sim::events()` holds only this tick's events.
+1. **Clear events**, so that `Sim::events()` holds only this tick's events. (M5-X1b) Then **the tick's rules**
+   (`sim/rules.rs`): those of the last tick's `DebugCommand::SetRules`, the objects following them, or the game's own,
+   become the current ones, so that the whole tick reads one generation (*Tunables > Generations*).
 2. **Advance the tick** (`tick += 1`).
 3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these),
    and note who owns a structure as the tick starts (`economy::defeat::structure_owners`, for the defeat check).
@@ -3244,7 +3246,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   without tiers; *Object model > The Syndicate*), and `SetAugmentation { id, augmentation }` (slice M5-F2: a unit's on
   the map, as the Altar gives them, slice M5-N1b; *Object model > The Cults*; since slice M5-N1a its HP follows its
   MaxHP, and
-  `NotAugmentable` refuses Augmentations to a unit that can't have them, *Object model > Augmented stats*), for
+  `NotAugmentable` refuses Augmentations to a unit that can't have them, *Object model > Augmented stats*), and
+  (M5-X1b) `SetRules(rules)` (the game's rules from the next tick on, *Tunables > Generations*; `RulesStructural` for
+  rules of another structure, `RulesNotFinite` for a NaN or an infinity, `RulesFull` when no generation is left), for
   development and QA. `Spawn`
   places a tile-based object in an
   `orientation`
@@ -5802,12 +5806,22 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   inner helper what it needs (`elevation::sight_range_by`): each read is an atomic load and a branch, and a number the
   compiler can't see costs what a constant didn't (slice M5-X1 measured 2 to 5 % on the perf tests before hoisting).
 - **Generations** (`ruleset.rs`'s module docs): a ruleset in use is a generation of the process, the built-in one
-  generation 0. `DebugCommand::SetRules` (slice M5-X1b) installs another, 64 at most, and the sim makes its own the
-  current one as each tick starts: a tick reads one generation, a change applies between two ticks, and a replay that
-  carries the command reproduces the game. The state hash leaves the rules out. A process runs one sim at a time on
-  rules other than the built-in ones (`tests/rules.rs`). A ruleset that replaces another may change its numbers only:
-  `Ruleset::structural_diff` (`ruleset/structure.rs`) finds a change of kinds, footprints and Silhouettes, variants,
-  lists or flags, and `SetRules` is refused.
+  generation 0. `DebugCommand::SetRules` (slice M5-X1b, `sim/rules.rs`) installs another, 64 at most, and the sim
+  makes its own the current one as each tick starts (`Sim::rules`): a tick reads one generation, and a change applies
+  as the tick after its command's starts, in command order, the last of a tick's winning (`SimEvent::RulesChanged`).
+  The ruleset travels in the command, so a replay reproduces a tuned game. The state hash leaves the rules out. A
+  process runs one sim at a time on rules other than the built-in ones; their tests are a program of their own,
+  `tests/rules.rs`, each test holding a lock for its games, and every other test plays on the built-in rules.
+  - **Only numbers change**: `Ruleset::structural_diff` (`ruleset/structure.rs`) finds a change of kinds,
+    footprints and Silhouettes, variants, lists or flags, and the gate refuses it (`Reject::RulesStructural`); the
+    TechPrerequisites, a building's default rally point and a blast's BlastDomain are read only as something starts,
+    so they aren't structure (`structure::FREE`).
+  - **Objects keep their state**: HP and Shields follow their new maxima with the damage kept
+    (`transform::follow_max`, never a kill), energy stays within its MaxEnergy, and the rest reads the new numbers as
+    it goes (a refund at the new price) or keeps what it started with (a projectile's damage, a planned path).
+  - **Saves** keep the game's rules (`rules`) and those its next tick starts on (`next_rules`) as the rules
+    themselves, each left out while it is the built-in rules or none, so the saves of games on the built-in rules are
+    as they were; a save whose rules have another structure than the build's doesn't load.
 - **The sim's tunables** (`crates/sim/src/tuning/`, slices M4-R1 and M5-X1): one module per system, `air.rs`,
   `combat.rs`, `construction.rs`, `gathering.rs`, `holding.rs`, `movement.rs`, `orders.rs`, `paths.rs`,
   `production.rs`, `repair.rs`, `shields.rs`, `spells.rs`, `tunnel.rs` and `vision.rs`, each one struct

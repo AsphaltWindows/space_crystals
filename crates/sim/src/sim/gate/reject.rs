@@ -8,6 +8,7 @@ use crate::defs::{ObjectKind, Tech};
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::MAX_ORDER_UNITS;
 use crate::placement::PlacementProblem;
+use crate::ruleset::RuleField;
 use crate::scenario::SpawnProblem;
 
 /// Why the sim ignores a command (`Sim::validate`).
@@ -229,6 +230,15 @@ pub enum Reject {
     /// (M5-K) A Target Lock's target is the issuing player's own, or nobody's, as the player knows it
     /// (`factions/gdo/units/rocketman.md > Target Lock`: "The player orders Target Lock on one enemy unit").
     NotAnEnemy(ObjectId),
+    /// (M5-X1b) A `DebugCommand::SetRules` whose rules differ from the game's in structure, here first
+    /// (`Ruleset::structural_diff`, plan decision T66): they need a new game.
+    RulesStructural(RuleField),
+    /// (M5-X1b) A `DebugCommand::SetRules` whose rules have a number that isn't finite, here first
+    /// (`Ruleset::non_finite`).
+    RulesNotFinite(RuleField),
+    /// (M5-X1b) A `DebugCommand::SetRules` for which the process has no generation left
+    /// (`ruleset::GENERATION_COUNT`): rules other than every generation installed, when all are taken.
+    RulesFull,
 }
 
 impl fmt::Display for Reject {
@@ -307,6 +317,9 @@ impl fmt::Display for Reject {
             Reject::OutOfSight => write!(f, "the point is out of sight"),
             Reject::CannotReverse => write!(f, "none of the units can reverse"),
             Reject::NotAnEnemy(id) => write!(f, "object {} isn't an enemy's", id.0),
+            Reject::RulesStructural(change) => write!(f, "the rules change {change}, which needs a new game"),
+            Reject::RulesNotFinite(field) => write!(f, "{field} isn't a finite number in the rules"),
+            Reject::RulesFull => write!(f, "no generation of rules is left; restart the game"),
         }
     }
 }

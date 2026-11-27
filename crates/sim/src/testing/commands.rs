@@ -9,6 +9,7 @@ use crate::defs::{AreaAbility, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::{OrderKind, Target};
 use crate::production::ProductionCommand;
+use crate::ruleset::Ruleset;
 use crate::scenario::SpawnAt;
 
 /// One command of every kind: every variant of [`Command`], [`OrderKind`], [`Target`], [`Ability`],
@@ -155,6 +156,9 @@ pub fn every_command() -> Vec<Command> {
                     metabolism: false,
                 },
             },
+            // (M5-X1b) The built-in rules: a game on them goes on as it was, and no generation is installed, which the
+            // tests that play these commands mustn't do (`crate::ruleset`: one test program installs others).
+            DebugCommand::SetRules(Box::new(Ruleset::builtin())),
         ]
         .map(Command::Debug),
     );
@@ -298,7 +302,8 @@ pub fn every_command() -> Vec<Command> {
                 | DebugCommand::SetAutoTargeting { .. }
                 | DebugCommand::SetResources { .. }
                 | DebugCommand::SetTier { .. }
-                | DebugCommand::SetAugmentation { .. },
+                | DebugCommand::SetAugmentation { .. }
+                | DebugCommand::SetRules(_),
             ) => {}
         }
     }

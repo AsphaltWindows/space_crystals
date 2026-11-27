@@ -1,15 +1,14 @@
 //! The ruleset (plan decision T66, slice M5-X1): every number the sim reads, in one value: the object types' defs,
 //! the unit bases, the factions' own rules and the systems' tunables. The design's numbers are the built-in ruleset
 //! ([`Ruleset::BUILTIN`]), made from the def modules' defs and the tuning modules' `BUILTIN`s, with their citations;
-//! a game may replace it, between two ticks, by `DebugCommand::SetRules` (slice M5-X1b; the data files' tuning layer,
-//! slice M5-X2), but not its structure ([`Ruleset::structural_diff`]).
+//! a game may replace it, between two ticks, by `DebugCommand::SetRules` (slice M5-X1b, `sim/rules.rs`; the data
+//! files' tuning layer sends it, slice M5-X2), but not its structure ([`Ruleset::structural_diff`]).
 //!
 //! - **Reading.** `kind.def()`, `base.def()`, `tech.def()` and `ability.def()` read the current rules, and a tunable is
 //!   `rules().tuning.<system>.<field>`. A hot loop reads its tunables once, before the loop, and hands its helpers
 //!   what they need (`elevation::sight_range_by`): each read of [`rules`] is an atomic load and a branch, and a number
 //!   the compiler can't see costs what a constant didn't (slice M5-X1: 2 to 5 % of the perf tests' ticks before the
 //!   hoisting; the ElevationModifier read for every tile of the sight stamp, most of `movement_perf`'s).
-//!
 //! - **Generations.** A ruleset in use is a generation of the process, numbered: the built-in rules are generation 0,
 //!   a `static` ([`Ruleset::BUILTIN`]), and every other is leaked, so that every `&'static` def handed out stays valid
 //!   forever, into [`GENERATIONS`], at most [`GENERATION_COUNT`] in all. [`rules`] reads the current one, with no
@@ -32,7 +31,7 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
-pub use structure::StructuralChange;
+pub use structure::RuleField;
 pub use table::{Key, Table};
 
 use crate::defs::{FactionRules, ObjectDef, ObjectKind, UnitBase, UnitBaseDef};
@@ -89,8 +88,15 @@ impl Ruleset {
     /// Where `other`'s structure first differs from these rules' ([`structure`]'s rule: every field that isn't a
     /// number, and the sizes of the footprints and Silhouettes); `None` when only numbers differ, so that `other` can
     /// replace these rules in a running game.
-    pub fn structural_diff(&self, other: &Ruleset) -> Option<StructuralChange> {
+    pub fn structural_diff(&self, other: &Ruleset) -> Option<RuleField> {
         structure::Skeleton::of(self).diff(&structure::Skeleton::of(other))
+    }
+
+    /// (M5-X1b) The first number of these rules that isn't finite, if one isn't: NaN or an infinity, which a data
+    /// file's number makes of one too large for its field. No rule of the sim's is made for one, so
+    /// `DebugCommand::SetRules` refuses such rules (`Reject::RulesNotFinite`).
+    pub fn non_finite(&self) -> Option<RuleField> {
+        structure::Skeleton::of(self).non_finite
     }
 }
 
@@ -108,10 +114,6 @@ static GENERATIONS: [OnceLock<&'static Ruleset>; GENERATION_COUNT] = [const { On
 static CURRENT: AtomicUsize = AtomicUsize::new(0);
 
 /// Taken while a generation is installed, so that two installs don't take the same number.
-#[expect(
-    dead_code,
-    reason = "slice M5-X1b: `DebugCommand::SetRules` installs generations and the sim selects its own"
-)]
 static INSTALLING: Mutex<()> = Mutex::new(());
 
 /// A generation of rules (module docs): its number in [`GENERATIONS`]. A sim's own, not part of its state: saved as
@@ -159,10 +161,6 @@ fn installed(number: usize) -> &'static Ruleset {
 
 /// Makes `generation` the current one (the sim, at the start of each tick: module docs).
 #[inline]
-#[expect(
-    dead_code,
-    reason = "slice M5-X1b: `DebugCommand::SetRules` installs generations and the sim selects its own"
-)]
 pub(crate) fn select(generation: Generation) {
     let number = usize::from(generation.0);
     if CURRENT.load(Ordering::Relaxed) != number {
@@ -172,10 +170,6 @@ pub(crate) fn select(generation: Generation) {
 
 /// The generation of `ruleset`: the one installed with equal rules, or a new one; `None` when all
 /// [`GENERATION_COUNT`] are taken by others.
-#[expect(
-    dead_code,
-    reason = "slice M5-X1b: `DebugCommand::SetRules` installs generations and the sim selects its own"
-)]
 pub(crate) fn install(ruleset: &Ruleset) -> Option<Generation> {
     let _installing = INSTALLING.lock().unwrap_or_else(PoisonError::into_inner);
     if *ruleset == BUILTIN {
@@ -197,10 +191,6 @@ pub(crate) fn install(ruleset: &Ruleset) -> Option<Generation> {
 }
 
 /// Whether [`install`] would find `ruleset` a generation: one is free, or one has equal rules.
-#[expect(
-    dead_code,
-    reason = "slice M5-X1b: `DebugCommand::SetRules` installs generations and the sim selects its own"
-)]
 pub(crate) fn installable(ruleset: &Ruleset) -> bool {
     let _installing = INSTALLING.lock().unwrap_or_else(PoisonError::into_inner);
     *ruleset == BUILTIN || (GENERATIONS.iter().skip(1)).any(|slot| slot.get().is_none_or(|rules| **rules == *ruleset))

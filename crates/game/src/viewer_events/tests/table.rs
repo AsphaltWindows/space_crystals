@@ -239,6 +239,7 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
         ),
         (SimEvent::PlayerDefeated { player: P1 }, [W, W, W, W]),
         (SimEvent::GameOver { winners: vec![P2] }, [W, W, W, W]),
+        (SimEvent::RulesChanged, [W, W, W, W]),
         (
             SimEvent::ResourcesDelivered {
                 worker: UNIT,

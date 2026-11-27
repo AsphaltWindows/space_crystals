@@ -21,13 +21,14 @@ use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::player::Player;
 use crate::rng::Rng;
+use crate::ruleset::{self, Generation};
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::shroud::Clouds;
 use crate::units::{Tick, TilePos};
 use crate::vision::{VisibilityState, Vision};
 
 pub use gate::Reject;
-use load::{SimState, serialize_held, serialize_objects};
+use load::{SimState, serialize_held, serialize_next_rules, serialize_objects, serialize_rules};
 pub use phase::Phase;
 
 /// Game options, chosen with the rest of the game setup ([`crate::GameSetup::config`]) and fixed when the game
@@ -115,6 +116,16 @@ pub struct Sim {
     /// serialized or compared, and rebuilt on load.
     #[serde(skip_serializing)]
     nav: NavState,
+    /// (M5-X1b) The rules the game plays by (plan decision T66, `sim/rules.rs`): its generation, made the current one
+    /// as each tick starts. Not part of [`Sim::state_hash`], so that a golden fails only when behaviour does.
+    /// Serialized as the rules themselves while they aren't the built-in ones, and left out of files while they are,
+    /// so that the states of games on the built-in rules are as they were before rules could change.
+    #[serde(serialize_with = "serialize_rules", skip_serializing_if = "Generation::is_builtin")]
+    rules: Generation,
+    /// (M5-X1b) The rules of the last tick's `DebugCommand::SetRules`, which the next tick starts on (`sim/rules.rs`).
+    /// Neither hashed, as [`Sim::rules`], nor serialized while there are none; serialized as the rules themselves.
+    #[serde(serialize_with = "serialize_next_rules", skip_serializing_if = "Option::is_none")]
+    next_rules: Option<Generation>,
 }
 
 impl Sim {
@@ -152,6 +163,9 @@ impl Sim {
     /// out (only an invalid setup has them). Its grids are built once the objects are in
     /// (`NavState::build`).
     fn empty(scenario: &Scenario) -> Self {
+        // A new game plays by the built-in rules (`sim/rules.rs`): the current ones from here on, whatever a game
+        // before it played by, for the objects it starts with.
+        ruleset::select(Generation::BUILTIN);
         let players = scenario
             .setup
             .player_ids()
@@ -177,6 +191,8 @@ impl Sim {
             events: Vec::new(),
             path_knowledge: PathKnowledge::default(),
             nav: NavState::unbuilt(&scenario.map.terrain),
+            rules: Generation::BUILTIN,
+            next_rules: None,
         }
     }
 
@@ -301,6 +317,10 @@ impl Sim {
             vision,
             path_knowledge,
             nav: _,
+            // (M5-X1b) The rules aren't the state (plan decision T66): a golden on the built-in rules fails only when
+            // behaviour changes, and a tuned game's state hashes by what the rules did to it.
+            rules: _,
+            next_rules: _,
         } = self;
         let mut h = StateHasher::new();
         tick.hash(&mut h);
@@ -497,6 +517,7 @@ mod recruitment;
 mod removal;
 mod repairs;
 mod resources;
+mod rules;
 mod sites;
 mod spot_work;
 #[cfg(test)]

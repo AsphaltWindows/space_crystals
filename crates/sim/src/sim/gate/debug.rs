@@ -1,6 +1,7 @@
 //! The gate's checks of debug commands (`Command::Debug`, accepted while `SimConfig::debug` is on): a spawn's owner
 //! and placement, a teleport onto the map, a unit's box clear of blocked ground and of the units of its layer
-//! (`docs/movement.md > 3`), a tier the Tunnel's table has, and augmentations for a unit (slice M5-F2).
+//! (`docs/movement.md > 3`), a tier the Tunnel's table has, augmentations for a unit (slice M5-F2), and (M5-X1b) rules
+//! of the game's structure, their numbers finite, with a generation for them (`sim/rules.rs`).
 
 use glam::Vec2;
 
@@ -13,6 +14,7 @@ use crate::nav;
 use crate::object::{Object, Placement};
 use crate::paths::{blocking, blocking_footprint, box_overlaps_rect};
 use crate::player::Banks;
+use crate::ruleset;
 use crate::scenario::place_spawn;
 use crate::shape::Shape;
 use crate::sim::{Reject, Sim};
@@ -109,6 +111,18 @@ impl Sim {
                     return Err(Reject::NotAugmentable(id));
                 }
                 Ok(Checked::SetAugmentation { id, augmentation })
+            }
+            DebugCommand::SetRules(ref rules) => {
+                if let Some(change) = self.rules().structural_diff(rules) {
+                    return Err(Reject::RulesStructural(change));
+                }
+                if let Some(field) = rules.non_finite() {
+                    return Err(Reject::RulesNotFinite(field));
+                }
+                if !ruleset::installable(rules) {
+                    return Err(Reject::RulesFull);
+                }
+                Ok(Checked::SetRules)
             }
         }
     }

@@ -5,7 +5,7 @@
 use super::Sim;
 use super::gate::Checked;
 use crate::augmentation::{self, Research};
-use crate::command::PlayerCommand;
+use crate::command::{Command, DebugCommand, PlayerCommand};
 use crate::ids::ObjectId;
 use crate::orders::{Order, OrderGroup, OrderKind, Target, destinations};
 
@@ -66,6 +66,12 @@ impl Sim {
                 let research = Research::new(&self.players);
                 if let Some(o) = self.objects.get_mut(&id) {
                     augmentation::set(o, augmentation, research);
+                }
+            }
+            // (M5-X1b) The next tick starts on the command's rules (`sim/rules.rs`).
+            Checked::SetRules => {
+                if let Command::Debug(DebugCommand::SetRules(rules)) = &cmd.command {
+                    self.set_rules(rules);
                 }
             }
         }

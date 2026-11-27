@@ -14,7 +14,8 @@ use crate::{buffs, combat, economy, energy, movement, orders, paths, shields};
 /// `tests/structures_perf.rs`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Phase {
-    /// The tick's bookkeeping: the events cleared, the positions kept for interpolation.
+    /// The tick's bookkeeping: the events cleared, (M5-X1b) the tick's rules (`sim/rules.rs`), the positions kept for
+    /// interpolation.
     Start,
     /// The defeat check's first walk: who owns structures as the tick starts (`economy::defeat`).
     DefeatOwners,
@@ -88,6 +89,9 @@ impl Sim {
     pub fn step_observed(&mut self, inputs: &TickInputs, mut observe: impl FnMut(Phase)) {
         observe(Phase::Start);
         self.events.clear();
+        // (M5-X1b) The rules of the whole tick (`sim/rules.rs`): those of the last tick's SetRules, every object
+        // following its new maxima, or the game's, made the current ones whatever another game stepped on before.
+        self.start_rules();
         self.nav.begin_tick();
         self.tick += 1;
         for o in self.objects.values_mut() {
