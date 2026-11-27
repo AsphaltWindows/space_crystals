@@ -14,7 +14,9 @@
 //! - `mortar`: its round, launched at the end of its Firing for where the target stood at the end of its Aiming, hits
 //!   a group by the area rule, a target that drives off escapes it, it can Attack Ground, and its blast hits ground
 //!   objects only (its TargetDomain's, design change 0445's `BlastDomain::Attack`); it fires from its 40° turret,
-//!   whose arc the hull must turn to; and it crushes nothing, being wheeled;
+//!   whose arc the hull must turn to, stopping only where its target will still be in the arc at rest (one inside its
+//!   turning circle it may meet out of the arc and give up, a reading for the Director); and it crushes nothing, being
+//!   wheeled;
 //! - `saves`: a game with Bikes in training, inside, queued and driving out goes on alike after a save and in a
 //!   replay.
 //!

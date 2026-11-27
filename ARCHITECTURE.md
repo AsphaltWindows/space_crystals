@@ -1418,7 +1418,17 @@ ticks spent in it. Hashed and serialized like all state.
   Silhouette stays free (`World::turn`); a spin cut short backs off, or creeps one tick's Acceleration toward the
   target, out of the contact (I5 and I7 allow it that), and an own idle unit that stopped it is asked to make way;
   the spin crushes as any spin in place does (M5-V4). Only what its base engages turns its hull: a lock its turret
-  keeps on its own (on Hold, on a Move) turns none. **In 5a**, right after the base's behaviour, the turret's own (`orders/turret.rs::run`): it keeps
+  keeps on its own (on Hold, on a Move) turns none. **(M6-SV) A base that can't turn in place with a narrow turret**
+  (`engage::brakes_into_arc`: FixedTurnRadiusMovement and an arc short of a full turn, the Assault Bike's 40°, the
+  Raptor's 60°) stops for a target in range only where the target will still be in its arc at rest
+  (`engage::rests_in_arc`: the point the coast's braking along its facing brings it to, its facing as it is, since
+  "Stopping + Turning: invalid"); until then `close_in` keeps driving it toward the target, turning. Stopping as soon
+  as the target came into its arc, it coasted on straight, the target slipped out again, and it ended beside the
+  target and gave the Attack up. A target near or inside its turning circle it still reaches only in contact, where
+  it gives up (a reading) or fires from within its own round's blast. Attack Ground keeps the literal rule, under
+  which a Bike circles a location in range far out of its arc for good, halting once a lap (reported: with the same
+  rule it drives onto the location and shells itself).
+  **In 5a**, right after the base's behaviour, the turret's own (`orders/turret.rs::run`): it keeps
   a lock its base engages; any other it keeps only while it could fire at it from where it stands (`fireable`: seen,
   a valid domain, Range and MinRange, the arc; `systems/controls/commands.md > TurretCommandState > When a lock
   ends`, design change 0376), else lets it go; with nothing locked it scans (`World::turret_pick`: `World::pick` with `Scan::Weapon` and the arc as
@@ -3852,7 +3862,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   of Side A facing out in the four orientations, refused at Tier 1, five out one by one by a rally and sent on, five
   ejected with no order stalling after two, a reading for the Director, and back in through the entry path),
   `mortar` (the area rule over a group, a dodge, Attack Ground and ground only, the 40° turret and the hull, a target
-  in range far out of the arc given up, a reading, and no crushing) and `saves`. The 72 × 48 box of plan decision T100
+  in range far out of the arc fired at once it will stay in the arc at rest, from beside it within its own blast at
+  60° and 90°, and one inside the turning circle met out of the arc and given up, readings, and no crushing) and
+  `saves`. The 72 × 48 box of plan decision T100
   is `sim/network/tests.rs`'s (a test def). In the client, `command_ui/interface/tests/syndicate.rs` (the VA's Q, W,
   E, R, X and C) and the ExpandMenu's tests above (its A, greyed by tier and by the Chemical Plant).
 - **Upgrade tests** (slice M4-G) are `crates/sim/tests/upgrades/`, under O1 after every tick: `costs` (2 then 4, 3

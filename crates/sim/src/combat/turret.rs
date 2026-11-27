@@ -102,7 +102,7 @@ pub(crate) fn aims_by_hull(unit: &UnitDef) -> bool {
 /// rotation)", `factions/cults/units/seeker.md > TurretAttributes`). Technical: an arc whose gap behind is narrower
 /// than `Combat::facing_tolerance` counts as one, so that a TurnAngle of 360° converted to radians is one whatever its
 /// rounding.
-fn full_turn(attrs: &TurretAttrs) -> bool {
+pub(crate) fn full_turn(attrs: &TurretAttrs) -> bool {
     attrs.turn_angle + rules().tuning.combat.facing_tolerance >= math::TAU
 }
 

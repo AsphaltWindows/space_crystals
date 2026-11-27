@@ -350,21 +350,80 @@ fn it_fires_from_its_40_degree_turret_once_its_hull_points_the_target_into_the_a
     }
 }
 
-/// A reading for the Director (as [`super::exit`]'s stall): plan decision T80's literal step 4 ("If target moves out of
-/// range or arc: resume MovingToObject", `orders::engage::close_in`) with the Bike's 40° arc, its 128 su turning radius
-/// and its 12 su a tick. Player 1's Bike, standing and facing east, attacks player 2's Guard 4 grid units off, in its
-/// range, 45°, 60° or 90° north of its facing, out of its arc. It drives on, turning toward the Guard; each time the
-/// Guard comes into its arc it brakes, and coasting on straight, the Guard slips out of the arc again, its Aiming
-/// cancelled, before the 8 ticks of it are over; and so it ends up beside the Guard, as near as it gets, the Guard
-/// still more than 20° off its facing, inside its turning circle, and gives the Attack up
-/// (`systems/controls/command_behaviors.md > AttackingObject > Failure`): it never fires, and stands idle. (A Guard
-/// that far off but out of its range, in the test above, it reaches with its hull pointing it into the arc, and fires
-/// at.)
+/// `systems/controls/command_behaviors.md > AttackingObject` step 2's "Locomotion = Stopping" for a unit that can't
+/// turn in place (`orders::engage`'s `rests_in_arc`): player 1's Bike, standing and facing east, attacks player 2's
+/// Guard 4 grid units off, in its range, 45°, 60° or 90° north of its facing, out of its arc. It drives on toward the
+/// Guard, turning as its wheels let it, and stops only where the Guard will still be in its arc at rest: braking
+/// straight on ("Stopping + Turning: invalid"), it keeps the Guard within 20° of its facing from its Aiming to its
+/// launch, and fires at it, its turret onto it. (Before, it braked as soon as the Guard came into its arc; coasting on
+/// straight, the Guard slipped out of it again, its Aiming cancelled; and so it ended beside the Guard, as near as it
+/// got, and gave the Attack up without firing.) At 45° it fires about 106 su from the Guard. At 60° and 90° the Guard
+/// lies near or on the circle it turns on, so it points it into its arc only close up: it fires from beside the Guard,
+/// 48 su off, and its own round's blast (AoERadius 48 su, MinRange 0) hits it too, a reading for the Director.
 #[test]
-fn a_bike_gives_up_a_target_in_range_far_out_of_its_arc_without_firing() {
+fn a_bike_drives_on_until_a_target_in_range_far_out_of_its_arc_stays_in_it_at_rest_and_fires() {
     let bike = id(1);
     for degrees in [45.0, 60.0, 90.0] {
         let (mut t, at) = bearing_game(degrees, 256.0);
+        let mut aiming = false;
+        let launch = loop {
+            step_checked(&mut t);
+            aiming |= phase(&t, bike).is_some();
+            if aiming {
+                let (off, _) = off_facing(&t, bike, at);
+                assert!(
+                    off.abs() <= HALF_ARC + TOLERANCE,
+                    "{degrees}°: {}° off its facing in tick {}",
+                    off.to_degrees(),
+                    t.sim().tick()
+                );
+            }
+            if let Some(&launch) = launches(&t).first() {
+                break launch;
+            }
+            let current = (object(&t, bike).orders.as_ref()).and_then(|orders| orders.current.as_ref());
+            assert!(current.is_some(), "{degrees}°: the Attack goes on");
+            assert!(t.sim().tick() < 200, "{degrees}°: it fires");
+        };
+        assert_eq!((launch.shooter, launch.to), (bike, at), "{degrees}°");
+        let (_, turret) = off_facing(&t, bike, at);
+        assert!(
+            turret.abs() <= 2.0 * TOLERANCE,
+            "{degrees}°: its turret {}° off",
+            turret.to_degrees()
+        );
+        let o = object(&t, bike);
+        assert!(
+            o.pos.distance(Vec2::new(640.0, 1100.0)) > 100.0,
+            "{degrees}°: it drove on"
+        );
+        assert!(
+            math::wrap_angle(o.facing).abs() > HALF_ARC,
+            "{degrees}°: its hull turned"
+        );
+        run_for(&mut t, 30);
+        let hp = |t: &TestSim, of| t.sim().object(of).and_then(|o| o.hp);
+        assert!(hp(&t, id(2)) < Some(100.0), "{degrees}°: the round hits the Guard");
+        assert_eq!(
+            hp(&t, bike) < Some(100.0),
+            degrees > 45.0,
+            "{degrees}°: its own blast hits it only from beside the Guard"
+        );
+    }
+}
+
+/// A reading for the Director: a target the rule above still doesn't bring into the Bike's arc. Player 1's Bike,
+/// standing and facing east, attacks player 2's Guard 3 grid units off, 120° or 125° north of its facing: in its
+/// range, out of its arc, inside the circle it turns on (its radius 128 su), near the rim. It drives on round toward
+/// the Guard, but never has the Guard in its arc where it would come to rest, and its move ends against the Guard
+/// (`MoveGoal::Object`, reach 0), the Guard more than 20° off its facing; so it gives the Attack up
+/// (`systems/controls/command_behaviors.md > AttackingObject > Failure`) without firing, and stands idle. It doesn't
+/// loop.
+#[test]
+fn a_bike_gives_up_a_target_inside_its_turning_circle_that_it_meets_out_of_its_arc() {
+    let bike = id(1);
+    for degrees in [120.0, 125.0] {
+        let (mut t, at) = bearing_game(degrees, 192.0);
         run_for(&mut t, 200);
         assert_eq!(launches(&t), [], "{degrees}°: never fired");
         let o = object(&t, bike);
@@ -381,7 +440,7 @@ fn a_bike_gives_up_a_target_in_range_far_out_of_its_arc_without_firing() {
             "{degrees}°: {}° off",
             off.to_degrees()
         );
-        assert!(o.pos.distance(at) < 128.0, "{degrees}°: beside the Guard, at {}", o.pos);
+        assert!(o.pos.distance(at) < 64.0, "{degrees}°: against the Guard, at {}", o.pos);
         assert_eq!(object(&t, id(2)).hp, GUARD.def().max_hp);
     }
 }
