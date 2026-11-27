@@ -3,21 +3,22 @@
 //! (`sc_sim::defs::CONSTRUCT_MENU`): "Fixed slots: every building keeps its key and is greyed until its
 //! TechPrerequisite is met, so no hotkey ever moves". Each entry takes its slot whatever it holds: a type in the game
 //! is its [`PanelCommand::Build`], greyed while the gate would refuse the Recruits' Build (its TechPrerequisite, the
-//! bank: `super::super::super::Conditions`), and one not in the game yet its [`Planned`] entry. Z is Back
-//! (`crate::command_ui::interface::panel`).
+//! bank: `super::super::super::Conditions`). One not in the game yet held its slot as a `Planned` entry until slice
+//! M5-N6 made the last of them, the Chop Shop, live. Z is Back (`crate::command_ui::interface::panel`).
 
 use sc_sim::ObjectKind;
 use sc_sim::defs::{CONSTRUCT_MENU, ConstructEntry, ConstructMenu};
 
-use super::super::{BuildMenu, PanelCommand, Planned, slot_index};
+use super::super::{BuildMenu, PanelCommand, slot_index};
 use crate::input::CommandSlot;
 
-/// The command of a Construct menu's entry: the Build of a type in the game, or the placeholder of one not in it yet
-/// (by its name, `Planned::construct`). `None` for a name the client has no placeholder for, which a test rules out.
+/// The command of a Construct menu's entry: the Build of a type in the game. `None` for an entry not in the game yet
+/// (`ConstructEntry::Planned`), which the client has no placeholder for since slice M5-N6: the menus hold none, as the
+/// sim's tests check (`sc_sim::defs::cults`).
 pub fn command(entry: ConstructEntry) -> Option<PanelCommand> {
     match entry {
         ConstructEntry::Kind(kind) => Some(PanelCommand::Build(kind)),
-        ConstructEntry::Planned(name) => Planned::construct(name).map(PanelCommand::Planned),
+        ConstructEntry::Planned(_) => None,
     }
 }
 

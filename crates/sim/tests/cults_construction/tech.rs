@@ -41,8 +41,8 @@ fn four_round(prerequisite: ObjectKind, side: i32) -> TestSim {
     t
 }
 
-/// A complete `kind` of `owner`'s, spawned at `origin` in `tick` (a debug spawn: the Recruits don't build the Chop Shop
-/// nor the Airstrip yet).
+/// A complete `kind` of `owner`'s, spawned at `origin` in `tick` (a debug spawn, quicker than a build: the Recruits
+/// build the Chop Shop and the Airstrip since slices M5-N6 and M5-N7, `tests/chop_shop/normal_game.rs`).
 fn spawn(t: &mut TestSim, tick: Tick, kind: ObjectKind, owner: PlayerId, origin: TilePos) {
     let spawn = DebugCommand::Spawn {
         kind,

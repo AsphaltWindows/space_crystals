@@ -114,16 +114,18 @@ fn under_a_sparrow(kind: ObjectKind, faction: Faction) -> (usize, Option<OrderKi
 }
 
 /// Who can hit it (the plan's acceptance): "Militants, Guards and the Laser Turret hit it. Peacekeepers, Legionnaires
-/// and Agents can't (their TargetDomain is Ground)". Each under a Sparrow circling it on Hold for 20 s: the first three,
-/// whose attacks are Universal, land hits on it, and their right-click on it is an Attack; the others, Ground only,
-/// land none, and their right-click on it follows it (`systems/controls/commands.md`: a unit that can't attack a
-/// target moves to it). The Seeker comes with slice N6, the Rocketman with slice K.
+/// and Agents can't (their TargetDomain is Ground)", and (slice M5-N6) the Seeker ("it hits a Sparrow (Universal)":
+/// `factions/cults/units/seeker.md`, "TargetDomain: **Universal** (ground and air)"), its turret on it. Each under a
+/// Sparrow circling it on Hold for 20 s: the first four, whose attacks are Universal, land hits on it, and their
+/// right-click on it is an Attack; the others, Ground only, land none, and their right-click on it follows it
+/// (`systems/controls/commands.md`: a unit that can't attack a target moves to it). The Rocketman comes with slice K.
 #[test]
-fn militants_guards_and_the_laser_turret_hit_it_and_ground_attacks_can_t() {
+fn militants_guards_the_laser_turret_and_the_seeker_hit_it_and_ground_attacks_can_t() {
     let cases = [
         (ObjectKind::Militant, Faction::Cults, true),
         (ObjectKind::Guard, Faction::Syndicate, true),
         (ObjectKind::LaserTurret, Faction::Syndicate, true),
+        (ObjectKind::Seeker, Faction::Cults, true),
         (ObjectKind::Peacekeeper, Faction::Gdo, false),
         (ObjectKind::SabreLegionnaire, Faction::Colonists, false),
         (ObjectKind::RifleLegionnaire, Faction::Colonists, false),

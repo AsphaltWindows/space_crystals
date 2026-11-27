@@ -42,6 +42,8 @@ mod building_armor;
 mod builds;
 #[path = "cathedral/main.rs"]
 mod cathedral;
+#[path = "chop_shop/main.rs"]
+mod chop_shop;
 mod colonists;
 mod colonists_start;
 mod combat_damage;

@@ -138,6 +138,35 @@ pub(super) fn overlapped_before(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) ->
     found
 }
 
+/// (M5-N6) The units that a unit evacuated in this tick (`evacuated`, design change 0349) came out on: their shapes as
+/// the checker saw them a tick earlier overlap the evacuee's where it was put (its `Object::prev_pos` and
+/// `Object::prev_facing`: the spot it came out at, before this tick's movement), in its layer. A unit still in the
+/// doorway of the building that went is one (I1's exception 3, [`may_overlap`]): idle, it may be moving off the evacuee
+/// now ("Units that overlap ignore each other until separated, and idle ones push apart"), as the evacuee may.
+pub(super) fn landed_on(sim: &Sim, before: &BTreeMap<ObjectId, Seen>, evacuated: &[ObjectId]) -> Vec<ObjectId> {
+    let layer = |o: &Object| Some(o.def().unit.as_ref()?.base_def().domain);
+    let put: Vec<(Domain, Shape)> = (evacuated.iter())
+        .filter_map(|&id| {
+            let o = sim.object(id)?;
+            o.def().silhouette()?;
+            Some((layer(o)?, Shape::silhouette(o.kind, o.prev_pos, o.prev_facing)))
+        })
+        .collect();
+    if put.is_empty() {
+        return Vec::new();
+    }
+    (sim.objects())
+        .filter(|o| !evacuated.contains(&o.id))
+        .filter(|o| {
+            let (Some(domain), Some(shape)) = (layer(o), before.get(&o.id).and_then(|seen| seen_shape(o, seen))) else {
+                return false;
+            };
+            domain.hard_collision() && put.iter().any(|(d, e)| *d == domain && e.overlaps(&shape))
+        })
+        .map(|o| o.id)
+        .collect()
+}
+
 /// I1: no two units of a layer overlap, but for the exceptions of [`may_overlap`]. (M5-V1) Their shapes
 /// (`Shape::of`): a Silhouette that turns with its facing as it lies, by the separating-axis test (`Shape::overlaps`).
 pub(super) fn no_overlaps(sim: &Sim, before: &BTreeMap<ObjectId, Seen>, arrivals: &Arrivals) -> Result<(), Violation> {

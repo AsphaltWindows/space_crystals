@@ -11,10 +11,11 @@ use crate::units::SU_PER_GU;
 /// `factions/cults/units/hand_of_heaven.md`: "The Cults' **long-range, mobile, semi-ballistic missile platform**, built
 /// at the Chop Shop", "a **shoot-and-scoot** unit". Its numbers only (slice M5-G2, plan decision T69), its movement and
 /// its turret as data: nothing reads its speed-dependent turning nor its turret's arc and rate yet (slice V2 turns
-/// vehicles), and its production at the Chop Shop comes with that building's slice, so no building makes it yet. Its
-/// missile is a DoublyDisjointed area attack, as the Grenadier's grenade is (`crate::combat::projectiles`,
-/// `crate::combat::area`): "**no homing**: the missile flies to where the target was at the end of Aiming, so targets
-/// can dodge; it can also be fired at the ground". Its numbers are the design's "Placeholder stats".
+/// vehicles), and its production at the Chop Shop comes with slice M5-N10 (the Chop Shop trains the Seeker since slice
+/// M5-N6), so no building makes it yet. Its missile is a DoublyDisjointed area attack, as the Grenadier's grenade is
+/// (`crate::combat::projectiles`, `crate::combat::area`): "**no homing**: the missile flies to where the target was at
+/// the end of Aiming, so targets can dodge; it can also be fired at the ground". Its numbers are the design's
+/// "Placeholder stats".
 pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
     kind: ObjectKind::HandOfHeaven,
     name: "Hand of Heaven",
