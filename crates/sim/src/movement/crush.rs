@@ -71,16 +71,17 @@ pub(super) fn crushes(mover: &Body, other: &Body) -> bool {
 }
 
 /// Whether the move a unit of base `base` and movement numbers `movement` makes in its turn of this tick crushes
-/// (module docs; [`Body::crushes`]), as its turn begins: `mover` as it is, facing `facing`, `held` if its attack holds
-/// its base, in the exit doorway `door` if it is in one. With no momentum its move is Moving, a spin, or none at
-/// all. With momentum it walks out of its doorway by its model (`super::doorway`), or else steers along its path if
-/// `steers` (its path's goal is still ahead, [`steers`]) and doesn't brake against its leg ([`brakes`]), and coasts
-/// to rest if not: those two are Stopping.
+/// (module docs; [`Body::crushes`]), as its turn begins: `mover` as it is, its facing `ahead` as a unit vector
+/// ([`ahead`]), `held` if its attack holds its base, in the exit doorway `door` if it is in one. With no momentum its
+/// move is Moving, a spin, or none at all. With momentum it walks out of its doorway by its model (`super::doorway`),
+/// or else steers along its path if `steers` (its path's goal is still ahead, [`steers`]) and doesn't brake against
+/// its leg ([`brakes`]), and coasts to rest if not: those two are Stopping. `ahead` and `steers` are asked only of a
+/// crusher that needs them.
 pub(super) fn drives(
     base: &UnitBaseDef,
     movement: &MovementAttrs,
     mover: &Mover,
-    facing: f32,
+    ahead: impl FnOnce() -> Vec2,
     held: bool,
     door: Option<&ExitDoor>,
     steers: impl FnOnce() -> bool,
@@ -94,8 +95,15 @@ pub(super) fn drives(
     match door {
         Some(ExitDoor::Centre(_)) => true,
         Some(ExitDoor::Side(_)) if mover.goal == MoveGoal::None => true,
-        _ => steers() && !brakes(movement, mover, facing),
+        _ => steers() && !brakes(movement, mover, ahead),
     }
+}
+
+/// The facing `facing` of the unit whose body is `body`, as a unit vector (`math::facing_vector`): its turned
+/// Silhouette's axis if it lies at that facing, the same vector worked out already, else worked out.
+pub(super) fn ahead(body: &Body, facing: f32) -> Vec2 {
+    let lies = body.oriented.filter(|lies| lies.facing == facing);
+    lies.map_or_else(|| math::facing_vector(facing), |lies| lies.axis)
 }
 
 /// Whether the unit steers along its path this tick (`super::follow`), its shape where it stands being `shape` and
@@ -110,19 +118,27 @@ pub(super) fn steers(mover: &Mover, shape: &Shape, chased: Option<&Chased>) -> b
     !reached && mover.path_state == PathState::Ready && usize::from(mover.next) < mover.path.len()
 }
 
-/// Whether a SpeedTurnRadiusMovement unit, `mover` facing `facing`, brakes against the way its leg drives this tick:
-/// it still moves the other way, faster than one tick's Deceleration takes away, so its move is Stopping
-/// (`super::tracked`: "Moving the other way from its leg, it brakes to rest first"). These alone decide the drive's
-/// Stopping (`Tracked::drive`), whatever the step it steers for. The other models are no crusher's but the Mech's
-/// TurnRateMovement, which has no speed to brake from.
-fn brakes(movement: &MovementAttrs, mover: &Mover, facing: f32) -> bool {
-    let MovementAttrs::SpeedTurnRadius { deceleration, .. } = *movement else {
+/// Whether a SpeedTurnRadiusMovement unit, `mover` facing `ahead` (a unit vector), brakes against the way its leg
+/// drives this tick: it still moves the other way, faster than one tick's Deceleration takes away, so its move is
+/// Stopping (`super::tracked`: "Moving the other way from its leg, it brakes to rest first"). These alone decide the
+/// drive's Stopping (`Tracked::drive`), whatever the step it steers for. Without a Deceleration it stops at once. The
+/// other models are no crusher's but the Mech's TurnRateMovement, which has no speed to brake from.
+fn brakes(movement: &MovementAttrs, mover: &Mover, ahead: impl FnOnce() -> Vec2) -> bool {
+    let MovementAttrs::SpeedTurnRadius {
+        deceleration: Some(deceleration),
+        ..
+    } = *movement
+    else {
         return false;
     };
     // The drive's signed speed (`tracked::speed_of`) along the way its leg drives (`Tracked::of`: backwards on a
-    // Reverse leg, for a unit that can back up).
+    // Reverse leg, for a unit that can back up). No faster than a tick's Deceleration, it is at rest in the tick
+    // whichever way it moves.
     let speed = mover.momentum.length();
-    let current = if mover.momentum.dot(math::facing_vector(facing)) < 0.0 {
+    if speed <= deceleration {
+        return false;
+    }
+    let current = if mover.momentum.dot(ahead()) < 0.0 {
         -speed
     } else {
         speed
@@ -132,7 +148,7 @@ fn brakes(movement: &MovementAttrs, mover: &Mover, facing: f32) -> bool {
     } else {
         current
     };
-    along + deceleration.unwrap_or(f32::INFINITY) < 0.0
+    along + deceleration < 0.0
 }
 
 /// The crushes of the crusher `me` (an index into `bodies`) in its turn of this tick, whose move crushed ([`drives`]),
@@ -145,29 +161,18 @@ fn brakes(movement: &MovementAttrs, mover: &Mover, facing: f32) -> bool {
 /// the grid's order.
 pub(super) fn victims(bodies: &[Body], layer: &Layer, me: usize, from: Vec2, start: f32, crushed: &mut Vec<Crush>) {
     let now = bodies[me];
-    let turned = now.oriented.map_or(0.0, |lies| math::wrap_angle(lies.facing - start));
+    let turned = match now.oriented {
+        Some(lies) if lies.facing != start => math::wrap_angle(lies.facing - start),
+        _ => 0.0,
+    };
     if now.pos == from && turned == 0.0 {
         return;
     }
-    let moved = now.pos - from;
-    let ending = now.shape_at(now.pos);
-    let leaving = now.shape_at(from);
-    // Its turn, where it began, in parts as `World::turn` tries it: the shape at the end of part `part`, those before
-    // the facing it ended at.
-    let (half, parts) = match now.oriented {
-        Some(lies) if turned != 0.0 => {
-            let parts = (turned.abs() * lies.half.length() / TURN_TRY_SU).ceil().max(1.0) as u32;
-            (lies.half, parts)
-        }
-        _ => (Vec2::ZERO, 0),
-    };
-    let turning = |part: u32| {
-        let facing = math::wrap_angle(start + turned * (part as f32 / parts as f32));
-        Shape::oriented(from, half, math::facing_vector(facing))
-    };
     // A shape that turns lies within its circumscribed circle at every facing.
     let reach = now.oriented.map_or(now.half, |lies| Vec2::splat(lies.half.length()));
     let first = crushed.len();
+    // What it swept, worked out for the first unit it may have crushed: most crushers' moves come near none.
+    let mut swept: Option<Swept> = None;
     layer.near_any(
         from.min(now.pos) - reach,
         from.max(now.pos) + reach,
@@ -182,15 +187,63 @@ pub(super) fn victims(bodies: &[Body], layer: &Layer, me: usize, from: Vec2, sta
             {
                 return;
             }
-            let shape = other.shape_at(other.pos);
-            let swept = ending.overlaps(&shape)
-                || (moved != Vec2::ZERO && leaving.sweep(moved, &shape).is_some())
-                || (1..parts).any(|part| turning(part).overlaps(&shape));
-            if swept {
+            let swept = swept.get_or_insert_with(|| Swept::of(&now, from, start, turned));
+            if swept.reaches(&other.shape_at(other.pos)) {
                 crushed.push(Crush { victim: index, by: me });
             }
         },
     );
+}
+
+/// What a crusher's move swept ([`victims`]): its shape where it ended (`ending`), the shape it ended in where it
+/// started (`leaving`) and the move between (`moved`), and its turn where it started: from the facing `start`, by
+/// `turned`, in `parts` as `World::turn` tries it, its Silhouette's half extents `half`.
+struct Swept {
+    ending: Shape,
+    leaving: Shape,
+    moved: Vec2,
+    from: Vec2,
+    half: Vec2,
+    start: f32,
+    turned: f32,
+    parts: u32,
+}
+
+impl Swept {
+    /// What the crusher whose body is now `now` swept, from `from` and the facing `start`, having turned by `turned`.
+    fn of(now: &Body, from: Vec2, start: f32, turned: f32) -> Self {
+        let (half, parts) = match now.oriented {
+            Some(lies) if turned != 0.0 => {
+                let parts = (turned.abs() * lies.half.length() / TURN_TRY_SU).ceil().max(1.0) as u32;
+                (lies.half, parts)
+            }
+            _ => (Vec2::ZERO, 0),
+        };
+        Self {
+            ending: now.shape_at(now.pos),
+            leaving: now.shape_at(from),
+            moved: now.pos - from,
+            from,
+            half,
+            start,
+            turned,
+            parts,
+        }
+    }
+
+    /// Whether it swept `shape`: its shape overlaps it where it ended, or swept it on its way (its move, which counts
+    /// touching as free; the parts of its turn before the facing it ended at).
+    fn reaches(&self, shape: &Shape) -> bool {
+        self.ending.overlaps(shape)
+            || (self.moved != Vec2::ZERO && self.leaving.sweep(self.moved, shape).is_some())
+            || (1..self.parts).any(|part| self.turning(part).overlaps(shape))
+    }
+
+    /// Its shape at the end of part `part` of its turn.
+    fn turning(&self, part: u32) -> Shape {
+        let facing = math::wrap_angle(self.start + self.turned * (part as f32 / self.parts as f32));
+        Shape::oriented(self.from, self.half, math::facing_vector(facing))
+    }
 }
 
 /// The tick's crushes (`crushed`, of the tick's `bodies`) as the sim tells them: a `SimEvent::Crushed` for each, in

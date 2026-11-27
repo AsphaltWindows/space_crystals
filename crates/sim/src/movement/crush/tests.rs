@@ -1,6 +1,6 @@
-//! Unit tests of crushing ([`crushes`] as `space::blocks`'s rule 3, [`drives`], [`victims`]), without a game, on a
-//! 64 × 40 Silhouette that turns with its facing (the Hand of Heaven's) among 24 × 24 Light Infantry and a 36 × 36
-//! Guard. The game's tests are `crates/sim/tests/crushing/`.
+//! Unit tests of crushing ([`crushes`] as `space::blocks`'s rule 3, [`drives`], [`ahead`], [`victims`]), without a
+//! game, on a 64 × 40 Silhouette that turns with its facing (the Hand of Heaven's) among 24 × 24 Light Infantry and a
+//! 36 × 36 Guard. The game's tests are `crates/sim/tests/crushing/`.
 
 use super::*;
 use crate::defs::UnitBase;
@@ -156,7 +156,15 @@ fn a_crusher_s_move_crushes_unless_it_is_stopping() {
         ..Mover::default()
     };
     let drives = |base: &UnitBaseDef, mover: &Mover, facing: f32, held: bool, steers: bool| {
-        super::drives(base, &movement, mover, facing, held, None, || steers)
+        super::drives(
+            base,
+            &movement,
+            mover,
+            || math::facing_vector(facing),
+            held,
+            None,
+            || steers,
+        )
     };
     let at_rest = mover(Vec2::ZERO, false);
     assert!(drives(tracked, &at_rest, 0.0, false, false));
@@ -178,4 +186,15 @@ fn a_crusher_s_move_crushes_unless_it_is_stopping() {
         "braking before it backs up"
     );
     assert!(drives(tracked, &mover(-east, true), 0.0, false, true), "backing up");
+}
+
+/// [`ahead`]: a unit's facing as a unit vector, its turned Silhouette's axis while it lies at that facing, the same
+/// vector to the bit.
+#[test]
+fn ahead_is_the_facing_vector() {
+    let tank = tank(Vec2::ZERO, 1.0, true);
+    assert_eq!(ahead(&tank, 1.0), math::facing_vector(1.0));
+    assert_eq!(ahead(&tank, -2.0), math::facing_vector(-2.0));
+    let infantry = infantry(2, Some(P2), Vec2::ZERO);
+    assert_eq!(ahead(&infantry, 0.5), math::facing_vector(0.5));
 }
