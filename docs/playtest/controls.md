@@ -2,9 +2,9 @@
 
 Every key of the game and every faction's command panels, for a playtest ([the playtest notes](README.md)). From
 *Keys* on, this page is generated from the code: the keys from the bindings table, the panels from the panel
-templates, as the game builds them, with the hints' names and greyed reasons. A test, `playtest_docs::controls` in
-`crates/game/tests/playtest_docs/`, fails when the page no longer matches the code, so after a change to a template or
-a binding, regenerate it and commit it with the change:
+templates, as the game builds them, with the hints' names and why a button is greyed. A test,
+`playtest_docs::controls` in `crates/game/tests/playtest_docs/`, fails when the page no longer matches the code, so
+after a change to a template or a binding, regenerate it and commit it with the change:
 
     UPDATE_DOCS=1 cargo test -p space_crystals --test game playtest_docs::controls
 
@@ -13,16 +13,17 @@ How to read the panels:
 - **Keys** is the button's key, and for a button in a menu the keys that open the menu first: `Q → W` is W in the
   menu Q opens. Z (or Esc) goes back out of a menu. A menu that is the same as an earlier one says so instead of
   being listed again.
-- **Button** is the button's label, **Command** its name as its hint shows it.
+- **Button** is the button's label, **Command** its name as its hint shows it (the hint, at the foot of the
+  InfoPanel, names the button under the pointer, with its key and its price).
 - **Notes**: "click a target" (the command waits for a click, see *Aiming and placing* below), "place it" (a
   building's ghost follows the cursor), "Shift queues" (with Shift held, the order goes after the unit's others),
   "opens a menu".
-- **Greyed** buttons show with the hint's reason: "Not available yet" is a type or a command not in the game yet;
-  "Not available for this unit" a command of the panel that this type can't use. "Requires a Temple" is a
-  prerequisite: the button is greyed with that hint until the player owns one.
+- **Greyed** buttons: pressing one shows why, over the map, in the words the notes quote. "Not available yet" is a
+  type or a command not in the game yet; "Not available for this unit" a command of the panel that this type can't
+  use. "Requires a Temple" is a prerequisite: the button is greyed, and says so, until the player owns one.
 - Each panel is that of one object of the type with everything it counts at hand (Recruits in a pool, a load,
-  returning Drones). In a game a button can also be greyed for the moment: too few Space Crystals, no Recruit of that
-  kind inside, the building still being built. Its hint says why.
+  returning Drones). In a game a button can also be greyed for the moment: too few Space Crystals or Supplies, no
+  Recruit of that kind inside, nothing to cancel, the building still being built. Pressing it says why.
 
 Not in the tables: the minimap, where a left-click or a drag centres the camera, a right-click is the selection's
 right-click on the ground there, and while a command waits for its target a left-click gives it that ground (see
