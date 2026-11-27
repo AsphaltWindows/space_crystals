@@ -26,7 +26,8 @@ Tactical and tech resource. Gathered from Supply Delivery Stations via Supply To
 | Unit | Supplies |
 |---|---|
 | Field Engineer | 1 |
-| Drone Operator | 2 |
+| Drone Operator | 1 |
+| Twister | 1 |
 | Hornet | 2 |
 | Dragonfly | 4 |
 | Artillery Rig | 5 |
