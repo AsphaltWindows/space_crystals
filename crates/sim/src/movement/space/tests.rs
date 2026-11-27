@@ -1,6 +1,7 @@
 //! Unit tests of the box geometry, the spatial grid and the collision exceptions of [`blocks`].
 
 use super::*;
+use crate::ids::ObjectId;
 
 const REACH: Vec2 = Vec2::splat(24.0);
 

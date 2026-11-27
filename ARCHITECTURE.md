@@ -1974,10 +1974,10 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   unit alone is no lane. The code and its constants, the `LANE_*`, are in `collide/lanes.rs`. It is deterministic
   by sorted lanes and fixed cell order, and keeps no state but `Mover::avoid_side`. Never let it write a position
   except through `World::clear`.
-- **The grid's cells carry marks** (`Body::kinds`, `Layer::near_any`; the grid is `movement/space/layer.rs`): which
-  heading sectors and whether a yielding unit (and, slice M5-V4, a crushable one) were listed in a cell this tick.
-  They only ever say "maybe", and exist so that a unit with nobody to pass doesn't look at bodies. Keep them
-  conservative: mark on every insert and whenever a body's kinds change.
+- **The grid's cells carry marks** (`Body::kinds`, `Layer::near_any`): which heading sectors and whether a yielding
+  unit (and, slice M5-V4, a crushable one) were listed in a cell this tick. They only ever say "maybe", and exist so
+  that a unit with nobody to pass doesn't look at bodies. Keep them conservative: mark on every insert and whenever a
+  body's kinds change.
 - **Oriented Silhouettes** (slice M5-V1, plan decision T78; `docs/movement.md > 3`, `docs/movement.md > 6.3`): a
   Silhouette that isn't square (`ObjectDef::silhouette_turns`: the Seeker, the Prayer-mobile, the Hand of Heaven)
   lies along its unit's facing. `shape.rs` has the geometry: the separating-axis test for overlap and the sweep, the

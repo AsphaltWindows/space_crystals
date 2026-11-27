@@ -103,7 +103,7 @@
   0418 and 0419, answering Q0153 parts 2 and 4; `systems/units.md > UnitCollision > Crushing`): 6.13 is crushing,
   the third exception of 6.1's filter, the spin that crushes, and the kill at the crusher's commit, with the soak's
   checks (8). Its changes are marked **(M5-V4)**. The code is `crates/sim/src/movement/crush.rs`, `movement/space.rs`
-  (`space::blocks`, `Body::crushes`; the grid split out to `movement/space/layer.rs`), `movement.rs`, `sim/phase.rs`
+  (`space::blocks`, `Body::crushes`; the `Body` type split out to `movement/space/body.rs`), `movement.rs`, `sim/phase.rs`
   (the removal in 5d), `defs/units/bases.rs` (`UnitBaseDef::crushes`) and `events.rs` (`SimEvent::Crushed`).
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
