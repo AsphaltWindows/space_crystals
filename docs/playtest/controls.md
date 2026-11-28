@@ -539,7 +539,7 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | W → S | FE | Build Forge | place it; Requires a Vehicle Assembly; needs a Tier 2 Tunnel |
 | W → D | NC | Build Null Chamber | place it; Requires a Hideout; needs a Tier 2 Tunnel |
 | W → F | AA | Build Aerospace Assembly | place it; Requires a Forge; needs a Tier 3 Tunnel |
-| W → X | OC | Build Orbital Command | greyed: "Not available yet" |
+| W → X | OC | Build Orbital Command | place it; Requires an Aerospace Assembly; needs a Tier 3 Tunnel |
 | W → C | LT | Build Laser Turret | place it; Requires an Optics Lab |
 | E | Eject | Eject | opens a menu |
 | E → Q | AG | Eject Agent |  |
@@ -591,7 +591,7 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 |---|---|---|---|
 | Q | PHM | Train Phantom | Requires an Optics Lab |
 | W | SPR | Train Specter | greyed: "Not available yet" |
-| E | PRM | Train Prism | greyed: "Not available yet" |
+| E | PRM | Train Prism | Requires an Orbital Command |
 | X | Cancel | Cancel Production |  |
 | C | Rally | Set Rally Point | click a target |
 

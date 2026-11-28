@@ -400,15 +400,18 @@ fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
 /// `factions/syndicate/structures/aerospace_assembly.md > Placeholder stats` (slice M6-SD): "Panel: **Q** Phantom,
 /// **W** Specter, **E** Prism, **X** Cancel Production, **C** Set Rally Point". Q is its recipe, which trains a
 /// Phantom, greyed while the gate refuses it for want of its prerequisite ("**Phantom** (requires an Optics Lab)":
-/// `Reject::Requires`); W and E hold the units it doesn't train yet (slices M6-SA and M6-SP), not available ("Not
-/// available yet"), each labelled and named by its type; C awaits the rally point's target. The Forge has no panel
+/// `Reject::Requires`), and E the Prism's, greyed alike without an Orbital Command; W holds the unit it doesn't train
+/// yet (slice M6-SA), not available ("Not available yet"), labelled and named by its type; C awaits the rally point's
+/// target. The Forge has no panel
 /// (`factions/syndicate/structures/forge.md`: "No commands for now (prerequisite only)").
 #[test]
 fn the_aerospace_assembly_has_q_w_e_x_and_c() {
     use ButtonLook::{Common, Disabled, Unavailable};
     use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
     let assembly = Selection::new([(id(1), AEROSPACE_ASSEMBLY)]);
-    let no_lab = Conditions::default().refusing(Train(PHANTOM), Reject::Requires(ObjectKind::OpticsLab));
+    let prism = ObjectKind::Prism;
+    let no_lab = (Conditions::default().refusing(Train(PHANTOM), Reject::Requires(ObjectKind::OpticsLab)))
+        .refusing(Train(prism), Reject::Requires(ObjectKind::OrbitalCommand));
     let shown_panel = panel(&assembly, InterfaceState::DefaultState, &no_lab);
     let c = PanelButton::Command;
     assert_eq!(
@@ -416,7 +419,7 @@ fn the_aerospace_assembly_has_q_w_e_x_and_c() {
         [
             (slot(0, 0), c(Train(PHANTOM)), Disabled),
             (slot(0, 1), c(P(Planned::Specter)), Unavailable),
-            (slot(0, 2), c(P(Planned::Prism)), Unavailable),
+            (slot(0, 2), c(Train(prism)), Disabled),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Common),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common),
         ]
@@ -430,10 +433,10 @@ fn the_aerospace_assembly_has_q_w_e_x_and_c() {
     assert_eq!(names[..3], ["Train Phantom", "Train Specter", "Train Prism"]);
     assert_eq!(why_text(&shown_panel, slot(0, 0)), Some("Requires an Optics Lab"));
     assert_eq!(press(&shown_panel, slot(0, 0)), SlotPress::Nothing);
-    for slot in [slot(0, 1), slot(0, 2)] {
-        assert_eq!(why_text(&shown_panel, slot), Some("Not available yet"));
-        assert_eq!(press(&shown_panel, slot), SlotPress::Nothing);
-    }
+    assert_eq!(why_text(&shown_panel, slot(0, 1)), Some("Not available yet"));
+    assert_eq!(press(&shown_panel, slot(0, 1)), SlotPress::Nothing);
+    assert_eq!(why_text(&shown_panel, slot(0, 2)), Some("Requires an Orbital Command"));
+    assert_eq!(press(&shown_panel, slot(0, 2)), SlotPress::Nothing);
     assert_eq!(
         press(&shown_panel, CommandSlot::RALLY_POINT),
         SlotPress::AwaitTarget(SetRallyPoint)

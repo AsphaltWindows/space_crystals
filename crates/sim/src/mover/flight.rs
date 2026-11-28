@@ -47,16 +47,31 @@ impl Mover {
     /// (M6-SD) One tick of the unit's rise out of an air door ([`Mover::rise`]), in the movement step: whether it still
     /// rises in this tick, and so holds still. The rise's last tick ends it, and in that tick the unit moves: a rise of
     /// 16 ticks, begun as the unit came out (after the movement step of its tick), holds it in the next 15 and lets it
-    /// move in the 16th.
+    /// move in the 16th. A unit that unfolds ([`Mover::unfold`]) unfolds in the ticks after its rise, still holding
+    /// still, and the unfold's last tick ends it as the rise's does: a rise of 32 ticks and an unfold of 32 hold it in
+    /// the 63 ticks after it came out, and let it move in the 64th.
     pub fn rises(&mut self) -> bool {
-        let Some(rise) = &mut self.rise else {
+        if let Some(rise) = &mut self.rise {
+            if !rise.step(crate::economy::RATIO_ONE) {
+                return true;
+            }
+            self.rise = None;
+            return self.unfold.is_some();
+        }
+        let Some(unfold) = &mut self.unfold else {
             return false;
         };
-        if rise.step(crate::economy::RATIO_ONE) {
-            self.rise = None;
+        if unfold.step(crate::economy::RATIO_ONE) {
+            self.unfold = None;
             return false;
         }
         true
+    }
+
+    /// Whether the unit is launching: rising out of the air exit door or unfolding after it, for a type that unfolds
+    /// ([`Mover::unfold`], set with its rise). Its orders are held meanwhile (`orders::run`).
+    pub fn launching(&self) -> bool {
+        self.unfold.is_some()
     }
 
     /// (M6-GL) A Glider's leg to `spot` that ends stopped over it, in the air, as the Dragonfly's landing does

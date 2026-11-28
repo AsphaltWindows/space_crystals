@@ -74,6 +74,10 @@ impl UnitDef {
         crushes: None,
         yields: None,
         carries: None,
+        satellite: false,
+        one_way: false,
+        unfold_ticks: 0,
+        thrust: None,
     };
 }
 

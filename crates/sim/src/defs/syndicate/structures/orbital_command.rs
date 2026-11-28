@@ -7,9 +7,8 @@ use crate::player::Faction;
 
 /// `factions/syndicate/structures/orbital_command.md`: the "Syndicate facility allowing for control and coordination of
 /// orbital forces", an underground expansion behind an Aerospace Assembly, and a prerequisite only ("No commands for now
-/// (prerequisite only)"): the Prism's. Its numbers only (slice M6-SK, plan decision T84, by T69's rule): no Tunnel
-/// builds one yet ([`ORBITAL_COMMAND_EXPANSION`], kept out of its def, for slice M6-SP), so its ExpandMenu entry stays
-/// `Planned`. Its numbers are the design's "Placeholder stats".
+/// (prerequisite only)"): the Prism's. A Tier 3 Tunnel builds it ([`ORBITAL_COMMAND_EXPANSION`]). Its numbers are the
+/// design's "Placeholder stats".
 pub(crate) const ORBITAL_COMMAND: ObjectDef = ObjectDef {
     kind: ObjectKind::OrbitalCommand,
     name: "Orbital Command",
@@ -35,7 +34,7 @@ pub(crate) const ORBITAL_COMMAND: ObjectDef = ObjectDef {
         power: 0,
         production: None,  // No commands for now (prerequisite only)
         underground: true, // Entity Type - Structure Type (Underground)
-        expansion: None,   // with slice M6-SP: [`ORBITAL_COMMAND_EXPANSION`]
+        expansion: Some(ORBITAL_COMMAND_EXPANSION),
         // TechPrerequisite - player owns at least one Aerospace Assembly (anywhere in the Tunnel Network)
         requires: &[ObjectKind::AerospaceAssembly],
         ..StructureDef::NONE
@@ -43,11 +42,7 @@ pub(crate) const ORBITAL_COMMAND: ObjectDef = ObjectDef {
     ..ObjectDef::NONE
 };
 
-/// The Orbital Command's construction by a Tunnel (`StructureDef::expansion`), for slice M6-SP to make live.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "slice M6-SP: a Tunnel builds the Orbital Command")
-)]
+/// The Orbital Command's construction by a Tunnel (`StructureDef::expansion`).
 pub(crate) const ORBITAL_COMMAND_EXPANSION: ExpansionDef = ExpansionDef {
     tier: 3,     // Tier Requirement - 3
     cost: 250,   // Cost 250 Space Crystals
@@ -75,5 +70,10 @@ mod tests {
         let requires = [ObjectKind::AerospaceAssembly];
         assert_expansion(ObjectKind::OrbitalCommand, "Orbital Command", 2, 400.0, &requires);
         assert_eq!(ORBITAL_COMMAND_EXPANSION, expansion);
+        let structure = ObjectKind::OrbitalCommand.def().structure.as_ref().unwrap();
+        assert_eq!(
+            (structure.expansion, structure.production.as_ref()),
+            (Some(expansion), None)
+        );
     }
 }

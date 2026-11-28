@@ -112,6 +112,7 @@ impl StateHash for Mover {
             takeoff,
             reverses,
             rise,
+            unfold,
             approach,
             // (M5-N10) Set in phase 5a and taken in 5d of the same tick: never set between ticks.
             turn_to: _,
@@ -201,6 +202,11 @@ impl StateHash for Mover {
         if let Some(rise) = rise {
             h.tag(10);
             rise.hash(h);
+        }
+        // Likewise only while an aircraft unfolds.
+        if let Some(unfold) = unfold {
+            h.tag(12);
+            unfold.hash(h);
         }
         // (M6-GL) Likewise only while a Glider flies a landing approach, or holds still over its point: games without
         // one hash as before the field existed.

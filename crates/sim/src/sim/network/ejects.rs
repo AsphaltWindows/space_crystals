@@ -183,7 +183,8 @@ impl Sim {
     /// (`Mover::rise`), and gets its order at once, as a runway's aircraft does (`Mover::takeoff`): its rally's (design
     /// change 0253), which it starts on once risen. With none it stays over the door: **Placeholder (not in the design:
     /// an aircraft out of the air doors with no rally point hovers where it rose)**, as aircraft never block the way
-    /// out.
+    /// out. A type that unfolds (`UnitDef::unfold_ticks`) unfolds once risen, its orders held until then
+    /// (`Mover::unfold`; `factions/syndicate/units/prism.md > Launch`).
     ///
     /// (M6-GK) A HoverCraft stays inside the map (`systems/units.md > Air Collision > Map edge`, `Map::clamp_box`): it
     /// appears at the point nearest the door's centre where its box, facing out, lies on the map
@@ -224,9 +225,15 @@ impl Sim {
             state.air_out = Some(self.tick);
         }
         if let Some(o) = self.objects.get_mut(&unit) {
-            let ticks = o.def().unit.as_ref().map_or(0, |unit| unit.air_door_ticks);
-            if let Some(mover) = o.mover.as_mut().filter(|_| ticks > 0) {
-                mover.rise = Some(Progress::new(ticks));
+            let def = o.def().unit.as_ref();
+            let (ticks, unfold) = def.map_or((0, 0), |unit| (unit.air_door_ticks, unit.unfold_ticks));
+            if let Some(mover) = o.mover.as_mut() {
+                if ticks > 0 {
+                    mover.rise = Some(Progress::new(ticks));
+                }
+                if unfold > 0 {
+                    mover.unfold = Some(Progress::new(unfold));
+                }
             }
         }
         self.events.push(SimEvent::LeftNetwork { unit, tunnel });

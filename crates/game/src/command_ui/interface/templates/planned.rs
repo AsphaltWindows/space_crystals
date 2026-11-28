@@ -71,18 +71,10 @@ pub enum Planned {
     /// owned)"), which it trains from slice M6-SL on, as it does its W from slice M6-SB on and its R from slice M6-ST1
     /// on. Its type is in the game (slice M6-SK), so its label is its type's ([`Planned::label`]).
     LaserBattery,
-    /// (M6-SD) The Aerospace Assembly's W and E (`factions/syndicate/structures/aerospace_assembly.md > Placeholder
-    /// stats`: "Panel: **Q** Phantom, **W** Specter, **E** Prism"), which it trains from slices M6-SA and M6-SP on.
-    /// Their types are in the game (slice M6-SK), so each label is its type's ([`Planned::label`]).
+    /// (M6-SD) The Aerospace Assembly's W (`factions/syndicate/structures/aerospace_assembly.md > Placeholder stats`),
+    /// which it trains from slice M6-SA on. Its type is in the game (slice M6-SK), so its label is its type's
+    /// ([`Planned::label`]).
     Specter,
-    Prism,
-    /// The ExpandMenu's expansions not in the game yet (`factions/syndicate/structures/README.md > Tech Tree
-    /// Overview`; design change 0291: "**all nine expansions** are always listed, in the Tech Tree table's order, each
-    /// holding its slot"), in the table's order: the sim's `sc_sim::defs::EXPAND_MENU` names them
-    /// ([`Planned::expansion`]). The Optics Lab and the Chemical Plant, which were the first two, are in the game
-    /// (slice M4-K), and so are the Vehicle Assembly (slice M6-SV), the Forge and the Aerospace Assembly (slice M6-SD),
-    /// the Null Chamber between them (slice M6-SN), and the Vault (slice M6-SB): the Orbital Command is the last.
-    OrbitalCommand,
     /// (M5-N9) The Field Engineer's Construct menu's buildings (`factions/gdo/units/field_engineer.md > Placeholder
     /// stats`: "**A** Construct (a menu: **Q** Bunker, **W** First Aid Tent, both greyed until designed; **Z** back)"),
     /// in its order (`super::gdo::field_engineer::CONSTRUCT_MENU`).
@@ -117,7 +109,7 @@ pub enum Planned {
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 27] = [
+    pub const ALL: [Planned; 25] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -134,8 +126,6 @@ impl Planned {
         Planned::PsionicUnit,
         Planned::LaserBattery,
         Planned::Specter,
-        Planned::Prism,
-        Planned::OrbitalCommand,
         Planned::Bunker,
         Planned::FirstAidTent,
         Planned::SupplyTower,
@@ -146,14 +136,6 @@ impl Planned {
         Planned::Burrow,
         Planned::Surface,
     ];
-
-    /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
-    /// expansion of the Tech Tree; `None` for any other name.
-    pub fn expansion(name: &str) -> Option<Planned> {
-        Planned::ALL
-            .into_iter()
-            .find(|&planned| planned.is_expansion() && planned.name() == name)
-    }
 
     /// Its name, the design's.
     pub fn name(self) -> &'static str {
@@ -174,8 +156,6 @@ impl Planned {
             Planned::PsionicUnit => "Psionic unit",
             Planned::LaserBattery => "Laser Battery",
             Planned::Specter => "Specter",
-            Planned::Prism => "Prism",
-            Planned::OrbitalCommand => "Orbital Command",
             Planned::Bunker => "Bunker",
             Planned::FirstAidTent => "First Aid Tent",
             Planned::SupplyTower => "Supply Tower",
@@ -231,8 +211,6 @@ impl Planned {
             Planned::PsionicUnit => "PU",
             Planned::LaserBattery => "LB",
             Planned::Specter => "SPR",
-            Planned::Prism => "PRM",
-            Planned::OrbitalCommand => "OC",
             Planned::Bunker => "BKR",
             Planned::FirstAidTent => "FAT",
             Planned::SupplyTower => "SPT",
@@ -255,7 +233,6 @@ impl Planned {
                 | Planned::PsionicUnit
                 | Planned::LaserBattery
                 | Planned::Specter
-                | Planned::Prism
                 | Planned::Prospector
         )
     }
@@ -265,14 +242,8 @@ impl Planned {
         matches!(self, Planned::SupplyTower)
     }
 
-    /// Whether it is an expansion of the Tunnel's ExpandMenu.
-    pub fn is_expansion(self) -> bool {
-        matches!(self, Planned::OrbitalCommand)
-    }
-
-    /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
-    /// Furnace" or "Build Orbital Command" ("Train Laser Battery", M6-SV), as a unit in the game is trained, a building warped in
-    /// and an expansion built (`PanelCommand::Expand`); (M6-GK) "Build Factory", as the Deployment Center's buildings
+    /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout" or "Warp In Alloy
+    /// Furnace" ("Train Laser Battery", M6-SV), as a unit in the game is trained and a building warped in; (M6-GK) "Build Factory", as the Deployment Center's buildings
     /// are constructed (`PanelCommand::Construct`). The Field Engineer's as the design names its abilities
     /// (`factions/gdo/units/field_engineer.md > Abilities`): "**Build Bunker**", "**Set up First Aid Tent**". (M6-GF) The
     /// Twister's mines' commands by their names, as the design names them: "**R: Lay Mine**", "**F: Buy Mine**"; (M6-SB)
@@ -290,7 +261,7 @@ impl Planned {
             format!("Build {}", self.name())
         } else if self.is_unit() {
             format!("Train {}", self.name())
-        } else if self.is_expansion() || self.is_constructed() {
+        } else if self.is_constructed() {
             format!("Build {}", self.name())
         } else {
             format!("Warp In {}", self.name())

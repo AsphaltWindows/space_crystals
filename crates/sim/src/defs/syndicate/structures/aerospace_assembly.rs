@@ -10,8 +10,8 @@ use crate::player::Faction;
 /// numbers came with slice M6-SK (plan decision T84, by T69's rule); slice M6-SD makes it live: a Tier 3 Tunnel builds
 /// it ([`AEROSPACE_ASSEMBLY_EXPANSION`], its ExpandMenu entry its kind), and its production is the Hideout's
 /// (`ExitRule::Network`, plan decisions T96 and T100: into the Tunnel Network, out of a Tier 3 Tunnel's air exit
-/// door), the Phantom its one recipe; the Specter's goes live with slice M6-SA and the Prism's with slice M6-SP, each
-/// in its panel slot. Its numbers are the design's "Placeholder stats".
+/// door), the Phantom and the Prism its recipes; the Specter's goes live with slice M6-SA, in its panel slot. Its
+/// numbers are the design's "Placeholder stats".
 pub(crate) const AEROSPACE_ASSEMBLY: ObjectDef = ObjectDef {
     kind: ObjectKind::AerospaceAssembly,
     name: "Aerospace Assembly",
@@ -37,10 +37,10 @@ pub(crate) const AEROSPACE_ASSEMBLY: ObjectDef = ObjectDef {
         power: 0,
         // The Hideout's production, into the Tunnel Network (`factions/syndicate/structures/README.md > Tunnel
         // Expansions > Rally Point Behavior`), its recipes the consts below, in the panel's order, each live with its
-        // unit's slice: the Phantom (slice M6-SD).
+        // unit's slice: the Phantom (slice M6-SD) and the Prism.
         production: Some(ProductionDef {
             exits: ExitRule::Network,
-            recipes: &[PHANTOM_RECIPE],
+            recipes: &[PHANTOM_RECIPE, PRISM_RECIPE],
             recruitment: None,
             augment: &[],
             default_rally: None,
@@ -90,8 +90,7 @@ pub(crate) const SPECTER_RECIPE: Recipe = Recipe {
     supplies: 0,
 };
 
-/// E: the Prism, behind an Orbital Command, for slice M6-SP.
-#[cfg_attr(not(test), expect(dead_code, reason = "slice M6-SP: the Aerospace Assembly's E"))]
+/// E: the Prism, behind an Orbital Command.
 pub(crate) const PRISM_RECIPE: Recipe = Recipe {
     kind: ObjectKind::Prism,
     cost: 250,
@@ -107,8 +106,7 @@ mod tests {
 
     /// The stat block (design change 0367): an underground structure, 3×3, MaxHP 600, the expansions' 6 / 54, behind a
     /// Forge; a Tier 3 Tunnel's for 300 Space Crystals in 640 frames. Its three recipes, in its panel's order, each
-    /// with its unit's TechPrerequisite; the Phantom's live since slice M6-SD, into the Tunnel Network as the
-    /// Hideout's.
+    /// with its unit's TechPrerequisite; the Phantom's and the Prism's live, into the Tunnel Network as the Hideout's.
     #[test]
     fn the_aerospace_assembly_follows_the_design() {
         let expansion = ExpansionDef {
@@ -139,7 +137,7 @@ mod tests {
         assert_eq!(structure.expansion, Some(expansion));
         assert_eq!(
             (production.exits, production.recipes),
-            (ExitRule::Network, &[PHANTOM_RECIPE][..])
+            (ExitRule::Network, &[PHANTOM_RECIPE, PRISM_RECIPE][..])
         );
         assert_eq!((production.recruitment, production.default_rally), (None, None));
     }

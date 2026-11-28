@@ -15,15 +15,15 @@
 
 use sc_sim::defs::{EXPAND_MENU, ExpandEntry};
 
-use super::super::{PanelCommand, Planned};
+use super::super::PanelCommand;
 use super::eject_menu::tile_slots;
 
-/// The command of an ExpandMenu entry: the Expand of a type in the game, or the placeholder of one not in it yet (by
-/// its name, `Planned::expansion`). `None` for a name the client has no placeholder for, which a test rules out.
+/// The command of an ExpandMenu entry: the Expand of its type. `None` for an entry not in the game, of which the sim's
+/// menu has none (a test checks).
 pub fn command(entry: ExpandEntry) -> Option<PanelCommand> {
     match entry {
         ExpandEntry::Kind(kind) => Some(PanelCommand::Expand(kind)),
-        ExpandEntry::Planned(name) => Planned::expansion(name).map(PanelCommand::Planned),
+        ExpandEntry::Planned(_) => None,
     }
 }
 

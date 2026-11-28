@@ -265,6 +265,12 @@ pub struct Mover {
     /// (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rise: Option<Progress>,
+    /// An aircraft's unfold after its rise out of the air exit door, for a type that unfolds (`UnitDef::unfold_ticks`;
+    /// `factions/syndicate/units/prism.md > Launch`): the ticks of it done. Set with the rise, it counts once the rise
+    /// is over ([`Mover::rises`]); the unit holds still meanwhile, an air unit that may be hit, and its orders are held
+    /// ([`Mover::launching`]). Left out of files and of the hash while `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unfold: Option<Progress>,
     /// (M6-GL) A Glider's landing approach ([`Approach`], [`Mover::approach_to`]): it flies at its goal's point to stop
     /// over it (`movement::approach`), then holds still there, in the air, its leg over, until its landing begins
     /// (`Sim::step_landings`). A new leg and a stop end it. Always `None` for the other models. Left out of files and
@@ -334,6 +340,7 @@ impl Default for Mover {
             takeoff: None,
             reverses: false,
             rise: None,
+            unfold: None,
             approach: None,
             turn_to: None,
         }

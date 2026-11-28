@@ -461,10 +461,9 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
         grid(ObjectKind::BioPortal),
         produces(ObjectKind::SabreLegionnaire, &[Planned::Lancer, Planned::PsionicUnit])
     );
-    assert_eq!(
-        grid(ObjectKind::AerospaceAssembly),
-        produces(ObjectKind::Phantom, &[Planned::Specter, Planned::Prism])
-    );
+    let mut aerospace = produces(ObjectKind::Phantom, &[Planned::Specter]);
+    aerospace[2] = Some(Train(ObjectKind::Prism));
+    assert_eq!(grid(ObjectKind::AerospaceAssembly), aerospace);
     let labels = [PK, ObjectKind::Drone, ObjectKind::SabreLegionnaire].map(|unit| Train(unit).label());
     assert_eq!(labels, ["PK", "DR", "SL"]);
 }

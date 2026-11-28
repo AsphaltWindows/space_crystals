@@ -294,3 +294,38 @@ fn a_detour_goes_in_front_of_the_path_and_counts_like_a_repath() {
     mover.follow(vec![v(0.0, 0.0), v(400.0, 0.0)], v(400.0, 0.0), 0);
     assert_eq!(mover.detour_end, 0);
 }
+
+/// `factions/syndicate/units/prism.md > Launch`: a unit that unfolds after its rise ([`Mover::unfold`]) holds still
+/// through both, launching throughout ([`Mover::launching`]): a rise of 32 ticks and an unfold of 32, set as it comes
+/// out, hold it in the 63 ticks after, and let it move in the 64th, the unfold's last. A rise alone, the Phantom's,
+/// ends as before, and is no launch.
+#[test]
+fn an_unfold_holds_the_unit_after_its_rise() {
+    let mut mover = Mover {
+        rise: Some(Progress::new(32)),
+        unfold: Some(Progress::new(32)),
+        ..Mover::default()
+    };
+    for tick in 1..64 {
+        assert!(mover.launching(), "tick {tick}");
+        assert!(mover.rises(), "tick {tick}");
+    }
+    let unfolded = mover.unfold.map(|unfold| unfold.ticks_done());
+    assert_eq!((mover.rise, unfolded), (None, Some(31)));
+    assert!(mover.launching());
+    assert!(!mover.rises(), "the 64th tick");
+    assert_eq!((mover.rise, mover.unfold), (None, None));
+    assert!(!mover.launching());
+    assert!(!mover.rises());
+
+    let mut phantom = Mover {
+        rise: Some(Progress::new(16)),
+        ..Mover::default()
+    };
+    for tick in 1..16 {
+        assert!(!phantom.launching());
+        assert!(phantom.rises(), "tick {tick}");
+    }
+    assert!(!phantom.rises(), "the 16th tick");
+    assert_eq!(phantom.rise, None);
+}

@@ -2,15 +2,18 @@
 //! **Q** Phantom, **W** Specter, **E** Prism, **X** Cancel Production, **C** Set Rally Point"; slice M6-SD): the
 //! Production template (plan decision T23, `super::super::production_grid`), as the Hideout's ([`super::hideout`]); its
 //! right-click sets the rally point. Q is its recipe, the Phantom's, trained into the Tunnel Network behind an Optics
-//! Lab (plan decision T96; "**Phantom** (requires an Optics Lab)"), which the gate greys it for; W and E hold the units
-//! it doesn't train yet, each not available ([`Planned`]) until its slice: M6-SA's Specter and M6-SP's Prism, whose
-//! recipes take their slots.
+//! Lab (plan decision T96; "**Phantom** (requires an Optics Lab)"), which the gate greys it for; E trains the Prism,
+//! greyed by the gate without an Orbital Command; W holds the unit it doesn't train yet, not available ([`Planned`])
+//! until its slice: M6-SA's Specter, whose recipe takes its slot.
+
+use sc_sim::ObjectKind;
 
 use super::super::{InterfaceTemplate, PanelTemplate, Planned};
 
-/// The Aerospace Assembly's panel template: the Production template, its recipe in Q, its units not in the game yet in
-/// W and E.
+/// The Aerospace Assembly's panel template: the Production template, its recipes in Q and E (the Prism's Train in E,
+/// past W), its unit not in the game yet in W.
 pub const TEMPLATE: PanelTemplate = PanelTemplate {
-    planned: &[(1, Planned::Specter), (2, Planned::Prism)],
+    planned: &[(1, Planned::Specter)],
+    trains: &[(2, ObjectKind::Prism)],
     ..PanelTemplate::of(InterfaceTemplate::Production)
 };

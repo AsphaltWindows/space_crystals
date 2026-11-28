@@ -126,26 +126,24 @@ fn the_syndicate_kinds_are_every_designed_one() {
 /// Slice M6-SK's kinds (plan decision T84) still out of play, in the registry's order: its fifteen but those a slice
 /// has made live, the Vehicle Assembly and the Assault Bike (slice M6-SV), the Forge, the Aerospace Assembly and the
 /// Phantom (slice M6-SD), the Null Chamber (slice M6-SN), the Vault and the Shadebringer (slice M6-SB), and the
-/// Subterranean Transport above ground (slice M6-ST1; its burrowed type waits for slice M6-ST2).
-const SK_KINDS: [ObjectKind; 6] = [
-    ObjectKind::OrbitalCommand,
+/// Subterranean Transport above ground (slice M6-ST1; its burrowed type waits for slice M6-ST2), and the Orbital
+/// Command and the Prism.
+const SK_KINDS: [ObjectKind; 4] = [
     ObjectKind::LaserBattery,
     ObjectKind::LaserBatteryDeployed,
     ObjectKind::SubterraneanTransportBurrowed,
     ObjectKind::Specter,
-    ObjectKind::Prism,
 ];
 
 /// Plan decision T84, after T69's rule: no player makes one of slice M6-SK's kinds still out of play ([`SK_KINDS`]),
-/// each kept out until its slice. No Tunnel builds the one expansion left (the Orbital Command has no
-/// `StructureDef::expansion`, so the gate refuses its Expand: `Reject::CannotConstruct`), and no def names one of the
-/// six where a kind is made: no producer's recipe (`ProductionDef::recipes`; the Vehicle Assembly trains the Assault
-/// Bike since slice M6-SV, the Shadebringer since slice M6-SB and the Subterranean Transport since slice M6-ST1, and
-/// the Aerospace Assembly the Phantom alone since slice M6-SD), no constructor's
+/// each kept out until its slice. No def names one of the four where a kind is made: no producer's recipe
+/// (`ProductionDef::recipes`; the Vehicle Assembly trains the Assault Bike since slice M6-SV, the Shadebringer since
+/// slice M6-SB and the Subterranean Transport since slice M6-ST1, and the Aerospace Assembly the Phantom since slice
+/// M6-SD and the Prism), no constructor's
 /// Construct or Warp In list, no worker's
 /// builds, no Deploy, no Conversion's or Riot Shield's form; nor does a faction's starting layout
-/// (`StartingConditions`). Their numbers wait beside their defs, each for its slice: the expansions' `*_EXPANSION` and
-/// the producers' `*_RECIPE`s (`syndicate::structures`).
+/// (`StartingConditions`). Their numbers wait beside their defs, each for its slice: the producers' `*_RECIPE`s
+/// (`syndicate::structures`).
 #[test]
 fn no_player_makes_one_of_the_new_kinds() {
     let made = |kind: ObjectKind| -> Vec<ObjectKind> {

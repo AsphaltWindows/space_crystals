@@ -1,16 +1,16 @@
 //! The Prism — `factions/syndicate/units/prism.md` (design change 0367's placeholders; slice M6-SK).
 
-use crate::defs::units::{MovementAttrs, UnitBase, UnitDef};
+use crate::defs::units::{MovementAttrs, ThrustDef, UnitBase, UnitDef};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
 
 /// `factions/syndicate/units/prism.md`: "The Syndicate's **satellite**: an unmanned orbital unit whose function, **for
-/// now, is only laser relay**", "**Very slow** by default". Its numbers only (slice M6-SK, plan decision T84, by T69's
-/// rule): it drifts by its DragMovement as any HoverCraft flies, and has no attack of its own (an armed Prism attacks
-/// with its relaying Batteries' surges, slice M6-SR). Nothing makes one yet: the Aerospace Assembly trains it behind an
-/// Orbital Command with slice M6-SP, which brings its launch, its thrust charges and its one-way exit (`> One way
-/// only`). Its numbers are the design's "Placeholder stats".
+/// now, is only laser relay**", "**Very slow** by default". It drifts by its DragMovement as any HoverCraft flies, and
+/// has no attack of its own (an armed Prism attacks with its relaying Batteries' surges, slice M6-SR). The Aerospace
+/// Assembly trains it behind an Orbital Command; it launches out of a Tier 3 Tunnel's air exit door and unfolds
+/// (`factions/syndicate/units/prism.md > Launch`), has its thrust charges (`crate::thrust`) and never goes back into
+/// the network (`factions/syndicate/units/prism.md > One way only`). Its numbers are the design's "Placeholder stats".
 pub(crate) const PRISM: ObjectDef = ObjectDef {
     kind: ObjectKind::Prism,
     name: "Prism",
@@ -51,9 +51,24 @@ pub(crate) const PRISM: ObjectDef = ObjectDef {
         // Silhouette", and the Prism's isn't given: **Placeholder (Q0181)**, its Silhouette's side and 8 su, as each
         // radius the design gives is (the Sparrow's and the Dragonfly's 48 for 40, the Specter's 64 for 56).
         separation_radius: Some(48.0),
+        // `factions/syndicate/units/prism.md > Placeholder stats`: its launch is its rise out of the air exit door
+        // (`Mover::rise`), its transform the unfold after it (`Mover::unfold`).
+        air_door_ticks: 32,
+        unfold_ticks: 32,
+        satellite: true, // `factions/syndicate/units/prism.md > Manned - no (no Null Chamber buff)`
+        one_way: true,   // `factions/syndicate/units/prism.md > One way only`
+        thrust: Some(PRISM_THRUST),
         ..UnitDef::NONE
     }),
     ..ObjectDef::NONE
+};
+
+/// The Prism's thrusts (`factions/syndicate/units/prism.md > Placeholder stats`): 3 charges, each 3 grid units over 1 s
+/// (16 frames, `core/scale.md > SimulationFrame`).
+pub(crate) const PRISM_THRUST: ThrustDef = ThrustDef {
+    charges: 3,
+    distance: 3.0,
+    frames: 16,
 };
 
 #[cfg(test)]
@@ -65,7 +80,9 @@ mod tests {
 
     /// A 40×40 HoverCraft, in the air, MaxHP 100, no armour, SightRange 6, Groupable (not listed: a unit used all
     /// together), TunnelSpaceCost 2; DragMovement to a top speed of 1 su a frame, turning 4° a frame (Q0154); no turret
-    /// and no attack of its own; its SeparationRadius a placeholder of 48 su, more than its Silhouette (Q0181).
+    /// and no attack of its own; its SeparationRadius a placeholder of 48 su, more than its Silhouette (Q0181). A
+    /// satellite that never goes back into the network; its launch 32 frames and its unfold 32 more; three thrusts of 3
+    /// grid units over 16 frames each.
     #[test]
     fn the_prism_follows_the_design() {
         let def = ObjectKind::Prism.def();
@@ -107,5 +124,25 @@ mod tests {
             ),
             (Some(2), None, None)
         );
+        assert_eq!((unit.satellite, unit.one_way), (true, true));
+        assert_eq!(
+            (unit.air_door_ticks, unit.unfold_ticks),
+            (32, 32),
+            "launch and transform"
+        );
+        let thrust = ThrustDef {
+            charges: 3,
+            distance: 3.0,
+            frames: 16,
+        };
+        assert_eq!((unit.thrust, PRISM_THRUST), (Some(thrust), thrust));
+        // Every other type: not a satellite, both ways, no unfold, no thrust.
+        for &kind in ObjectKind::ALL.iter().filter(|&&kind| kind != ObjectKind::Prism) {
+            let Some(unit) = kind.def().unit.as_ref() else {
+                continue;
+            };
+            let other = (unit.satellite, unit.one_way, unit.unfold_ticks, unit.thrust);
+            assert_eq!(other, (false, false, 0, None), "{kind:?}");
+        }
     }
 }

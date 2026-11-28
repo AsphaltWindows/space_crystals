@@ -209,11 +209,11 @@ fn a_hideout_under_construction_falls_with_its_tunnel_with_no_refund() {
 /// Design change 0360 (`factions/syndicate/tunnels.md > Losing Tunnels`: "Neutral expansions are **no longer hidden**
 /// (visible to everyone, no detection needed). This holds for **every expansion building of the destroyed Tunnel**, its
 /// lowered pop-up turrets included, which become visible at once"): [`base`]'s Tunnel with one of each expansion kind a
-/// Tunnel builds in its area (`sc_sim::tunnel::is_expansion`, with its `StructureDef::expansion`; slice M6-SK's other,
-/// the Orbital Command, which none builds until its slice, plan decision T84, is left out): the Hideout, an Optics Lab,
+/// Tunnel builds in its area (`sc_sim::tunnel::is_expansion`, with its `StructureDef::expansion`): the Hideout, an Optics Lab,
 /// a Chemical Plant, a Laser Turret, lowered, a Vehicle Assembly (9, slice M6-SV), a Forge (10) and an Aerospace
 /// Assembly (11, slice M6-SD), whose 3 × 3 needs the Tier 3 area, a Null Chamber (12, slice M6-SN) and a Vault (13,
-/// slice M6-SB) (the Tunnel set to Tier 3, and the five spawned in its area, in tick 1); player 1's second Tunnel (3),
+/// slice M6-SB), and an Orbital Command (14) (the Tunnel set to Tier 3, and the six spawned in its area, in tick 1);
+/// player 1's second Tunnel (3),
 /// far east,
 /// keeps it in the game. Player 2's two Guards see all their tiles, and none of them while player 1 owns them. In the
 /// tick the Tunnel falls every one of them is neutral, hidden from nobody, seen by both players and remembered by both,
@@ -236,6 +236,7 @@ fn every_expansion_of_a_lost_tunnel_is_seen_by_every_player_at_once() {
         (ObjectKind::AerospaceAssembly, tile(9, 13)), // 11
         (ObjectKind::NullChamber, tile(10, 8)),       // 12
         (ObjectKind::Vault, tile(8, 10)),             // 13
+        (ObjectKind::OrbitalCommand, tile(4, 6)),     // 14
     ];
     for (kind, at) in spawned {
         let spawn = DebugCommand::Spawn {
@@ -247,7 +248,7 @@ fn every_expansion_of_a_lost_tunnel_is_seen_by_every_player_at_once() {
         t.debug_at(1, spawn);
     }
     run_until(&mut t, sc_sim::tuning::vision::BUILTIN.fog_delay_ticks + 1);
-    let expansions = [H1, id(4), id(5), id(6), id(9), id(10), id(11), id(12), id(13)];
+    let expansions = [H1, id(4), id(5), id(6), id(9), id(10), id(11), id(12), id(13), id(14)];
     let mut kinds: Vec<ObjectKind> = expansions.iter().map(|&e| object(&t, e).kind).collect();
     kinds.sort();
     let built = |kind: ObjectKind| (kind.def().structure.as_ref()).is_some_and(|s| s.expansion.is_some());

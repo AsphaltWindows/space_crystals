@@ -105,12 +105,11 @@ impl StateHash for Service {
 
 /// Whether a unit of `kind` is manned, so that it takes its turns and holds the buff
 /// (`factions/syndicate/structures/null_chamber.md > Null Chamber Exit Buff`: "**Manned units**: all Syndicate units
-/// except satellites (infantry, vehicles, and crewed aircraft)"): a Syndicate unit type's. Satellites
-/// (`UnitDef::satellite`) are slice M6-SC's; until then the Prism, which no player trains before slice M6-SP, counts as
-/// one.
+/// except satellites (infantry, vehicles, and crewed aircraft)"): a Syndicate unit type's but a satellite's
+/// (`UnitDef::satellite`: the Prism).
 pub fn manned(kind: ObjectKind) -> bool {
     let def = kind.def();
-    def.unit.is_some() && def.faction == Some(Faction::Syndicate)
+    def.unit.as_ref().is_some_and(|unit| !unit.satellite) && def.faction == Some(Faction::Syndicate)
 }
 
 /// The Null Chamber's service (`StructureDef::chamber`), in the current rules: its turns' and its buff's numbers. The

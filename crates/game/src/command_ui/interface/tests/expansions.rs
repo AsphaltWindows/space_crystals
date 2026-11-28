@@ -18,6 +18,7 @@ const FORGE: ObjectKind = ObjectKind::Forge;
 const AEROSPACE_ASSEMBLY: ObjectKind = ObjectKind::AerospaceAssembly;
 const NULL_CHAMBER: ObjectKind = ObjectKind::NullChamber;
 const VAULT: ObjectKind = ObjectKind::Vault;
+const ORBITAL_COMMAND: ObjectKind = ObjectKind::OrbitalCommand;
 const TURRET: ObjectKind = ObjectKind::LaserTurret;
 
 /// What the panel's `slot` says when pressed greyed out, if it is.
@@ -29,15 +30,14 @@ fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
 /// expansions in its order take Q, W, E, R, A, S, D, F and X (design change 0257: "entries take the grid slots in order
 /// (Q, W, E, R, A, S, …)", Z being Back), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice
 /// M4-K), the Vault in R (slice M6-SB), the Vehicle Assembly in A (slice M6-SV), the Forge in S and the Aerospace
-/// Assembly in F (slice M6-SD), the Null Chamber in D (slice M6-SN), the one not in the game yet, the Orbital Command,
-/// greyed, and the Laser Turret the tenth, C (slice M4-S2), greyed by its gate with its prerequisite while the player
-/// owns no Optics Lab. Each says what it builds and, greyed, why; Q, W, E, R, A, S, D and F enter their placements,
-/// and Z goes back to DefaultState.
+/// Assembly in F (slice M6-SD), the Null Chamber in D (slice M6-SN), the Orbital Command in X, and the Laser Turret the
+/// tenth, C (slice M4-S2), greyed by its gate with its prerequisite while the player owns no Optics Lab. Each says
+/// what it builds and, greyed, why; Q, W, E, R, A, S, D, F and X enter their placements, and Z goes back to
+/// DefaultState.
 #[test]
 fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
-    use ButtonLook::{Back, Common, Unavailable};
-    use PanelCommand::{Expand, Planned as P};
-    use Planned::*;
+    use ButtonLook::{Back, Common};
+    use PanelCommand::Expand;
     let tunnel = Selection::new([(id(1), TUNNEL)]);
     let menu = panel(&tunnel, InterfaceState::ExpandMenu, &Conditions::default());
     let c = PanelButton::Command;
@@ -53,7 +53,7 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
             (slot(1, 2), c(Expand(NULL_CHAMBER)), Common),
             (slot(1, 3), c(Expand(AEROSPACE_ASSEMBLY)), Common),
             (CommandSlot::BACK, PanelButton::Back, Back),
-            (slot(2, 1), c(P(OrbitalCommand)), Unavailable),
+            (slot(2, 1), c(Expand(ORBITAL_COMMAND)), Common),
             (slot(2, 2), c(Expand(TURRET)), Common),
         ]
     );
@@ -80,7 +80,7 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     assert_eq!(why_text(&menu, slot(0, 0)), None);
     assert_eq!(why_text(&menu, slot(0, 1)), None);
     assert_eq!(why_text(&menu, slot(0, 3)), None);
-    assert_eq!(why_text(&menu, slot(2, 1)), Some("Not available yet"));
+    assert_eq!(why_text(&menu, slot(2, 1)), None);
     assert_eq!(why_text(&menu, slot(2, 2)), None);
     assert_eq!(press(&menu, slot(0, 0)), SlotPress::AwaitExpansion(HIDEOUT));
     assert_eq!(press(&menu, slot(0, 1)), SlotPress::AwaitExpansion(OPTICS_LAB));
@@ -90,6 +90,7 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     assert_eq!(press(&menu, slot(1, 1)), SlotPress::AwaitExpansion(FORGE));
     assert_eq!(press(&menu, slot(1, 2)), SlotPress::AwaitExpansion(NULL_CHAMBER));
     assert_eq!(press(&menu, slot(1, 3)), SlotPress::AwaitExpansion(AEROSPACE_ASSEMBLY));
+    assert_eq!(press(&menu, slot(2, 1)), SlotPress::AwaitExpansion(ORBITAL_COMMAND));
     assert_eq!(press(&menu, slot(2, 2)), SlotPress::AwaitExpansion(TURRET));
     // The turret's own gate greys it (slice M4-S2): its Optics Lab, as the Agent's D says it.
     let no_lab = Conditions::default().refusing(Expand(TURRET), Reject::Requires(OPTICS_LAB));
@@ -149,9 +150,8 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     assert!(!InterfaceState::ExpandMenu.takes_map_clicks());
 }
 
-/// The menu is the sim's list, entry by entry (`sc_sim::defs::EXPAND_MENU`): every entry has its command in its slot,
-/// a type in the game its Expand and one not in it yet its placeholder, so a slice that brings an expansion moves no
-/// letter.
+/// The menu is the sim's list, entry by entry (`sc_sim::defs::EXPAND_MENU`): every entry is a type in the game, its
+/// Expand in its slot.
 #[test]
 fn the_expand_menu_is_the_sims_list() {
     use templates::syndicate::expand_menu::{command, grid};
@@ -163,12 +163,7 @@ fn the_expand_menu_is_the_sims_list() {
         assert_eq!(shown, command(*entry), "{entry:?}");
         match entry {
             ExpandEntry::Kind(kind) => assert_eq!(shown, Some(PanelCommand::Expand(*kind))),
-            ExpandEntry::Planned(name) => {
-                let Some(PanelCommand::Planned(planned)) = shown else {
-                    panic!("{name}: no placeholder");
-                };
-                assert_eq!(planned.name(), *name);
-            }
+            ExpandEntry::Planned(name) => panic!("{name}: not in the game"),
         }
     }
     assert_eq!(grid[slot_index(CommandSlot::BACK)], None);
@@ -255,7 +250,11 @@ fn an_expansion_is_placed_from_the_menu_and_z_goes_back_to_it() {
     assert_eq!(look(slot(0, 0)), Some(ButtonLook::Pending));
     assert_eq!(look(slot(0, 1)), Some(ButtonLook::Disabled), "the Optics Lab waits");
     assert_eq!(look(slot(0, 3)), Some(ButtonLook::Disabled), "the Vault waits");
-    assert_eq!(look(slot(2, 1)), Some(ButtonLook::Unavailable), "not in the game yet");
+    assert_eq!(
+        look(slot(2, 1)),
+        Some(ButtonLook::Disabled),
+        "the Orbital Command waits"
+    );
     assert_eq!(look(CommandSlot::BACK), Some(ButtonLook::Back));
 }
 

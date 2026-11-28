@@ -176,6 +176,32 @@ pub struct UnitDef {
     /// `factions/syndicate/units/subterranean_transport.md > Entering the Tunnel Network loaded`). `None` for every
     /// other type.
     pub carries: Option<CarrierDef>,
+    /// Whether it is a satellite: unmanned, so no Null Chamber buff (`network::services::manned`;
+    /// `factions/syndicate/units/prism.md > Manned - no (no Null Chamber buff)`), and seeing through smoke
+    /// (`factions/syndicate/units/prism.md > Sight`). `false` for every type but the Prism.
+    pub satellite: bool,
+    /// Whether it never goes back into the Tunnel Network once out of it (`network::lets_in`;
+    /// `factions/syndicate/units/prism.md > One way only`). `false` for every type but the Prism.
+    pub one_way: bool,
+    /// How long it unfolds after its rise out of the air exit door, ticks (`Mover::unfold`;
+    /// `factions/syndicate/units/prism.md > Launch`), its orders held until it has unfolded. 0 for every type but the
+    /// Prism.
+    pub unfold_ticks: u32,
+    /// Its thrusts (`crate::thrust`, `OrderKind::Thrust`; `factions/syndicate/units/prism.md > Movement`). `None` for
+    /// every type but the Prism.
+    pub thrust: Option<ThrustDef>,
+}
+
+/// A unit's thrusts (`crate::thrust`; `factions/syndicate/units/prism.md > Placeholder stats`).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ThrustDef {
+    /// The charges it starts with, one spent as each thrust starts; none ever comes back.
+    pub charges: u32,
+    /// How far each thrust moves it toward the point aimed at, on top of its drift, grid units, whatever that point's
+    /// distance.
+    pub distance: f32,
+    /// How long each thrust lasts, ticks, its distance spread evenly over them.
+    pub frames: u32,
 }
 
 /// (M6-ST1) A carrier's hold (plan decision T94, `crate::carry`): how many places it has, and the bases of the units

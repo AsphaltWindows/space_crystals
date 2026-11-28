@@ -77,6 +77,12 @@ pub(crate) fn update(
             };
             orders.give(mirror, false);
         }
+        // A launching unit holds its orders until it has unfolded (`Mover::launching`;
+        // `factions/syndicate/units/prism.md > Placeholder stats`): its queue holds them, an order without Shift
+        // replacing what it holds (`Orders::give`), and the first starts in the tick after the unfold's last.
+        if mover.launching() {
+            continue;
+        }
         let mut unit = Unit {
             id: o.id,
             owner: o.owner,

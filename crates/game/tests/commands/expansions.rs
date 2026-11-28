@@ -8,10 +8,9 @@ use sc_sim::nav::TileRect;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{BuildingOrientation, Faction, PlayerCommand as Sent, SU_PER_GU, TunnelCommand};
 use space_crystals::command_ui::feedback::{
-    NO_CRYSTALS_TEXT, NOT_YET_TEXT, OPERATION_UNDER_WAY_TEXT, TIER_TOO_LOW_TEXT, TargetFeedback, placement_text,
-    requires_text,
+    NO_CRYSTALS_TEXT, OPERATION_UNDER_WAY_TEXT, TIER_TOO_LOW_TEXT, TargetFeedback, placement_text, requires_text,
 };
-use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, Placing, Planned};
+use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, Placing};
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::hud::info_panel::InfoText;
 use space_crystals::object_render::SiteProgress;
@@ -158,16 +157,15 @@ fn placing_hideout() -> InterfaceState {
 /// (design change 0257), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice M4-K), the Vehicle
 /// Assembly in A (slice M6-SV), the Forge in S and the Aerospace Assembly in F (slice M6-SD) and the Null Chamber in D
 /// (slice M6-SN), each greyed by its gate: this Tunnel is at Tier 1 ("Tier Requirement - 2", "- 3"); the Vault in R
-/// (slice M6-SB), greyed by its TechPrerequisite: this player owns no Hideout; the expansion not in the game yet
-/// greyed in X, Z being Back, and the Laser Turret in C (slice M4-S2), greyed by its gate with its prerequisite: this
+/// (slice M6-SB), greyed by its TechPrerequisite: this player owns no Hideout; the Orbital Command in X, greyed by its
+/// tier, Z being Back, and the Laser Turret in C (slice M4-S2), greyed by its gate with its prerequisite: this
 /// player owns no Optics Lab. A greyed entry says why and leaves the menu open;
 /// Z goes back to DefaultState, and so does Escape. A right-click does the Tunnel's, nothing, and the menu stays open
 /// (design change 0400: "right-click **doesn't reset a menu**").
 #[test]
 fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
-    use ButtonLook::{Back, Common, Unavailable};
-    use PanelCommand::{Expand, Planned as P};
-    use Planned::*;
+    use ButtonLook::{Back, Common};
+    use PanelCommand::Expand;
     let mut app = expansion_game();
     open_menu(&mut app);
     let c = PanelButton::Command;
@@ -187,7 +185,7 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
                 ButtonLook::Disabled
             ),
             (CommandSlot::BACK, PanelButton::Back, Back),
-            (slot(2, 1), c(P(OrbitalCommand)), Unavailable),
+            (slot(2, 1), c(Expand(ObjectKind::OrbitalCommand)), ButtonLook::Disabled),
             (slot(2, 2), c(Expand(TURRET)), ButtonLook::Disabled),
         ]
     );
@@ -198,7 +196,7 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
         (KeyS, TIER_TOO_LOW_TEXT),
         (KeyD, TIER_TOO_LOW_TEXT),
         (KeyF, TIER_TOO_LOW_TEXT),
-        (KeyX, NOT_YET_TEXT),
+        (KeyX, TIER_TOO_LOW_TEXT),
         (KeyC, optics_lab),
     ] {
         tap(&mut app, &[], key);
