@@ -27,6 +27,7 @@ use crate::math;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::units::{SU_PER_GU, gu};
 
+use super::aim::{self, Leash, Mark};
 use super::state::{AttackGround, AttackOrder, Auto, Pursuit};
 use super::travel::{approach, walk_to_remembered};
 use super::world::{Known, Scan, Unit, View, World};
@@ -58,56 +59,164 @@ pub(super) enum Closing {
 ///   centre out of so narrow an arc all the way in (design finding, reported; the literal step 4 kept for every other
 ///   turret unit). (M6-SV) A unit that can't turn in place, with a turret whose arc is less than a full turn (the
 ///   Assault Bike), stops only once the target will still be in its arc where it comes to rest ([`rests_in_arc`]):
-///   until then it drives on toward the target, turning, as out of its arc.
+///   until then it drives on toward the target, turning, as out of its arc. (Step 4 says so since design change 0454,
+///   answering Q0179: "**Units that aim with their hull** ... instead **stop once the target is in range and beyond
+///   MinRange**, wherever the arc is, and **turn the hull** to bring the target into the arc".)
 /// - **Out of range**: MovingToObject towards the target (`MoveGoal::Object`; phase 5c re-aims the path as the
 ///   target moves). The approach starts only while the attack sequence leaves the base free (`combat::may_move`):
 ///   infantry finishes Firing and Cooldown first.
+/// - (M6-S6a) **In range, it can't bring its weapon to bear from where it stands** (design change 0454, `> Can't aim
+///   from where it stands`; [`aim::stuck`]): a unit that aims with its hull whose turn the tiles cut, or a wheeled one
+///   whose target lies inside the circles it turns on. It moves to a spot from which it can ([`aim::spot`]), within
+///   `leash` (an auto-acquired target's leash rules: [`Leash`]), and closes in from there; on its way it stops as soon
+///   as it can fire (the target in range and in its turret's arc where it comes to rest), and goes on though its way
+///   pass inside MinRange, since the spot lies beyond it ([`attack`]'s back-off waits). A wheeled one whose approach
+///   ends as near as it gets, in range but out of its arc, does the same, where it gave the target up before. With no
+///   spot within a leash it gives the target up (the leash's disengaging). On an order's own target, with no spot
+///   near, it looks farther, its way there however long ("it doesn't wait in place"); hemmed in, with none there
+///   either, it does as before (**Placeholder (not in the design: a unit with no spot it can aim from within the
+///   search)**): one that aims with its hull stands and turns as far as it can, a wheeled one goes on toward the
+///   target and gives it up as near as it gets. A move to its spot that fails gives the target up, as any approach
+///   does (`> Failure`).
 ///
-/// `chasing` says whether the unit's current move is this approach; while it is, the mover's status is its outcome.
-/// A move that failed, or ended as near as the unit gets to a target that hasn't moved since, gives the target up.
-/// (M5-H1) A Glider strafes the target instead ([`strafe`]).
-pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world: &World) -> Closing {
+/// `state` is the behaviour's ([`Closer`]): whether the unit's current move is this approach, while which the mover's
+/// status is its outcome, or its move to a spot. A move that failed, or ended as near as the unit gets to a target
+/// that hasn't moved since, gives the target up. (M5-H1) A Glider strafes the target instead ([`strafe`]).
+pub(super) fn close_in(unit: &mut Unit, mut state: Closer, target: &View, leash: Leash, world: &World) -> Closing {
     let Some(attrs) = unit.attrs() else {
         return Closing::GaveUp;
     };
     if unit.glides() {
-        return strafe(unit, attrs, chasing, target.id, target.elevation, world);
+        return strafe(unit, attrs, state.chasing, target.id, target.elevation, world);
     }
-    if reaches(
+    let in_range = reaches(
         attrs,
         &unit.shape(),
         world.elevation(unit),
         &target.shape,
         target.elevation,
-    ) && unit.takes_aim(target.pos)
-        && rests_in_arc(unit, target.pos)
-    {
+    );
+    if state.repositioning.is_some() {
+        match unit.mover.status {
+            // On its way it stops as soon as it can fire.
+            MoveStatus::Moving if !(in_range && unit.in_arc(target.pos) && rests_in_arc(unit, target.pos)) => {
+                return Closing::Approaching;
+            }
+            MoveStatus::Moving | MoveStatus::Arrived => *state.repositioning = None,
+            MoveStatus::Failed | MoveStatus::TargetLost | MoveStatus::Idle => {
+                *state.repositioning = None;
+                return Closing::GaveUp;
+            }
+        }
+    }
+    if in_range && unit.takes_aim(target.pos) && rests_in_arc(unit, target.pos) {
+        // A unit that aims with its hull, the target out of its arc and its turn cut where it stands, moves (design
+        // change 0454), but for one that has just stopped its approach: it tries the turn first.
+        let aims = unit.in_arc(target.pos) || *state.chasing || !unit.may_move();
+        if !(aims || !aim::stuck(unit, attrs, target.pos, world)) {
+            if let Some(closing) = reposition(unit, attrs, &mut state, target, leash, world) {
+                return closing;
+            }
+            if leash.disengages() {
+                return Closing::GaveUp;
+            }
+        }
         unit.halt();
-        *chasing = false;
+        *state.chasing = false;
         unit.lock(Some(target.id));
         unit.aim_hull(target.pos);
         return Closing::InRange;
     }
-    if *chasing {
+    if *state.chasing {
         match unit.mover.status {
             MoveStatus::Moving => return Closing::Approaching,
             // At the end of its path, and the target moved on in that very tick: after it again.
             MoveStatus::Arrived if target.pos != unit.mover.planned_target => {}
+            // (M6-S6a) As near as it gets, in range, out of its arc (design change 0454).
+            MoveStatus::Arrived if in_range && unit.may_move() => {
+                *state.chasing = false;
+                return match aim::spot(unit, attrs, Mark::of(target), leash, world) {
+                    Some(spot) => set_off(unit, &mut state, spot, world),
+                    None => Closing::GaveUp,
+                };
+            }
             MoveStatus::Arrived | MoveStatus::Failed | MoveStatus::TargetLost | MoveStatus::Idle => {
-                *chasing = false;
+                *state.chasing = false;
                 return Closing::GaveUp;
             }
         }
     }
     if unit.may_move() {
+        // (M6-S6a) A target it can't come round onto from here (design change 0454).
+        if in_range && aim::stuck(unit, attrs, target.pos, world) {
+            if let Some(closing) = reposition(unit, attrs, &mut state, target, leash, world) {
+                return closing;
+            }
+            if leash.disengages() {
+                return Closing::GaveUp;
+            }
+        }
         // Reach 0: the approach ends when this function finds the target in range.
         let goal = MoveGoal::Object {
             id: target.id,
             reach: 0.0,
         };
         unit.mover.go_to(goal, None, world.tick);
-        *chasing = true;
+        *state.chasing = true;
     }
+    Closing::Approaching
+}
+
+/// The parts of a behaviour's state that [`close_in`] works on: an Attack's ([`AttackOrder::closer`]), or a pursuit's
+/// ([`Pursuit::closer`]: an idle unit's, an AttackMove's or a Patrol's).
+pub(super) struct Closer<'a> {
+    /// The unit's current move is the approach to the target.
+    pub chasing: &'a mut bool,
+    /// (M6-S6a) The unit's current move takes it to this spot, from which it can bring its weapon to bear on the
+    /// target (design change 0454, [`aim::spot`]).
+    pub repositioning: &'a mut Option<Vec2>,
+}
+
+impl AttackOrder {
+    /// Its parts that [`close_in`] works on.
+    pub(super) fn closer(&mut self) -> Closer<'_> {
+        Closer {
+            chasing: &mut self.chasing,
+            repositioning: &mut self.repositioning,
+        }
+    }
+}
+
+impl Pursuit {
+    /// Its parts that [`close_in`] works on.
+    pub(super) fn closer(&mut self) -> Closer<'_> {
+        Closer {
+            chasing: &mut self.chasing,
+            repositioning: &mut self.repositioning,
+        }
+    }
+}
+
+/// [`close_in`]'s unit, in range of `target` but unable to bring its weapon to bear on it from where it stands, sets
+/// off for a spot from which it can, if it finds one within `leash` ([`aim::spot`]): `None` if it finds none, and else
+/// how its approach stands.
+fn reposition(
+    unit: &mut Unit,
+    attrs: &AttackAttrs,
+    state: &mut Closer,
+    target: &View,
+    leash: Leash,
+    world: &World,
+) -> Option<Closing> {
+    let spot = aim::spot(unit, attrs, Mark::of(target), leash, world)?;
+    Some(set_off(unit, state, spot, world))
+}
+
+/// The unit sets off for `spot` ([`aim::go`]), its move to it now the behaviour's ([`Closer::repositioning`]).
+fn set_off(unit: &mut Unit, state: &mut Closer, spot: Vec2, world: &World) -> Closing {
+    aim::go(unit, spot, world);
+    *state.repositioning = Some(spot);
+    *state.chasing = false;
     Closing::Approaching
 }
 
@@ -121,7 +230,7 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
 /// speed (the coast's steps, `speed − Deceleration`, `speed − 2 × Deceleration`, … while above 0, along its facing, or
 /// against it backing up), its facing as it is. True for every other unit ([`brakes_into_arc`]), which stops where it
 /// stands. For one at rest it is the arc as it stands, `Unit::takes_aim`'s.
-fn rests_in_arc(unit: &Unit, at: Vec2) -> bool {
+pub(super) fn rests_in_arc(unit: &Unit, at: Vec2) -> bool {
     let Some((decel, attrs)) = unit.unit_def().and_then(brakes_into_arc) else {
         return true;
     };
@@ -139,7 +248,7 @@ fn rests_in_arc(unit: &Unit, at: Vec2) -> bool {
 /// (M6-SV) The Deceleration (one the design leaves out reached within the tick) and the turret of a unit type that
 /// takes [`rests_in_arc`]'s rule: FixedTurnRadiusMovement, and a turret whose arc is less than a full turn
 /// (`combat::turret::full_turn`); `None` for every other type.
-fn brakes_into_arc(def: &UnitDef) -> Option<(f32, TurretAttrs)> {
+pub(super) fn brakes_into_arc(def: &UnitDef) -> Option<(f32, TurretAttrs)> {
     let (MovementAttrs::FixedTurnRadius { deceleration, .. }, Some(attrs)) = (def.movement, def.turret) else {
         return None;
     };
@@ -202,8 +311,10 @@ fn strafe(
 ///   Move to it would ([`approach`]: it follows a unit, and goes up to anything else and waits there), and the
 ///   order never completes for it; once the shield is down the unit engages the target again. Leaving sight ends it
 ///   as above.
-/// - **A target inside the unit's MinRange** (design change 0182): the unit backs off to the middle of the band
-///   between MinRange and Range, engaging nothing meanwhile, or the order fails ([`too_close`]).
+/// - **A target inside the unit's MinRange** (design change 0182): the unit backs off to MinRange + 1 grid unit
+///   (design change 0454), engaging nothing meanwhile, or the order fails ([`too_close`]).
+/// - (M6-S6a) **A target it can't bring its weapon to bear on from where it stands** (design change 0454): it
+///   repositions, with no leash ([`close_in`]).
 /// - `> Failure`: the approach gave up ([`Closing::GaveUp`]), and the order completes (design change 0223). **The
 ///   target it gave up waits for the idle unit too** (`auto`; design change 0181, `> BaseAutoTargeting > Unreachable
 ///   auto-targets`: "gives up by the give-up rule, and retries after 32 ticks"; question Q0057: the idle unit "takes
@@ -255,11 +366,15 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, aut
             gap: unit.shape().gap(&target.shape),
             elevation: target.elevation,
         };
-        if let Some(complete) = too_close(unit, attrs, state.back_off(), from, world) {
+        // (M6-S6a) A unit on its way to a spot to aim from (`close_in`) goes on there though its way pass inside
+        // MinRange: the spot lies beyond it (`orders::aim`).
+        if state.repositioning.is_none()
+            && let Some(complete) = too_close(unit, attrs, state.back_off(), from, world)
+        {
             return complete;
         }
     }
-    match close_in(unit, &mut state.chasing, target, world) {
+    match close_in(unit, state.closer(), target, Leash::Free, world) {
         Closing::InRange | Closing::Approaching => false,
         Closing::GaveUp => {
             unit.engage(None);
@@ -337,11 +452,13 @@ impl TooNear {
 /// tick: the target is beyond MinRange and no back-off goes on, and the order attacks as ever, its target engaged.
 /// Else, whether the order is complete.
 /// - **A unit that can move backs off** "until the target is outside MinRange, then attacks": it walks straight away
-///   from the target ([`back_off_spot`]) once its attack sequence lets it move (`combat::may_move`), "to the **middle
-///   of the band** between MinRange and Range, not just past MinRange, so a target that keeps stepping closer doesn't
-///   make it stop and start on every step" (question Q0054). The back-off goes on while the target is within Range,
-///   until the move ends, there or where the unit is blocked; then the unit attacks from where it stands. (Slice
-///   M5-O3: slice M5-A's stopped as soon as the target was past MinRange.) **Meanwhile it engages nothing**, so that
+///   from the target ([`back_off_spot`]) once its attack sequence lets it move (`combat::may_move`), "to **MinRange +
+///   1 grid unit** (never beyond Range), every unit. A target that keeps stepping closer may make it back off again;
+///   accepted" (design change 0454, answering Q0179, which replaced Q0054's "middle of the band": that took the Hand of
+///   Heaven, 9 grid units, beyond its own 7 of sight, so alone it lost the target and never fired). The back-off goes
+///   on while the target is within Range, until the move ends, there or where the unit is blocked; then the unit
+///   attacks from where it stands. (Slice M5-O3: slice M5-A's stopped as soon as the target was past MinRange.)
+///   **Meanwhile it engages nothing**, so that
 ///   phase 5e doesn't aim at the target the moment it is in the band, holding the unit there; it engages it again as
 ///   the back-off ends, or as the target leaves its Range (it walked off: the order goes after it, [`close_in`]).
 /// - A back-off that ended with the target still inside starts again from where the unit stands if the target moved
@@ -367,7 +484,7 @@ pub(super) fn too_close(
         }
         let within = from.gap <= max_range(attrs, world.elevation(unit), from.elevation);
         if within && unit.mover.status == MoveStatus::Moving {
-            // Q0054: on to the middle of the band.
+            // Design change 0454: on to MinRange + 1 grid unit.
             return Some(false);
         }
         *state.backing_off = None;
@@ -410,17 +527,19 @@ pub(super) fn too_close(
 
 /// Where a unit backs off to from a target at `from` inside its MinRange, `gap` space units from it ([`too_close`],
 /// for an object or a location): straight away from it (straight back from one right on top of it), as far as to
-/// bring the gap between them to the middle of the band from MinRange to Range (against a target at `elevation`;
-/// question Q0054), where the unit attacks once its back-off ends. Within the map; the path ends as near as the unit
-/// gets (`> MovingToLocation > Unreachable target location`).
+/// bring the gap between them to MinRange + `Orders::back_off_gu` (1 grid unit), never beyond Range (against a target
+/// at `elevation`; design change 0454, which replaced question Q0054's middle of the band), where the unit attacks
+/// once its back-off ends. Within the map; the path ends as near as the unit gets (`> MovingToLocation > Unreachable
+/// target location`).
 fn back_off_spot(unit: &Unit, attrs: &AttackAttrs, from: Vec2, gap: f32, elevation: Elevation, world: &World) -> Vec2 {
     let near = gu(attrs.min_range);
     let far = max_range(attrs, world.elevation(unit), elevation).max(near);
+    let to = (near + gu(rules().tuning.orders.back_off_gu)).min(far);
     let away = (unit.pos - from)
         .try_normalize()
         .unwrap_or_else(|| -math::facing_vector(unit.facing));
     let size = Vec2::new(world.map.width() as f32, world.map.height() as f32) * SU_PER_GU;
-    (unit.pos + away * ((near + far) / 2.0 - gap).max(1.0)).clamp(Vec2::ZERO, size)
+    (unit.pos + away * (to - gap).max(1.0)).clamp(Vec2::ZERO, size)
 }
 
 /// `> HoldingPosition`, `> BaseAutoTargeting > Active during HoldPosition`: one tick. Locomotion stays Stationary:
@@ -471,10 +590,12 @@ pub(super) fn hold(unit: &mut Unit, target: &mut Option<ObjectId>, world: &World
 ///   ended (its target died, say) ends here too. (M5-U1) A unit with a turret locks it on the enemy it acquires
 ///   (`> BaseAutoTargeting`: "For turret units, the base sets TurretCommandState.LockedTarget").
 /// - **Engaging**: AttackingObject on the acquired enemy ([`close_in`]). Farther than IdleLeashDistance from the
-///   IdleOrigin, it disengages and returns there (MovingToLocation). If the target is destroyed or leaves SightRange
-///   (or is no longer a ValidTarget, or comes inside the unit's MinRange: design change 0182, `Scan::Sight`), the
-///   unit is idle again where it stands, with a new IdleOrigin next time. A target it can't get to is left alone for
-///   `Orders::give_up_retry_ticks` (design change 0181), so the unit doesn't set off for it tick after tick.
+///   IdleOrigin, it disengages and returns there (MovingToLocation). (M6-S6a) A spot it repositions to, unable to aim
+///   from where it stands, lies within that leash (design change 0454: "under the **normal leash rules**"). If the
+///   target is destroyed or leaves SightRange (or is no longer a ValidTarget, or comes inside the unit's MinRange:
+///   design change 0182, `Scan::Sight`), the unit is idle again where it stands, with a new IdleOrigin next time. A
+///   target it can't get to is left alone for `Orders::give_up_retry_ticks` (design change 0181), so the unit doesn't
+///   set off for it tick after tick.
 /// - **Returning**: no scanning (`> Not active during`: Move); idle again once the move ends.
 pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
     // Returning → Watching → Engaging at most: each pass moves on by one.
@@ -494,7 +615,7 @@ pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
                 unit.engage(Some(target));
                 unit.lock(Some(target));
                 *auto = Auto::Engaging {
-                    pursuit: Pursuit { target, chasing: false },
+                    pursuit: Pursuit::new(target),
                     origin: unit.pos,
                 };
             }
@@ -520,7 +641,7 @@ pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
                     }
                     return;
                 }
-                *auto = match close_in(unit, &mut pursuit.chasing, target, world) {
+                *auto = match close_in(unit, pursuit.closer(), target, Leash::Idle(origin), world) {
                     Closing::InRange | Closing::Approaching => Auto::Engaging { pursuit, origin },
                     Closing::GaveUp => {
                         unit.engage(None);

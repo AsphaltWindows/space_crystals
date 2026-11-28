@@ -6,7 +6,9 @@
 //!   that player perceives the frame's events (`crate::viewer_events`: the owner always perceives a hit on their own
 //!   object). Placeholder (not in the design: it says "takes damage" alone): whoever's the attack, an ally's or the
 //!   player's own included; and placeholder (likewise): a hit that only takes Shields counts too. Where: the object's
-//!   position now, or for one the hit killed, where it died (its `SimEvent::Died` of the same frame).
+//!   position now, or for one the hit killed, where it died (its `SimEvent::Died` of the same frame). A crush pings
+//!   nothing (design change 0453: "**A crush gives no alert** [...] (a crush is not damage)"): it is a
+//!   `SimEvent::Crushed`, with no Hit.
 //! - **Off screen**: outside the ground the world view shows ([`super::viewed_ground`]), the rectangle the camera's
 //!   outline shows on the minimap, so that the two agree: a hit inside the outline never pings.
 //! - **How often** ([`MinimapAlerts::alert`]): "at most one ping per area every 10 s (placeholder; an area: within

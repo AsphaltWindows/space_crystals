@@ -19,6 +19,22 @@ pub struct Pursuit {
     /// The unit's current move is the approach to `target` (`MoveGoal::Object`), so the mover's status is this
     /// approach's outcome.
     pub chasing: bool,
+    /// (M6-S6a) Design change 0454 (`> AttackingObject > Can't aim from where it stands`): the unit couldn't bring its
+    /// weapon to bear on `target` from where it stood, and its current move takes it to this spot, from which it can
+    /// (`orders::aim`). Left out of files while unset, and out of the hash, as [`AttackOrder`]'s fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repositioning: Option<Vec2>,
+}
+
+impl Pursuit {
+    /// The pursuit of `target` as it starts: no move of its own yet.
+    pub fn new(target: ObjectId) -> Self {
+        Self {
+            target,
+            chasing: false,
+            repositioning: None,
+        }
+    }
 }
 
 /// A target a unit gave up on, and the tick until which it doesn't pick it again
@@ -44,8 +60,9 @@ impl Default for Auto {
 
 /// `> AttackingObject`: the state of an Attack order.
 ///
-/// The fields M3-R and M3-L2 added (`remembered`, `on_hold`, `backing_off`, `too_close`) are left out of files while
-/// they are unset, and out of the hash ([`hash`]), so that states saved before they existed still load.
+/// The fields M3-R, M3-L2 and M6-S6a added (`remembered`, `on_hold`, `backing_off`, `too_close`, `repositioning`) are
+/// left out of files while they are unset, and out of the hash ([`hash`]), so that states saved before they existed
+/// still load.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AttackOrder {
     /// The unit's current move is the approach to the target.
@@ -67,8 +84,8 @@ pub struct AttackOrder {
     pub on_hold: Option<Approach>,
     /// Design change 0182 (`> AttackingObject > Target inside MinRange`): the target came inside the unit's MinRange,
     /// and the unit's current move is its back-off from it (`orders::engage::too_close`), given when the target stood
-    /// here, to the middle of the band between MinRange and Range (question Q0054). The unit engages nothing
-    /// meanwhile, and engages the target again as the back-off ends (slice M5-O3).
+    /// here, to MinRange + 1 grid unit (design change 0454, which replaced question Q0054's middle of the band). The
+    /// unit engages nothing meanwhile, and engages the target again as the back-off ends (slice M5-O3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backing_off: Option<Vec2>,
     /// Design change 0182: the target is inside the unit's MinRange and the unit can't move to back off, or can't
@@ -76,6 +93,11 @@ pub struct AttackOrder {
     /// ends the order, with the "Target too close" feedback (`Sim::step_too_close`).
     #[serde(default, skip_serializing_if = "is_false")]
     pub too_close: bool,
+    /// (M6-S6a) Design change 0454 (`> AttackingObject > Can't aim from where it stands`): as
+    /// [`Pursuit::repositioning`], the spot the unit's current move takes it to, from which it can bring its weapon to
+    /// bear on the target.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repositioning: Option<Vec2>,
 }
 
 /// `> MovingToObject`: the state of a Move to an object. A followed unit that goes out of the owner's sight ends it
@@ -302,8 +324,9 @@ pub struct Enter {
 
 /// (M4-O) The state of an Attack Ground order (`orders::attack_ground`).
 ///
-/// The fields slice M5-O3 added (`backing_off`, `too_close`) are left out of files while they are unset, and out of
-/// the hash ([`hash`]), as [`AttackOrder`]'s, so that states saved before they existed still load.
+/// The fields slices M5-O3 and M6-S6a added (`backing_off`, `too_close`, `repositioning`) are left out of files while
+/// they are unset, and out of the hash ([`hash`]), as [`AttackOrder`]'s, so that states saved before they existed still
+/// load.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AttackGround {
     /// The unit's current move is this order's walk into range. While it is, the mover's status is the move's
@@ -319,6 +342,11 @@ pub struct AttackGround {
     /// right after phase 5a ends the order, with the "Target too close" feedback (`Sim::step_too_close`).
     #[serde(default, skip_serializing_if = "is_false")]
     pub too_close: bool,
+    /// (M6-S6a) Design change 0460 (`> AttackingLocation`: "**Can't aim from where it stands** applies"): as
+    /// [`AttackOrder::repositioning`], the spot the unit's current move takes it to, from which it can bring its
+    /// weapon to bear on the location (`orders::aim`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repositioning: Option<Vec2>,
 }
 
 /// The state of the current order's behaviour.

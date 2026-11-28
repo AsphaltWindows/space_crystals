@@ -3,7 +3,7 @@
 //! The sim is held at each screenshot tick (`SimControl::hold_at`) until the PNG is saved. A held sim draws every
 //! object exactly at its tick position, and raw input is off in QA runs, so a screenshot shows the same pixels on
 //! every run. The sim is also held at the exit tick, so the state dump never overshoots it, and at each tick of the
-//! `--input-script` ([`input_script`]) until its step has been applied.
+//! `--input-script` ([`input_script`]) until its step has been applied and a frame more, in which its input is read.
 //!
 //! Once the game is over (`Sim::outcome`), the sim stands at its last tick for good (`SimControl::may_step`): the
 //! screenshots, input steps and exit scheduled after it happen at that tick ([`stop_at_game_end`]), so a run never
@@ -127,6 +127,11 @@ pub struct QaState {
     commands: VecDeque<TimedCommand>,
     /// `--input-script` steps still to apply, by tick.
     input_steps: VecDeque<InputStep>,
+    /// (Slice M6-S6a) The tick of the input step applied in this frame or the last, while its input may still be read:
+    /// the sim waits there a frame after each step ([`input_script`]).
+    input_tick: Option<Tick>,
+    /// Whether this frame applied an input step.
+    input_applied: bool,
     /// Screenshots written so far.
     pub saved: Vec<PathBuf>,
     /// What went wrong. Any failure makes the run exit with an error code.
@@ -150,17 +155,22 @@ impl QaState {
             dumped: false,
             commands: commands.into(),
             input_steps: input_steps.into(),
+            input_tick: None,
+            input_applied: false,
             saved: Vec::new(),
             failures: Vec::new(),
         }
     }
 
     /// The tick the sim must wait at next: the next screenshot, input step or the exit tick, whichever comes
-    /// first.
+    /// first, or (slice M6-S6a) the tick of the last input step while its input may still be read ([`input_script`]).
     pub fn next_stop(&self) -> Option<Tick> {
         let shot = self.pending.front().map(|s| s.tick);
         let step = self.input_steps.front().map(|s| s.tick);
-        [shot, step, self.exit_at_tick].into_iter().flatten().min()
+        [shot, step, self.exit_at_tick, self.input_tick]
+            .into_iter()
+            .flatten()
+            .min()
     }
 
     fn pop_due(&mut self, tick: Tick) -> Vec<ScreenshotRequest> {
@@ -192,7 +202,13 @@ impl Plugin for QaPlugin {
             .add_systems(Startup, hold_at_next_stop)
             .add_systems(
                 Update,
-                (stop_at_game_end, drive_screenshots, exit_when_done, hold_at_next_stop)
+                (
+                    stop_at_game_end,
+                    drive_screenshots,
+                    exit_when_done,
+                    input_script::input_read,
+                    hold_at_next_stop,
+                )
                     .chain()
                     .in_set(ClientSystems::Qa),
             )
@@ -321,13 +337,15 @@ fn remove_stale(path: &Path) {
     }
 }
 
-/// Exits at the exit tick, once its screenshots are saved, after writing the state dump.
+/// Exits at the exit tick, once its screenshots are saved and (slice M6-S6a) its input read, after writing the state
+/// dump.
 fn exit_when_done(mut qa: ResMut<QaState>, sources: DumpSources, mut exit: MessageWriter<AppExit>) {
     let tick = sources.sim.tick();
     let Some(exit_at) = qa.exit_at_tick else {
         return;
     };
-    let busy = qa.phase != CapturePhase::Idle || qa.pending.front().is_some_and(|s| s.tick <= tick);
+    let busy =
+        qa.phase != CapturePhase::Idle || qa.pending.front().is_some_and(|s| s.tick <= tick) || qa.input_tick.is_some();
     if qa.exit_requested || tick < exit_at || busy {
         return;
     }

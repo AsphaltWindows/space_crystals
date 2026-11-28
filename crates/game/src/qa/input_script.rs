@@ -1,6 +1,11 @@
 //! `--input-script`: the virtual keyboard and mouse ([`InjectedInput`]) driven at given ticks, for QA screenshots of
 //! what only input shows, such as a selection box being dragged. The sim waits at each step's tick until the step
-//! has been applied ([`super::QaState::next_stop`]), so a step lands at its tick however the frames fall.
+//! has been applied ([`super::QaState::next_stop`]), so a step lands at its tick however the frames fall, and (slice
+//! M6-S6a) a frame more ([`input_read`]), in which a tapped button is read in full: a button that goes down and up
+//! before a frame is held in it and ends in the next (`crate::input`), where a tapped click becomes a click. So a
+//! step's input acts at its tick at any pace. Without that frame, under `--fast` it ran the sim on to the next stop
+//! before a tapped click was read, the click's order with it: a click right after a menu's keys placed no building
+//! in time for the next screenshot (slice M5-Mb's walkthrough).
 //!
 //! (Slice M5-S7) One step a frame: the steps of one tick apply in consecutive frames, in file order, the sim waiting at
 //! the tick for the last of them, so that each step's input is read before the next one's. A step that opens the
@@ -135,10 +140,13 @@ pub fn load_input_script(path: &Path) -> Result<Vec<InputStep>, String> {
 }
 
 /// Applies the next step of the sim's tick to the virtual keyboard and mouse, before the input layer reads them: one
-/// a frame (module docs).
+/// a frame (module docs). The sim waits at its tick through the next frame ([`input_read`]).
 pub(super) fn apply_input_script(mut qa: ResMut<QaState>, sim: Res<SimRes>, mut input: ResMut<InjectedInput>) {
     let tick = sim.tick();
-    if let Some(step) = qa.input_steps.pop_front_if(|s| s.tick <= tick) {
+    let step = qa.input_steps.pop_front_if(|s| s.tick <= tick);
+    qa.input_applied = step.is_some();
+    if let Some(step) = step {
+        qa.input_tick = Some(tick);
         if let Some(cursor) = step.cursor {
             input.cursor = Some(cursor);
         }
@@ -152,6 +160,14 @@ pub(super) fn apply_input_script(mut qa: ResMut<QaState>, sim: Res<SimRes>, mut 
         for &button in &step.release {
             button.release(&mut input);
         }
+    }
+}
+
+/// (Slice M6-S6a) The end of a frame that applied no step: the last step's input has been read in full, a tapped
+/// click's too, and the sim may go on from its tick (module docs). Before [`super::QaState::next_stop`] is read.
+pub(super) fn input_read(mut qa: ResMut<QaState>) {
+    if !qa.input_applied {
+        qa.input_tick = None;
     }
 }
 

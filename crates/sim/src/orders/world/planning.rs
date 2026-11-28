@@ -5,7 +5,7 @@
 use glam::Vec2;
 
 use crate::ids::PlayerId;
-use crate::nav::{self, Search};
+use crate::nav::{self, NavGrid, Search};
 use crate::paths::knowledge::PathKnowledge;
 
 use super::{Unit, View, World};
@@ -28,6 +28,16 @@ impl<'a> World<'a> {
             .zip(self.knowledge)
             .and_then(|(player, knowledge)| knowledge.version(player))
             .unwrap_or(self.nav_version)
+    }
+
+    /// (M6-S6a) The grid `unit` plans its moves on where it stands (`paths::NavState::plan_grid`: what its owner knows
+    /// of the obstacles); `None` for a unit that walks on no grid (an air unit).
+    pub(crate) fn plan_grid(&self, unit: &Unit) -> Option<&NavGrid> {
+        let def = unit.kind.def();
+        let (unit_def, silhouette) = def.unit.as_ref().zip(def.silhouette())?;
+        let class = unit_def.base_def().nav_class()?;
+        let (_, grid) = (self.nav).plan_grid(unit.owner, class, nav::size_class(silhouette), unit.pos)?;
+        Some(grid)
     }
 
     /// The path `unit` plans when it goes after `target` (`MoveGoal::Object`, as phase 5c serves it,

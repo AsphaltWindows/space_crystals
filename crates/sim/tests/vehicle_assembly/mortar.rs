@@ -8,7 +8,7 @@
 use std::f32::consts::PI;
 
 use sc_sim::combat::{AttackPhase, overlap, turret_facing};
-use sc_sim::{MoveStatus, math};
+use sc_sim::math;
 
 use super::*;
 
@@ -352,14 +352,18 @@ fn it_fires_from_its_40_degree_turret_once_its_hull_points_the_target_into_the_a
 
 /// `systems/controls/command_behaviors.md > AttackingObject` step 2's "Locomotion = Stopping" for a unit that can't
 /// turn in place (`orders::engage`'s `rests_in_arc`): player 1's Bike, standing and facing east, attacks player 2's
-/// Guard 4 grid units off, in its range, 45°, 60° or 90° north of its facing, out of its arc. It drives on toward the
-/// Guard, turning as its wheels let it, and stops only where the Guard will still be in its arc at rest: braking
-/// straight on ("Stopping + Turning: invalid"), it keeps the Guard within 20° of its facing from its Aiming to its
-/// launch, and fires at it, its turret onto it. (Before, it braked as soon as the Guard came into its arc; coasting on
+/// Guard 4 grid units off, in its range, 45°, 60° or 90° north of its facing, out of its arc. It drives on, turning as
+/// its wheels let it, and stops only where the Guard will still be in its arc at rest: braking straight on
+/// ("Stopping + Turning: invalid"), it keeps the Guard within 20° of its facing from its Aiming to its launch, and
+/// fires at it, its turret onto it. (Before slice M6-SV, it braked as soon as the Guard came into its arc; coasting on
 /// straight, the Guard slipped out of it again, its Aiming cancelled; and so it ended beside the Guard, as near as it
-/// got, and gave the Attack up without firing.) At 45° it fires about 106 su from the Guard. At 60° and 90° the Guard
-/// lies near or on the circle it turns on, so it points it into its arc only close up: it fires from beside the Guard,
-/// 48 su off, and its own round's blast (AoERadius 48 su, MinRange 0) hits it too, a reading for the Director.
+/// got, and gave the Attack up without firing.) The Guard lies inside the circle it turns on, or less than two grid
+/// units beyond its rim (`orders::aim`'s margin of a grid unit, and its mortar's MinRange, a grid unit since design
+/// change 0460): it can't aim from where it stands (design change 0454, `> Can't aim from where it stands`), so it
+/// repositions first, straight on (a vehicle backs up only on the Reverse order) until the Guard lies that far beyond
+/// the rim, and comes round onto it from there, to rest beyond its MinRange. Before 0454 it came round at once, and at
+/// 60° and 90° brought the Guard into its arc only beside it, 48 su off, its own round's blast (AoERadius 48 su,
+/// MinRange 0 then) hitting it too; now its blast never does.
 #[test]
 fn a_bike_drives_on_until_a_target_in_range_far_out_of_its_arc_stays_in_it_at_rest_and_fires() {
     let bike = id(1);
@@ -404,44 +408,246 @@ fn a_bike_drives_on_until_a_target_in_range_far_out_of_its_arc_stays_in_it_at_re
         run_for(&mut t, 30);
         let hp = |t: &TestSim, of| t.sim().object(of).and_then(|o| o.hp);
         assert!(hp(&t, id(2)) < Some(100.0), "{degrees}°: the round hits the Guard");
-        assert_eq!(
-            hp(&t, bike) < Some(100.0),
-            degrees > 45.0,
-            "{degrees}°: its own blast hits it only from beside the Guard"
-        );
+        assert_eq!(hp(&t, bike), Some(100.0), "{degrees}°: its own blast misses it");
     }
 }
 
-/// A reading for the Director: a target the rule above still doesn't bring into the Bike's arc. Player 1's Bike,
-/// standing and facing east, attacks player 2's Guard 3 grid units off, 120° or 125° north of its facing: in its
-/// range, out of its arc, inside the circle it turns on (its radius 128 su), near the rim. It drives on round toward
-/// the Guard, but never has the Guard in its arc where it would come to rest, and its move ends against the Guard
-/// (`MoveGoal::Object`, reach 0), the Guard more than 20° off its facing; so it gives the Attack up
-/// (`systems/controls/command_behaviors.md > AttackingObject > Failure`) without firing, and stands idle. It doesn't
-/// loop.
+/// Question Q0184's first case, as design change 0454 settled it ("**Can't aim from where it stands**",
+/// `systems/controls/command_behaviors.md > AttackingObject`: "it keeps trying to get into a position from which it
+/// can attack the target ... It doesn't wait in place, and doesn't give up for this reason"; slice M6-S6a,
+/// `orders::aim`). Player 1's Bike, standing and facing east, attacks player 2's Guard 3 grid units off, 120° or 125°
+/// north of its facing: in its range, out of its arc, inside the circle it turns on (its radius 128 su), near the
+/// rim. Before 0454 it drove on round toward the Guard, never had it in its arc where it would come to rest, ended its
+/// move against it and gave the Attack up without firing. Now it drives straight on, east, until the Guard lies two
+/// grid units beyond the circle's rim (the margin, and its mortar's MinRange: design change 0460), more than 64 su,
+/// comes round onto it, and fires at it from beyond its MinRange and its own round's blast, the Attack running all the
+/// while.
 #[test]
-fn a_bike_gives_up_a_target_inside_its_turning_circle_that_it_meets_out_of_its_arc() {
+fn a_bike_repositions_from_a_target_inside_its_turning_circle_and_fires() {
     let bike = id(1);
     for degrees in [120.0, 125.0] {
         let (mut t, at) = bearing_game(degrees, 192.0);
-        run_for(&mut t, 200);
-        assert_eq!(launches(&t), [], "{degrees}°: never fired");
-        let o = object(&t, bike);
-        let current = o.orders.as_ref().and_then(|orders| orders.current.as_ref());
-        assert!(current.is_none(), "{degrees}°: the Attack given up");
-        assert_eq!(
-            (t.status(1), phase(&t, bike)),
-            (MoveStatus::Arrived, None),
-            "{degrees}°"
-        );
-        let (off, _) = off_facing(&t, bike, at);
-        assert!(
-            off.abs() > HALF_ARC + TOLERANCE,
-            "{degrees}°: {}° off",
-            off.to_degrees()
-        );
-        assert!(o.pos.distance(at) < 64.0, "{degrees}°: against the Guard, at {}", o.pos);
-        assert_eq!(object(&t, id(2)).hp, GUARD.def().max_hp);
+        let mut east = 0.0_f32;
+        let launch = loop {
+            step_checked(&mut t);
+            if let Some(&launch) = launches(&t).first() {
+                break launch;
+            }
+            east = east.max(object(&t, bike).pos.x - 640.0);
+            let current = (object(&t, bike).orders.as_ref()).and_then(|orders| orders.current.as_ref());
+            assert!(current.is_some(), "{degrees}°: the Attack goes on");
+            assert!(t.sim().tick() < 200, "{degrees}°: it fires");
+        };
+        assert_eq!((launch.shooter, launch.to), (bike, at), "{degrees}°");
+        assert!(east > 64.0, "{degrees}°: it drove straight on first, {east} su");
+        run_for(&mut t, 40);
+        let hp = |t: &TestSim, of| t.sim().object(of).and_then(|o| o.hp);
+        assert!(hp(&t, id(2)) < Some(100.0), "{degrees}°: the round hits the Guard");
+        assert_eq!(hp(&t, bike), Some(100.0), "{degrees}°: its own blast misses it");
+    }
+}
+
+/// Slice M6-SV's grid of close targets, every one in the Bike's range and out of its arc ([`bearing_game`]: the Guard
+/// 168 to 224 su off, every 8, and 50° to 130° north of its facing, every 5°): before design change 0454, 34 of its
+/// 136 games ended with the Attack given up unfired, the Bike against the Guard, and the other 102 fired from beside
+/// the Guard, its own blast hitting it. Now it fires in every one, within 120 ticks, its Attack never given up, from
+/// about 2 grid units off the Guard, edge to edge (`orders::aim`: inside the circle it turns on or near its rim, it
+/// repositions first, and comes round onto the Guard to rest beyond its mortar's MinRange of a grid unit, design change
+/// 0460), and its own blast never hits it.
+#[test]
+fn it_fires_at_every_close_target_of_the_grid_beyond_its_own_blast() {
+    let bike = id(1);
+    for far in (168..=224).step_by(8) {
+        for degrees in (50..=130).step_by(5) {
+            let (mut t, at) = bearing_game(degrees as f32, far as f32);
+            let launch = loop {
+                step_checked(&mut t);
+                if let Some(&launch) = launches(&t).first() {
+                    break launch;
+                }
+                let current = (object(&t, bike).orders.as_ref()).and_then(|orders| orders.current.as_ref());
+                assert!(current.is_some(), "{far} su, {degrees}°: the Attack goes on");
+                assert!(t.sim().tick() < 120, "{far} su, {degrees}°: it fires");
+            };
+            assert_eq!(launch.to, at, "{far} su, {degrees}°");
+            let gap = shape(&t, bike).gap(&shape(&t, id(2)));
+            assert!(
+                ABOUT_2_GU.contains(&gap),
+                "{far} su, {degrees}°: fired from {gap} su off"
+            );
+            run_for(&mut t, 40);
+            assert_eq!(
+                object(&t, bike).hp,
+                Some(100.0),
+                "{far} su, {degrees}°: its own blast misses it"
+            );
+        }
+    }
+}
+
+/// About 2 grid units, space units: where a Bike that comes round onto a mark beyond its mortar's MinRange of a grid
+/// unit, or backs off to MinRange + 1 grid unit from one inside it, fires from (design change 0460: "fires from about 2
+/// GU").
+const ABOUT_2_GU: std::ops::RangeInclusive<f32> = 120.0..=192.0;
+
+/// Design change 0460's Verification 1, Q0184's second case ("at 60° and 90° off, it reaches the target's side before
+/// the target is in its arc. It then fires from 48 su, and its blast takes 13–15 of its own 100 HP each round"): "Order
+/// a Bike to attack a target 48 su to its side. It drives off, comes round, and fires from about 2 GU. It takes no
+/// damage from its own rounds." Its mortar's MinRange of a grid unit (`factions/syndicate/units/assault_bike.md >
+/// Placeholder stats`) has player 2's Guard, 48 su north of player 1's Bike, edge to edge, inside it: the Bike backs
+/// off to MinRange + 1 grid unit (`systems/controls/command_behaviors.md > Target inside MinRange`), driving off (a
+/// vehicle backs up only on the Reverse order, `systems/units.md > UnitCollision`), comes round onto the Guard, its
+/// hull pointing it into its arc, and fires at it from about 2 grid units, round after round until it falls, its own HP
+/// whole.
+#[test]
+fn ordered_onto_a_target_48_su_beside_it_it_drives_off_comes_round_and_fires_from_about_2_grid_units() {
+    let mut t = field(30, 24);
+    let (bike, guard) = (id(1), id(2));
+    let from = Vec2::new(640.0, 1100.0);
+    // Its half width 16 su, the Guard's 18.
+    let at = from + Vec2::new(0.0, -(16.0 + 48.0 + 18.0));
+    t.spawn_unit_at(1, BIKE, P1, from).spawn_unit_at(1, GUARD, P2, at);
+    t.at(2, P1, order(&[bike], OrderKind::Attack(guard)));
+    run_checked(&mut t, 1);
+    assert!((shape(&t, bike).gap(&shape(&t, guard)) - 48.0).abs() < 1e-3);
+    let mut farthest = 0.0_f32;
+    let first = loop {
+        step_checked(&mut t);
+        farthest = farthest.max(shape(&t, bike).gap(&shape(&t, guard)));
+        if let Some(&launch) = launches(&t).first() {
+            break launch;
+        }
+        assert!(t.sim().tick() < 150, "it fires");
+    };
+    assert_eq!((first.shooter, first.to), (bike, at));
+    let gap = shape(&t, bike).gap(&shape(&t, guard));
+    assert!(ABOUT_2_GU.contains(&gap), "it fires from {gap} su off");
+    assert!(
+        farthest >= 127.0,
+        "it drove off to MinRange + 1 grid unit: {farthest} su"
+    );
+    let (off, turret) = off_facing(&t, bike, at);
+    assert!(
+        off.abs() <= HALF_ARC + TOLERANCE,
+        "it came round: {}° off",
+        off.to_degrees()
+    );
+    assert!(
+        turret.abs() <= 2.0 * TOLERANCE,
+        "its turret {}° off",
+        turret.to_degrees()
+    );
+    step_until(&mut t, 600, "the Guard falls", |t| t.sim().object(guard).is_none());
+    run_for(&mut t, 40);
+    assert!(launches(&t).len() > 1, "round after round");
+    assert_eq!(object(&t, bike).hp, Some(100.0), "its own rounds never hit it");
+}
+
+/// Player 1's Bike, standing and facing east at (640, 1100) of an open 30 × 24 field, ordered in tick 2 to attack the
+/// ground `far` su off on a bearing `degrees` north of east; tick 1 has run.
+fn ground_game(degrees: f32, far: f32) -> (TestSim, Vec2) {
+    let mut t = field(30, 24);
+    let from = Vec2::new(640.0, 1100.0);
+    let at = from + math::facing_vector(-degrees.to_radians()) * far;
+    t.spawn_unit_at(1, BIKE, P1, from);
+    t.at(2, P1, order(&[id(1)], OrderKind::AttackGround(at)));
+    run_checked(&mut t, 1);
+    (t, at)
+}
+
+/// Q0184's third case ("Attack Ground at a spot in range but out of its arc, 96–256 su away and 30–150° off its
+/// facing. As built (step 4 as written): it circles the spot forever, stopping once a lap, and never fires"), as design
+/// change 0460 settled it (`systems/controls/command_behaviors.md > AttackingLocation > Algorithm`: "**Can't aim from
+/// where it stands** applies [...] it doesn't circle the spot forever"; Verification 2: "Order Attack Ground at a spot
+/// in range but 90° off its facing. It repositions and keeps shelling the spot, and doesn't circle forever"; slice
+/// M6-S6a, `orders::attack_ground` and `orders::aim`). Player 1's Bike, standing and facing east, attacks the ground
+/// in its range, out of its arc: 96 to 256 su off, every 32, and 30° to 150° north of its facing, every 15°. In every
+/// one it repositions, fires at the spot within 200 ticks from beyond its MinRange of a grid unit, and goes on, from
+/// where it stopped, one round every 48 frames, the order running and its own blast never hitting it.
+#[test]
+fn attacking_the_ground_out_of_its_arc_it_repositions_and_keeps_shelling_the_spot() {
+    let bike = id(1);
+    for far in (96..=256).step_by(32) {
+        for degrees in (30..=150).step_by(15) {
+            let (mut t, at) = ground_game(degrees as f32, far as f32);
+            let first = loop {
+                step_checked(&mut t);
+                if let Some(&launch) = launches(&t).first() {
+                    break launch;
+                }
+                assert!(t.sim().tick() < 200, "{far} su, {degrees}°: it fires");
+            };
+            let off = shape(&t, bike).distance_to(at);
+            assert!(
+                off >= 64.0,
+                "{far} su, {degrees}°: it fires from {off} su off, beyond its MinRange"
+            );
+            run_checked(&mut t, first.tick + 4 * 48 + 8);
+            let thrown: Vec<(Tick, Vec2)> = launches(&t).iter().map(|launch| (launch.tick, launch.to)).collect();
+            let every: Vec<(Tick, Vec2)> = (0..5).map(|n| (first.tick + 48 * n, at)).collect();
+            assert_eq!(thrown, every, "{far} su, {degrees}°: one round per 48 frames");
+            run_for(&mut t, 40);
+            let current = (object(&t, bike).orders.as_ref()).and_then(|orders| orders.current.as_ref());
+            assert!(current.is_some(), "{far} su, {degrees}°: the order goes on");
+            assert_eq!(
+                object(&t, bike).hp,
+                Some(100.0),
+                "{far} su, {degrees}°: its own blast misses it"
+            );
+        }
+    }
+}
+
+/// Design change 0460's Verification 3: "Order Attack Ground right next to the Bike. It backs off before firing"
+/// (`systems/controls/command_behaviors.md > AttackingLocation > Algorithm`: "**Target inside MinRange** applies to the
+/// location too (it backs off to MinRange + 1 GU)"). Player 1's Bike, standing and facing east, attacks the ground 48
+/// su north of it, from its edge, inside its mortar's MinRange of a grid unit: it drives off, comes round, and fires
+/// at the spot from about 2 grid units, then round after round, its own blast never hitting it.
+#[test]
+fn attacking_the_ground_right_beside_it_it_backs_off_before_firing() {
+    let bike = id(1);
+    // Its half width 16 su.
+    let (mut t, at) = ground_game(90.0, 16.0 + 48.0);
+    assert!((shape(&t, bike).distance_to(at) - 48.0).abs() < 1e-3);
+    let first = until_launched(&mut t, 150);
+    assert_eq!(first.to, at);
+    let off = shape(&t, bike).distance_to(at);
+    assert!(ABOUT_2_GU.contains(&off), "it backed off, and fires from {off} su off");
+    run_checked(&mut t, first.tick + 2 * 48 + 40);
+    assert_eq!(launches(&t).len(), 3, "round after round");
+    assert_eq!(object(&t, bike).hp, Some(100.0), "its own blast misses it");
+}
+
+/// Design change 0460: "Auto-targeting skips enemies inside MinRange, as for every weapon" (`systems/combat.md >
+/// ValidTarget`; `factions/syndicate/units/assault_bike.md > Placeholder stats`: the mortar's MinRange of a grid unit).
+/// Player 1's idle Bike, auto-targeting on, faces east; player 2's Shadebringer, unarmed, stands straight ahead of it,
+/// in its arc and its range. 48 su off, edge to edge, inside its MinRange, the Bike never takes it for a target and
+/// stands where it is; 96 su off, beyond it, the Bike fires at it.
+#[test]
+fn an_idle_bike_never_takes_an_enemy_inside_its_min_range_for_a_target() {
+    for (gap, fires) in [(48.0, false), (96.0, true)] {
+        let mut t = ScenarioBuilder::new(&flat(30, 24))
+            .faction(P1, Faction::Syndicate)
+            .faction(P2, Faction::Syndicate)
+            .start();
+        let (bike, from) = (id(1), Vec2::new(640.0, 1100.0));
+        // Their half lengths: 28 su each.
+        let at = from + Vec2::new(28.0 + gap + 28.0, 0.0);
+        t.spawn_unit_at(1, BIKE, P1, from)
+            .spawn_unit_at(1, ObjectKind::Shadebringer, P2, at);
+        run_checked(&mut t, 1);
+        assert!((shape(&t, bike).gap(&shape(&t, id(2))) - gap).abs() < 1e-3);
+        run_checked(&mut t, 200);
+        assert_eq!(!launches(&t).is_empty(), fires, "{gap} su off");
+        if !fires {
+            let o = object(&t, bike);
+            let target = o.attack.as_ref().and_then(|attack| attack.target);
+            assert_eq!(
+                (o.pos, target),
+                (from, None),
+                "{gap} su off: it stands, without a target"
+            );
+        }
     }
 }
 

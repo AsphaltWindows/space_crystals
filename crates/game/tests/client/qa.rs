@@ -1,14 +1,21 @@
-//! QA runs (`ARCHITECTURE.md > QA flags`): the exit tick and the state dump, timed commands from a file, and the
-//! path overlay.
+//! QA runs (`ARCHITECTURE.md > QA flags`): the exit tick and the state dump, timed commands from a file, the path
+//! overlay, and (slice M6-S6a) an input script under `--fast`.
 
 use bevy::prelude::*;
 
-use sc_sim::{Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SpawnAt, Target};
+use sc_sim::testing::ScenarioBuilder;
+use sc_sim::{
+    Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SpawnAt, Target, Tick,
+    TilePos,
+};
 use space_crystals::AppConfig;
+use space_crystals::camera::{CameraView, ViewportInsets, viewport_rect, visible_extent_su};
 use space_crystals::cli;
 use space_crystals::input::InputAction;
 use space_crystals::path_overlay::{PathOverlay, PathOverlayMesh};
-use space_crystals::qa::{QaConfig, TimedCommand};
+use space_crystals::platform::SurfaceSize;
+use space_crystals::qa::input_script::ScriptButton;
+use space_crystals::qa::{InputStep, QaConfig, TimedCommand};
 use space_crystals::sim_driver::{RecordedInputs, SimRes};
 
 use super::{headless, press, small_scenario, tick};
@@ -143,4 +150,127 @@ fn the_commands_flag_reads_a_list_of_timed_commands() {
     assert!(err(r#"[{"tick": 1}]"#, false).contains("not a list of timed commands"));
     assert!(err(stop, true).contains("--commands needs a game"));
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Where the camera looks in [`scripted_build`]: the middle of its map, where its Recruit stands.
+const MIDDLE: Vec2 = Vec2::new(2048.0, 1536.0);
+
+/// The cursor position over the view point `view`, the camera at [`MIDDLE`].
+fn screen_over(app: &App, view: Vec2) -> Vec2 {
+    let size = *app.world().resource::<SurfaceSize>();
+    let insets = *app.world().resource::<ViewportInsets>();
+    let (position, viewport) = viewport_rect(size, insets);
+    let su_per_pixel = visible_extent_su(viewport, size.physical.x, 1.0).x / viewport.x as f32;
+    let center = app.world().resource::<CameraView>().center;
+    ((view - center) / su_per_pixel + position.as_vec2() + viewport.as_vec2() / 2.0) / size.scale_factor
+}
+
+/// A QA run of player 1, the Cults, on a flat 64 × 48 map, its camera on the map's middle: its Storage (the Armory's
+/// TechPrerequisite) and a Recruit there, player 2's Deployment Center far off, 600 Space Crystals by a debug command
+/// in tick 1, and `script`, whose cursor positions [`screen_over`] gives, to tick 40, `--fast` or in real time. The
+/// commands the sim took, with their ticks.
+fn scripted_build(fast: bool, script: impl Fn(&App) -> Vec<InputStep>) -> Vec<(Tick, Command)> {
+    let mut scenario = ScenarioBuilder::new(&vec![".".repeat(64); 48].join("\n"))
+        .faction(PlayerId(1), Faction::Cults)
+        .faction(PlayerId(2), Faction::Gdo)
+        .spawn(
+            ObjectKind::Storage,
+            Some(PlayerId(1)),
+            SpawnAt::Tile(TilePos::new(26, 20)),
+        )
+        .spawn(ObjectKind::Recruit, Some(PlayerId(1)), SpawnAt::Point(MIDDLE))
+        .spawn(
+            ObjectKind::DeploymentCenter,
+            Some(PlayerId(2)),
+            SpawnAt::Tile(TilePos::new(56, 40)),
+        )
+        .build();
+    scenario.map.slots[0].camera_start = Some(MIDDLE);
+    let mut probe = headless(AppConfig::new(scenario.clone()));
+    probe.update();
+    assert_eq!(probe.world().resource::<CameraView>().center, MIDDLE);
+    let mut config = AppConfig::new(scenario);
+    config.fast = fast;
+    config.qa = QaConfig {
+        exit_at_tick: Some(40),
+        no_fog: true,
+        commands: vec![TimedCommand {
+            tick: 1,
+            player: PlayerId(1),
+            command: Command::Debug(DebugCommand::SetResources {
+                player: PlayerId(1),
+                crystals: 600,
+                supplies: 0,
+                alloys: 0,
+                essence: 0,
+                flux: 0,
+            }),
+        }],
+        input_script: script(&probe),
+        ..Default::default()
+    };
+    let mut app = headless(config);
+    for _ in 0..2000 {
+        app.update();
+        if app.should_exit().is_some() {
+            break;
+        }
+    }
+    assert_eq!(app.should_exit(), Some(AppExit::Success));
+    assert_eq!(tick(&app), 40, "the run ends at its exit tick");
+    let recorded = &app.world().resource::<RecordedInputs>().ticks;
+    (recorded.iter().enumerate())
+        .flat_map(|(i, inputs)| inputs.commands.iter().map(move |c| (i as Tick + 1, c.command.clone())))
+        .collect()
+}
+
+/// Slice M6-S6a (Z4a): under `--fast` an input script acts as in real time, the key and the click right after a menu
+/// key included (slice M5-Mb's walkthrough found them lost: W, then A, then a click placed no Armory). A click in tick
+/// 3 selects the Recruit, W in tick 10 opens its Basic Construct menu, A in tick 11 awaits the Armory's placement, and
+/// a click in tick 13 places it, the run going on to tick 40: at both paces the Armory's Build goes in tick 14, the
+/// tick after the click's (`qa::input_script`: the sim waits a frame at a step's tick, in which a tapped click is
+/// read). Under `--fast` that frame used to run the sim on to the exit tick before the click was read, its order never
+/// given.
+#[test]
+fn under_fast_a_menu_key_and_the_key_and_click_after_it_act_as_in_real_time() {
+    let script = |app: &App| {
+        let step = |tick, cursor: Option<Vec2>, tap: &[ScriptButton]| InputStep {
+            tick,
+            cursor: cursor.map(|view| screen_over(app, view)),
+            press: Vec::new(),
+            tap: tap.to_vec(),
+            release: Vec::new(),
+        };
+        let (left, w, a) = (
+            ScriptButton::Mouse(MouseButton::Left),
+            ScriptButton::Key(KeyCode::KeyW),
+            ScriptButton::Key(KeyCode::KeyA),
+        );
+        let site = MIDDLE + Vec2::new(256.0, -320.0);
+        vec![
+            step(3, Some(MIDDLE), &[left]),
+            step(10, None, &[w]),
+            step(11, None, &[a]),
+            step(12, Some(site), &[]),
+            step(13, Some(site), &[left]),
+        ]
+    };
+    let real = scripted_build(false, script);
+    let built: Vec<Tick> = (real.iter())
+        .filter(|(_, c)| {
+            matches!(
+                c,
+                Command::Order {
+                    kind: OrderKind::Build {
+                        kind: ObjectKind::Armory,
+                        ..
+                    },
+                    ..
+                }
+            )
+        })
+        .map(|&(tick, _)| tick)
+        .collect();
+    assert_eq!(built, [14], "{real:?}");
+    assert_eq!(scripted_build(true, script), real, "--fast");
 }

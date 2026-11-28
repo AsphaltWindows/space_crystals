@@ -52,7 +52,8 @@
 //!   Return to Base (`factions/gdo/structures/airfield.md > Returning and rearming`: "Right-clicking its own Airfield
 //!   does the same").
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
-//!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3), and the object is destructible.
+//!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3; [`Abilities::attacks`], by
+//!   `combat::can_hit`, the gate's and the client's check too), and the object is destructible.
 //! - **Everything else** gives a Move to the object (`systems/controls/command_behaviors.md > MovingToObject`), which
 //!   follows a unit and moves to anything else: an own or neutral object (design change 0059: "Right-click never"
 //!   attacks them), and an enemy the unit can't attack (design change 0062: "Units that can't carry out the resolved
@@ -70,7 +71,7 @@
 use glam::Vec2;
 
 use crate::aircraft;
-use crate::combat::{self, domain_allows};
+use crate::combat;
 use crate::construction::site::assists;
 use crate::defs::{Domain, ObjectKind, TargetDomain, Transit};
 use crate::economy::gathering::worker_def;
@@ -110,6 +111,12 @@ pub struct Abilities {
 }
 
 impl Abilities {
+    /// (M6-S6a) Whether the unit can attack a target in `domain`, as its owner knows it ([`Aimed::domain`]): it may
+    /// attack now, and its weapon can hit that domain (`combat::can_hit`, design change 0461).
+    pub fn attacks(&self, domain: Domain) -> bool {
+        self.may_attack && combat::can_hit(self.attack, domain)
+    }
+
     /// What `o` can do, if it takes orders (a unit, `Object::orders`).
     pub fn of(o: &Object) -> Option<Self> {
         o.orders.as_ref()?;
@@ -269,9 +276,7 @@ impl Rule {
                 _ => None,
             },
             Rule::Attack => {
-                let can_attack =
-                    target.destructible && unit.attack.is_some_and(|domain| domain_allows(domain, target.domain));
-                (target.enemy && can_attack && unit.may_attack).then_some(OrderKind::Attack(id))
+                (target.enemy && target.destructible && unit.attacks(target.domain)).then_some(OrderKind::Attack(id))
             }
         }
     }

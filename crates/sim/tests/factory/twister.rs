@@ -79,10 +79,10 @@ fn its_machine_gun_hits_a_sparrow_behind_it_its_turret_turning_round() {
 
 /// The plan's acceptance: "An Attack on a Peacekeeper is refused, with feedback" (the client's half,
 /// `crates/game/tests/commands/factory.rs`). A Twister's machine gun hits Air only (`systems/combat.md > ValidTarget` 3,
-/// `combat::domain_allows`): the gate refuses its Attack on player 2's Peacekeeper (`Reject::CannotHit`), and one sent
+/// `combat::can_hit`): the gate refuses its Attack on player 2's Peacekeeper (`Reject::CannotHit`), and one sent
 /// anyway leaves it idle; its right-click on the Peacekeeper follows it, as a unit's that can't attack its target.
 /// With a Raptor, whose missile hits the ground too, the group's Attack is taken, the Raptor's alone: it fires, the
-/// Twister stays idle.
+/// Twister stays idle. (The client sends such a Twister after the target instead, design change 0461: below.)
 #[test]
 fn an_attack_on_a_peacekeeper_is_refused() {
     let mut t = field(PK, STAND + Vec2::new(256.0, 0.0));
@@ -105,6 +105,45 @@ fn an_attack_on_a_peacekeeper_is_refused() {
     t.at(t.sim().tick() + 1, P1, both);
     run_for(&mut t, 60);
     assert_eq!(current(&t, TWISTER_ID), None, "the Twister ignores it");
+    let hits = hits_on(&t, OTHER);
+    assert!(
+        !hits.is_empty() && hits.iter().all(|&(_, by, _)| by == raptor),
+        "{hits:?}"
+    );
+}
+
+/// Design change 0461's Verification 1, the sim's half (the client's: `command_ui::resolution::target_orders`): the
+/// orders the client gives Twisters and Raptors A-clicked on an enemy tank, an Attack to the Raptor and a Move on the
+/// tank to the Twister, whose machine gun hits air only ("it **moves to the target (follows it) with the group**",
+/// `systems/controls/interface.md > CommandPanel`, "Attack goes to everyone"). As player 2's Hand of Heaven drives off
+/// east, 10 grid units, the Raptor hits it, and the Twister follows it all the way
+/// (`systems/controls/command_behaviors.md > MovingToObject`), never more than 5 grid units behind, and stands by it at
+/// the end, its order going on.
+#[test]
+fn a_twister_sent_after_a_tank_with_raptors_follows_it_as_it_drives_off() {
+    let start = STAND + Vec2::new(256.0, 0.0);
+    let mut t = field(ObjectKind::HandOfHeaven, start);
+    let raptor = id(next_id(&t));
+    t.spawn_unit_at(2, RAPTOR, P1, STAND + Vec2::new(0.0, 100.0));
+    let away = start + Vec2::new(640.0, 0.0);
+    t.at(3, P2, order(&[OTHER], OrderKind::Move(Target::Point(away))));
+    t.at(3, P1, order(&[raptor], OrderKind::Attack(OTHER)));
+    let follow = OrderKind::Move(Target::Object(OTHER));
+    t.at(3, P1, order(&[TWISTER_ID], follow));
+    run_for(&mut t, 2);
+    let mut farthest = 0.0_f32;
+    while t.sim().tick() < 400 {
+        t.step();
+        farthest = farthest.max(shape(&t, TWISTER_ID).gap(&shape(&t, OTHER)));
+    }
+    assert!(object(&t, OTHER).pos.distance(away) < 32.0, "the tank drove off");
+    assert!(
+        farthest < 5.0 * 64.0,
+        "the Twister kept with it: {farthest} su behind at most"
+    );
+    let gap = shape(&t, TWISTER_ID).gap(&shape(&t, OTHER));
+    assert!(gap < 2.0 * 64.0, "it stands by it: {gap} su off");
+    assert_eq!(current(&t, TWISTER_ID), Some(follow), "it follows on");
     let hits = hits_on(&t, OTHER);
     assert!(
         !hits.is_empty() && hits.iter().all(|&(_, by, _)| by == raptor),

@@ -64,9 +64,11 @@ pub(crate) const ASSAULT_BIKE: ObjectDef = ObjectDef {
                 radius: 48.0 / SU_PER_GU,
                 blast: BlastDomain::Attack,
             },
-            damage: 120.0,               // "Damage 120 total over the circle"
-            range: 5.0,                  // Range **5 grid units** (Grenadier: 4)
-            min_range: 0.0,              // MinRange 0
+            damage: 120.0, // "Damage 120 total over the circle"
+            range: 5.0,    // Range **5 grid units** (Grenadier: 4)
+            // "**MinRange 1 grid unit** (user, 2026-11-27; Q0184: so it never fires close enough for its own blast to
+            // hit it; value placeholder, just beyond the 48 su blast; was 0)": design change 0460.
+            min_range: 1.0,
             projectile_speed: Some(8.0), // ProjectileSpeed 8 su/frame
             aim_ticks: 8,                // Aim 8
             firing_ticks: 2,             // Firing 2
@@ -138,7 +140,7 @@ mod tests {
         assert_eq!(0.75 * SU_PER_GU, 48.0, "48 space units");
         assert_eq!(
             (attack.range, attack.min_range, attack.projectile_speed),
-            (5.0, 0.0, Some(8.0))
+            (5.0, 1.0, Some(8.0))
         );
         assert_eq!(timings(&attack), ((8, 2, 4, 34), 48), "one round per 48 frames");
         assert!(can_target_ground(attack.attack_type));

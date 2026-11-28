@@ -39,6 +39,7 @@
 //! Their working state ([`state`], the design's BaseBehaviorState) is part of the order, or of the unit while it
 //! has none ([`Orders::auto`]).
 
+mod aim;
 mod air_base;
 mod assist;
 mod attack_ground;

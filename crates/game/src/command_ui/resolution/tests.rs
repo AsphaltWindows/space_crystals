@@ -204,8 +204,12 @@ fn a_raised_shield_follows_on_a_right_click_and_moves_to_the_target_of_an_explic
     assert_eq!(unit_right_click(SHIELDED, &enemy()), Some(object(6)));
     assert_eq!(unit_right_click(SHIELDED, &enemy_structure()), Some(object(5)));
     for (target, kind) in [(6, OrderKind::Attack(id(6))), (2, OrderKind::Attack(id(2)))] {
-        assert_eq!(unit_target_order(SHIELDED, kind), object(target), "{kind:?}");
-        assert_eq!(unit_target_order(ARMED, kind), kind);
+        assert_eq!(
+            unit_target_order(SHIELDED, kind, Domain::Ground),
+            object(target),
+            "{kind:?}"
+        );
+        assert_eq!(unit_target_order(ARMED, kind, Domain::Ground), kind);
     }
     let everyone = [
         OrderKind::AttackMove(P),
@@ -217,9 +221,64 @@ fn a_raised_shield_follows_on_a_right_click_and_moves_to_the_target_of_an_explic
     ];
     for kind in everyone {
         for unit in [ARMED, SHIELDED, UNARMED] {
-            assert_eq!(unit_target_order(unit, kind), kind, "{unit:?} {kind:?}");
+            assert_eq!(unit_target_order(unit, kind, Domain::Ground), kind, "{unit:?} {kind:?}");
         }
     }
+}
+
+/// Design change 0461 (answering Q0186; `systems/controls/interface.md > CommandPanel`, "Attack goes to everyone"): "a
+/// unit whose weapon can't hit the clicked target's domain [...] is treated like a unit that can't attack: it **moves
+/// to the target (follows it) with the group**. If **no** selected unit can attack the target, the click is an
+/// **invalid target**". Its Verification 1: Twisters (TargetDomain Air) with Raptors (Universal) A-clicked on an enemy
+/// tank, on the ground: the Raptors attack it, the Twisters follow it. 2: Twisters alone: no order, an invalid target.
+/// 3: Peacekeepers (Ground) with Rocketmen (Universal) A-clicked on a Sparrow, in the air: the Rocketmen attack it, the
+/// Peacekeepers follow it. A deployed Artillery Rig (Ground), which can't move, follows nothing: beside Twisters on a
+/// Sparrow it gets no order, and alone on one the click is invalid; nor does a mobile Rig deploying into one, judged as
+/// the type it becomes. Every other order goes to every unit as it is.
+#[test]
+fn an_attack_sends_the_units_that_cant_hit_its_target_after_it_and_one_none_can_carry_out_is_invalid() {
+    let modes = Modes::default().with_deploying([id(6)], ObjectKind::ArtilleryRigDeployed);
+    let orders = |units: &[(u32, ObjectKind)], kind, domain| {
+        let units = units.iter().map(|&(n, of)| (id(n), of));
+        target_orders(units, &modes, kind, domain)
+    };
+    let (attack, follow) = (OrderKind::Attack(id(9)), object(9));
+    let (twister, raptor) = ((1, ObjectKind::Twister), (2, ObjectKind::Raptor));
+    assert_eq!(
+        orders(&[twister, raptor], attack, Domain::Ground),
+        Some(vec![(id(1), follow), (id(2), attack)]),
+        "on a tank, the Raptor attacks, the Twister follows"
+    );
+    assert_eq!(orders(&[twister], attack, Domain::Ground), None, "Twisters alone");
+    let (peacekeeper, rocketman) = ((3, ObjectKind::Peacekeeper), (4, ObjectKind::Rocketman));
+    assert_eq!(
+        orders(&[peacekeeper, rocketman], attack, Domain::Air),
+        Some(vec![(id(3), follow), (id(4), attack)]),
+        "on a Sparrow, the Rocketman attacks, the Peacekeeper follows"
+    );
+    let rig = (5, ObjectKind::ArtilleryRigDeployed);
+    assert_eq!(
+        orders(&[twister, rig], attack, Domain::Air),
+        Some(vec![(id(1), attack)]),
+        "the Rig, which can't move, follows nothing"
+    );
+    assert_eq!(orders(&[rig], attack, Domain::Air), None, "the Rig alone");
+    assert_eq!(
+        orders(&[twister, rig], attack, Domain::Ground),
+        Some(vec![(id(1), follow), (id(5), attack)])
+    );
+    let deploying = (6, ObjectKind::ArtilleryRig);
+    assert_eq!(
+        orders(&[twister, deploying], attack, Domain::Air),
+        Some(vec![(id(1), attack)]),
+        "the Rig deploying, as the deployed Rig"
+    );
+    let to = OrderKind::Move(Target::Point(P));
+    assert_eq!(
+        orders(&[twister, rig], to, Domain::Ground),
+        Some(vec![(id(1), to), (id(5), to)]),
+        "any other order, as it is"
+    );
 }
 
 /// Design changes 0062, 0063 and 0074: every unit resolves a right-click for itself. On an enemy, a unit that

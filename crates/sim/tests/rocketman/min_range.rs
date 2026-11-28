@@ -49,7 +49,9 @@ fn hugged() -> TestSim {
 
 /// "MinRange 2": ordered to attack the Peacekeeper inside its MinRange, the Rocketman "backs off until the target is
 /// outside MinRange, then attacks", its Attack running all the while: every missile it fires in 10 seconds leaves from
-/// 2 grid units off or more, at the Peacekeeper, which stands. Ordered instead to lock onto it, it stands where it is
+/// 2 grid units off or more, at the Peacekeeper, which stands; the first from 3 grid units off (design change 0454's
+/// Verification 2: "Do the same with a Rocketman (MinRange 2). It backs off to about 3 GU": MinRange + 1 grid unit).
+/// Ordered instead to lock onto it, it stands where it is
 /// and fires at it from there, 1 grid unit off, its missiles homing: "locked homing missiles can be fired at **any
 /// distance** up to LockRange, even inside the normal attack's MinRange".
 #[test]
@@ -67,6 +69,12 @@ fn the_normal_attack_backs_off_out_of_min_range_and_a_lock_fires_where_it_stands
         );
         t.step();
     }
+    let (first, _) = launches(&t, 1)[0];
+    assert!(
+        (gap(first, target) - gu(3.0)).abs() < 1.0,
+        "fired from {} off",
+        gap(first, target)
+    );
     t.run_until(16 * 10);
     let fired = launches(&t, 1);
     for &(from, aimed) in &fired {

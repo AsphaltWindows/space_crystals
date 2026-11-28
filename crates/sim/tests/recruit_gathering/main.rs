@@ -12,8 +12,8 @@
 //! - `crowds`: 4 and 5 Recruits on one 2-tile face, the lanes of a 3-tile face (0380's Verification), 10 on an
 //!   8-patch field with three Storages, for 5 minutes, and the jam check (no Recruit goes 10 seconds without a
 //!   delivery);
-//! - `jam`: more Recruits than a face holds (ignored: they fail as built, the design's behaviour, design change 0320),
-//!   and the measurements by layout and count.
+//! - `jam`: more Recruits than a face holds starve one another, the design's behaviour (design change 0320): pins of
+//!   that starvation, four Recruits on one patch, and the measurements by layout and count (ignored).
 
 mod crowds;
 mod jam;

@@ -228,12 +228,7 @@ pub(crate) fn step(
             mover.exit_heading = None;
         }
         // (M5-V4) Whether its move this tick crushes (`crush::drives`): its own body says so, for its turn alone.
-        let moving: &Mover = mover;
-        let body = &scratch.bodies[me];
-        let ahead = || crush::ahead(body, facing);
-        let crushing = crush::drives(base, movement, moving, ahead, held, door.as_ref(), || {
-            crush::steers(moving, &body.shape_at(from), scratch.chased[me].as_ref())
-        });
+        let crushing = crush::drives(base, mover, held);
         scratch.bodies[me].crushes = crushing;
         let mut world = World {
             grid: paths::unit_grid(nav, base, half * 2.0),

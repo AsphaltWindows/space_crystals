@@ -114,8 +114,8 @@ fn soak(seed: u64) -> TestSim {
 
 /// The invariants hold after every tick (`TestSim`), and so do the crushes, each in the tick it comes in: the crushed
 /// unit is a Light Infantry of an enemy of its crusher, a Hand of Heaven, and is out of the game; the crusher moved or
-/// turned in the tick, and not as a Stopping move (`movement::crush`: "Locomotion = Moving or Reversing", or a spin in
-/// place, design change 0418). Nothing dies of damage. No unit is on its way for ever without getting anywhere (as in
+/// turned in the tick (`movement::crush`: "while the crusher has any speed", Moving, Reversing or Stopping, design
+/// change 0453, or a spin in place, design change 0418). Nothing dies of damage. No unit is on its way for ever without getting anywhere (as in
 /// the oriented soak, design change 0024). The Hands of Heaven crush, and get where they are sent. The same seed
 /// again gives the same state, and so does the replay.
 ///
@@ -131,7 +131,7 @@ fn hands_of_heaven_among_both_players_infantry_crush_only_what_the_rules_say() {
         // Per unit: the tick and the values of its latest progress.
         let mut since: BTreeMap<ObjectId, (u32, f32, u32)> = BTreeMap::new();
         let mut statuses = vec![MoveStatus::Idle; hands.len()];
-        let (mut crushed, mut arrived, mut failed) = (0, 0, 0);
+        let (mut crushed, mut braking, mut arrived, mut failed) = (0, 0, 0, 0);
         while t.sim().tick() < TICKS {
             let before: BTreeMap<ObjectId, (Vec2, f32)> =
                 t.sim().objects().map(|o| (o.id, (o.pos, o.facing))).collect();
@@ -164,7 +164,7 @@ fn hands_of_heaven_among_both_players_infantry_crush_only_what_the_rules_say() {
                     "seed {seed}: {by:?}"
                 );
                 let locomotion = by.mover.as_ref().expect("a unit").locomotion;
-                assert_ne!(locomotion, Locomotion::Stopping, "seed {seed}, tick {tick}: {by:?}");
+                braking += u32::from(locomotion == Locomotion::Stopping);
                 let (pos, facing) = before[&crusher];
                 assert!(
                     by.pos != pos || by.facing != facing,
@@ -196,7 +196,10 @@ fn hands_of_heaven_among_both_players_infantry_crush_only_what_the_rules_say() {
                 *was = status;
             }
         }
-        println!("seed {seed}: {crushed} crushed; of the Hands of Heaven's moves, {arrived} arrived, {failed} failed");
+        println!(
+            "seed {seed}: {crushed} crushed, {braking} of them by a Stopping move; of the Hands of Heaven's moves, \
+             {arrived} arrived, {failed} failed"
+        );
         assert!(crushed >= 5, "seed {seed}: {crushed} crushed");
         assert!(arrived >= 1, "seed {seed}: {arrived} arrived, {failed} failed");
         if seed == 1 {

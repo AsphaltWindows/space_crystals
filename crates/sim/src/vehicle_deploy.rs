@@ -155,7 +155,7 @@ pub fn can_take(o: &Object, kind: OrderKind, target: Option<Domain>, research: R
             }
             let weapon = combat::weapon(o, research);
             if let Some(domain) = target
-                && !weapon.is_some_and(|attrs| combat::domain_allows(attrs.target_domain, domain))
+                && !combat::can_hit(weapon.map(|attrs| attrs.target_domain), domain)
             {
                 return Err(Reject::CannotHit(id));
             }

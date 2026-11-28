@@ -47,6 +47,12 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
         "the TurnRate, which no Augmentation changes",
     ),
     (
+        "crates/sim/src/orders/aim.rs",
+        MOVEMENT,
+        1,
+        "the MinimumTurnRadius of a kind that can't turn in place, which no Augmentation changes",
+    ),
+    (
         "crates/sim/src/orders/engage.rs",
         MOVEMENT,
         1,

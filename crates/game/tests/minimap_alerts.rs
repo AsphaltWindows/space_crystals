@@ -2,12 +2,15 @@
 //! headless game, one tick an update, as player 1: a hit on one of their buildings off screen pings at its spot and
 //! one on screen doesn't; a fight goes on pinging once every 10 s, and two fights far apart ping each; the ring shrinks
 //! and fades and is gone after 2 s; Space centres the camera on the latest alert, and does nothing before the first;
-//! and a restart (the playtest menu's) leaves no alert of the old game.
+//! a restart (the playtest menu's) leaves no alert of the old game; and (design change 0453) a crush pings nothing.
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use sc_sim::testing::ScenarioBuilder;
-use sc_sim::{Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SpawnAt, Tick, TilePos};
+use sc_sim::{
+    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Scenario, SpawnAt, Target, Tick,
+    TilePos,
+};
 use space_crystals::camera::{
     CameraView, ViewportInsets, clamp_center, map_extent_su, viewport_rect, visible_extent_su,
 };
@@ -45,6 +48,12 @@ fn game() -> App {
         .spawn(ObjectKind::FieldEngineer, Some(P2), point(52, 10))
         .spawn(ObjectKind::FieldEngineer, Some(P2), point(8, 36))
         .build();
+    app_of(scenario)
+}
+
+/// The game of `scenario` as [`game`] plays it: headless, one tick an update, auto-targeting off, the camera on the
+/// map's middle.
+fn app_of(scenario: Scenario) -> App {
     let mut config = AppConfig::new(scenario);
     config.display = DisplayMode::Headless;
     let mut app = build_app(config);
@@ -331,4 +340,31 @@ fn a_restart_leaves_no_alerts() {
     let view = camera(&app);
     space(&mut app);
     assert_eq!(camera(&app), view, "no alert to jump to");
+}
+
+/// Design change 0453 (answering Q0178; `systems/controls/hud.md > Minimap > Alerts`: "**A crush gives no alert**: a
+/// unit crushed off screen pings nothing (a crush is not damage)"): player 2's Hand of Heaven, sent east through player
+/// 1's Peacekeeper in the north-east, off screen, crushes it, and player 1 gets no ping, then or after.
+#[test]
+fn a_crush_off_screen_pings_nothing() {
+    let point = |x: i32, y: i32| SpawnAt::Point(TilePos::new(x, y).center());
+    let peacekeeper = ObjectId(1);
+    let scenario = ScenarioBuilder::new(&vec![".".repeat(64); 48].join("\n"))
+        .spawn(ObjectKind::Peacekeeper, Some(P1), point(52, 6))
+        .spawn(ObjectKind::HandOfHeaven, Some(P2), point(44, 6))
+        .build();
+    let mut app = app_of(scenario);
+    let order = Command::Order {
+        units: vec![ObjectId(2)],
+        kind: OrderKind::Move(Target::Point(TilePos::new(60, 6).center())),
+        queue: false,
+    };
+    submit(&mut app, P2, order);
+    let crushed = |app: &App| app.world().resource::<SimRes>().object(peacekeeper).is_none();
+    run_until(&mut app, 300, crushed);
+    for _ in 0..20 {
+        app.update();
+    }
+    assert_eq!(alerts(&app).made, 0, "no ping for a crush");
+    assert!(rings(&mut app).is_empty());
 }

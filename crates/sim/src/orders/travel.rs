@@ -9,6 +9,7 @@ use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav::PathGroup;
 
+use super::aim::Leash;
 use super::engage::{Closing, close_in};
 use super::reach::{self, Reach, Verdict};
 use super::state::{Approach, Judged, Leg, Patrol, Pursuit};
@@ -258,12 +259,9 @@ pub(super) fn march(
     if let Some((view, chase)) = acquire(unit, attrs, leg, world, reach) {
         unit.engage(Some(view.id));
         unit.lock(Some(view.id));
-        let mut pursuit = Pursuit {
-            target: view.id,
-            chasing: false,
-        };
+        let mut pursuit = Pursuit::new(view.id);
         // The leg's own move ends here: the unit stops in range or goes after the target.
-        close_in(unit, &mut pursuit.chasing, view, world);
+        close_in(unit, pursuit.closer(), view, Leash::Route(&leg.reference), world);
         leg.engaged = Some(pursuit);
         leg.chase = chase;
         leg.marching = false;
@@ -378,7 +376,7 @@ fn pursue(unit: &mut Unit, leg: &mut Leg, pursuit: &mut Pursuit, world: &World, 
             return false;
         }
     }
-    match close_in(unit, &mut pursuit.chasing, target, world) {
+    match close_in(unit, pursuit.closer(), target, Leash::Route(&leg.reference), world) {
         Closing::InRange | Closing::Approaching => true,
         // The Failure rule, or as near as the unit gets (design change 0235): 0230's triggers alone.
         Closing::GaveUp => {

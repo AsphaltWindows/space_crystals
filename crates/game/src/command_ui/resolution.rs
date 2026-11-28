@@ -26,7 +26,9 @@
 //!   0064). It goes to every unit of the command's recipients, every selected unit for an Attack (design change
 //!   0397), except that a unit that can't attack moves to the object instead of an explicit Attack on it
 //!   ([`unit_target_order`], design change 0398; a Peacekeeper whose shield is on its way down takes the Attack, and
-//!   attacks once the shield is down, design change 0202); an AttackMove goes to all of them (design change 0076),
+//!   attacks once the shield is down, design change 0202), and so does (M6-S6a) one whose weapon can't hit the
+//!   object's domain (design change 0461), but for a unit that can't move; an Attack none of them can carry out is an
+//!   invalid target ([`target_orders`]); an AttackMove goes to all of them (design change 0076),
 //!   which plays out as a move for those that can't attack. Set Rally Point takes the ground or any object, as the
 //!   right-click does; the Drones' Set Drop-off an own Egress Node, which becomes the AssignedDropOff of every one of
 //!   them (an ability, `sc_sim::Ability::SetDropOff`; slice M3-J2); the Agents' Drop Off an own Tunnel in operation, a
@@ -45,7 +47,10 @@ use sc_sim::defs::{Domain, Transit};
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use sc_sim::production::takes_rally;
 use sc_sim::repair::repairs;
-use sc_sim::{Ability, AbilityArea, AreaAbility, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target, TargetView};
+use sc_sim::{
+    Ability, AbilityArea, AreaAbility, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target, TargetView,
+    vehicle_deploy,
+};
 
 use super::interface::{InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
@@ -219,6 +224,13 @@ impl UnitCapabilities {
     pub fn may_attack(&self) -> bool {
         self.abilities.is_none_or(|abilities| abilities.may_attack)
     }
+
+    /// (M6-S6a) It takes an Attack on a target in `domain` ([`MapTarget::domain`]), and its weapon can hit that domain:
+    /// the sim's check, the gate's (`sc_sim::orders::resolution::Abilities::attacks`, `sc_sim::combat::can_hit`; design
+    /// change 0461). One that can't moves to the target of an Attack instead ([`unit_target_order`]).
+    pub fn attacks(&self, domain: Domain) -> bool {
+        self.abilities.is_none_or(|abilities| abilities.attacks(domain))
+    }
 }
 
 /// The selected objects with their capabilities, in id order.
@@ -349,12 +361,47 @@ pub fn move_to(target: &MapTarget) -> OrderKind {
 /// spot as one group. **Reading**: the Peacekeeper (Shielded) moves to the target too, though
 /// `factions/gdo/units/peacekeeper.md > Riot Shield` still leaves it out of an explicit Attack (design change 0075),
 /// "follow[ing] the CommandPanel rule that a command goes only to objects that can carry it out", the rule design
-/// change 0397 replaced. Unlike the right-click ([`unit_right_click`]), on purpose.
-pub fn unit_target_order(unit: UnitCapabilities, kind: OrderKind) -> OrderKind {
+/// change 0397 replaced. Unlike the right-click ([`unit_right_click`]), on purpose. (M6-S6a) A unit whose weapon can't
+/// hit the target, its domain `domain` ([`MapTarget::domain`]), "is treated like a unit that can't attack: it **moves
+/// to the target (follows it) with the group**" (design change 0461, answering Q0186: "e.g. an anti-air Twister on a
+/// ground unit or structure, Peacekeepers on a Sparrow"; [`UnitCapabilities::attacks`]).
+pub fn unit_target_order(unit: UnitCapabilities, kind: OrderKind, domain: Domain) -> OrderKind {
     match kind {
-        OrderKind::Attack(id) if !unit.may_attack() => OrderKind::Move(Target::Object(id)),
+        OrderKind::Attack(id) if !unit.attacks(domain) => OrderKind::Move(Target::Object(id)),
         _ => kind,
     }
+}
+
+/// (M6-S6a) The orders a targeting click of `kind` gives `units`, its command's recipients with their types, in
+/// `modes` (theirs, `Modes::of`), the clicked target in `domain` ([`MapTarget::domain`]): each its order as
+/// [`unit_target_order`] has it, by its capabilities ([`UnitCapabilities::of`]), but none to a unit that can't move
+/// (`sc_sim::vehicle_deploy::immobile`: a deployed Artillery Rig, or one deploying into one, judged as the type it
+/// becomes as its capabilities are), which follows nothing: the gate would refuse it the Move
+/// (`sc_sim::Reject::CannotMove`). `None` for an Attack none of them can carry out on its target: the click is an
+/// invalid target (design change 0461: "If **no** selected unit can attack the target, the click is an **invalid
+/// target** [...]: ignored, with feedback, and the Attack still awaits a target", as the gate refuses it,
+/// `sc_sim::Reject::CannotHit`).
+pub fn target_orders(
+    units: impl IntoIterator<Item = (ObjectId, ObjectKind)>,
+    modes: &Modes,
+    kind: OrderKind,
+    domain: Domain,
+) -> Option<Vec<(ObjectId, OrderKind)>> {
+    let units: Vec<(ObjectId, UnitCapabilities, bool)> = (units.into_iter())
+        .map(|(id, of)| {
+            let mobile = !vehicle_deploy::immobile(modes.becomes(id, of));
+            (id, UnitCapabilities::of(id, of, modes), mobile)
+        })
+        .collect();
+    if matches!(kind, OrderKind::Attack(_)) && !units.iter().any(|(_, unit, _)| unit.attacks(domain)) {
+        return None;
+    }
+    let orders = (units.into_iter())
+        .map(|(id, unit, mobile)| (id, unit_target_order(unit, kind, domain), mobile))
+        .filter(|&(_, order, mobile)| order == kind || mobile)
+        .map(|(id, order, _)| (id, order))
+        .collect();
+    Some(orders)
 }
 
 /// A click's orders, one per unit in the units' order, grouped into one order per distinct order, in the order each

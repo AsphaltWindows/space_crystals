@@ -202,9 +202,11 @@ impl Sim {
     }
 
     /// (M6-GH2) The domain object `id` is targeted in as `player` knows it, for the gate's checks of an Attack
-    /// (`Reject::CannotHit`, the vehicle deploy's `can_take`): a remembered object's its recorded type's
-    /// (`combat::kind_domain`), any other's its own (`combat::object_domain`: Ground for an aircraft down on an
-    /// Airfield's slot, `crate::landing`); [`Reject::UnknownObject`] if there is no such object.
+    /// (`Reject::CannotHit` through [`combat::can_hit`], the check the client shares, slice M6-S6a; the vehicle
+    /// deploy's `can_take`): a remembered object's its recorded type's (`combat::kind_domain`: a structure or a
+    /// resource, on the ground, as [`Sim::aimed`] has it for the client), any other's its own
+    /// (`combat::object_domain`: Ground for an aircraft down on an Airfield's slot, `crate::landing`);
+    /// [`Reject::UnknownObject`] if there is no such object.
     pub(in crate::sim) fn known_domain(&self, player: PlayerId, id: ObjectId) -> Result<Domain, Reject> {
         if let TargetView::Remembered { .. } = self.target_view(player, id)
             && let Some(record) = self.vision.player(player).and_then(|vision| vision.record(id))

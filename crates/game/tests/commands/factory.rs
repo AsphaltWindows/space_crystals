@@ -5,12 +5,13 @@
 //! Advanced Mechanics (the Artillery Rig's training is `artillery_rig_ui`'s); its default
 //! rally point out of side B (design change 0446), which a right-click on it clears (0447); the Deployment Center's
 //! Advanced menu constructing it once a Barracks stands, and (M6-GH2) the Airfield once an Advanced Mechanics stands;
-//! and a Twister's Attack on a Peacekeeper, an invalid target
-//! ("An Attack on a Peacekeeper is refused, with feedback": its machine gun hits air only), and its R and F, its mines,
-//! not available yet (slice M6-GM). The panel as plain data
-//! is the unit tests' (`command_ui::interface::tests`), the training, the exit and the parking the sim's
-//! (`crates/sim/tests/factory`).
+//! and a Twister's Attack on a Peacekeeper, an invalid target ("An Attack on a Peacekeeper is refused, with feedback":
+//! its machine gun hits air only), but beside a Raptor a Move on it (design change 0461), and so on a Hornet down on
+//! its Airfield, a ground target (M6-GH2), which it attacks taking off; and its R and F, its mines, not available yet
+//! (slice M6-GM). The panel as plain data is the unit tests' (`command_ui::interface::tests`), the training, the exit
+//! and the parking the sim's (`crates/sim/tests/factory`).
 
+use sc_sim::landing;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{ConstructionCommand, Faction};
 use space_crystals::command_ui::feedback::{
@@ -18,7 +19,10 @@ use space_crystals::command_ui::feedback::{
 };
 use space_crystals::command_ui::indicators::{Indicator, MOVE_COLOR, RallyIndicator};
 use space_crystals::command_ui::{BuildMenu, ButtonLook, PanelButton, PanelCommand, Planned};
+use space_crystals::coords::drawn_at_height;
 use space_crystals::hud::command_panel::CommandButton;
+use space_crystals::object_render::body_height;
+use space_crystals::tuning::ClientTuning;
 
 use super::indicators::drawn_vertices;
 use super::rally::shown;
@@ -286,8 +290,9 @@ fn the_advanced_menus_e_constructs_an_airfield_once_an_advanced_mechanics_stands
 
 /// The plan's acceptance: "An Attack on a Peacekeeper is refused, with feedback". The Twister's A awaits its target;
 /// a click on player 2's Peacekeeper, which its machine gun can't hit (`TargetDomain: Air`; the gate's
-/// `Reject::CannotHit`), is an invalid target: "Invalid target", no order, the target still awaited. Its right-click
-/// on the Peacekeeper, a unit's on a target it can't attack, follows it.
+/// `Reject::CannotHit`), is an invalid target: "Invalid target", no order, the target still awaited (design change
+/// 0461's Verification 2: "If **no** selected unit can attack the target, the click is an **invalid target**"). Its
+/// right-click on the Peacekeeper, a unit's on a target it can't attack, follows it.
 #[test]
 fn a_twisters_attack_on_a_peacekeeper_is_an_invalid_target() {
     let mut app = factory_game(1000, 0);
@@ -306,6 +311,143 @@ fn a_twisters_attack_on_a_peacekeeper_is_an_invalid_target() {
     right_click(&mut app, enemy_at, &[]);
     let follow = OrderKind::Move(Target::Object(ObjectId(ENEMY_PK)));
     assert_eq!(orders(&app), [given(&[TWISTER_ID], follow, false)]);
+}
+
+/// Design change 0461's Verification 1 (answering Q0186; `systems/controls/interface.md > CommandPanel`, "Attack goes
+/// to everyone": "a unit whose weapon can't hit the clicked target's domain [...] is treated like a unit that can't
+/// attack: it **moves to the target (follows it) with the group**"): the Twister and a Raptor, whose missile hits the
+/// ground too, A-clicked on player 2's Peacekeeper: the Raptor's order is the Attack, the Twister's a Move on the
+/// Peacekeeper, and the Attack is done. The sim's half, the Twister keeping with its target: the sim's
+/// `factory::twister` tests.
+#[test]
+fn beside_a_raptor_a_twisters_attack_on_a_peacekeeper_follows_it() {
+    let mut app = factory_game(1000, 0);
+    let raptor = spawn(&mut app, RAPTOR, Some(P1), Vec2::new(1440.0, 1100.0));
+    select_units(&mut app, &[TWISTER_ID, raptor]);
+    tap(&mut app, &[], KeyA);
+    assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Attack));
+    let enemy_at = pos(&app, ENEMY_PK);
+    click(&mut app, enemy_at, &[]);
+    let target = ObjectId(ENEMY_PK);
+    let follow = given(&[TWISTER_ID], OrderKind::Move(Target::Object(target)), false);
+    let attack = given(&[raptor], OrderKind::Attack(target), false);
+    let mut sent = orders(&app);
+    sent.sort_by_key(|order| order.units.clone());
+    assert_eq!(sent, [follow, attack]);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+}
+
+// The objects of [`airfield_game`], by id.
+/// Player 1's Twister and Raptor.
+const AIR_TWISTER: u32 = 1;
+const AIR_RAPTOR: u32 = 2;
+/// Player 2's Airfield, on tiles (26, 12) to (28, 14), x 1664 to 1856 and y 768 to 960, and its Hornet, in the air
+/// south of it.
+const AIRFIELD: u32 = 3;
+const HORNET: u32 = 6;
+
+/// A game of the GDO against the GDO on a flat 64 × 48 map, as [`game`] sets it up (no fog, no auto-targeting, the
+/// camera at [`VIEW_CENTER`]): player 1's Twister and Raptor, its Deployment Center far off; player 2's Airfield, its
+/// Deployment Center and a Generator far off, whose Power runs the Airfield, and its Hornet.
+fn airfield_game() -> App {
+    let point = |x, y| SpawnAt::Point(Vec2::new(x, y));
+    let tile = |x, y| SpawnAt::Tile(TilePos::new(x, y));
+    let scenario = ScenarioBuilder::new(&vec![".".repeat(64); 48].join("\n"))
+        .faction(P1, Faction::Gdo)
+        .faction(P2, Faction::Gdo)
+        .spawn(TWISTER, Some(P1), point(1400.0, 1100.0))
+        .spawn(RAPTOR, Some(P1), point(1520.0, 1100.0))
+        .spawn(ObjectKind::Airfield, Some(P2), tile(26, 12))
+        .spawn(ObjectKind::DeploymentCenter, Some(P2), tile(54, 34))
+        .spawn(ObjectKind::Generator, Some(P2), tile(50, 34))
+        .spawn(ObjectKind::Hornet, Some(P2), point(1760.0, 1100.0))
+        .spawn(ObjectKind::DeploymentCenter, Some(P1), tile(2, 34));
+    game_of(scenario.build())
+}
+
+/// Where object `id`'s body is drawn now, in view space: an aircraft's raised by its flight, as picking has it
+/// (`space_crystals::object_render::body_height`).
+fn body_at(app: &App, id: u32) -> Vec2 {
+    let sim = app.world().resource::<SimRes>();
+    let o = sim.object(ObjectId(id)).expect("in the game");
+    let look = app.world().resource::<ClientTuning>().look;
+    drawn_at_height(o.pos, body_height(sim.map(), o, o.pos, &look))
+}
+
+/// Design change 0461 by the domain the target is in now, not its type's (slice M6-GH2; design change 0428 point 1,
+/// `factions/gdo/structures/airfield.md > Returning and rearming`: "**Landed aircraft are ground targets** [...]
+/// Air-only weapons (TargetDomain Air) can't hit it. Once it takes off it is an air target again"): player 2's Hornet,
+/// rebased onto its Airfield, lands on a slot. Down, it is an invalid target for the Twister alone, and beside the
+/// Raptor, which attacks it, the Twister follows it. Flown off again, it is the Twister's to attack. The gate's half:
+/// the sim's `landing::domains`.
+#[test]
+fn a_twister_follows_a_hornet_down_on_its_airfield_and_attacks_it_in_the_air() {
+    let mut app = airfield_game();
+    let hornet = ObjectId(HORNET);
+    let order = |kind| Command::Order {
+        units: vec![hornet],
+        kind,
+        queue: false,
+    };
+    let down = |app: &App| (app.world().resource::<SimRes>().object(hornet)).is_some_and(landing::down);
+    submit(&mut app, P2, order(OrderKind::Rebase(ObjectId(AIRFIELD))));
+    for _ in 0..300 {
+        if down(&app) {
+            break;
+        }
+        app.update();
+    }
+    assert!(down(&app), "down on its Airfield");
+
+    select_units(&mut app, &[AIR_TWISTER]);
+    tap(&mut app, &[], KeyA);
+    let awaiting = InterfaceState::awaiting(PanelCommand::Attack);
+    assert_eq!(interface(&app), awaiting);
+    let given_before = orders(&app).len();
+    let at = body_at(&app, HORNET);
+    click(&mut app, at, &[]);
+    assert_eq!(said(&app), Some(INVALID_TARGET_TEXT));
+    assert_eq!(interface(&app), awaiting, "still awaited");
+    assert_eq!(orders(&app).len(), given_before, "no order");
+    tap(&mut app, &[], KeyCode::Escape);
+
+    select_units(&mut app, &[AIR_TWISTER, AIR_RAPTOR]);
+    tap(&mut app, &[], KeyA);
+    let at = body_at(&app, HORNET);
+    click(&mut app, at, &[]);
+    let mut sent = orders(&app)[given_before..].to_vec();
+    sent.sort_by_key(|order| order.units.clone());
+    let follow = given(&[AIR_TWISTER], OrderKind::Move(Target::Object(hornet)), false);
+    let attack = given(&[AIR_RAPTOR], OrderKind::Attack(hornet), false);
+    assert_eq!(sent, [follow, attack]);
+    tap(&mut app, &[], KeyCode::KeyX);
+    assert!(down(&app), "still down");
+
+    // Off the Airfield, hovering over open ground.
+    submit(
+        &mut app,
+        P2,
+        order(OrderKind::Move(Target::Point(Vec2::new(1760.0, 1100.0)))),
+    );
+    let hovering = |app: &App| {
+        let o = app.world().resource::<SimRes>().object(hornet).expect("in the game");
+        !landing::down(o) && o.orders.as_ref().is_some_and(|orders| orders.current.is_none())
+    };
+    updates(&mut app, 2);
+    for _ in 0..300 {
+        if hovering(&app) {
+            break;
+        }
+        app.update();
+    }
+    assert!(hovering(&app), "flown off");
+    select_units(&mut app, &[AIR_TWISTER]);
+    tap(&mut app, &[], KeyA);
+    let given_before = orders(&app).len();
+    let at = body_at(&app, HORNET);
+    click(&mut app, at, &[]);
+    let attack = given(&[AIR_TWISTER], OrderKind::Attack(hornet), false);
+    assert_eq!(orders(&app)[given_before..], [attack]);
 }
 
 /// The Twister's panel (`factions/gdo/units/twister.md > Placeholder stats`: "Panel: BasicCombatUnitInterfaceState plus

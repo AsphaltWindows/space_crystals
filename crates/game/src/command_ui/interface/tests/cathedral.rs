@@ -255,10 +255,11 @@ fn an_attack_sends_the_disciple_to_its_target_and_an_attack_move_takes_it_along(
     let militant = UnitCapabilities::of(id(2), MILITANT, &modes);
     let attack = OrderKind::Attack(id(9));
     let to_it = OrderKind::Move(Target::Object(id(9)));
-    assert_eq!(unit_target_order(disciple, attack), to_it, "moves to it");
-    assert_eq!(unit_target_order(militant, attack), attack);
+    let ground = sc_sim::defs::Domain::Ground;
+    assert_eq!(unit_target_order(disciple, attack, ground), to_it, "moves to it");
+    assert_eq!(unit_target_order(militant, attack, ground), attack);
     let attack_move = OrderKind::AttackMove(bevy::math::Vec2::new(100.0, 100.0));
-    assert_eq!(unit_target_order(disciple, attack_move), attack_move);
+    assert_eq!(unit_target_order(disciple, attack_move, ground), attack_move);
     let disciples = Selection::new([(id(1), DISCIPLE)]);
     assert!(!conditions.attacks(&disciples));
     let alone = panel(&disciples, InterfaceState::DefaultState, &conditions);

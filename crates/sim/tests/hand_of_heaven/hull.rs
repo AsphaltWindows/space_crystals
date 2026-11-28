@@ -11,6 +11,7 @@
 
 use sc_sim::math::{self, PI};
 use sc_sim::mover::{MoveGoal, Orientation};
+use sc_sim::orders::state::Auto;
 use sc_sim::testing::invariants::Invariants;
 use sc_sim::{DebugCommand, Sim, TickInputs};
 
@@ -220,6 +221,130 @@ fn only_a_unit_turning_to_its_aim_creeps_and_only_by_its_acceleration() {
         Some("I5/I7"),
         "not turning"
     );
+}
+
+/// (M6-S6a) A map 30 × 20 whose rows 7 and 8 are cliff from side to side, and whose row 10 too is cliff west of column
+/// `open_from` (30: none), so that row 9 is a corridor a tile wide that far: player 1's Hand of Heaven (1) at the
+/// centre of tile (10, 9), facing east along the cliff, its side 12 su from the cliff's face, and player 2's Chop Shop
+/// (2) across the cliff on tiles (9, 1) to (11, 3), its centre due north, a quarter turn off its heading, in its range
+/// and sight (5.2 grid units off, edge to edge, beyond its MinRange of 4), with player 2's Storage (3) in the far
+/// corner, which keeps player 2 in the game; with a `spotter`, player 1's Recruit (4) north of the cliff beside the
+/// Chop Shop, which sees it wherever the Hand of Heaven goes. Its spin toward the Chop Shop is cut where a corner meets
+/// the cliff, some 26° round, and its creep toward the Chop Shop takes it into the cliff: it can't turn its hull to the
+/// Chop Shop where it stands (`systems/controls/command_behaviors.md > AttackingObject > Can't aim from where it
+/// stands`, design change 0454). Before 0454 it stood against the cliff for good, its spin and its creep cut to
+/// nothing.
+fn along_a_cliff(open_from: usize, spotter: bool) -> TestSim {
+    let mut rows = vec![".".repeat(30); 20];
+    rows[7] = "c".repeat(30);
+    rows[8] = "c".repeat(30);
+    rows[10] = "c".repeat(open_from) + &".".repeat(30 - open_from);
+    let game = ScenarioBuilder::new(&rows.join("\n"))
+        .faction(P1, Faction::Cults)
+        .faction(P2, Faction::Cults)
+        .spawn(HAND, Some(P1), point(centre(10, 9)))
+        .spawn(ObjectKind::ChopShop, Some(P2), tile(9, 1))
+        .spawn(ObjectKind::Storage, Some(P2), tile(26, 14));
+    match spotter {
+        true => game.spawn(ObjectKind::Recruit, Some(P1), point(centre(14, 2))),
+        false => game,
+    }
+    .start()
+}
+
+/// Design change 0454's Verification 3: "Park a Hand of Heaven along a cliff edge, facing along it, and order it to
+/// attack a target across the cliff. It moves a short way clear, turns, and fires." Ordered to attack the Chop Shop
+/// across the cliff ([`along_a_cliff`]), the Hand of Heaven "moves to a nearby spot from which it can aim (in range,
+/// beyond MinRange, with room to turn)": the nearest the search finds (`orders::aim`), 16 su off to the south-east,
+/// clear of the cliff by more than its corners reach. There it turns its hull to the Chop Shop and fires, its Attack
+/// running all the while.
+#[test]
+fn along_a_cliff_with_its_target_across_it_it_moves_clear_turns_and_fires() {
+    let mut t = along_a_cliff(0, false);
+    t.without_auto_targeting();
+    let (start, target) = (t.pos(1), t.pos(2));
+    assert_eq!(start - target, Vec2::new(0.0, 7.0 * SU_PER_GU));
+    order(&mut t, 1, P1, &[1], OrderKind::Attack(id(2)));
+    until(&mut t, 120, "the launch", |t| !launches(t).is_empty());
+    let [launch] = launches(&t)[..] else {
+        panic!("one missile: {:?}", launches(&t));
+    };
+    assert_eq!((launch.target, launch.to), (Some(id(2)), target));
+    let moved = launch.from - start;
+    assert!(
+        moved.y > 5.7 && moved.length() <= 16.0 + 1.0,
+        "a short way clear of the cliff: {moved}"
+    );
+    assert!(off_heading(&t, target) <= HALF_ARC, "turned to it");
+    let current = t.sim().object(id(1)).and_then(|o| o.orders.as_ref()?.current.as_ref());
+    assert!(current.is_some(), "the Attack goes on");
+}
+
+/// Design change 0454 for an explicit Attack: "it **keeps trying to get into a position from which it can attack** the
+/// target [...] It doesn't wait in place, and doesn't give up for this reason". In the corridor a tile wide whose end
+/// is 7 grid units east (`along_a_cliff(18, true)`, with its spotter), where the idle Hand of Heaven disengages
+/// (below), ordered to attack the Chop Shop, it finds no spot near it, and takes the nearest farther (`orders::aim`'s
+/// far search): beyond the corridor's south wall, its way there round the corridor's end. It drives round, turns its
+/// hull to the Chop Shop and fires, its Attack running all the while: its Recruit keeps the Chop Shop in sight, as its
+/// way round takes the Hand of Heaven out of its own (alone, it loses the target, and its Attack ends:
+/// `systems/controls/command_behaviors.md > AttackingObject` 6, design change 0200, which 0454 keeps: "it still ends
+/// for the usual reasons"). Before the far search, it stood in the corridor for good.
+#[test]
+fn ordered_from_a_corridor_with_no_room_to_turn_near_it_goes_round_to_a_spot_and_fires() {
+    let mut t = along_a_cliff(18, true);
+    t.without_auto_targeting();
+    let (start, target) = (t.pos(1), t.pos(2));
+    order(&mut t, 1, P1, &[1], OrderKind::Attack(id(2)));
+    t.run_until(2);
+    until(&mut t, 600, "the launch", |t| {
+        let current = t.sim().object(id(1)).and_then(|o| o.orders.as_ref()?.current.as_ref());
+        assert!(current.is_some(), "tick {}: the Attack goes on", t.sim().tick());
+        !launches(t).is_empty()
+    });
+    let launch = launches(&t)[0];
+    assert_eq!((launch.target, launch.to), (Some(id(2)), target));
+    assert!(
+        launch.from.y > 11.0 * SU_PER_GU && launch.from.distance(start) > 2.0 * SU_PER_GU,
+        "beyond the corridor's south wall: {}",
+        launch.from
+    );
+    assert!(off_heading(&t, target) <= HALF_ARC, "turned to it");
+}
+
+/// Design change 0454's Verification 4: "Repeat 3 with an idle Hand of Heaven auto-acquiring the target. It repositions
+/// within its 4 GU leash, or disengages if the only spot is farther away." Idle along the cliff ([`along_a_cliff`]),
+/// its auto-targeting acquires the Chop Shop, and it moves the same 16 su clear, within its IdleLeashDistance of where
+/// it acquired it, turns and fires. In the corridor a tile wide whose end is 7 grid units east (`along_a_cliff(18,
+/// false)`), it has no room to turn within its leash: it disengages (`systems/controls/behaviors.md >
+/// BaseAutoTargeting`), stands where it is and never fires, its auto-targeting taking the Chop Shop again every 32
+/// ticks (`Orders::give_up_retry_ticks`) and disengaging again.
+#[test]
+fn idle_along_a_cliff_it_repositions_within_its_leash_or_disengages() {
+    let mut t = along_a_cliff(0, false);
+    let (start, target) = (t.pos(1), t.pos(2));
+    until(&mut t, 120, "the launch", |t| !launches(t).is_empty());
+    let [launch] = launches(&t)[..] else {
+        panic!("one missile: {:?}", launches(&t));
+    };
+    assert_eq!((launch.target, launch.to), (Some(id(2)), target));
+    let moved = launch.from - start;
+    assert!(
+        moved.y > 5.7 && moved.length() <= 16.0 + 1.0,
+        "a short way clear of the cliff: {moved}"
+    );
+
+    let mut t = along_a_cliff(18, false);
+    let start = t.pos(1);
+    let mut engaged = 0;
+    for _ in 0..200 {
+        t.step();
+        let o = t.sim().object(id(1)).expect("the Hand of Heaven");
+        let orders = o.orders.as_ref().expect("a unit's orders");
+        engaged += u32::from(matches!(orders.auto, Auto::Engaging { .. }));
+        assert!(o.pos.distance(start) < 1.0, "tick {}: it stays", t.sim().tick());
+    }
+    assert_eq!(launches(&t), [], "never fired");
+    assert!(engaged <= 8, "engaged only as it acquires: {engaged} ticks");
 }
 
 /// (M5-Mb, found by the soak sweep) I5/I7's exception for the hull aim holds for a unit a defeat makes neutral in the

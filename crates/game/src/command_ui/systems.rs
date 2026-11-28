@@ -30,9 +30,7 @@ use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind, ProductionCommand, Reject, Target};
 
 use super::interface::{InterfaceState, Modes, PanelCommand, WhyUnavailable, commandable, recipients};
-use super::resolution::{
-    MapTarget, Resolved, UnitCapabilities, capabilities, object_right_click, target_resolution, unit_target_order,
-};
+use super::resolution::{MapTarget, Resolved, capabilities, object_right_click, target_orders, target_resolution};
 use super::{CommandRefused, InvalidTarget};
 use crate::hud::minimap::MinimapPointer;
 use crate::input::{ActionState, Bindings, InputAction, MapClick, Modifiers};
@@ -122,8 +120,9 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 /// `systems/controls/interface.md > AwaitingTarget`: a left-click on the map (a press and release of the Select
 /// action) on a valid target gives the PendingCommand's order for what is under it ([`target_order`]) to the command's
 /// recipients ([`recipients`]: the whole selection for a common command, the ActiveGroup for a group one, every
-/// selected unit for an Attack), each as [`unit_target_order`] has it: a unit that can't attack moves to the object of
-/// an explicit Attack (design change 0398). A plain click then returns to DefaultState. A Shift-click queues the order
+/// selected unit for an Attack), each as [`target_orders`] has it: a unit that can't attack moves to the object of an
+/// explicit Attack (design change 0398), and (M6-S6a) so does one whose weapon can't hit it (design change 0461). A
+/// plain click then returns to DefaultState. A Shift-click queues the order
 /// and keeps the target awaited,
 /// marked queued, until Shift is let go ([`end_queued_targeting`], design change 0070); each one appends one order to
 /// each unit's queue.
@@ -218,9 +217,10 @@ pub(super) fn click_targets(
 }
 
 /// Gives what the targeting click `click` resolves to ([`target_resolution`]) to its command's recipients: an order
-/// to each unit as [`unit_target_order`] has it, queued if it was a Shift-click, the rally point to all the
-/// producers, the ability to all the units, or (M5-N5) the cast to the Shrine. Whether anything was given: nothing
-/// for a target the command can't use, nor when the sim would take none of it.
+/// to each unit as [`target_orders`] has it, queued if it was a Shift-click, the rally point to all the producers, the
+/// ability to all the units, or (M5-N5) the cast to the Shrine. Whether anything was given: nothing for a target the
+/// command can't use, (M6-S6a) nor for an Attack none of the recipients can carry out on its target (design change
+/// 0461), nor when the sim would take none of it.
 fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: PressedTarget) -> bool {
     let state = control.state();
     let recipients = recipients(&state.selection, click.pending);
@@ -228,14 +228,9 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
         None => false,
         Some(Resolved::Order(kind)) => {
             let modes = Modes::of(control.sim(), &state.selection);
-            let orders = recipients
-                .into_iter()
-                .filter_map(|id| {
-                    let unit = UnitCapabilities::of(id, state.selection.kind_of(id)?, &modes);
-                    Some((id, unit_target_order(unit, kind)))
-                })
-                .collect();
-            outbox.give_each(control.player(), orders, click.queue).is_ok()
+            let units = (recipients.into_iter()).filter_map(|id| Some((id, state.selection.kind_of(id)?)));
+            target_orders(units, &modes, kind, click.target.domain())
+                .is_some_and(|orders| outbox.give_each(control.player(), orders, click.queue).is_ok())
         }
         Some(Resolved::Rally(target)) => {
             outbox.produce(control.player(), recipients, ProductionCommand::SetRally(target))

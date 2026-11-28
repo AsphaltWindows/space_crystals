@@ -46,7 +46,7 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
 | `cargo run [-- <flags>]` | Runs the game, the only binary. Flags are listed under *QA mode*. |
 | `cargo test --workspace` | Runs all tests. `cargo test -p sc_sim` tests the sim alone and skips Bevy, but Cargo then resolves the sim's dependencies apart from a `--workspace` build, so the two never share a build of the sim: after an edit, running both compiles it twice. |
 | `cargo test -p sc_sim --test sim holding::` | Runs one test file's tests, here `tests/holding/`'s: the integration tests are modules of a few test programs (*Sim scenarios and tests*), and the filter is the file's module. The client's are `cargo test -p space_crystals --test game commands::`. |
-| `cargo test --release --workspace -- --ignored --test-threads=1 --skip economy_oracle` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (23 at M4's end, all in the sim, about 1 minute on a quiet machine; 41 at M5's end, about 24 minutes beside other builds: the release build about 7, the computer players' `ai_games` 13, the sim's soaks and sweeps 2.5 and the perf tests 0.5; the two `recruit_gathering::jam` tests are known failures). Run them at a milestone's end, since nothing else does. `--skip economy_oracle` leaves out the economy oracle, ignored since design change 0401: on demand only, its pins not maintained. |
+| `cargo test --release --workspace -- --ignored --test-threads=1 --skip economy_oracle` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (23 at M4's end, all in the sim, about 1 minute on a quiet machine; 41 at M5's end, about 24 minutes beside other builds: the release build about 7, the computer players' `ai_games` 13, the sim's soaks and sweeps 2.5 and the perf tests 0.5). Every one passes: the two `recruit_gathering::jam` tests, known failures until slice M6-S6a, pin the starvation the design accepts (design change 0320), and the focused one runs with the others. Run them at a milestone's end, since nothing else does. `--skip economy_oracle` leaves out the economy oracle, ignored since design change 0401: on demand only, its pins not maintained. |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Runs the lints and turns every warning into an error. |
 | `cargo fmt --all` | Formats the code; add `--check` to verify only. `rustfmt.toml` sets max width 120. |
 
@@ -350,7 +350,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   The Gunner is the first
   kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
   close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
-  an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
+  an Attack Ground's location the same rule; design change 0454 brought it back to MinRange + 1 grid unit, slice
+  M6-S6a), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
   attacks*), which can miss; the Armory trains it for a player who owns a Gunworks (slice M5-G2, `Recipe::requires`,
   *Tech prerequisites*). The Storage was 1/4 on its 2x2 from slice M5-G2 (Q0094 a), and is 1/6 on its 3x2 since
   design change 0380 (slice M5-S2a), so the building armour test has no exception left. The Cults start a game since
@@ -1527,7 +1528,9 @@ ticks spent in it. Hashed and serialized like all state.
   (`reaches_point`, from the unit's shape) and fires. The behaviour walks the unit into range, and backs it off a point
   inside its MinRange by an Attack's own rule and code (`engage::too_close`, slice M5-O3; *Behaviours*), letting go of
   the location while it does; a unit that can't back off gives the order up with `SimEvent::LocationTooClose` ("Target
-  too close").
+  too close"). A unit that can't turn in place stops only where the location will be in its arc at rest, and one in
+  range that can't aim from where it stands repositions as for an Attack (slice M6-S6a, design change 0460:
+  `aim::Mark::point`, `AttackGround::repositioning`; *Behaviours*).
   **It keeps firing** (design change 0293, answering Q0083 point 3): the location stays engaged after each shot (a
   launch, or a TailDisjointed strike: the Gunner's, slice M5-O3), so
   the attack cycles at it until another order or a Stop, and the orders queued behind it never start on their own;
@@ -1576,17 +1579,23 @@ ticks spent in it. Hashed and serialized like all state.
   unit at rest without a goal so (`movement::turn_in_place`, `Tracked::spin`): at its SpinRate, as far as its
   Silhouette stays free (`World::turn`); a spin cut short backs off, or creeps one tick's Acceleration toward the
   target, out of the contact (I5 and I7 allow it that), and an own idle unit that stopped it is asked to make way;
-  the spin crushes as any spin in place does (M5-V4). Only what its base engages turns its hull: a lock its turret
+  the spin crushes as any spin in place does (M5-V4). (M6-S6a) One whose turn the tiles cut where it stands and
+  wherever that creep would take it can't aim from where it stands, and repositions (design change 0454; *Behaviours*,
+  `orders/aim.rs`). Only what its base engages turns its hull: a lock its turret
   keeps on its own (on Hold, on a Move) turns none. **(M6-SV) A base that can't turn in place with a narrow turret**
   (`engage::brakes_into_arc`: FixedTurnRadiusMovement and an arc short of a full turn, the Assault Bike's 40°, the
   Raptor's 60°) stops for a target in range only where the target will still be in its arc at rest
   (`engage::rests_in_arc`: the point the coast's braking along its facing brings it to, its facing as it is, since
   "Stopping + Turning: invalid"); until then `close_in` keeps driving it toward the target, turning. Stopping as soon
   as the target came into its arc, it coasted on straight, the target slipped out again, and it ended beside the
-  target and gave the Attack up. A target near or inside its turning circle it still reaches only in contact, where
-  it gives up (a reading) or fires from within its own round's blast. Attack Ground keeps the literal rule, under
-  which a Bike circles a location in range far out of its arc for good, halting once a lap (reported: with the same
-  rule it drives onto the location and shells itself).
+  target and gave the Attack up. A target inside a circle it turns on, or less than a grid unit beyond its rim, it
+  reached only in contact, where it gave up or fired from within its own round's blast (question Q0184's readings):
+  since slice M6-S6a it can't aim from where it stands, and repositions first, straight on (a vehicle backs up only on
+  the Reverse order) until the target lies beyond by the margin and its weapon's MinRange, from where it comes round
+  to rest beyond that (design change 0454; *Behaviours*). An Attack Ground's location takes the same rules (design
+  change 0460, answering Q0184: under the literal rule the Bike circled a location in range far out of its arc for
+  good, halting once a lap), and the Bike's mortar has a MinRange of a grid unit (0460), so that it never fires from
+  within its own round's blast.
   **In 5a**, right after the base's behaviour, the turret's own (`orders/turret.rs::run`): it keeps
   a lock its base engages; any other it keeps only while it could fire at it from where it stands (`fireable`: seen,
   a valid domain, Range and MinRange, the arc; `systems/controls/commands.md > TurretCommandState > When a lock
@@ -1899,18 +1908,44 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   attacks it once its owner sees it standing, and stops where its owner sees its place empty, "the way it would for
   a vanished target" (the next queued order starts). Once seen, it is lost as above when the fog covers it again.
   The removal path leaves such an order alone (*Combat > Removal path*).
-  **A target inside MinRange** (`engage::too_close`, design change 0182): a unit that can move backs straight away
-  from it, to where the gap would be the middle of the band from MinRange to Range (`AttackOrder::backing_off`), and
-  attacks once the back-off ends: it goes on while the target is within Range, until the move ends there or where
-  the unit is blocked (question Q0054: "not just past MinRange"; slice M5-O3 fixed M5-A's back-off, which stopped
-  as soon as the target was out of MinRange). The unit engages nothing meanwhile, so that 5e doesn't aim from just
-  past MinRange and hold it there, and engages the target again as the back-off ends, or as the target leaves its
-  Range. One that can't move (`Mover::can_move`) fails the order (`AttackOrder::too_close`,
-  `Sim::step_too_close`, `SimEvent::TargetTooClose`; the client's feedback line says "Target too close"), and so
-  does one whose back-off ended with the target still inside and where it was: it can't back off ("cornered, or
-  blocked behind", design change 0204 point 3; slice M5-A, which gave it the feedback). An Attack Ground's location
-  takes the same rule through the same code (slice M5-O3: `TooNear` is what the unit backs off from, `BackOff` the
-  order's parts the rule works on), and fails with `SimEvent::LocationTooClose`.
+  **A target inside MinRange** (`engage::too_close`, design change 0182): a unit that can move backs straight away from
+  it, to where the gap would be MinRange + `Orders::back_off_gu` (1 grid unit), never beyond Range
+  (`AttackOrder::backing_off`; design change 0454, answering Q0179, slice M6-S6a: it replaced Q0054's middle of the
+  band, which took a lone Hand of Heaven out of its own sight, so that it never fired), and attacks once the back-off
+  ends: it goes on while the target is within Range, until the move ends there or where the unit is blocked (slice M5-O3
+  fixed M5-A's back-off, which stopped as soon as the target was out of MinRange). The unit engages nothing meanwhile,
+  so that 5e doesn't aim from just past MinRange and hold it there, and engages the target again as the back-off ends,
+  or as the target leaves its Range. One that can't move (`Mover::can_move`) fails the order (`AttackOrder::too_close`,
+  `Sim::step_too_close`, `SimEvent::TargetTooClose`; the client's feedback line says "Target too close"), and so does
+  one whose back-off ended with the target still inside and where it was: it can't back off ("cornered, or blocked
+  behind", design change 0204 point 3; slice M5-A, which gave it the feedback). An Attack Ground's location takes the
+  same rule through the same code (slice M5-O3: `TooNear` is what the unit backs off from, `BackOff` the order's parts
+  the rule works on), and fails with `SimEvent::LocationTooClose`.
+  **Can't aim from where it stands** (design change 0454, answering Q0179; slice M6-S6a, `orders/aim.rs`, its numbers
+  `Orders::aim_*`, placeholders): a unit in range that can't bring its weapon to bear moves to a spot it can
+  (`Pursuit::repositioning`, `AttackOrder::repositioning`, `AttackGround::repositioning`, each hashed only while set),
+  and closes in from there; on its way it stops as soon as it can fire, and goes on though its way pass inside MinRange,
+  since the spot lies beyond it. An Attack Ground's location takes the same rules (design change 0460, answering Q0184;
+  `aim::Mark::point`). Two kinds can't (`aim::stuck`, by the owner's tiles, `World::plan_grid`; units move and yield): a
+  hull that aims too whose turn toward the target the tiles cut where it stands and along its spin's creep (a turn the
+  creep frees, beside a wall, is left to the spin), and a narrow turret on a base that can't turn in place whose target
+  lies inside a circle it turns on or less than the margin beyond its rim (`aim::margin`: `Orders::aim_turn_margin_su`,
+  and its weapon's MinRange, since coming round at speed it brakes straight on). The spot (`aim::spot`, within
+  `Orders::aim_spot_radius_gu`, by steps of `Orders::aim_spot_step_su`): for the hull, the nearest on rings round the
+  unit with room to turn (no solid tile within its half diagonal), in range and beyond MinRange facing the target, its
+  straight way there clear (`nav::los`); for the wheeled base, the nearest straight ahead (never back: a vehicle backs
+  up only on the Reverse order, `systems/units.md > UnitCollision`), from which the target lies beyond both circles by
+  the margin, on to `Orders::aim_spot_far_gu` for an order's own target, which stays in its sight all along the line.
+  The wheeled base's approach that ends as near as it gets, in range and out of its arc, repositions too, where it gave
+  up before. An auto-acquired target's spot lies within its leash (`aim::Leash`: the IdleOrigin's, the leg's
+  PathReference's), and with none there the unit disengages as at its leash. An order's own target with no spot near
+  ("it doesn't wait in place") takes the nearest tile's centre within `Orders::aim_spot_far_gu` (16) with room to turn,
+  its way there however long (`aim::far`): for the hull, in range and beyond MinRange facing the target; for the wheeled
+  base, twice its MinimumTurnRadius and the margin from it, beyond both circles whatever way it faces there, and outside
+  the circles it turns on where it stands (its way there no loop, which took the target out of its sight). One hemmed in
+  with none there either does as before, the hull turning as far as it can, the wheeled base closing in (a placeholder).
+  The way round may take it out of its own sight of the target, which ends the Attack (design change 0200; 0454: "it
+  still ends for the usual reasons"). A move to the spot that fails gives the target up (the Failure rule).
 - **Idle units** (`engage::idle`): scan their SightRange every tick; the acquired enemy is engaged with `close_in`
   from the IdleOrigin, where the unit stood. Farther than `Orders::idle_leash_gu` (4) from it the unit disengages and walks
   back without scanning; a target destroyed or out of SightRange leaves it idle where it is.
@@ -2000,9 +2035,10 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     reported by slice M5-S2a; `docs/economy_oracle.md > The Cults` measures the reference field of design change
     0385, whose Storages stand so on both sides of its row).
     Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
-    nothing jams; with more Recruits than lanes they stand head-on and starve one another, which the design accepts
-    (design change 0320, answering Q0110: no give-way rule, more Storages are the player's answer;
-    `tests/recruit_gathering/jam.rs`, ignored).
+    nothing jams; with more Recruits than lanes they stand head-on and starve one another, by turns since design
+    change 0323's contact step, though one that presses on a face's busy lanes from beside it can stand for minutes.
+    The design accepts it (design change 0320, answering Q0110: no give-way rule, more Storages are the player's
+    answer); `tests/recruit_gathering/jam.rs` pins it (slice M6-S6a).
     **Measured** (`tests/recruit_gathering/`): one Recruit at gaps of 1, 2 and 3 tiles makes a trip in 24, 56 and 88
     ticks (1.33, 0.57 and 0.36 Space Crystals per second; the design's formula gives 1.45, 0.59 and 0.37); 10 on an
     8-patch field with three Storages, 12.9. `tests/recruits_perf.rs` (ignored, release): 60 Recruits on 22 patches
@@ -2110,9 +2146,11 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   before the idle unit takes it again: the Attack leaves it in `Orders::auto` as the target given up.
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): "within SightRange" for
   a scan is measured edge to edge like Range; a 45° step reaches up to its upper bound; a unit backing off
-  from a target inside its MinRange goes to the middle of the band from MinRange to Range, and gives the order up
-  when a back-off ends with the target inside and where it was (both written into the design since, by design
-  change 0204, the second with the "Target too close" feedback, which slice M5-A added); a queued Attack or Follow
+  from a target inside its MinRange went to the middle of the band from MinRange to Range (now MinRange + 1 grid
+  unit, design change 0454), and gives the order up when a back-off ends with the target inside and where it was
+  (both written into the design since, by design change 0204, the second with the "Target too close" feedback, which
+  slice M5-A added); how a unit that can't aim from where it stands finds its spot, and what one with none does
+  (design change 0454 leaves it to the Director; `orders/aim.rs`); a queued Attack or Follow
   whose target, a unit, is out of its owner's sight when its turn comes completes at once, as one lost from vision
   (0200).
 - **Auto-targeting switch**: `DebugCommand::SetAutoTargeting { on }` (`Sim::auto_targeting`, hashed state) turns
@@ -2345,14 +2383,14 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   A slice that adds a way for two boxes to come to overlap must add it to
   `testing::invariants::overlaps::may_overlap` too, or I1 fails. Crushing doesn't: the crushed are out of the game
   by the end of the tick of contact.
-- **Crushing** (slice M5-V4, plan decision T86, design changes 0418 and 0419; `systems/units.md > UnitCollision >
-  Crushing`, `docs/movement.md > 6.13`; `movement/crush.rs`): a unit whose base crushes (`UnitBaseDef::crushes`: the
-  TrackedVehicle and the Mech; the DrillUnit only above ground, slice M6-ST1) crushes the crushable enemies
-  (`UnitBaseDef::crushable`: Light Infantry; enemies by `economy::defeat::allied`, neutrals nobody's) in its way
-  while its move crushes: Moving or Reversing, or turning in place (0418), never Stopping nor held by its attack
-  (`crush::drives`, decided before its move from what it does in the tick). At its commit, those its Silhouette
-  overlaps where it ends or swept in its turn or its move (`crush::victims`) leave the grid at once, so the units
-  after it don't meet them and those not yet moved don't move, and `movement::step` returns them: `Sim::step`
+- **Crushing** (slice M5-V4, plan decision T86, design changes 0418, 0419 and 0453; `systems/units.md >
+  UnitCollision > Crushing`, `docs/movement.md > 6.13`; `movement/crush.rs`): a unit whose base crushes
+  (`UnitBaseDef::crushes`: the TrackedVehicle and the Mech; the DrillUnit only above ground, slice M6-ST1) crushes the
+  crushable enemies (`UnitBaseDef::crushable`: Light Infantry; enemies by `economy::defeat::allied`, neutrals
+  nobody's) in its way while its move crushes: at any speed (Moving, Reversing or Stopping, 0453) or turning in place
+  (0418), unless its attack holds it at rest (`crush::drives`, decided before its move). At its commit, those its
+  Silhouette overlaps where it ends or swept in its turn or its move (`crush::victims`) leave the grid at once, so the
+  units after it don't meet them and those not yet moved don't move, and `movement::step` returns them: `Sim::step`
   removes them at the end of 5d through the removal path (grids synced, a Disciple's Shroud ended, before 5e), each
   with a `SimEvent::Crushed { id, kind, owner, pos, hiding, crusher }` in place of a `Died`. It isn't damage: no
   `Hit`, no Shields. Never kill a unit in movement any other way.
@@ -3179,7 +3217,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   drives to the rally point, where (design change 0451) it parks round it if it is taken (below). The Raptor (a
   WheeledVehicle on FixedTurnRadiusMovement, an 80 su minimum turn radius, 10 su a frame forward) fires a homing
   missile from a 60° turret, so it takes slice M6-SV's rule for a narrow turret (`orders::engage`'s `rests_in_arc`,
-  *Combat*); the Twister's 360° machine gun hits air only, and an Attack on a ground unit by Twisters alone is refused
+  *Combat*) and slice M6-S6a's repositioning from a target inside its turning circle (`orders::aim`, *Behaviours*);
+  the Twister's 360° machine gun hits air only, and an Attack on a ground unit by Twisters alone is refused
   (`Reject::CannotHit`, *Commands*). Tests: `crates/sim/tests/factory/` (below) and the golden `gdo_vehicles`.
 - **The Airfield** (slice M6-GH1; `factions/gdo/structures/airfield.md`, `factions/gdo/units/hornet.md`, design
   changes 0435 and 0441; plan decisions T88 and D34): its one live recipe is the Hornet, 150 Space Crystals and 2
@@ -3488,7 +3527,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
   (`NotAttackable`); (M6-GF) an Attack goes to the units whose weapon can hit the target's domain (`systems/combat.md
-  > ValidTarget` 3, `combat::domain_allows`), and none is `CannotHit(target)`: Twisters alone on a Peacekeeper. A Gather's target is a Space Crystals patch the player sees or remembers, with no plate on it
+  > ValidTarget` 3), and none is `CannotHit(target)`: Twisters alone on a Peacekeeper. (Slice M6-S6a) By the client's
+  own check (`combat::can_hit`, the target's domain as the player knows it, `Sim::known_domain`, as `Sim::aimed` has
+  it: a landed aircraft's is `combat::object_domain`'s to say), so that the two can't disagree: the client sends those
+  units after the target instead, and finds an Attack none can carry out an invalid target (design change 0461). A
+  Gather's target is a Space Crystals patch the player sees or remembers, with no plate on it
   that the player knows of (`NotGatherable`; a remembered one judged by its record), a Drop Off's a drop-off of the
   player's own (`NotDropOff`), and only the workers among the units
   take either (`NoWorkers` if there is none; `sim/workers.rs`), a Drop Off only those that carry a load
@@ -4238,8 +4281,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Prospector or Artillery Rig yet), `exit` (the default rally point in every orientation, five Raptors out of side B
   facing out with no overlap), `parking` (0451 at the Factory, and the stall with the point cleared), `raptor` (a
   running Peacekeeper hit from Range 6 every 32 frames, the turret tracking while the hull drives and turns) with
-  `raptor::close_range` (question Q0184's cases, the Raptor as built: a target near the rim of its turning circle that
-  it gives up, Attack Ground refused, kept together for slice M6-S6a and design change 0454), `twister` (a Sparrow
+  `raptor::close_range` (question Q0184's cases: a target inside its turning circle that it repositions from and
+  kills, design change 0454, where it gave it up before; Attack Ground refused), `twister` (a Sparrow
   behind it shot down, the turret turned round; an Attack on a Peacekeeper refused); with
   `sim/producers/tests.rs` (T100's exit spot for a 64 × 48 box) and, in the client,
   `crates/game/tests/commands/factory.rs`.
@@ -4990,12 +5033,12 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   Attack"), the Disciple's and the unarmed workers' show none on their own. A building's own A stays (a pool
   building's Eject All), and a building's empty A shows the selection's Attack (a reading: the design names units).
   An Attack on an object sends the units that can't attack to it, a Move on it (0397 and 0398, where 0075 left the
-  shielded units out), and an AttackMove takes them along (0076). A
-  toggle's press switches its units' type, and group, at once (`ControlState::toggle`, by `Ability::switched_kind`,
-  before the sim's tick has it; design change 0198): the group they join becomes the ActiveGroup, in its
-  DefaultState (design change 0199), so the next press goes to every unit the last one reached. `Modes` holds the
-  selected units' modes: whether a unit takes an Attack, by its type from the press (design change 0202,
-  `riot_shield::takes_attack_orders`: a Peacekeeper whose shield is on its way down takes it and attacks once the
+  shielded units out), and (slice M6-S6a) those whose weapon can't hit it (0461), and an AttackMove takes them along
+  (0076). A toggle's press switches its units' type, and group, at once (`ControlState::toggle`, by
+  `Ability::switched_kind`, before the sim's tick has it; design change 0198): the group they join becomes the
+  ActiveGroup, in its DefaultState (design change 0199), so the next press goes to every unit the last one reached.
+  `Modes` holds the selected units' modes: whether a unit takes an Attack, by its type from the press (design change
+  0202, `riot_shield::takes_attack_orders`: a Peacekeeper whose shield is on its way down takes it and attacks once the
   shield is down), and (slice M5-N4a) the selected units whose type takes none at all (`Modes::held`,
   `combat::takes_attack_orders`: without a weapon, the Disciple, or Shielded), so that an explicit Attack sends them
   to its target instead (`unit_target_order`) and A shows while one selected unit takes one (were it pressed with
@@ -5033,9 +5076,16 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   one; a right-click never attacks them. `unit_target_order` is the targeting click's rule for the units that can't
   attack, per unit: an explicit Attack on an object is a Move on it for them, a Peacekeeper (Shielded), a Disciple or
   a worker without a weapon (design change 0398: "on a target they move to it (as a Move on that object)", where 0075
-  left the shielded units on their orders; 0202); an AttackMove goes to every unit, shielded and unarmed ones too,
-  which the sim walks on without engaging (0076, `systems/controls/commands.md > AttackMove > Units that can't
-  attack`: the sim's gate drops the units that can't attack from Attack only). The pointer
+  left the shielded units on their orders; 0202), and (slice M6-S6a) a unit whose weapon can't hit the target's domain
+  (design change 0461, answering Q0186: "it **moves to the target (follows it) with the group**"; the gate's check,
+  `UnitCapabilities::attacks`, `sc_sim::combat::can_hit`, on the domain `Sim::aimed` gives, so that a Twister follows a
+  Hornet down on its Airfield, a ground target, slice M6-GH2). `target_orders` gives each recipient its order: none to a
+  unit that can't move, which follows nothing (a deployed Artillery Rig, or one deploying into one: the gate would
+  refuse it the Move, `CannotMove`), and none at all for an Attack none of them can carry out, an invalid target (0461:
+  "If **no** selected unit can attack the target, the click is an **invalid target**"; an aircraft out of ammo counts
+  among the units that can't attack, `Modes::empty`, as the gate's `OutOfAmmo` has it); an AttackMove goes to every
+  unit, shielded and unarmed ones too, which the sim walks on without engaging (0076, `systems/controls/commands.md >
+  AttackMove > Units that can't attack`: the sim's gate drops the units that can't attack from Attack only). The pointer
   previews the set of per-unit right-click actions: one shows its pointer, several show `Mixed` (0063); while a target
   is awaited, the pending command's look over a target it can use, else Inactive. In a menu (a build menu, the
   EjectMenu and the ExpandMenu, a KindMenu, the AugmentMenus) the right-click is DefaultState's, previewed as there,
@@ -5330,10 +5380,10 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   Artillery Rig held in E and R (`Planned::Prospector`, `Planned::ArtilleryRig`: "Not available yet"), X and C. The
   Deployment Center's Advanced menu constructs the Factory (Q), Advanced Mechanics (W) and the Industrial Powerplant
   (A), each greyed "Requires a ..." without the one before it. A Twister's A-click on a ground unit is an invalid
-  target, as the gate refuses it (`Reject::CannotHit`), and its R and F hold its mines' commands, Lay Mine ("Lay")
-  and Buy Mine ("Buy"), greyed "Not available yet" until slice M6-GM (`Planned::LayMine`,
-  `Planned::BuyMine`, in the BasicCombatUnit grid by its template's `planned`). Tests:
-  `crates/game/tests/commands/factory.rs`.
+  target, as the gate refuses it (`Reject::CannotHit`), but beside a unit that can hit it a Move on it (design change
+  0461), and its R and F hold its mines' commands, Lay Mine ("Lay") and Buy Mine ("Buy"), greyed "Not available yet"
+  until slice M6-GM (`Planned::LayMine`, `Planned::BuyMine`, in the BasicCombatUnit grid by its template's `planned`).
+  Tests: `crates/game/tests/commands/factory.rs`.
 - **The Airfield's and the Hornet's panels** (slice M6-GH1): `templates/gdo/airfield.rs`, the Production template of
   its recipes, the Hornet in Q ("HT", greyed "Not enough Supplies" with under 2 and "Airfield full" at its limit,
   `Refusal::AirfieldFull`), its Dragonfly held in W (`Planned::Dragonfly`, "DY": "Not available yet"), X and C;
@@ -5637,7 +5687,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's, or else to the `--replay`'s end. |
 | `--dump-state <path>` | Writes the state as JSON when the run ends (fields below). |
 | `--commands <file.json>` | Applies player commands at given ticks: a JSON list of `{"tick", "player", "command"}` (`qa::TimedCommand`; `command` is a `sc_sim::Command` in serde form). Each applies in the step that reaches its tick (1 or later), a tick's commands in file order. Not with `--editor`. |
-| `--input-script <file.json>` | Drives the virtual keyboard and mouse (`InjectedInput`) at given ticks: a JSON list of `{"tick", "cursor", "press", "tap", "release"}` (`qa::InputStep`; buttons by name: `MouseLeft`, `ControlLeft`, `Digit1`, `KeyQ`, `F2`, …). The sim waits at each step's tick until it is applied, so a button held across steps drags and a chord spans steps (Ctrl + 1: `press` Ctrl and `tap` 1, release Ctrl in a later step). One step a frame (slice M5-S7): a tick's steps apply in consecutive frames, so F10 and then a click in the playtest menu, which pauses the game, go at the same tick. Not with `--editor`. |
+| `--input-script <file.json>` | Drives the virtual keyboard and mouse (`InjectedInput`) at given ticks: a JSON list of `{"tick", "cursor", "press", "tap", "release"}` (`qa::InputStep`; buttons by name: `MouseLeft`, `ControlLeft`, `Digit1`, `KeyQ`, `F2`, …). The sim waits at each step's tick until it is applied, and a frame more, in which a tapped button is read in full (a tapped click becomes a click in the frame after its step), so that a step acts at its tick at any pace (slice M6-S6a: under `--fast` the sim ran on to the next stop before such a click was read, its order going late). A button held across steps drags and a chord spans steps (Ctrl + 1: `press` Ctrl and `tap` 1, release Ctrl in a later step). One step a frame (slice M5-S7): a tick's steps apply in consecutive frames, so F10 and then a click in the playtest menu, which pauses the game, go at the same tick. Not with `--editor`. |
 | `--show-paths` | Starts with the unit path overlay on (P toggles it). |
 | `--no-fog` | Starts with the fog of war off: the client shows everything (F3 toggles it). Display only; not with `--no-debug`. |
 | `--windowed` | Starts a game, the editor or a playback in a window instead of borderless full screen (*Window*); shows a QA run, which is never full screen, in a window on the user's display instead of rendering offscreen. |
@@ -5865,19 +5915,20 @@ unchecked.
   2 Supplies) a Factory trains two Raptors and two Twisters, which drive out of side B and park round its default
   rally point, the first on it and each other at the free spot nearest it (design change 0451), then attack-move onto
   four Recruits and two Sparrows: the Raptors' missiles kill the Recruits, the Twisters' machine guns, which hit air
-  alone, the Sparrows, all six down by 1:33. In `syndicate_air` (to 1:33.75, on an open test map, debug commands on for
-  player 1's Tier 3 and its 725 Space Crystals) a Tunnel expands a Forge behind its Vehicle Assembly while its Aerospace
-  Assembly, behind an Optics Lab, trains three Phantoms into the Tunnel Network: the first two, with no rally point, are
-  ejected together and come out over the air exit door 8 ticks apart, rising there for 16 ticks, the two at once for 8;
-  a surface rally point set then auto-ejects the third in the tick it is finished (`during`: each out over the door, its
-  rise begun). They AttackMove onto two of the GDO's Peacekeepers on Hold, whose attacks can't reach them, and a
-  Sparrow, which lands the only hit on them, and kill all three with their Universal lasers; sent home, each flies to
-  the air entry door and descends into it for 16 ticks, the door letting one down every 8 at most, two at once, and all
-  three end inside. In `gdo_artillery` (to 1:43.125, on an open test map, debug commands on for player 1's 250 Space
-  Crystals and 5 Supplies) a Factory, with Advanced Mechanics, trains an Artillery Rig, which drives to a point on a Move
-  and deploys there on a Shift-Deploy, in tick 708; an Attack given while it deploys is held, and a Shift-Move queued
-  behind it dropped as it deploys (`SimEvent::OrderDropped`). Deployed, it shells three Militants on Hold 10 grid units
-  off, out of its own sight, which a Peacekeeper on Hold spots: five shells, 104 frames apart, kill the first (its
+  alone, the Sparrows, all six down by 1:34 (by 1:33 before design change 0454, whose repositioning backs a Raptor up
+  from a Recruit inside the circles it turns on). In `syndicate_air` (to 1:33.75, on an open test map, debug commands on
+  for player 1's Tier 3 and its 725 Space Crystals) a Tunnel expands a Forge behind its Vehicle Assembly while its
+  Aerospace Assembly, behind an Optics Lab, trains three Phantoms into the Tunnel Network: the first two, with no rally
+  point, are ejected together and come out over the air exit door 8 ticks apart, rising there for 16 ticks, the two at
+  once for 8; a surface rally point set then auto-ejects the third in the tick it is finished (`during`: each out over
+  the door, its rise begun). They AttackMove onto two of the GDO's Peacekeepers on Hold, whose attacks can't reach them,
+  and a Sparrow, which lands the only hit on them, and kill all three with their Universal lasers; sent home, each flies
+  to the air entry door and descends into it for 16 ticks, the door letting one down every 8 at most, two at once, and
+  all three end inside. In `gdo_artillery` (to 1:43.125, on an open test map, debug commands on for player 1's 250 Space
+  Crystals and 5 Supplies) a Factory, with Advanced Mechanics, trains an Artillery Rig, which drives to a point on a
+  Move and deploys there on a Shift-Deploy, in tick 708; an Attack given while it deploys is held, and a Shift-Move
+  queued behind it dropped as it deploys (`SimEvent::OrderDropped`). Deployed, it shells three Militants on Hold 10 grid
+  units off, out of its own sight, which a Peacekeeper on Hold spots: five shells, 104 frames apart, kill the first (its
   Attack) and the third, which it picks by itself; the second, out of the Peacekeeper's sight, it never fires at. It
   undeploys in tick 1400, holds a Move given meanwhile, mobile again 48 frames on, and drives off on it. In
   `syndicate_null_chamber` (to 1:02.6, on an open test map, debug commands on for player 1's Tier 2 and its 200 Space

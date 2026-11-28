@@ -45,4 +45,32 @@ tunables! {
     /// Design change 0179 (`systems/controls/behaviors.md > TurretAutonomousScanning > Target Selection Priority` 2):
     /// the rotation a target needs is compared in steps of 45° (a placeholder), radians.
     rotation_step: f32 = math::PI / 4.0,
+
+    /// (M6-S6a) Design change 0454 (answering Q0179; `systems/controls/command_behaviors.md > AttackingObject > Target
+    /// inside MinRange`: "to **MinRange + 1 grid unit** (never beyond Range), every unit"; it replaced Q0054's middle
+    /// of the band): how far beyond its MinRange a unit backs off from a target inside it, grid units
+    /// (`orders::engage::too_close`).
+    back_off_gu: f32 = 1.0,
+
+    /// (M6-S6a) Design change 0454 (`systems/controls/command_behaviors.md > AttackingObject > Can't aim from where it
+    /// stands`: "How the spot is chosen is the Director's call"): a unit that can't bring its weapon to bear from where
+    /// it stands looks for a spot it can on rings round it this far apart, at points this far apart along each, space
+    /// units (`orders::aim`). Placeholder (not in the design: how finely the unit looks for its spot).
+    aim_spot_step_su: f32 = 16.0,
+
+    /// (M6-S6a) Design change 0454: how far from the unit it looks for that spot at most, grid units (`orders::aim`).
+    /// Placeholder (not in the design: how far the unit looks).
+    aim_spot_radius_gu: f32 = 4.0,
+
+    /// (M6-S6a) Design change 0454: a unit that can't turn in place, with a narrow turret (the Assault Bike, the
+    /// Raptor), can't come round onto a target that lies inside either of the circles it turns on or less than this
+    /// beyond their rims, space units (`orders::aim`, whose margin adds the weapon's MinRange). Placeholder (not in the
+    /// design: how far out a wheeled vehicle needs a target to point it into its arc): 1 grid unit.
+    aim_turn_margin_su: f32 = SU_PER_GU,
+
+    /// (M6-S6a) Design change 0454 ("**Explicit Attack**: it **keeps trying to get into a position from which it can
+    /// attack** the target [...] It doesn't wait in place"): a unit on an order's own target that finds no spot within
+    /// `aim_spot_radius_gu` looks this far from it at most, at the tiles' centres, its way there however long, grid
+    /// units (`orders::aim`). Placeholder (not in the design: how far the unit looks once no spot is near).
+    aim_spot_far_gu: f32 = 16.0,
 }

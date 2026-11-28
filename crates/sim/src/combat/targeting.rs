@@ -48,6 +48,19 @@ pub fn kind_domain(kind: ObjectKind) -> Domain {
         .map_or(Domain::Ground, |unit| unit.base_def().domain)
 }
 
+/// (M6-S6a) Whether a weapon of TargetDomain `attack` (`None`: no weapon) can hit a target in the domain `target`
+/// ([`domain_allows`]), the target's domain as the attacker's owner knows it: [`object_domain`]'s of an object it sees,
+/// Ground for a structure it remembers (`Sim::known_domain`, `orders::resolution::Aimed::domain`). The one check of
+/// design change 0461 (`systems/controls/interface.md > CommandPanel`, "Attack goes to everyone": "a unit whose weapon
+/// can't hit the clicked target's domain [...] is treated like a unit that can't attack"): the gate's, which leaves
+/// such a unit out of an Attack and refuses one none of its units can carry out (`Reject::CannotHit`), the
+/// right-click's (`orders::resolution`), and the client's targeting click, which sends such a unit after the target
+/// instead and finds an Attack none of the selection can carry out an invalid target. An object targeted in another
+/// domain than its base's (a landed aircraft's) is [`object_domain`]'s to say.
+pub fn can_hit(attack: Option<TargetDomain>, target: Domain) -> bool {
+    attack.is_some_and(|attack| domain_allows(attack, target))
+}
+
 /// `systems/combat.md > ValidTarget` 3, `systems/combat.md > SingleTargetDamage`: Ground attacks target Ground units
 /// and surfaced Underground ones, Air attacks Air units, and Universal attacks any unit.
 pub fn domain_allows(attack: TargetDomain, target: Domain) -> bool {

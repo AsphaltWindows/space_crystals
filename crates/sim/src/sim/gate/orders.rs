@@ -70,13 +70,13 @@ impl Sim {
                 // unit whose attack can't target the ground ignores an Attack Ground: none of them, and the Attack is
                 // refused (the plan's "An Attack on a Peacekeeper is refused, with feedback", for the Twister's
                 // anti-air machine gun; `Reject::CannotHit`). (M6-GH2) An aircraft down on an Airfield's slot is a
-                // ground target (`Sim::known_domain`, `crate::landing`).
+                // ground target (`Sim::known_domain`, `crate::landing`). (M6-S6a) By the client's own check
+                // (`combat::can_hit`), which sends those units after the target instead (design change 0461).
                 let domain = self.known_domain(player, id)?;
                 let research = self.research();
                 let hits = |o: &Object| {
                     deploying(o)
-                        || combat::weapon(o, research)
-                            .is_some_and(|attrs| combat::domain_allows(attrs.target_domain, domain))
+                        || combat::can_hit(combat::weapon(o, research).map(|attrs| attrs.target_domain), domain)
                 };
                 ordered.retain(|id| self.objects.get(id).is_some_and(hits));
                 if ordered.is_empty() {

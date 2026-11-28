@@ -66,7 +66,8 @@ impl Oriented {
 ///    `super::separate`); nothing moves a unit that has a command.
 ///
 /// 3. **(M5-V4) Crushing** (`systems/units.md > UnitCollision > Crushing`, plan decision T86 with design change
-///    0418): a crusher whose move this tick crushes ([`Body::crushes`]: Moving or Reversing, or turning in place)
+///    0418): a crusher whose move this tick crushes ([`Body::crushes`]: Moving, Reversing or Stopping, design change
+///    0453, or turning in place)
 ///    passes through the crushable units of its enemies ([`Body::crushable`]): "crushers may path and drive through
 ///    crushable enemies — those enemies are not obstacles to them", and a spin's crushable enemies "don't block the
 ///    spin". Those it overlaps or sweeps die in the same tick (`super::crush`). Every other pair collides as before: a

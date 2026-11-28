@@ -3,11 +3,12 @@
 //! (`factions/cults/units/gunner.md`), the first kind of the design with a MinRange, never fires at a target nearer
 //! than 2 grid units (`systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`,
 //! `systems/controls/behaviors.md > BaseAutoTargeting > Targets inside MinRange`; slice M3-L2's code: plan decision
-//! T55). It backs off from such a target, to the middle of the band between its MinRange and Range (question Q0054,
-//! slice M5-O3), and fails its Attack with a `SimEvent::TargetTooClose` once it can't back off further (design change
-//! 0204 point 3, which slice M5-A added to that code). So it does from a location it is ordered to attack (slice M5-O3,
-//! `systems/controls/command_behaviors.md > AttackingLocation`), failing with a `SimEvent::LocationTooClose`. A Gunner
-//! that can't move at all fails at once: `sc_sim::orders`' tests, since none can yet, so it needs a test def.
+//! T55). It backs off from such a target, to MinRange + 1 grid unit (design change 0454, answering Q0179, which
+//! replaced Q0054's middle of the band; slice M5-O3's back-off), and fails its Attack with a `SimEvent::TargetTooClose`
+//! once it can't back off further (design change 0204 point 3, which slice M5-A added to that code). So it does from a
+//! location it is ordered to attack (slice M5-O3, `systems/controls/command_behaviors.md > AttackingLocation`), failing
+//! with a `SimEvent::LocationTooClose`. A Gunner that can't move at all fails at once: `sc_sim::orders`' tests, since
+//! none can yet, so it needs a test def.
 //!
 //! Every test runs under the invariants of `TestSim`.
 
@@ -22,9 +23,10 @@ const HALF: f32 = 12.0;
 const RANGE_GU: f32 = 5.0;
 /// `factions/cults/units/gunner.md > AttackAttributes`: "MinRange: 2".
 const MIN_RANGE_GU: f32 = 2.0;
-/// `systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange` (question Q0054): a unit backs
-/// off "to the middle of the band between MinRange and Range": 3.5 grid units for the Gunner.
-const MIDDLE_GU: f32 = (MIN_RANGE_GU + RANGE_GU) / 2.0;
+/// `systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange` (design change 0454, answering
+/// Q0179, which replaced Q0054's "middle of the band between MinRange and Range"): a unit backs off "to **MinRange + 1
+/// grid unit** (never beyond Range), every unit": 3 grid units for the Gunner.
+const BACK_OFF_GU: f32 = MIN_RANGE_GU + 1.0;
 
 /// 16 × 10 open tiles.
 fn open() -> String {
@@ -104,11 +106,11 @@ fn a_militant_fights_a_peacekeeper_to_a_result() {
 
 /// The Gunner ordered to attack a Peacekeeper of player 2 that hugs it, 16 su off (auto-targeting off: the Peacekeeper
 /// doesn't fight back). `systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`: "a unit
-/// that can move **backs off** until the target is outside MinRange, then attacks": it
-/// walks straight away from the Peacekeeper, never firing while it is within 2 grid units, its Attack order running
-/// all the while; then it stops within its Range and fires, and its shot takes 16 less the Peacekeeper's PointArmor 1.
-/// It stands while it attacks. It fires from the middle of the band, 3.5 grid units off, "not just past MinRange"
-/// (question Q0054; slice M5-O3, which fixed slice M5-A's back-off: it stopped 2 grid units off).
+/// that can move **backs off** until the target is outside MinRange, then attacks": it walks straight away from the
+/// Peacekeeper, never firing while it is within 2 grid units, its Attack order running all the while; then it stops
+/// within its Range and fires, and its shot takes 16 less the Peacekeeper's PointArmor 1. It stands while it attacks.
+/// It fires from MinRange + 1 grid unit, 3 grid units off (design change 0454; slice M5-O3 had it fire from the middle
+/// of the band, 3.5, by question Q0054, and slice M5-A's back-off stopped 2 grid units off).
 #[test]
 fn a_gunner_backs_off_from_a_target_inside_its_min_range_then_fires() {
     let (gunner, target) = (ObjectId(1), ObjectId(2));
@@ -146,8 +148,8 @@ fn a_gunner_backs_off_from_a_target_inside_its_min_range_then_fires() {
         "fired across a gap of {fired}"
     );
     assert!(
-        (fired - gu(MIDDLE_GU)).abs() < 1.0,
-        "from the middle of the band, not just past MinRange: {fired}"
+        (fired - gu(BACK_OFF_GU)).abs() < 1.0,
+        "from MinRange + 1 grid unit: {fired}"
     );
     let stood = t.sim().object(gunner).unwrap().pos;
     assert!(stood.x < start.x && stood.y == start.y, "straight back: {stood}");
@@ -252,8 +254,9 @@ fn reach(t: &TestSim, id: ObjectId, at: Vec2) -> f32 {
 /// Slice M5-O3: `systems/controls/command_behaviors.md > AttackingLocation` is "Same as AttackingObject", MinRange
 /// included (`systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`, an Attack's own code).
 /// The Gunner ordered to attack the ground 40 su off its edge walks straight away from the point, never firing while it
-/// does, its order running all the while; then it fires at the point from the middle of the band, 3.5 grid units off
-/// (question Q0054), and stands there firing again and again.
+/// does, its order running all the while; then it fires at the point from MinRange + 1 grid unit, 3 grid units off
+/// (design change 0454; design change 0460: "**Target inside MinRange** applies to the location too (it backs off to
+/// MinRange + 1 GU)"), and stands there firing again and again.
 #[test]
 fn a_gunner_backs_off_from_a_location_inside_its_min_range_then_fires() {
     let gunner = ObjectId(1);
@@ -280,8 +283,8 @@ fn a_gunner_backs_off_from_a_location_inside_its_min_range_then_fires() {
     }
     let fired = reach(&t, gunner, at);
     assert!(
-        (fired - gu(MIDDLE_GU)).abs() < 1.0,
-        "from the middle of the band, not just past MinRange: {fired}"
+        (fired - gu(BACK_OFF_GU)).abs() < 1.0,
+        "from MinRange + 1 grid unit: {fired}"
     );
     let stood = t.sim().object(gunner).unwrap().pos;
     assert!(stood.x < start.x && stood.y == start.y, "straight back: {stood}");

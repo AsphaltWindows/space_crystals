@@ -119,7 +119,7 @@ Every number marked *(placeholder)* becomes a named const tagged with the questi
 | Domains | Ground, Air, Underground per UnitBase | `systems/units.md > UnitBase` |
 | Ground collision | Hard, never overlapping; shape is the Silhouette rectangle; **(Y) friendly yielding**: an idle unit takes one short sidestep for a blocked moving unit of its owner (not on Hold, not busy, not if it can't move, not for its own group order); enemies never yield, and moving units never yield or swap; moving units path around occupied space; ground units collide with ground units and structures | `systems/units.md > UnitCollision > Ground Collision` (0022, 0023, 0027) |
 | Air collision | None with ground or structures; soft separation among air units (SeparationRadius) | `systems/units.md > Air Collision` |
-| Crushing | Moving TrackedVehicle/Mech pass through and kill enemy LightInfantry; not friendly; stationary crushers are solid. **(M5-V4)** Built (6.13), with a crusher turning in place crushing too (0418); the surfaced DrillUnit's (0419) waits for its above-ground mode | `systems/units.md > UnitCollision > Crushing` (not M1, but the collision filter must allow it) |
+| Crushing | TrackedVehicle/Mech with any speed (Moving, Reversing or Stopping, 0453) pass through and kill enemy LightInfantry; not friendly; stationary crushers are solid. **(M5-V4)** Built (6.13), with a crusher turning in place crushing too (0418); the surfaced DrillUnit's (0419) waits for its above-ground mode | `systems/units.md > UnitCollision > Crushing` (not M1, but the collision filter must allow it) |
 | Sub-tile lanes | A 64 su gap fits two 24 su units side by side, one lane each way | `factions/cults/units/recruit.md` (throughput note) |
 | Terrain | Non-Traversible tiles block ground units. RuggedTerrain = true bases (infantry, Mech) cross Rugged tiles. Drill units travel on Drillable tiles | `core/map.md > Tile`, `systems/units.md > UnitBase`, `systems/units.md > DrillUnit` |
 | Elevation | Slopes change neither speed nor path cost; cliffs are non-Traversible tiles; corners are shared, so two adjacent Traversible tiles are always connected | `core/map.md > Elevation` |
@@ -1128,22 +1128,25 @@ yielding requests and the stuck clock are the shared ones.
 **6.13 Crushing. (M5-V4)** `systems/units.md > UnitCollision > Crushing` ("Units whose UnitBase can crush
 (TrackedVehicle, Mech, and a **DrillUnit in its above-ground mode** [...]; never underground) crush enemy units whose
 UnitBase has Crushable = true (Light Infantry)"; "**Effect**: instant death of the crushed unit"); plan decision T86
-with design changes 0418 and 0419. The code is `movement/crush.rs`, the third arm of `space::blocks` and the removal
-at the end of phase 5d (`sim/phase.rs`); the game's tests are `crates/sim/tests/crushing/`, with the Hand of Heaven
-among Peacekeepers, Recruits and Guards.
+with design changes 0418, 0419 and 0453. The code is `movement/crush.rs`, the third arm of `space::blocks` and the
+removal at the end of phase 5d (`sim/phase.rs`); the game's tests are `crates/sim/tests/crushing/`, with the Hand of
+Heaven among Peacekeepers, Recruits and Guards.
 - **Crushers** (`UnitBaseDef::crushes`): the TrackedVehicle and the Mech. The DrillUnit has no above-ground mode yet,
   and underground it never crushes: slice M6-ST1 gives it the mode, and with it 0419's crushing, the spin rule
   included. **Crushable** (`UnitBaseDef::crushable`): Light Infantry; Heavy Infantry "cannot be crushed".
   **Enemies**: units of two players who aren't allied (`economy::defeat::allied`: every player is their own side so
   far). A neutral unit is nobody's enemy.
-- **Whose move crushes** (`crush::drives`): "while the crusher is moving (Locomotion = Moving or Reversing)", and
-  turning in place (0418: "Silhouette overlap while Moving, Reversing **or Stationary + Turning**"). It is decided as
-  the unit's turn of 5d begins, before it moves, as every part of its move asks the filter; last tick's Locomotion
-  would never let a crusher parked against an enemy start or spin. Every move a crusher makes sets Moving or
-  Reversing or spins it in place, but for a Stopping one: coasting to rest with no way to steer, or braking against
-  its leg before it sets off the other way. Stopping isn't in the trigger's list, so a braking crusher crushes
-  nothing, and enemy infantry stops it at contact, as any unit does (the literal reading). A unit whose attack holds
-  its base (`systems/combat.md > UnitBaseSource`) doesn't move, and crushes nothing.
+- **Whose move crushes** (`crush::drives`): "while the crusher has any speed (Locomotion = Moving, Reversing or
+  **Stopping**: a braking or coasting crusher still crushes)" (design change 0453, answering Q0178), and turning in
+  place (0418: "Silhouette overlap while Moving, Reversing **or Stationary + Turning**"). It is decided as the unit's
+  turn of 5d begins, before it moves, as every part of its move asks the filter; last tick's Locomotion would never
+  let a crusher parked against an enemy start or spin. Every move a crusher makes is one of those: Moving or
+  Reversing, Stopping (coasting to rest with no way to steer, after a Stop or once its move ended, or braking against
+  its leg before it sets off the other way: until 0453 these crushed nothing, and enemy infantry stopped them at
+  contact), or a spin in place. So a crusher's move always crushes, but for one at rest that its attack holds
+  (`systems/combat.md > UnitBaseSource`), which makes no move; one its attack holds as it coasts crushes as it brakes.
+  A crusher is the hard obstacle of "Stationary crushers do not overlap" once it stands and doesn't turn. A drive
+  that slows onto its goal, or for a turn, is a Moving one (6.12), and crushed before 0453 too.
 - **Collision** (6.1's third exception): while its move crushes, the crusher's crushable enemies are no obstacles to
   it, not to its probe, its lanes, its sweep, any part of its turn ("they don't block the spin"), nor the rules'
   steps. The filter reads the mover's flag alone (`Body::crushes`, set on its own body for its turn), so to every
@@ -1166,11 +1169,16 @@ among Peacekeepers, Recruits and Guards.
   there stops the turn at once, and nobody dies; an enemy Peacekeeper sent through an idle Hand of Heaven goes round
   it. Driving east through 5 enemy Peacekeepers a tile apart, it crushes each in its turn, its line and facing
   unchanged; backing up through one crushes it; a Guard on its way is never crushed, and it goes round; two own
-  Recruits on Hold stop it, and it goes round them.
+  Recruits on Hold stop it, and it goes round them. (0453) Sent onto a spot covered by nine enemy Peacekeepers, it
+  crushes the nine and stands on the spot, and the one beyond its front, sent through it, goes round; given Stop at
+  full speed with its front 5 su from an enemy Peacekeeper, it coasts some 10 su into it and crushes it, Stopping;
+  ordered to back up there, it crushes it as it brakes. The client pings no minimap alert for a crush
+  (`systems/controls/hud.md > Minimap > Alerts`: "**A crush gives no alert**"; `tests/minimap_alerts.rs`).
 - **The soaks**: the crushing soak (`tests/crushing/soak.rs`, seeds 1 and 2: 24 Hands of Heaven among 72
   Peacekeepers, Recruits and Guards, half of each kind player 1's, half player 2's, on the oriented soak's maps)
   crushes 44 and 36 of the 48 Light Infantry, and checks each crush in its tick: an enemy Light Infantry, gone, its
-  crusher a Hand of Heaven that moved or turned in it and wasn't Stopping. In the oriented soak the Hands of Heaven
+  crusher a Hand of Heaven that moved or turned in it. None of them comes by a Stopping move, so 0453 changed
+  nothing there. In the oriented soak the Hands of Heaven
   crush the other player's Peacekeepers: over seeds 1 to 8, 184 of their moves arrived and 123 failed (from 168 and
   113). I1 needs no exception: no overlap with a crushed unit outlives the tick of contact (8).
 

@@ -4,15 +4,17 @@
 //! Infantry)" (`UnitBaseDef::crushes`, `UnitBaseDef::crushable`). "**Effect**: instant death of the crushed unit."
 //!
 //! - **Whose move crushes** ([`drives`]): "**Trigger**: the crusher's Silhouette overlaps a crushable enemy **while
-//!   the crusher is moving** (Locomotion = Moving or Reversing)", and "**Turning in place crushes**" (design change
-//!   0418: "Silhouette overlap while Moving, Reversing **or Stationary + Turning**"). It is decided as the unit's turn
-//!   of phase 5d begins, before its move, which every part of asks the collision exceptions (`space::blocks`): the
-//!   probe, the lanes, the turn's every part. The Locomotion that move will set isn't known yet, and last tick's
-//!   would never let a crusher parked against an enemy start nor spin. Every move a crusher makes in its turn sets
-//!   Moving or Reversing, or spins it in place, but for a **Stopping** one: braking to rest with no way to steer
-//!   (`super::model::Model::coast`), and braking against its leg before it sets off the other way (`super::tracked`).
-//!   A literal reading: Stopping isn't in the trigger's list, so a crusher that brakes crushes nothing, and the enemy
-//!   infantry in its way stops it at contact as any unit does. A unit whose attack holds its base doesn't move.
+//!   the crusher has any speed** (Locomotion = Moving, Reversing or **Stopping**: a braking or coasting crusher still
+//!   crushes)" (design change 0453, answering Q0178), and "**Turning in place crushes**" (design change 0418:
+//!   "Silhouette overlap while Moving, Reversing **or Stationary + Turning**"). It is decided as the unit's turn of
+//!   phase 5d begins, before its move, which every part of asks the collision exceptions (`space::blocks`): the probe,
+//!   the lanes, the turn's every part. Every move a crusher makes in its turn is one of those: it sets Moving,
+//!   Reversing or Stopping (braking to rest with no way to steer, `super::model::Model::coast`, after a Stop or as it
+//!   comes to its goal; braking against its leg before it sets off the other way, `super::tracked`), or spins it in
+//!   place. So a crusher's move always crushes, but for one at rest that its attack holds, which makes none. A
+//!   crusher that brakes rolls over the enemy infantry in its way rather than halt against them, and is a hard
+//!   obstacle only once it stands (Stationary) and doesn't turn: "a crusher with no speed (Stationary and not turning
+//!   [...]) remains a normal hard obstacle" (`systems/units.md > UnitCollision > Crushing`).
 //! - **Collision** (`space::blocks`, rule 3): such a move passes through the crushable enemies of its layer ("those
 //!   enemies are not obstacles to them"; a spin's "don't block the spin"), and nothing else changes: a crusher that
 //!   stands and doesn't turn blocks them ("a normal hard obstacle; crushable units cannot walk into it"), they keep
@@ -35,16 +37,14 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use super::Chased;
 use super::space::{Body, KIND_CRUSHABLE, Layer};
-use crate::defs::{MovementAttrs, UnitBaseDef};
+use crate::defs::UnitBaseDef;
 use crate::economy::defeat;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::math;
-use crate::mover::{MoveGoal, Mover, PathState};
+use crate::mover::Mover;
 use crate::object::Object;
-use crate::production::ExitDoor;
 use crate::ruleset::rules;
 use crate::shape::Shape;
 use crate::vision::Hiding;
@@ -70,85 +70,11 @@ pub(super) fn crushes(mover: &Body, other: &Body) -> bool {
     mover.crushes && other.crushable && enemies(mover.owner, other.owner)
 }
 
-/// Whether the move a unit of base `base` and movement numbers `movement` makes in its turn of this tick crushes
-/// (module docs; [`Body::crushes`]), as its turn begins: `mover` as it is, its facing `ahead` as a unit vector
-/// ([`ahead`]), `held` if its attack holds its base, in the exit doorway `door` if it is in one. With no momentum its
-/// move is Moving, a spin, or none at all. With momentum it walks out of its doorway by its model (`super::doorway`),
-/// or else steers along its path if `steers` (its path's goal is still ahead, [`steers`]) and doesn't brake against
-/// its leg ([`brakes`]), and coasts to rest if not: those two are Stopping. `ahead` and `steers` are asked only of a
-/// crusher that needs them.
-pub(super) fn drives(
-    base: &UnitBaseDef,
-    movement: &MovementAttrs,
-    mover: &Mover,
-    ahead: impl FnOnce() -> Vec2,
-    held: bool,
-    door: Option<&ExitDoor>,
-    steers: impl FnOnce() -> bool,
-) -> bool {
-    if !base.crushes || held {
-        return false;
-    }
-    if mover.momentum == Vec2::ZERO {
-        return true;
-    }
-    match door {
-        Some(ExitDoor::Centre(_)) => true,
-        Some(ExitDoor::Side(_)) if mover.goal == MoveGoal::None => true,
-        _ => steers() && !brakes(movement, mover, ahead),
-    }
-}
-
-/// The facing `facing` of the unit whose body is `body`, as a unit vector (`math::facing_vector`): its turned
-/// Silhouette's axis if it lies at that facing, the same vector worked out already, else worked out.
-pub(super) fn ahead(body: &Body, facing: f32) -> Vec2 {
-    let lies = body.oriented.filter(|lies| lies.facing == facing);
-    lies.map_or_else(|| math::facing_vector(facing), |lies| lies.axis)
-}
-
-/// Whether the unit steers along its path this tick (`super::follow`), its shape where it stands being `shape` and
-/// the object it heads for `chased`: it has a goal and a path to it, and an object goal is still there and not
-/// within its reach. Else it stands, or coasts to rest.
-pub(super) fn steers(mover: &Mover, shape: &Shape, chased: Option<&Chased>) -> bool {
-    let reached = match mover.goal {
-        MoveGoal::None => return false,
-        MoveGoal::Point(_) => false,
-        MoveGoal::Object { reach, .. } => chased.is_none_or(|chased| shape.gap(&chased.shape) <= reach),
-    };
-    !reached && mover.path_state == PathState::Ready && usize::from(mover.next) < mover.path.len()
-}
-
-/// Whether a SpeedTurnRadiusMovement unit, `mover` facing `ahead` (a unit vector), brakes against the way its leg
-/// drives this tick: it still moves the other way, faster than one tick's Deceleration takes away, so its move is
-/// Stopping (`super::tracked`: "Moving the other way from its leg, it brakes to rest first"). These alone decide the
-/// drive's Stopping (`Tracked::drive`), whatever the step it steers for. Without a Deceleration it stops at once. The
-/// other models are no crusher's but the Mech's TurnRateMovement, which has no speed to brake from.
-fn brakes(movement: &MovementAttrs, mover: &Mover, ahead: impl FnOnce() -> Vec2) -> bool {
-    let MovementAttrs::SpeedTurnRadius {
-        deceleration: Some(deceleration),
-        ..
-    } = *movement
-    else {
-        return false;
-    };
-    // The drive's signed speed (`tracked::speed_of`) along the way its leg drives (`Tracked::of`: backwards on a
-    // Reverse leg, for a unit that can back up). No faster than a tick's Deceleration, it is at rest in the tick
-    // whichever way it moves.
-    let speed = mover.momentum.length();
-    if speed <= deceleration {
-        return false;
-    }
-    let current = if mover.momentum.dot(ahead()) < 0.0 {
-        -speed
-    } else {
-        speed
-    };
-    let along = if mover.reverses && movement.reverse_speed().is_some() {
-        -current
-    } else {
-        current
-    };
-    along + deceleration < 0.0
+/// Whether the move a unit of base `base` makes in its turn of this tick crushes (module docs; [`Body::crushes`]), as
+/// its turn begins, `mover` as it is: a crusher's always does, Moving, Reversing, Stopping (design change 0453) or a
+/// spin, but for one at rest that its attack holds (`held`), which makes no move.
+pub(super) fn drives(base: &UnitBaseDef, mover: &Mover, held: bool) -> bool {
+    base.crushes && !(held && mover.momentum == Vec2::ZERO)
 }
 
 /// The crushes of the crusher `me` (an index into `bodies`) in its turn of this tick, whose move crushed ([`drives`]),

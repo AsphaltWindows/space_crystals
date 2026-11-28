@@ -359,8 +359,8 @@ mod tests {
         });
         sim.objects.get_mut(&d).unwrap().orders.as_mut().unwrap().auto = Auto::Engaging {
             pursuit: Pursuit {
-                target: b,
                 chasing: true,
+                ..Pursuit::new(b)
             },
             origin: Vec2::ZERO,
         };

@@ -1,7 +1,8 @@
 //! A Hand of Heaven driving through enemy infantry (`systems/units.md > UnitCollision > Crushing`: "**Pathing
 //! exception to hard collision**: crushers may path and drive through crushable enemies — those enemies are not
-//! obstacles to them"; "**Trigger**: [...] while the crusher is moving (Locomotion = Moving or Reversing)"), and past a
-//! Guard, which isn't crushable (`systems/units.md > HeavyInfantry`: "cannot be crushed").
+//! obstacles to them"; "**Trigger**: [...] while the crusher has any speed (Locomotion = Moving, Reversing or
+//! **Stopping** [...])"), and past a Guard, which isn't crushable (`systems/units.md > HeavyInfantry`: "cannot be
+//! crushed").
 
 use sc_sim::{MoveStatus, ObjectId, OrderKind, SpawnAt};
 

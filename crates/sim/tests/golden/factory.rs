@@ -72,7 +72,9 @@ fn p1(command: Command) -> PlayerCommand {
 /// of [`OUT`], half inside the middle of side B and facing east, and drives to the default rally point; the first
 /// stops on it, and each of the others, the point taken, parks at the free spot nearest it (design change 0451). At
 /// [`ATTACK`] the four attack-move east: the Raptors' missiles kill the Recruits, the Twisters' machine guns, which hit
-/// air alone, the Sparrows, and all six of player 2's units fall, the last at 1:33 (tick 1499).
+/// air alone, the Sparrows, and all six of player 2's units fall, the last at 1:33 (tick 1496; tick 1499 before design
+/// change 0454: a Raptor whose Recruit runs in inside the circles it turns on drives straight on to come round onto
+/// it, `orders::aim`).
 pub(crate) fn gdo_vehicles() -> Game {
     let builder = ScenarioBuilder::new(&open(40, 20))
         .faction(P1, Faction::Gdo)

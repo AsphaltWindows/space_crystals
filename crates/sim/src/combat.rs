@@ -115,7 +115,7 @@ pub use projectiles::{Projectile, flight_ticks};
 pub(crate) use step::step;
 pub use target_lock::TargetLock;
 pub use targeting::{
-    can_attack_now, can_target_ground, domain_allows, inside_min_range, kind_domain, max_range, object_box,
+    can_attack_now, can_hit, can_target_ground, domain_allows, inside_min_range, kind_domain, max_range, object_box,
     object_domain, reaches, reaches_point, takes_attack_orders, within_range,
 };
 pub use turret::{TurretState, turret_facing};

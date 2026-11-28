@@ -1,4 +1,4 @@
-//! Unit tests of crushing ([`crushes`] as `space::blocks`'s rule 3, [`drives`], [`ahead`], [`victims`]), without a
+//! Unit tests of crushing ([`crushes`] as `space::blocks`'s rule 3, [`drives`], [`victims`]), without a
 //! game, on a 64 × 40 Silhouette that turns with its facing (the Hand of Heaven's) among 24 × 24 Light Infantry and a
 //! 36 × 36 Guard. The game's tests are `crates/sim/tests/crushing/`.
 
@@ -135,66 +135,28 @@ fn a_crusher_that_neither_moves_nor_turns_crushes_nothing() {
     assert!(crushed(&bodies, at, 0.0).is_empty());
 }
 
-/// [`drives`]: a crusher's move crushes unless it is Stopping (module docs) or its attack holds it; a Light Infantry's
-/// never. At rest every move crushes. With momentum: one that steers along its path does, unless it brakes against
-/// its leg faster than one tick's Deceleration (1 su a tick) takes away, a Reverse leg's included; one that doesn't
-/// steer coasts, and doesn't.
+/// [`drives`] (design change 0453): a crusher's move crushes at any speed, Moving, Reversing or Stopping (coasting to
+/// rest, or braking against its leg), and from rest, unless its attack holds it at rest; a Light Infantry's never.
 #[test]
-fn a_crusher_s_move_crushes_unless_it_is_stopping() {
+fn a_crusher_s_move_crushes_at_any_speed() {
     let tracked = UnitBase::TrackedVehicle.def();
-    let movement = MovementAttrs::SpeedTurnRadius {
-        track_width: 30.0,
-        acceleration: Some(0.5),
-        deceleration: Some(1.0),
-        max_speed: 5.0,
-        reverse_max_speed: 2.5,
-    };
-    let east = Vec2::new(3.0, 0.0);
     let mover = |momentum: Vec2, reverses: bool| Mover {
         momentum,
         reverses,
         ..Mover::default()
     };
-    let drives = |base: &UnitBaseDef, mover: &Mover, facing: f32, held: bool, steers: bool| {
-        super::drives(
-            base,
-            &movement,
-            mover,
-            || math::facing_vector(facing),
-            held,
-            None,
-            || steers,
-        )
-    };
     let at_rest = mover(Vec2::ZERO, false);
-    assert!(drives(tracked, &at_rest, 0.0, false, false));
-    assert!(!drives(tracked, &at_rest, 0.0, true, true), "held by its attack");
-    assert!(!drives(UnitBase::LightInfantry.def(), &at_rest, 0.0, false, true));
-    assert!(drives(tracked, &mover(east, false), 0.0, false, true), "on its way");
-    assert!(!drives(tracked, &mover(east, false), 0.0, false, false), "coasting");
-    let pi = core::f32::consts::PI;
-    assert!(
-        !drives(tracked, &mover(east, false), pi, false, true),
-        "braking before it sets off west"
-    );
-    assert!(
-        drives(tracked, &mover(Vec2::new(1.0, 0.0), false), pi, false, true),
-        "at rest within the tick"
-    );
-    assert!(
-        !drives(tracked, &mover(east, true), 0.0, false, true),
-        "braking before it backs up"
-    );
-    assert!(drives(tracked, &mover(-east, true), 0.0, false, true), "backing up");
-}
-
-/// [`ahead`]: a unit's facing as a unit vector, its turned Silhouette's axis while it lies at that facing, the same
-/// vector to the bit.
-#[test]
-fn ahead_is_the_facing_vector() {
-    let tank = tank(Vec2::ZERO, 1.0, true);
-    assert_eq!(ahead(&tank, 1.0), math::facing_vector(1.0));
-    assert_eq!(ahead(&tank, -2.0), math::facing_vector(-2.0));
-    let infantry = infantry(2, Some(P2), Vec2::ZERO);
-    assert_eq!(ahead(&infantry, 0.5), math::facing_vector(0.5));
+    let east = Vec2::new(3.0, 0.0);
+    assert!(drives(tracked, &at_rest, false), "at rest: a start or a spin");
+    assert!(!drives(tracked, &at_rest, true), "held at rest by its attack");
+    assert!(!drives(UnitBase::LightInfantry.def(), &at_rest, false));
+    assert!(!drives(UnitBase::LightInfantry.def(), &mover(east, false), false));
+    for (momentum, reverses) in [(east, false), (east, true), (-east, true)] {
+        let moving = mover(momentum, reverses);
+        assert!(drives(tracked, &moving, false), "{momentum} {reverses}");
+        assert!(
+            drives(tracked, &moving, true),
+            "{momentum} {reverses}: coasting, held by its attack"
+        );
+    }
 }

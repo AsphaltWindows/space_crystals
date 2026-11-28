@@ -8,9 +8,19 @@ use crate::hash::{StateHash, StateHasher};
 
 impl StateHash for Pursuit {
     fn hash(&self, h: &mut StateHasher) {
-        let Pursuit { target, chasing } = self;
+        let Pursuit {
+            target,
+            chasing,
+            repositioning,
+        } = self;
         target.hash(h);
         chasing.hash(h);
+        // (M6-S6a) Only while set, as `AttackOrder`'s: a pursuit that never repositioned hashes as before the field
+        // existed.
+        if let Some(spot) = repositioning {
+            h.tag(1);
+            spot.hash(h);
+        }
     }
 }
 
@@ -51,6 +61,7 @@ impl StateHash for AttackOrder {
             on_hold,
             backing_off,
             too_close,
+            repositioning,
         } = self;
         chasing.hash(h);
         // (M3-L3) In the place of the last-seen position and the walk there, which design change 0200 removed.
@@ -71,6 +82,11 @@ impl StateHash for AttackOrder {
         }
         if *too_close {
             h.tag(4);
+        }
+        // (M6-S6a) Design change 0454, the same way.
+        if let Some(spot) = repositioning {
+            h.tag(5);
+            spot.hash(h);
         }
     }
 }
@@ -263,6 +279,7 @@ impl StateHash for Behaviour {
                 moving,
                 backing_off,
                 too_close,
+                repositioning,
             }) => {
                 h.tag(9);
                 moving.hash(h);
@@ -274,6 +291,11 @@ impl StateHash for Behaviour {
                 }
                 if *too_close {
                     h.tag(2);
+                }
+                // (M6-S6a) Design change 0460, the same way.
+                if let Some(spot) = repositioning {
+                    h.tag(3);
+                    spot.hash(h);
                 }
             }
             Behaviour::Build(walk) => {

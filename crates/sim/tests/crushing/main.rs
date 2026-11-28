@@ -7,6 +7,9 @@
 //! was crushed in, so no exception is needed.
 //!
 //! One test binary:
+//! - `braking` (design change 0453): a tank sent onto a spot covered by enemy Peacekeepers crushes those it overlaps
+//!   and then blocks the others; one given Stop just before enemy infantry coasts into it and crushes it; one braking to
+//!   set off the other way crushes what it brakes into;
 //! - `spin`: design change 0418's Verification: an enemy Light Infantry against a stopped tank's side dies as the
 //!   tank turns to face it; an own Recruit there stops the turn at contact, and nobody dies; a tank that stands and
 //!   doesn't turn lets no enemy infantry walk into it;
@@ -18,6 +21,7 @@
 //!
 //! The surfaced Subterranean Transport's crushing (design change 0419) waits for its above-ground mode, slice M6-ST1.
 
+mod braking;
 mod friendly;
 mod line;
 mod soak;
