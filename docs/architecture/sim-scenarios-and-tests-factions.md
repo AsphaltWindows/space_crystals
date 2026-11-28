@@ -158,7 +158,8 @@ Read this when you write or find a sim test of a Cults, Syndicate or GDO feature
   Deployment Center's Propulsion Labs behind an Airfield, the Airfield's W refused until it is placed; 175 Space
   Crystals and 4 Supplies, refused with 3 or 174; 320 frames, landed on a free slot and still, or rising straight up
   for its rally point from IdleSpeed), `missile` (one missile along its heading downs a Sparrow, then home by itself,
-  IdleSpeed over its slot, 16 to land, 64 to rearm, a Move lifting it straight up; air alone, nothing once spent),
+  IdleSpeed over its slot, 16 to land, 64 to rearm, a Move lifting it straight up; air alone, nothing once spent;
+  Hornets and Dragonflies silent on a Move, engaging on an Attack Move; a circling Sparrow hit within two passes),
   `approach` (from 20 starts and headings, never stopped in the air; three at once; no slot free: on to the centre),
   `landing` (`tests/landing`'s domains, destroyed and rearm cases for a Dragonfly) and `separation` (two end 48 su
   apart); with `movement/approach.rs`'s unit tests (the straight-in approach; three starts, far, beside and nearly on

@@ -2,8 +2,10 @@
 //! rearming`): "**The Dragonfly** (a Glider) lands and takes off **vertically**, as the Specter at an air door: it
 //! approaches its slot at IdleSpeed, stops over it while it lands (16 frames), and takes off straight up, leaving at
 //! IdleSpeed. Landed, it doesn't move" (`movement::approach`); and the plan's acceptance, "It never stops in the air.
-//! It lands from any heading". **Placeholder (not in the design: how a Glider lines up with its slot)**: it flies the
-//! last 4 grid units at IdleSpeed (`Air::approach_gu`), and its arrival faces the way it came in.
+//! It lands from any heading". **Placeholder (Q0192 point 2)**, the designer's
+//! (`systems/mechanics/aircraft_landing.md > Vertical`: "it slows from MaxSpeed to IdleSpeed 4 GU before the spot,
+//! lines up by flying straight on [...] and lands facing the way it came"): it flies the last 4 grid units at
+//! IdleSpeed (`Air::approach_gu`), and its arrival faces the way it came in.
 
 use super::*;
 
@@ -87,12 +89,13 @@ fn three_at_once_land_side_by_side() {
     assert_eq!(after, held, "landed, they don't move");
 }
 
-/// **Placeholder (not in the design: where a Glider waits for a free slot)**: a Dragonfly flying home to an Airfield
-/// whose slots are all taken flies on to its centre, as a Glider flies to any goal (`movement::glider`), and takes the
-/// first slot freed, flying its approach to it from there. Four are landed on [`A`]; one is rebased onto [`B`], which
-/// lifts it off, and in the same tick a fifth is rebased onto [`A`]: until the first has risen off its slot, which it
-/// keeps meanwhile (`sc_sim::landing`), every slot is taken, and the fifth flies at [`A`]'s centre; then it takes that
-/// slot, and lands there.
+/// **Placeholder (Q0192 point 2)**, the designer's (`systems/mechanics/aircraft_landing.md > Vertical`: "**No free
+/// spot** at its base: a Glider circles over the structure's centre until one frees"): a Dragonfly flying home to an
+/// Airfield whose slots are all taken flies on to its centre, as a Glider flies to any goal (`movement::glider`), and
+/// takes the first slot freed, flying its approach to it from there. Four are landed on [`A`]; one is rebased onto
+/// [`B`], which lifts it off, and in the same tick a fifth is rebased onto [`A`]: until the first has risen off its
+/// slot, which it keeps meanwhile (`sc_sim::landing`), every slot is taken, and the fifth flies at [`A`]'s centre; then
+/// it takes that slot, and lands there.
 #[test]
 fn with_no_slot_free_it_flies_on_to_the_centre_until_one_is() {
     let mut t = field(|builder| builder);

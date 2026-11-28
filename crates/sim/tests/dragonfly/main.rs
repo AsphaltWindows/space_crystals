@@ -6,7 +6,8 @@
 //!   doesn't move there, and takes off straight up for its rally point, leaving at IdleSpeed;
 //! - `missile`: its one homing missile, fired along its heading, shoots down a Sparrow; out of it, the Dragonfly flies
 //!   home by itself, slows to IdleSpeed over its slot, lands in 16 frames, rearms in 64 and lifts off straight up
-//!   (design change 0428's Verification);
+//!   (design change 0428's Verification); Hornets and Dragonflies fire nothing on a Move and engage on an Attack Move,
+//!   and a Dragonfly launches at a circling Sparrow within two passes (design change 0470's Verification);
 //! - `approach`: design change 0428 point 5, its vertical landing: it approaches its slot at IdleSpeed and stops over
 //!   it while it lands, never stopping anywhere else in the air, from any heading, three at once among them;
 //! - `landing`: `tests/landing`'s rules for a Dragonfly: an air target landing and taking off, a ground target down

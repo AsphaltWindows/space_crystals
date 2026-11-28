@@ -5,6 +5,8 @@
 //! faces its target); `factions/gdo/structures/airfield.md > Returning and rearming`: "**Automatic return**: when an
 //! aircraft runs out of ammo, it automatically flies back to its assigned Airfield, lands and rearms".
 
+use sc_sim::mover::Pass;
+
 use super::*;
 
 /// Player 2's Sparrow, which circles where it was spawned (its idle circle), within the Dragonfly's sight of [`A`]'s
@@ -87,4 +89,89 @@ fn it_hits_air_alone_and_with_its_missile_spent_nothing() {
     assert_eq!(gate(t.sim(), P1, &attack), Err(Reject::OutOfAmmo));
     let click = t.sim().default_order(id(n), Target::Object(id(second)));
     assert!(!matches!(click, Some(OrderKind::Attack(_))), "{click:?}");
+}
+
+/// Design change 0470's Verification 1 and 2 (`factions/gdo/units/hornet.md > Placeholder stats`,
+/// `factions/gdo/units/dragonfly.md > Placeholder stats`: limited-ammo aircraft fire "**from their base, with no
+/// turret**, so they never spend their payload on enemies they pass on a Move (base engagement isn't active on
+/// Move)"): with auto-targeting on, two Hornets and two Dragonflies fly a Move east straight over two of player 2's
+/// Prospectors, which the Hornets can hit, and past its Sparrow circling just off their line, which the Dragonflies
+/// can, and launch nothing; flown back on an Attack Move, both kinds engage.
+#[test]
+fn on_a_move_hornets_and_dragonflies_fire_nothing_and_on_an_attack_move_they_engage() {
+    const LINE: f32 = 1450.0;
+    let mut t = field(|builder| {
+        builder
+            .spawn(ObjectKind::Prospector, Some(P2), at(1100.0, LINE))
+            .spawn(ObjectKind::Prospector, Some(P2), at(1220.0, LINE))
+            .spawn(ObjectKind::Sparrow, Some(P2), at(1700.0, LINE + 160.0))
+    });
+    let tick = t.sim().tick() + 1;
+    for (kind, dy) in [
+        (ObjectKind::Hornet, -40.0),
+        (ObjectKind::Hornet, 40.0),
+        (DRAGONFLY, -120.0),
+        (DRAGONFLY, 120.0),
+    ] {
+        t.spawn_unit_at(tick, kind, P1, Vec2::new(300.0, LINE + dy));
+    }
+    t.step();
+    let (hornets, dragonflies) = ([10, 11], [12, 13]);
+    let all = [10, 11, 12, 13];
+    debug(&mut t, DebugCommand::SetAutoTargeting { on: true });
+    let east = Vec2::new(2600.0, LINE);
+    next(&mut t, P1, move_to(&all, east));
+    step_until(&mut t, 900, "past them all", |sim| {
+        all.iter().all(|&n| object(sim, n).pos.x > 2200.0)
+    });
+    for n in all {
+        assert_eq!(launches(&t, n), [], "#{n} fired nothing on its Move");
+    }
+    let west = Vec2::new(300.0, LINE);
+    next(&mut t, P1, order(&all, OrderKind::AttackMove(west)));
+    let engaged = |t: &TestSim, units: &[u32]| units.iter().filter(|&&n| !launches(t, n).is_empty()).count();
+    let until = t.sim().tick() + 900;
+    while engaged(&t, &hornets) < hornets.len() || engaged(&t, &dragonflies) == 0 {
+        assert!(t.sim().tick() < until, "both kinds engage: not by tick {until}");
+        t.step();
+    }
+}
+
+/// Design change 0470's Verification 3, "A Dragonfly attacking a circling Sparrow flies out, comes back head-on and
+/// launches within a pass or two" (`systems/controls/command_behaviors.md > AttackingObject`, the GliderMovement
+/// exception: past its target it flies on until the target's centre is out of range, then loops back): a Dragonfly in
+/// the air just east of the Sparrow's idle circle, flying away from it, attacks it; it comes round, and launches its
+/// missile within its first two passes (`mover::Pass::Run`, the Sparrow ahead of it).
+#[test]
+fn a_dragonfly_attacking_a_circling_sparrow_launches_within_two_passes() {
+    let mut t = sparrow_and_dragonfly();
+    let n = 9;
+    t.spawn_unit_at(t.sim().tick() + 1, DRAGONFLY, P1, SPARROW_AT + Vec2::new(160.0, 0.0));
+    t.step();
+    assert_eq!(object(t.sim(), n).kind, DRAGONFLY);
+    next(&mut t, P1, order(&[n], OrderKind::Attack(id(SPARROW))));
+    let (mut runs, mut closest, mut was_run) = (0, Vec::<f32>::new(), false);
+    let until = t.sim().tick() + 800;
+    while launches(&t, n).is_empty() {
+        assert!(
+            t.sim().tick() < until,
+            "no launch by tick {until}: {runs} passes, closest {closest:?} rad"
+        );
+        t.step();
+        let run = mover(t.sim(), n).strafe.is_some_and(|strafe| strafe.pass == Pass::Run);
+        if run && !was_run {
+            runs += 1;
+            closest.push(f32::MAX);
+        }
+        was_run = run;
+        let (o, sparrow) = (object(t.sim(), n), object(t.sim(), SPARROW));
+        let off = math::wrap_angle(math::vector_angle(sparrow.pos - o.pos) - o.facing).abs();
+        if let Some(last) = closest.last_mut() {
+            *last = last.min(off);
+        }
+    }
+    assert!(
+        (1..=2).contains(&runs),
+        "launched in pass {runs} (closest {closest:?} rad)"
+    );
 }

@@ -54,13 +54,14 @@ pub(crate) const DRAGONFLY: ObjectDef = ObjectDef {
             // "**Raptor, Dragonfly, Twister:** SingleTarget, confirmed from the docs (homing missiles and a
             // FullyConnected gun)" (design change 0457, answering Q0182): its Damage a missile's.
             target_type: TargetType::SingleTarget,
-            // "Damage **90**; Range 6 grid units; ProjectileSpeed 20 su/frame; Aim 8, Firing 2, Cooldown 4, Reload 0 (1
-            // missile)"; no MinRange given.
+            // "Damage **90**; Range 6 grid units; ProjectileSpeed 20 su/frame; **Aim 2** (was 8), Firing 2, Cooldown 4,
+            // Reload 0 (1 missile); (user, 2026-11-28; Q0192: [...] a **short Aim** keeps it smooth; Aim value designer
+            // placeholder)"; no MinRange given.
             damage: 90.0,
             range: 6.0,
             min_range: 0.0,
             projectile_speed: Some(20.0),
-            aim_ticks: 8,
+            aim_ticks: 2,
             firing_ticks: 2,
             cooldown_ticks: 4,
             reload_ticks: 0,
@@ -131,7 +132,7 @@ mod tests {
             (attack.damage, attack.range, attack.projectile_speed),
             (90.0, 6.0, Some(20.0))
         );
-        assert_eq!(super::super::cycle(&attack), ((8, 2, 4, 0), 14));
+        assert_eq!(super::super::cycle(&attack), ((2, 2, 4, 0), 8));
         assert_eq!(unit.separation_radius, Some(48.0));
         assert_eq!(
             unit.ammo,

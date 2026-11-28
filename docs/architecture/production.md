@@ -231,10 +231,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   **placeholder**, Q0195: the orders queued behind are dropped, as the Specter's), which any order interrupts, the
   ammo staying at 0; an order Shift-queued behind it starts as it lands, as behind an F (below). **The Hornet** (a
   HoverCraft, braking by drag alone: *Movement and collision > Movement models*) fires 5 DoublyDisjointed missiles,
-  one every 32 frames, each landing where its target stood and (slice M6-GH2, design change 0458) bursting there,
-  45 over 32 su on the ground only (`TargetType::AoE`, `BlastDomain::Attack`: each object in the circle hit by its
-  share, *Combat > Area damage*; it was 30 on the one object covering the
-  spot), and turns in place to aim (no turret). It comes out landed on a free slot (`ExitRule::Pad`, below). Tests:
+  one every 30 frames (an Aim of 2), each landing where its target stood and (slice M6-GH2, design change 0458)
+  bursting there, 45 over 32 su on the ground only (`TargetType::AoE`, `BlastDomain::Attack`: each object in the
+  circle hit by its share, *Combat > Area damage*; it was 30 on the one object covering the spot), and turns in place
+  to aim (no turret). It comes out landed on a free slot (`ExitRule::Pad`, below). Tests:
   `crates/sim/tests/airfield/` (below). **The Dragonfly** (slice M6-GL; `factions/gdo/units/dragonfly.md`, design
   changes 0366, 0435 and 0457) is a Glider with one HeadDisjointed missile, 90 on air only (SingleTarget, 0457), and
   RearmTimePerAmmo 64: with no turret it fires along its heading (*Movement and collision > Movement models*,
@@ -264,9 +264,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`Sim::landed_on`, on the removal path, each with a `Died`); one taking off escapes, unassigned as the others. L1
   checks it (*Movement and collision > Invariants*). (slice M6-GL) **A Glider**, which can't come to rest, flies its
   **landing approach** to its slot instead (`sim/landing.rs`'s `glide_home`, `Mover::approach_to`;
-  *Movement and collision > Movement models*, GliderMovement): it lands once it is over the slot
-  (`Mover::is_over`) and within reach, held still from then on; with no slot free it flies to the Airfield's centre
-  and circles there (**placeholder**) until one is. Tests: `crates/sim/tests/landing/` (below), (slice M6-GL)
+  *Movement and collision > Movement models*, GliderMovement; the approach the designer's placeholder, Q0192 point 2:
+  `systems/mechanics/aircraft_landing.md > Vertical`): it lands once it is over the slot (`Mover::is_over`) and
+  within reach, held still from then on; with no slot free it flies to the Airfield's centre and circles there until
+  one is. Tests: `crates/sim/tests/landing/` (below), (slice M6-GL)
   `crates/sim/tests/dragonfly/`, and the goldens `gdo_air` and `gdo_dragonflies`. The client draws an Airfield's pads
   (`Look::Pads`, `object_render/pads.rs`), a landing aircraft sinking to the ground and one down on it without its
   shadow (`object_render/flight.rs`).

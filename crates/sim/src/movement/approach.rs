@@ -12,12 +12,14 @@
 //!   and flies the last of the way at IdleSpeed. It turns toward the point by at most its turn at its speed
 //!   (MaxCentripetalAcceleration / v), but for a point inside the circle it flies turning its most at that speed
 //!   ([`circles`]), which it would circle for ever, that the tick's turn can't bring ahead of it: it flies straight on
-//!   until it can turn onto it, round again if it overflew it. **Placeholder (not in the design: how a Glider lines up
-//!   with its slot)**. **Its arrival**: at IdleSpeed, with the point on the line of the tick's flight and within its
-//!   reach ([`ON_LINE_SU`]), it flies onto the point and stops there, its leg over (`MoveStatus::Arrived`), Stationary,
-//!   and is over it (`Approach::Over`); farther, faster or not lined up, it flies on. Its momentum stays as it flew
-//!   until it holds still, so that one whose approach ends there and then (`Mover::stop`) flies on at IdleSpeed, as a
-//!   Glider stopped after its flight keeps its speed. It lands from whatever heading it came in on: it faces that way.
+//!   until it can turn onto it, round again if it overflew it. **Placeholder (Q0192 point 2)**, the designer's
+//!   (`systems/mechanics/aircraft_landing.md > Vertical`: "lines up by flying straight on while the spot is within its
+//!   tightest turn (overflying, it comes round again)"). **Its arrival**: at IdleSpeed, with the point on the line of
+//!   the tick's flight and within its reach ([`ON_LINE_SU`]), it flies onto the point and stops there, its leg over
+//!   (`MoveStatus::Arrived`), Stationary, and is over it (`Approach::Over`); farther, faster or not lined up, it flies
+//!   on. Its momentum stays as it flew until it holds still, so that one whose approach ends there and then
+//!   (`Mover::stop`) flies on at IdleSpeed, as a Glider stopped after its flight keeps its speed. It lands from
+//!   whatever heading it came in on: it faces that way.
 //! - **The hold** ([`holds`], [`hold`]): a Glider holds still in the air, no move, no momentum, Stationary, keeping its
 //!   goal, while it is over its approach's point and the order that sent it there runs (one whose order ended without
 //!   another, `Sim::remove_objects`'s, flies on: [`stale`]), while it is on an Airfield's slot, landing or down

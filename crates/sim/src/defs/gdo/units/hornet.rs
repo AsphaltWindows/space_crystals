@@ -58,13 +58,14 @@ pub(crate) const HORNET: ObjectDef = ObjectDef {
                 blast: BlastDomain::Attack,
             },
             // "**Damage 45 total over an AoERadius of 32 su** (designer placeholder, 2026-11-27; Q0182: was 30
-            // single-target [...]); Range 5 grid units; ProjectileSpeed 14 su/frame; Aim 4, Firing 2, Cooldown 4,
-            // Reload 22 frames"; no MinRange given.
+            // single-target [...]); Range 5 grid units; ProjectileSpeed 14 su/frame; **Aim 2** (was 4), Firing 2,
+            // Cooldown 4, Reload 22 frames (user, 2026-11-28; Q0192: [...] a **short Aim** keeps it smooth; Aim value
+            // designer placeholder)"; no MinRange given.
             damage: 45.0,
             range: 5.0,
             min_range: 0.0,
             projectile_speed: Some(14.0),
-            aim_ticks: 4,
+            aim_ticks: 2,
             firing_ticks: 2,
             cooldown_ticks: 4,
             reload_ticks: 22,
@@ -138,7 +139,7 @@ mod tests {
             (attack.damage, attack.range, attack.projectile_speed),
             (45.0, 5.0, Some(14.0))
         );
-        assert_eq!(super::super::cycle(&attack), ((4, 2, 4, 22), 32));
+        assert_eq!(super::super::cycle(&attack), ((2, 2, 4, 22), 30));
         assert_eq!(unit.separation_radius, Some(56.0));
         assert_eq!(
             unit.ammo,

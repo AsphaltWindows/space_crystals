@@ -13,9 +13,9 @@ const RALLY: Vec2 = Vec2::new(A_AT.x + 640.0, A_AT.y);
 const TARGET_AT: Vec2 = Vec2::new(RALLY.x, RALLY.y + 192.0);
 /// A Prospector of player 2's (300 HP), which stands still and fights nothing.
 const TARGET: ObjectKind = ObjectKind::Prospector;
-/// Its attack's cycle, a launch every 32 frames: "Aim 4, Firing 2, Cooldown 4, Reload 22 frames"
+/// Its attack's cycle, a launch every 30 frames: "**Aim 2** (was 4), Firing 2, Cooldown 4, Reload 22 frames"
 /// (`factions/gdo/units/hornet.md > Placeholder stats`).
-const CYCLE: Tick = 32;
+const CYCLE: Tick = 30;
 
 /// The Hornet's missiles so far.
 fn missiles(t: &TestSim, hornet: u32) -> Vec<(Tick, ObjectId, Option<ObjectId>, Vec2, Tick)> {
@@ -60,7 +60,7 @@ fn emptied() -> TestSim {
     t
 }
 
-/// "Five shots" (`m6-plan.md > GH1 > Acceptance`): five missiles, one every 32 frames, each (M6-GH2) bursting on the
+/// "Five shots" (`m6-plan.md > GH1 > Acceptance`): five missiles, one every 30 frames, each (M6-GH2) bursting on the
 /// spot its target stood on (design change 0458: "the missile **bursts at the spot** it flies to"), 32 su across, and
 /// hitting it for its share of the 45 less its share of the target's armour (`systems/combat.md > AoEDamage`). Then the
 /// attack is unavailable (`Reject::OutOfAmmo`, for an Attack and an Attack Ground alike; its right-click on an enemy no

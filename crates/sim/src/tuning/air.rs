@@ -50,9 +50,10 @@ tunables! {
 
     /// (M6-GL) How far from the point of its landing approach a Glider slows to its IdleSpeed, for the last of the way
     /// (`crate::movement::approach`; `factions/gdo/structures/airfield.md > Returning and rearming`: "it approaches its
-    /// slot at IdleSpeed, stops over it while it lands"), grid units. **Placeholder (not in the design: where a
-    /// Glider's approach to its slot slows to IdleSpeed)**: the Dragonfly, braking 0.6 su/frame² from its MaxSpeed of
-    /// 14, is at its IdleSpeed of 6 some 133 su on, so that it flies the last 120 su or so, about 20 frames, straight
-    /// at its slot at IdleSpeed. Farther off it flies at MaxSpeed, as to any goal.
+    /// slot at IdleSpeed, stops over it while it lands"), grid units. **Placeholder (Q0192 point 2)**, the designer's
+    /// (`systems/mechanics/aircraft_landing.md > Vertical`: "it slows from MaxSpeed to IdleSpeed 4 GU before the
+    /// spot"): the Dragonfly, braking 0.6 su/frame² from its MaxSpeed of 14, is at its IdleSpeed of 6 some 133 su on,
+    /// so that it flies the last 120 su or so, about 20 frames, straight at its slot at IdleSpeed. Farther off it flies
+    /// at MaxSpeed, as to any goal.
     approach_gu: f32 = 4.0,
 }

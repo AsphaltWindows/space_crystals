@@ -202,8 +202,9 @@ impl Sim {
 /// (M6-GL) A Glider's flight home to an Airfield centred on `centre`, as the landing step leaves it in `tick` (module
 /// docs, [`Sim::step_landings`]): its landing approach to `slot`, the slot it takes, unless it flies it already (a new
 /// one from wherever it is, over another slot or its approach's way); with none free, on to the centre, to circle there
-/// as a Glider does at its goal (`movement::glider`), unless it circles there already. **Placeholder (not in the
-/// design: where a Glider waits for a free slot)**.
+/// as a Glider does at its goal (`movement::glider`), unless it circles there already. **Placeholder (Q0192 point
+/// 2)**, the designer's (`systems/mechanics/aircraft_landing.md > Vertical`: "**No free spot** at its base: a Glider
+/// circles over the structure's centre until one frees").
 fn glide_home(mover: &mut Mover, slot: Option<Vec2>, centre: Vec2, tick: Tick) {
     match slot {
         Some(slot) => {
