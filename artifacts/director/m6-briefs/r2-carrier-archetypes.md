@@ -1,6 +1,6 @@
 # Task R2: The carrier archetypes, with the Supply Chopper as the first Landing carrier (a mechanic phase before GS2)
 
-Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, and your budget is 120 tool calls.**
+Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, and your budget is 120 tool calls, a hard limit.**
 
 ## Why
 The design defines carrying once, in `systems/mechanics/carrying.md`, with three archetypes. The code's carrier (ST1's, for the Subterranean Transport) is shaped for the Ground carrier only:
@@ -11,7 +11,14 @@ The design defines carrying once, in `systems/mechanics/carrying.md`, with three
 The Supply Chopper (GS2) is a Landing carrier, and the Pilgrim (CP) a Docked carrier with Paradrop. This phase shapes the carrier by archetype, in its def, and makes the Chopper the first Landing carrier in the sim.
 
 ## Where things stand
-- **R1a and R1b** made landing one capability, with Field landing at a point. R1b's handoff: FILLED IN AT LAUNCH. Land the carrier through it.
+- **R1a and R1b** (`1013d5d6`, `9ac5b9ef`) made landing one capability, with Field landing at a point. Land the carrier through it. From R1b's handoff:
+  - **The state:** `Object::landing: Option<Landing { at: Spot::Structure(id) | Spot::Field(point), descent, rearm }>` (`crates/sim/src/landing.rs`).
+  - **The def:** `UnitDef::landing: Option<LandingDef { landing_ticks, takeoff_ticks }>`, read with `landing::def_of`. A field landing needs a `LandingDef`: the Chopper has one.
+  - **The step:** `Sim::step_landings` (`sim/landing.rs`, right after 5a), with `landing::flies_to`, `pads`, `claim`, `Sim::spot_rules`, `landing::take_off` and `lift_off`.
+  - **To land at a point,** the carrier's order calls `mover.land_at(point)` in every 5a tick until the unit is down. The landing step takes the call in the same tick, so it is never saved or hashed. A blocked point becomes the nearest free one (`Sim::field_spot`).
+  - **To know it has landed:** `landing::down(o)`, and `o.landing.unwrap().at.field()` is `Some(spot)`; in 5a, `orders::world::Unit::landing` gives the same. Any new order lifts it off, or call `landing::lift_off` once the loading or unloading is done.
+  - **The hash:** a field spot is sub-tag 1 and the point, inside the landing's hash. `Mover` tag 17 is still free.
+  - **Open (Q0202):** a unit landed in the field stays on the air layer, so ground units walk under it. Build on that; don't make it block them.
 - **The mechanics audit,** `artifacts/director/x4-mechanics-audit.md` §2 "Carrying" and §5 "The carrier archetypes". Read those parts only.
 - **The carrier now:**
   - `crates/sim/src/carry.rs`;
@@ -68,7 +75,7 @@ The core, then the Carriers paragraphs of `docs/architecture/object-model-state.
   - one vehicle boards alone;
   - shot down while loaded, everyone dies.
 - **Goldens:** none may move.
-- **Hash tags:** new `Object` state hashes and saves only while present, under **Object tag 29**. Load and the targeted Unload All hash as **`OrderKind` tags 36 and 37** in `orders/hash.rs`, or reuse Unload All's tag with the point written only when set. A new behaviour hashes as **`Behaviour` tag 22**, and new `Mover` state as **`Mover` tag 17**, unless R1 took it. These were GS2's reservations, and R1 and R2 now hold them.
+- **Hash tags:** new `Object` state hashes and saves only while present, under **Object tag 29**. Load and the targeted Unload All hash as **`OrderKind` tags 36 and 37** in `orders/hash.rs`, or reuse Unload All's tag with the point written only when set. A new behaviour hashes as **`Behaviour` tag 22**, and new `Mover` state as **`Mover` tag 17** (R1 didn't take it). These were GS2's reservations, and R1 and R2 now hold them.
 
 ## Don't
 - Don't build the Docked carrier or Paradrop (R3), or the client: no panel, no targeting, no pips (GS2).
