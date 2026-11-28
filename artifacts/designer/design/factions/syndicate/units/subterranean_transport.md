@@ -40,6 +40,6 @@ Brings it back to its above-ground mode. **It can't surface on top of a building
 - Above ground as a TrackedVehicle: MaxSpeed 4.5 su/frame; Acceleration 0.4; Deceleration 1; TrackWidth 36 su; ReverseMaxSpeed 2.25 (designer placeholders, 2026-11-26; Q0153: the Laser Battery's handling; spins about 14.3° a frame); underground MaxSpeed 3.5.
 - **Burrow and Surface: 48 frames** each.
 - **Capacity 4** infantry (user, 2026-11-27: **4 heavy infantry, e.g. 4 Guards**; Syndicate infantry are Heavy Infantry).
-- **Loading**: right-click the transport with infantry selected (Enter); it must be above ground. **Unloading**: **F: Unload All** (above ground only; they come out around it).
+- **Loading**: right-click the transport with infantry selected (Enter); it must be above ground. **Unloading**: **F: Unload All** (above ground only; they come out around it). **Unloading rules** (user, 2026-11-28; Q0191; shared by every transport, the Supply Chopper and the Pilgrim included, unless its doc says otherwise): **on the move, F stops it first**, and the passengers come out once it is at rest; they come out on the **nearest free spots** around it; **passengers with no free spot stay aboard** (the player moves it and presses F again); the **passenger count** (one pip per passenger on a selected transport) is shown **to its owner only**: opponents can't tell how many are aboard.
 - Panel: Q Move, X Stop, **R: Burrow / Surface**, **F: Unload All**.
 - Cost: Vehicle Assembly, 200 Space Crystals, 400 frames.
