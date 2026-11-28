@@ -12,7 +12,7 @@ GDO specialist infantry, trained at the Barracks once the player owns a Career C
 - **Set up First Aid Tent**: sets up a First Aid Tent (see factions/gdo/structures/first_aid_tent.md). Costs Space Crystals.
 
 ## Building
-(user, 2026-11-26; Q0163) The Field Engineer builds **like an Agent builds a Tunnel** (factions/syndicate/units/agent.md > Building): it **goes inside** the site and disappears until the building is complete. **One Engineer per site; no help.**
+(user, 2026-11-26; Q0163; **Construction, Builder inside**: systems/mechanics/construction.md) The Field Engineer builds **like an Agent builds a Tunnel** (factions/syndicate/units/agent.md > Building): it **goes inside** the site and disappears until the building is complete. **One Engineer per site; no help.**
 1. The Engineer receives the order and walks to the site. **Payment**: the cost is deducted when the order is given (the order needs enough Space Crystals then) and refunded in full if the order ends before construction starts (another order, the Engineer killed, placement failing on arrival), as for Recruits (factions/cults/economy.md > Build Command).
 2. **Construction begins**: the site appears with the Engineer inside it. The Engineer is **untargetable** and unseen meanwhile. The site follows the **ConstructionHP Rule** (starts at 10% HP; damage taken stays, as the Agent's Tunnel).
 3. **Completed**: the Engineer **comes back out** (user: a; it doesn't garrison the Bunker by itself): through the **Bunker's door** (side B), or at the **edge of the Tent** (designer's placeholder: on the side it walked in from). It then idles.

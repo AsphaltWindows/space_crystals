@@ -135,6 +135,7 @@ Multiple Agents can be selected simultaneously. Right-click commands are issued 
 Agents construct **only Tunnels** (user, 2026-11-26; 0359): Laser Turrets are ordered from a Tunnel's ExpandMenu (factions/syndicate/tunnel_menus.md). Only one Agent may construct a given Tunnel — multiple Agents cannot speed up construction.
 
 ### Tunnel Construction Flow
+Uses **Construction, Builder inside** (systems/mechanics/construction.md); on completion the Agent is inside the Tunnel Network.
 1. Agent receives build command and walks to the target location
 2. Construction begins — the partially-built Tunnel appears at the location with the Agent inside it. The Tunnel starts at 10% HP (ConstructionHP Rule). The Agent is untargetable for the duration of construction.
 3. **If construction completes**: The Tunnel becomes operational and the Agent is inside the Tunnel Network, available for redeployment from any Tunnel.

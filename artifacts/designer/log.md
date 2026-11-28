@@ -2446,3 +2446,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Bunker evacuation inside former footprint (user) (0477).
 - Q0193 migration: systems/mechanics/energy_and_effects.md (0478).
 - Q0193 migration: systems/mechanics/production.md (0479).
+- Q0193 migration: systems/mechanics/construction.md (0480).

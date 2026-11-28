@@ -10,6 +10,7 @@ The Cults player starts with:
 - **0 Space Crystals**
 
 ## Cults Building Mechanics
+Recruits use **Construction, Builders outside** (systems/mechanics/construction.md), which now holds the shared rules; this section keeps the Cults' wording, rationale and specifics.
 
 Cults buildings are constructed on-site by Recruits working from outside the structure. Assigned Recruits are not consumed — they remain on the field near the site for the duration of construction and are vulnerable to attack, same as the structure itself (ConstructionHP Rule). Construction speed scales proportionally with the number of Recruits currently assigned. Recruits can be individually reassigned to other orders at any time; removing a Recruit immediately reduces the assigned count and slows progress. If all Recruits are pulled off a site, progress stalls at its current value (no decay) until Recruits resume work or the building is cancelled. On completion, all Recruits that participated remain on the field as ordinary Recruits, free to be issued new orders.
 
