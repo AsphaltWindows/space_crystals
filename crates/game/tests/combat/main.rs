@@ -299,7 +299,9 @@ fn a_hornet_shows_its_missiles_left_as_pips_under_its_hp_bar() {
 /// Placeholder, not in the design's art): a Subterranean Transport's places taken of its 4
 /// (`factions/syndicate/units/subterranean_transport.md > Placeholder stats`: "**Capacity 4** infantry"), none and then
 /// 2 once two Guards have boarded it. Its bars show as the HP bar does, while it is selected or damaged; player 2's
-/// Transport, which player 1 sees and selects, shows player 1 no pips, nor does a Guard.
+/// Transport, which player 1 sees and selects, shows player 1 no pips, nor does a Guard
+/// (`systems/mechanics/carrying.md > Passengers`: "**to its owner only**"; design change 0469's Verification 2, "An
+/// opponent selecting the Transport sees no pips").
 #[test]
 fn a_transport_shows_its_passengers_as_pips_over_its_hp_bar_to_its_owner() {
     const TRANSPORT: ObjectId = ObjectId(1);

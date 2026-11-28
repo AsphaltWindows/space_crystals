@@ -277,7 +277,7 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         // (`crate::combat::AttackState::target_lock`). (M6-GD) A Launch lasts its first tick (`super::launch`).
         OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => Behaviour::Plain,
         // (M6-GH1) An aircraft with no base to fly to ends at once (`super::air_base`); (M6-GH2) one on a slot of its
-        // base ends once it is rearmed.
+        // base ends once it is down.
         OrderKind::Rebase(_) | OrderKind::ReturnToBase => Behaviour::Plain,
         // (M6-GA) Its frames, none done (`super::vehicle_deploy`).
         OrderKind::VehicleDeploy { .. } => vehicle_deploy::begin(unit),
@@ -354,7 +354,7 @@ fn run(
         // (M6-GD) Standing for the launch, which the step right after this phase makes, ending the order
         // (`super::launch`). Its state, the plain one, is any.
         (OrderKind::Launch, _) => launch::run(first),
-        // (M6-GH1) The flight to its Airfield, (M6-GH2) down on its slot and rearmed, or at once without a base
+        // (M6-GH1) The flight to its Airfield, until (M6-GH2) it is down on its slot, or at once without a base
         // (`super::air_base`). Its state, the plain one, is any.
         (OrderKind::Rebase(_) | OrderKind::ReturnToBase, _) => air_base::run(unit),
         // (M6-GA) Standing while it deploys, which the step right before this phase completes, ending the order

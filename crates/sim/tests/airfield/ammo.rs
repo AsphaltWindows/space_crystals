@@ -65,8 +65,9 @@ fn emptied() -> TestSim {
 /// hitting it for its share of the 45 less its share of the target's armour (`systems/combat.md > AoEDamage`). Then the
 /// attack is unavailable (`Reject::OutOfAmmo`, for an Attack and an Attack Ground alike; its right-click on an enemy no
 /// longer attacks), and "when an aircraft runs out of ammo, it automatically flies back to its assigned Airfield, lands
-/// and rearms": (M6-GH2) on the Airfield's first slot, where it stays, full, its flight home over. There, with
-/// auto-targeting on, it fires at nothing: on a slot it holds fire (`aircraft::may_fire`, a placeholder).
+/// and rearms": (M6-GH2) on the Airfield's first slot, its flight home over as it is down, where it rearms and stays,
+/// full. There, with auto-targeting on, it fires at nothing: on a slot it holds fire (`aircraft::may_fire`;
+/// `systems/mechanics/aircraft_landing.md > Landed aircraft (every archetype)`: "**Landed aircraft hold fire**").
 #[test]
 fn five_missiles_then_it_flies_home_lands_and_rearms() {
     let mut t = emptied();
@@ -115,7 +116,9 @@ fn five_missiles_then_it_flies_home_lands_and_rearms() {
     let spots: Vec<(Tick, Vec2, f32)> = shots.iter().map(|s| (s.4, s.3, RADIUS)).collect();
     assert_eq!(blasts, spots, "a burst of 32 su on each spot");
 
-    step_until(&mut t, 600, "home and rearmed", |sim| doing(sim, 8).is_none());
+    step_until(&mut t, 600, "home", |sim| doing(sim, 8).is_none());
+    assert_eq!(aircraft(t.sim(), 8).ammo, 0, "its flight over as it is down");
+    step_until(&mut t, 200, "rearmed", |sim| aircraft(sim, 8).ammo == AMMO);
     assert!(t.pos(8).distance(A_SLOT) < 8.0, "on its first slot: {}", t.pos(8));
     let state = aircraft(t.sim(), 8);
     assert_eq!((state.ammo, state.base), (AMMO, Some(id(A))), "full");
@@ -155,9 +158,11 @@ fn a_move_interrupts_the_return_and_the_ammo_stays_at_0() {
     let home = order(&[8], OrderKind::ReturnToBase);
     assert_eq!(gate(t.sim(), P1, &home), Ok(()));
     next(&mut t, P1, home);
-    step_until(&mut t, 600, "home and rearmed", |sim| doing(sim, 8).is_none());
+    step_until(&mut t, 800, "home and rearmed", |sim| {
+        doing(sim, 8).is_none() && aircraft(sim, 8).ammo == AMMO
+    });
     assert!(t.pos(8).distance(A_SLOT) < 8.0, "{}", t.pos(8));
-    assert_eq!(aircraft(t.sim(), 8).ammo, AMMO, "rearmed");
+    assert!(aircraft(t.sim(), 8).landing.is_some(), "landed");
 }
 
 /// Design change 0458: "the missile **bursts at the spot** it flies to [...] If nothing is in the circle, it bursts

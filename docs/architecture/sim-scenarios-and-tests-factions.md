@@ -133,7 +133,8 @@ Read this when you write or find a sim test of a Cults, Syndicate or GDO feature
   `production` (the Vehicle Assembly's R behind a Forge, 200 in 400 frames, into the network; ejected, boarded),
   `boarding` (four Guards board and a fifth idles beside it; boarding a Transport that drives away; no enemy, no
   vehicle, none while burrowed), `unloading` (four out on the first ring's corners with no overlap, idle; at rest first;
-  Shift-queued after a move; refused empty and to a non-carrier), `combat` (no shots from a loaded Transport; a
+  Shift-queued after a move; refused empty and to a non-carrier; in a packed pocket two out and two aboard until a
+  move and another F), `combat` (no shots from a loaded Transport; a
   Peacekeeper may attack it, a Twister may not; it collides with ground units, crushes enemy Recruits, own infantry
   stop it), `death` (three aboard die with it, after it, where it was, their Tunnel Space free; stranded in the network,
   removed with it), `network` (into a Tier 2 Tunnel loaded and out loaded, the EjectMenu listing it alone; a minute
@@ -145,11 +146,13 @@ Read this when you write or find a sim test of a Cults, Syndicate or GDO feature
   the owner).
 - **Landing tests** (slice M6-GH2) are `crates/sim/tests/landing/`, under the invariants: `slots` (four out of ammo
   on the four slots, a landing in 16 ticks holding still, F and the right-click home from anywhere, one down left on
-  its slot under an overflight), `rearm` (2 of 5 in 96 ticks, then landed until a Move; an order 5 s in leaves with
-  2; 272 ticks at 30/51 Power), `domains` (an air target landing and taking off, a ground one down), `destroyed` (the
-  aircraft on a destroyed Airfield die with it, one taking off escapes, one flying home flies on unassigned) and
-  `burst` (design change 0458's: where a moving target stood, about 33 on a tank before armour, a clump of infantry
-  own units included, nothing in the air). The unit tests in `landing/tests.rs` cover the layout, the claims, the
+  its slot under an overflight, a right-click on another own Airfield landing it there), `rearm` (2 of 5 in 96 ticks,
+  then landed until a Move; an order 5 s in leaves with 2; an Attack Move Shift-queued behind F lifts it off as it
+  lands; F alone, full within 10 s and landed; 272 ticks at 30/51 Power), `domains` (an air target landing and
+  taking off, a ground one down), `destroyed` (the aircraft on a destroyed Airfield die with it, one taking off
+  escapes, one flying home flies on unassigned) and `burst` (design change 0458's: where a moving target stood,
+  about 33 on a tank before armour, a clump of infantry own units included, nothing in the air). The unit tests in
+  `landing/tests.rs` cover the layout, the claims, the
   rise and the rearm's speed; L1's negative test is in `testing/invariants/landings.rs`.
 - **Dragonfly tests** (slice M6-GL) are `crates/sim/tests/dragonfly/`, under the invariants: `training` (the
   Deployment Center's Propulsion Labs behind an Airfield, the Airfield's W refused until it is placed; 175 Space

@@ -45,14 +45,9 @@ fn one_missile_shoots_down_a_sparrow_then_it_flies_home_lands_in_16_and_rearms_i
         assert!(t.sim().tick() < down_at + 2 * REARM, "rearmed");
         t.step();
         assert_eq!((t.pos(n), speed(t.sim(), n)), (A_SLOTS[0], 0.0), "still on its slot");
+        assert_eq!(doing(t.sim(), n), None, "its flight home over as it came down");
     }
     assert_eq!(t.sim().tick() - down_at + 1, REARM, "its missile rearmed in 64 ticks");
-    assert_eq!(
-        doing(t.sim(), n),
-        Some(OrderKind::ReturnToBase),
-        "its flight home ends once rearmed"
-    );
-    t.step();
     assert!(home(t.sim(), n));
     for _ in 0..100 {
         t.step();

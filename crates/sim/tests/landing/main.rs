@@ -4,11 +4,12 @@
 //! binary:
 //! - `slots`: four Hornets out of ammo land on the Airfield's 4 slots, each in 16 frames, holding still, and rearm
 //!   there; F from anywhere, or a right-click on its own Airfield, flies one home to land and rearm; one landed there
-//!   already stays;
+//!   already stays; a right-click on another own Airfield reassigns it, and it lands there;
 //! - `domains`: a Hornet landing or taking off is an air target, one down on its slot a ground target (design change
 //!   0428 point 1), for the weapons, the gate's `Reject::CannotHit` and the blasts;
 //! - `rearm`: RearmTimePerAmmo × the missing ammo, landed after; a Move lifts it off in 16 frames; an order during the
-//!   rearm takes it off with the ammo rearmed so far (0428 point 4); low Power slows it (design change 0423);
+//!   rearm takes it off with the ammo rearmed so far (0428 point 4), and so does one Shift-queued behind its F, as it
+//!   lands (design change 0466); F alone rearms it fully, idle, landed; low Power slows it (design change 0423);
 //! - `destroyed`: the aircraft landed on a destroyed Airfield, down or still landing, die with it; one taking off
 //!   escapes, unassigned (0428 point 3);
 //! - `burst`: design change 0458's Verification, the Hornet's missile bursting at the spot it flies to.
@@ -126,6 +127,15 @@ fn order(units: &[u32], kind: OrderKind) -> Command {
         units: units.iter().copied().map(id).collect(),
         kind,
         queue: false,
+    }
+}
+
+/// [`order`], Shift-queued.
+fn queued(units: &[u32], kind: OrderKind) -> Command {
+    Command::Order {
+        units: units.iter().copied().map(id).collect(),
+        kind,
+        queue: true,
     }
 }
 

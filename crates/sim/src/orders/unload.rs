@@ -9,7 +9,8 @@
 //!   tracked vehicle brakes off its speed over a few ticks), then puts its passengers on the map round it and ends the
 //!   order; its queued orders go on from the next tick, as after any order that completed
 //!   (`systems/controls/commands.md > Unit Command`). So the behaviour itself never completes ([`run`]).
-//!   **Placeholder (not in the design: that the carrier first comes to rest)**.
+//!   `systems/mechanics/carrying.md > Unloading`: "**On the move, it stops first**: the passengers come out once the
+//!   carrier is at rest".
 //! - **A queued Unload All** that starts with no one aboard, or with the carrier no longer one that loads, ends with no
 //!   unload: the gate judged it as it was given.
 

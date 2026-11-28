@@ -35,14 +35,15 @@ impl Sim {
     }
 
     /// The aircraft whose last round went in this tick's phase 5e (`emptied`, `combat::step`) fly home by themselves
-    /// (`factions/gdo/structures/airfield.md > Returning and rearming`: "**Automatic return**: when an aircraft runs
-    /// out of ammo, it automatically flies back to its assigned Airfield"): each that is still in the game with a base
-    /// gets a Return to Base in place of its orders, which any order replaces in turn ("The automatic return **can be
-    /// interrupted** by giving the aircraft any other order"). **Placeholder (not in the design: the orders queued
-    /// behind the one it ran out in)**: dropped with it, as the Specter's (`factions/syndicate/units/specter.md >
-    /// Attack`: "it **ignores the orders queued after the Attack** and flies home, where they are wiped"). One killed
-    /// in the tick, or unassigned by its Airfield's fall in it, gets nothing: "An unassigned aircraft has no base: it
-    /// doesn't return automatically". After the removal of the dead.
+    /// (`systems/mechanics/aircraft_landing.md > Assigned base`: "**Automatic return** when out of ammo: it flies to
+    /// its base, lands and rearms"): each that is still in the game with a base gets a Return to Base in place of its
+    /// orders, which any order replaces in turn ("Any other order interrupts it (it stays out of ammo)"). **Placeholder
+    /// (Q0195)**: the orders queued behind the one it ran out in are dropped with it, as the Specter's
+    /// (`systems/mechanics/aircraft_landing.md > Network base`: "it ignores later queued orders and goes home to
+    /// rearm"); an order Shift-queued behind the return itself starts as it lands ("**Shift-queued orders run as soon
+    /// as it has landed**", `orders::air_base`). One killed in the tick, or unassigned by its Airfield's fall in it,
+    /// gets nothing ("**Base destroyed**: [...] an unassigned aircraft can't rearm or return until reassigned"). After
+    /// the removal of the dead.
     pub(super) fn send_home(&mut self, emptied: &[ObjectId]) {
         for &id in emptied {
             if self.objects.get(&id).and_then(aircraft::base_of).is_some() {

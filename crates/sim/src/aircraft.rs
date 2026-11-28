@@ -24,8 +24,9 @@
 //!   interrupted** by giving the aircraft any other order"; `Sim::send_home`), the orders queued behind the one it
 //!   ran out in dropped (a placeholder there). "An unassigned aircraft has no base: it doesn't return automatically,
 //!   and Return to Base is unavailable until it is reassigned."
-//! - **(M6-GH2) The landing**: its flight home ends on a landing slot of its base, where it rearms and stays
-//!   ([`AircraftState::landing`], `crate::landing`), holding fire until an order lifts it off ([`may_fire`]).
+//! - **(M6-GH2) The landing**: its flight home ends as it is down on a landing slot of its base, where it rearms and
+//!   stays ([`AircraftState::landing`], `crate::landing`) unless an order queued behind the flight lifts it off,
+//!   holding fire until an order does ([`may_fire`]).
 //!
 //! No type of the design gains or loses ammo by a change of kind: `Sim::change_kind` keeps the state.
 
@@ -78,10 +79,11 @@ pub fn armed(o: &Object) -> bool {
 }
 
 /// (M6-GH2) Whether `o` may fire for its ammo and where it is: it is [`armed`], and it isn't on an Airfield's slot,
-/// landing or down (`crate::landing`). **Placeholder (not in the design: whether an aircraft on its Airfield fights)**:
-/// on a slot it holds fire, as out of ammo, until an order lifts it off: phase 5e's `may_attack`, the threat it is to
-/// the others' scans (`combat::threat`) and its behaviours' attacks (`orders::world::Unit::attrs`) ask it. Which orders
-/// it takes doesn't change ([`armed`]): an Attack lifts it off, and it attacks.
+/// landing or down (`crate::landing`; `systems/mechanics/aircraft_landing.md > Landed aircraft (every archetype)`:
+/// "**Landed aircraft hold fire**: they fire only in the air"): on a slot it holds fire, as out of ammo, until an
+/// order lifts it off: phase 5e's `may_attack`, the threat it is to the others' scans (`combat::threat`) and its
+/// behaviours' attacks (`orders::world::Unit::attrs`) ask it. Which orders it takes doesn't change ([`armed`]): an
+/// Attack lifts it off, and it attacks.
 #[inline]
 pub fn may_fire(o: &Object) -> bool {
     o.aircraft

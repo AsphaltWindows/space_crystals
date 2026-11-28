@@ -1,24 +1,26 @@
-//! (M6-GH2) Landing and rearming at an Airfield — plan decision T88; `factions/gdo/structures/airfield.md > Landing
-//! slots` and `factions/gdo/structures/airfield.md > Returning and rearming`; design changes 0428 (answering Q0162)
-//! and 0423 (answering Q0157). An aircraft that rearms at an Airfield (`crate::aircraft`) flies home on a Return to
-//! Base or a Rebase (`orders::air_base`), lands on one of its Airfield's slots, rearms there, and stays landed until an
-//! order lifts it off.
+//! (M6-GH2) Landing and rearming at an Airfield — plan decision T88; `factions/gdo/structures/airfield.md > Aircraft
+//! Support`, `systems/mechanics/aircraft_landing.md > Vertical` and `systems/mechanics/aircraft_landing.md > Assigned
+//! base`; design changes 0428 (answering Q0162) and 0423 (answering Q0157). An aircraft that rearms at an Airfield
+//! (`crate::aircraft`) flies home on a Return to Base or a Rebase (`orders::air_base`), lands on one of its Airfield's
+//! slots, rearms there, and stays landed until an order lifts it off.
 //!
 //! - **The slots** ([`slots`]): "An Airfield has **4 landing slots**, one per possible assignment, so all of its
 //!   aircraft can be landed at the same time": as many as its capacity (`AirfieldDef::capacity`), at the centres of
-//!   its footprint's quarters (`AirfieldDef::slot_offset_su`; **Placeholder (not in the design: the slots' layout)**,
-//!   plan decision T88's "4 points in the footprint, a placeholder layout"). Who is on which is derived each tick,
-//!   never stored ([`claims`]; T88: "A landing aircraft claims the lowest free pad, derived each tick as E's spot
-//!   claims are"): the aircraft on the Airfield, landing or down, and those taking off over it, each keep the free
-//!   slot nearest it, in id order; then those flying home to it, in id order, each take the lowest free one.
+//!   its footprint's quarters (`AirfieldDef::slot_offset_su`; **Placeholder (Q0189 point 4)**, the designer's:
+//!   `factions/gdo/structures/airfield.md > Aircraft Support`, "a 2x2 grid, one slot near each corner of the
+//!   footprint"). Who is on which is derived each tick, never stored ([`claims`]; T88: "A landing aircraft claims the
+//!   lowest free pad, derived each tick as E's spot claims are"): the aircraft on the Airfield, landing or down, and
+//!   those taking off over it, each keep the free slot nearest it, in id order; then those flying home to it, in id
+//!   order, each take the lowest free one.
 //! - **The landing** (`Sim::step_landings`, right after phase 5a): an aircraft flying home flies on to its slot (over
 //!   the Airfield's centre while none is free), and once it has come to rest over it (T88: "a HoverCraft brakes to a
 //!   stop over its pad"; `tuning::air::Air::landing_reach_su`) it lands there, in its Airfield's
 //!   `AirfieldDef::landing_ticks` ("Landing and take-off: **16 frames (1 s)** each (placeholder)"), and is down. Its
 //!   [`Landing`] is its state (`AircraftState::landing`), from the first frame of its landing to its take-off. It holds
 //!   still meanwhile, its move over, and is out of the air units' separation, neither pushed nor pushing
-//!   (`movement::air`; **Placeholder (not in the design: the separation of an aircraft on its slot)**), so that it
-//!   stays on its slot while others fly in beside it or over it.
+//!   (`movement::air`; `systems/mechanics/aircraft_landing.md > Landed aircraft (every archetype)`: "flying aircraft
+//!   don't push landed ones, nor the reverse"), so that it stays on its slot while others fly in beside it or over
+//!   it.
 //! - **Its domain** (`combat::object_domain`): "**Landed aircraft are ground targets** [...] Air-only weapons
 //!   (TargetDomain Air) can't hit it"; "**During landing and take-off** [...] it is an **air target**: anti-air can hit
 //!   it until it has fully landed, and again from the moment it starts to take off" (design change 0428 point 1): a
@@ -29,25 +31,30 @@
 //!   `AmmoDef::rearm_ticks_per_ammo` ("**RearmTimePerAmmo 32 frames** (5 missiles in 10 s)",
 //!   `factions/gdo/units/hornet.md`), from the frame it comes down, at the speed of its Airfield's owner's Power
 //!   (design change 0423: "Each frame, these timers advance by the speed ratio (generated ÷ consumed, capped at 100%),
-//!   as production does"; `economy::PowerSummary::speed`), as Scan's cooldown does (`crate::cooldown`). "After
-//!   rearming, the aircraft **stays landed** at the Airfield."
+//!   as production does"; `economy::PowerSummary::speed`), as Scan's cooldown does (`crate::cooldown`), whatever its
+//!   order: its flight home is over once it is down (`orders::air_base`). "**After rearming it stays landed**"
+//!   (`systems/mechanics/aircraft_landing.md > Assigned base`).
 //! - **The take-off** ([`take_off`], as an order starts in phase 5a: `orders::world::Unit::take_off`): any order lifts
 //!   it off but its flight home to the Airfield it is on (plan §GH2: "Any order lifts it off, in 16 frames"), and the
 //!   order runs: its landing ends, and it rises for as many frames as it landed in (the rise of an aircraft out of an
 //!   air door, `Mover::rise`, slice M6-SD's, which holds it still and lets it move in its last frame), an air target
 //!   meanwhile. "**An order during rearming**: the aircraft takes off at once **with the ammo rearmed so far**" (design
-//!   change 0428 point 4): the round under way is lost. **Placeholder (not in the design: an order given while an
-//!   aircraft lands)**: it rises again from as low as it has come ([`rise_from`]).
+//!   change 0428 point 4): the round under way is lost. So does an order queued behind its flight home, which starts
+//!   in the tick after it is down (`systems/mechanics/aircraft_landing.md > Assigned base`: "**Shift-queued orders run
+//!   as soon as it has landed**", "taking off with the ammo rearmed so far"). **Placeholder (not in the design: an
+//!   order given while an aircraft lands)**: it rises again from as low as it has come ([`rise_from`]).
 //! - **New aircraft** (`Sim::release_onto_slot`, `ExitRule::Pad`): "appear **landed on a free slot**; they take off for
 //!   the Airfield's rally point, and with no rally point they stay landed" (design change 0428 point 2): the first
-//!   slot that no aircraft takes ([`claims`]), down, its rally point's order lifting it off in its first tick.
+//!   slot that no aircraft takes ([`claims`]), down, its rally point's order lifting it off in its first tick. With
+//!   none free it waits inside, finished (`systems/mechanics/aircraft_landing.md > Assigned base`: "No free spot: the
+//!   finished aircraft waits inside").
 //! - **A destroyed Airfield** (`Sim::remove_objects`): "**Aircraft landed on it are destroyed with it**: they don't
 //!   take off by themselves. Designer's reading: an aircraft still **landing** (not yet down) counts as landed and is
 //!   destroyed; one already **taking off** escapes" (design change 0428 point 3), unassigned as every other of its
 //!   aircraft (`crate::aircraft`).
-//! - **On a slot it holds fire** (`aircraft::may_fire`): **Placeholder (not in the design: whether an aircraft on the
-//!   Airfield fights)**: landing or down, it attacks nothing and threatens no one's scans (`combat::threat`); it fights
-//!   again once it lifts off.
+//! - **On a slot it holds fire** (`aircraft::may_fire`; `systems/mechanics/aircraft_landing.md > Landed aircraft
+//!   (every archetype)`: "**Landed aircraft hold fire**: they fire only in the air"): landing or down, it attacks
+//!   nothing and threatens no one's scans (`combat::threat`); it fights again once it lifts off.
 
 use std::collections::BTreeMap;
 
@@ -243,10 +250,11 @@ pub(crate) fn claims(airfield: &Object, users: &[User]) -> [Option<ObjectId>; LA
     taken
 }
 
-/// The economy phase (module docs): every aircraft down on an Airfield and short of ammo rearms one frame on, at the
-/// speed its Airfield's owner's Power in `power` gives the Airfield (`economy::power::summaries`,
-/// `PowerSummary::speed`), its first round begun in the frame it comes down; a round whose frames are done is in its
-/// ammo, what the frame had left over going on to the next round, until it is full. A full one rearms nothing.
+/// The economy phase (module docs): every aircraft down on an Airfield and short of ammo, idle there or with any order
+/// that leaves it down, rearms one frame on, at the speed its Airfield's owner's Power in `power` gives the Airfield
+/// (`economy::power::summaries`, `PowerSummary::speed`), its first round begun in the frame it comes down; a round
+/// whose frames are done is in its ammo, what the frame had left over going on to the next round, until it is full. A
+/// full one rearms nothing.
 pub(crate) fn rearm(objects: &mut BTreeMap<ObjectId, Object>, power: &BTreeMap<PlayerId, PowerSummary>) {
     let speed = |airfield: &Object| {
         airfield.owner.map_or(RATIO_ONE, |owner| {

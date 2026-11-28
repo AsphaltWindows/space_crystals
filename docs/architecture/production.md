@@ -228,11 +228,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`orders::resolution::Abilities`), and the gate refuses it an Attack or an Attack Ground (`Reject::OutOfAmmo`).
   **The automatic return**: phase 5e hands back those whose last round went (`combat::step`'s `emptied`), and each
   that still has a base gets a Return to Base in place of its orders (`Sim::send_home`, *Tick pipeline*;
-  **placeholder**: the orders queued behind are dropped, as the Specter's), which any order interrupts, the ammo
-  staying at 0. **The Hornet** (a HoverCraft, braking by drag alone: *Movement and collision > Movement models*)
-  fires 5 DoublyDisjointed missiles, one every 32 frames, each landing where its target stood and (slice M6-GH2,
-  design change 0458) bursting there, 45 over 32 su on the ground only (`TargetType::AoE`, `BlastDomain::Attack`:
-  each object in the circle hit by its share, *Combat > Area damage*; it was 30 on the one object covering the
+  **placeholder**, Q0195: the orders queued behind are dropped, as the Specter's), which any order interrupts, the
+  ammo staying at 0; an order Shift-queued behind it starts as it lands, as behind an F (below). **The Hornet** (a
+  HoverCraft, braking by drag alone: *Movement and collision > Movement models*) fires 5 DoublyDisjointed missiles,
+  one every 32 frames, each landing where its target stood and (slice M6-GH2, design change 0458) bursting there,
+  45 over 32 su on the ground only (`TargetType::AoE`, `BlastDomain::Attack`: each object in the circle hit by its
+  share, *Combat > Area damage*; it was 30 on the one object covering the
   spot), and turns in place to aim (no turret). It comes out landed on a free slot (`ExitRule::Pad`, below). Tests:
   `crates/sim/tests/airfield/` (below). **The Dragonfly** (slice M6-GL; `factions/gdo/units/dragonfly.md`, design
   changes 0366, 0435 and 0457) is a Glider with one HeadDisjointed missile, 90 on air only (SingleTarget, 0457), and
@@ -240,23 +241,26 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   GliderMovement), its SeparationRadius 48, pushed at a Glider's third. It lands and takes off vertically (below).
   Tests: `crates/sim/tests/dragonfly/` (below).
 - **Landing and rearming** (slice M6-GH2; `landing.rs`, `sim/landing.rs`, `orders/air_base.rs`; plan decision T88,
-  `factions/gdo/structures/airfield.md > Landing slots`, `factions/gdo/structures/airfield.md > Returning and
-  rearming`, design changes 0428 and 0423):
-  an Airfield has 4 **slots**, the centres of its footprint's quarters (`AirfieldDef::slot_offset_su`; the layout a
-  placeholder), and who is on which is derived every tick, never stored (`landing::claims`): those on it, landing or
-  down, and those rising over it keep the free slot nearest them, in id order; then those flying home to it, in id
-  order, take the lowest free one. A Return to Base or a Rebase flies the aircraft to its slot, where, come to rest
-  (`Air::landing_reach_su`), it **lands** in 16 frames (`AirfieldDef::landing_ticks`), holding still, out of the air
-  units' separation (*Movement and collision*); its `AircraftState::landing` is its state from that frame to its
+  `factions/gdo/structures/airfield.md > Aircraft Support`, `systems/mechanics/aircraft_landing.md > Landed aircraft
+  (every archetype)`, `systems/mechanics/aircraft_landing.md > Vertical`, `systems/mechanics/aircraft_landing.md >
+  Assigned base`, design changes 0428 and 0423):
+  an Airfield has 4 **slots**, the centres of its footprint's quarters (`AirfieldDef::slot_offset_su`; the layout the
+  designer's placeholder, Q0189), and who is on which is derived every tick, never stored (`landing::claims`): those
+  on it, landing or down, and those rising over it keep the free slot nearest them, in id order; then those flying
+  home to it, in id order, take the lowest free one. A Return to Base or a Rebase flies the aircraft to its slot,
+  where, come to rest (`Air::landing_reach_su`), it **lands** in 16 frames (`AirfieldDef::landing_ticks`), holding
+  still, out of the air units' separation (*Movement and collision*); its `AircraftState::landing` is its state from
+  that frame to its
   take-off. Its **domain** is Ground only while it is down (`combat::object_domain`, every reader of a domain asking
   it: the scans, ValidTarget, the blasts, the gate's `CannotHit`, the right-click, the client's too); landing and
   taking off, Air. Down, it **rearms** in the economy phase, a round every RearmTimePerAmmo at its owner's Power's
-  speed (`landing::rearm`), and **stays landed**: its flight home ends once it is down and full
-  (`orders::air_base::run`). **Any other order lifts it off** as it starts (`landing::take_off`, from
+  speed (`landing::rearm`), whatever its order: its flight home ends once it is down (`orders::air_base::run`), so
+  that an order Shift-queued behind it starts then and lifts it off with the ammo rearmed so far; with none it **stays
+  landed**, idle, and rearms. **Any other order lifts it off** as it starts (`landing::take_off`, from
   `orders::world::Unit::take_off`): its landing ends, with the ammo rearmed so far (the round under way lost), and it
   rises for as many frames as it landed in (`Mover::rise`, slice M6-SD's), an air target; an order given while it
   lands rises from as low as it came (`landing::rise_from`, a placeholder). On a slot it holds fire
-  (`aircraft::may_fire`, a placeholder). **A destroyed Airfield** takes the aircraft on it, landing or down, along
+  (`aircraft::may_fire`). **A destroyed Airfield** takes the aircraft on it, landing or down, along
   (`Sim::landed_on`, on the removal path, each with a `Died`); one taking off escapes, unassigned as the others. L1
   checks it (*Movement and collision > Invariants*). (slice M6-GL) **A Glider**, which can't come to rest, flies its
   **landing approach** to its slot instead (`sim/landing.rs`'s `glide_home`, `Mover::approach_to`;

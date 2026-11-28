@@ -127,10 +127,11 @@ impl Sim {
     /// rally point gives, which lifts it off in its first tick (`landing::take_off`). It uses no doorway
     /// (`core/entities.md > Structure Type > Exit Doorway`: "Aircraft [...] are not covered by this rule"). While no
     /// slot is free (an aircraft rebased elsewhere still on one, or one rising from it: `landing::claims`), it stays
-    /// inside, finished, as a unit behind an occupied doorway does (`Sim::release_unit`). It is assigned to the
-    /// Airfield that built it (`factions/gdo/structures/airfield.md > Assignment`: "An aircraft is assigned to the
-    /// Airfield that built it"). A producer with no landing slots (no Airfield) lets it out over its centre, in the
-    /// air. It replaced slice M6-GH1's release over the Airfield's centre (D34).
+    /// inside, finished, as a unit behind an occupied doorway does (`Sim::release_unit`;
+    /// `systems/mechanics/aircraft_landing.md > Assigned base`: "No free spot: the finished aircraft waits inside"). It
+    /// is assigned to the Airfield that built it (`factions/gdo/structures/airfield.md > Assignment`: "An aircraft is
+    /// assigned to the Airfield that built it"). A producer with no landing slots (no Airfield) lets it out over its
+    /// centre, in the air. It replaced slice M6-GH1's release over the Airfield's centre (D34).
     pub(super) fn release_onto_slot(&mut self, producer: ObjectId) {
         let Some(building) = self.objects.get(&producer) else {
             return;

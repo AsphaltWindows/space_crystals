@@ -45,12 +45,7 @@ fn two_of_five_rearm_in_96_ticks_then_it_stays_landed_until_a_move_lifts_it_off(
         [REARM, 2 * REARM, 3 * REARM],
         "a round every 32 ticks, 96 in all"
     );
-    assert_eq!(
-        doing(t.sim(), hornet),
-        Some(OrderKind::ReturnToBase),
-        "its flight home ends once rearmed"
-    );
-    t.step();
+    assert_eq!(doing(t.sim(), hornet), None, "its flight home over since it came down");
     assert!(home(t.sim(), hornet));
     let held = t.pos(hornet);
     t.run(100);
@@ -73,6 +68,78 @@ fn two_of_five_rearm_in_96_ticks_then_it_stays_landed_until_a_move_lifts_it_off(
         sim.object(id(hornet)).unwrap().pos.distance(to) < 2.0
     });
     assert_eq!(ammo(t.sim(), hornet), AMMO, "full");
+}
+
+/// Design change 0466's Verification 1, "Press F, then Shift+Attack Move. The Hornet lands and takes off again at once,
+/// with almost no ammo rearmed" (`systems/mechanics/aircraft_landing.md > Assigned base`: "**Shift-queued orders run as
+/// soon as it has landed**"): with 2 of its 5 missiles, given F and then a Shift-queued Attack Move, it flies home and
+/// lands; its flight ends in the tick after it is down, and the Attack Move lifts it off then, with its 2 missiles, the
+/// round under way lost. It rises for 16 ticks, then flies off on the Attack Move.
+#[test]
+fn f_then_a_queued_attack_move_lands_and_takes_off_again_at_once() {
+    let mut t = field(|builder| builder);
+    let hornet = one_landed(&mut t);
+    next(&mut t, P1, order(&[hornet], OrderKind::AttackGround(SPOT)));
+    until_launched(&mut t, hornet, 3, 300);
+    let to = Vec2::new(864.0, 1300.0);
+    next(&mut t, P1, order(&[hornet], OrderKind::ReturnToBase));
+    next(&mut t, P1, queued(&[hornet], OrderKind::AttackMove(to)));
+    assert_eq!(doing(t.sim(), hornet), Some(OrderKind::ReturnToBase), "home first");
+    let (_, down_at) = until_down(&mut t, hornet, 300);
+    assert_eq!(slot_of(t.pos(hornet)), Some(0));
+    assert_eq!(ammo(t.sim(), hornet), 2);
+    let rearm = landing_of(t.sim(), hornet).and_then(|landing| landing.rearm);
+    assert!(
+        rearm.is_some_and(|round| round.ticks_done() == 1),
+        "a round begun as it came down"
+    );
+    t.step();
+    assert_eq!(t.sim().tick(), down_at + 1);
+    assert_eq!(
+        doing(t.sim(), hornet),
+        Some(OrderKind::AttackMove(to)),
+        "the queued order"
+    );
+    assert_eq!(landing_of(t.sim(), hornet), None, "it takes off at once");
+    assert!(t.mover(hornet).rise.is_some(), "rising");
+    assert_eq!(ammo(t.sim(), hornet), 2, "almost no ammo rearmed: none");
+    let held = t.pos(hornet);
+    t.run(LANDING + 64);
+    let (from, now) = (held.distance(to), t.pos(hornet).distance(to));
+    assert!(
+        now < from - 32.0,
+        "off on the Attack Move: {} su from its end, {from} at its take-off",
+        now
+    );
+    t.run(3 * REARM);
+    assert_eq!(ammo(t.sim(), hornet), 2, "none in the air");
+}
+
+/// Design change 0466's Verification 2, "Press F alone and wait 10 s. It is fully rearmed and stays landed": with 1 of
+/// its 5 missiles, F flies it home; its flight ends as it is down, and idle there it rearms the 4 it lacks, 128 ticks
+/// from the tick it came down, within 10 s (160 ticks), and stays landed, still.
+#[test]
+fn f_alone_rearms_it_fully_within_10_s_and_it_stays_landed() {
+    let mut t = field(|builder| builder);
+    let hornet = one_landed(&mut t);
+    next(&mut t, P1, order(&[hornet], OrderKind::AttackGround(SPOT)));
+    until_launched(&mut t, hornet, 4, 400);
+    next(&mut t, P1, order(&[hornet], OrderKind::ReturnToBase));
+    let (_, down_at) = until_down(&mut t, hornet, 300);
+    assert_eq!(ammo(t.sim(), hornet), 1);
+    t.step();
+    assert_eq!(doing(t.sim(), hornet), None, "its flight over as it came down");
+    assert!(
+        landing_of(t.sim(), hornet).is_some_and(|landing| landing.rearm.is_some()),
+        "rearming, idle"
+    );
+    let held = t.pos(hornet);
+    t.run_until(down_at + 160);
+    assert_eq!(ammo(t.sim(), hornet), AMMO, "fully rearmed within 10 s");
+    assert!(home(t.sim(), hornet), "landed, idle");
+    t.run(100);
+    assert!(home(t.sim(), hornet), "it stays landed");
+    assert_eq!(t.pos(hornet), held);
 }
 
 /// 0428's Verification: "Order a Hornet off 5 s into rearming: it leaves with 2 missiles". Out of ammo, it flies home

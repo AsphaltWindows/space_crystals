@@ -193,8 +193,8 @@ pub struct HpBar {
     /// (M6-ST1) A carrier's places taken and its capacity (`sc_sim::carry`, `Sim::room`): the Subterranean Transport's
     /// passengers of its 4 ("**Capacity 4** infantry",
     /// `factions/syndicate/units/subterranean_transport.md > Placeholder stats`), shown to its owner as pips over its
-    /// bars, one a place (plan §ST1: "the passenger pips"). Placeholder (not in the design: Q0001's art direction, and
-    /// that its owner alone sees them).
+    /// bars, one a place (plan §ST1: "the passenger pips"; `systems/mechanics/carrying.md > Passengers`: "**one pip
+    /// per passenger**, **to its owner only**"). Placeholder (not in the design: Q0001's art direction).
     pub passengers: Option<(u32, u32)>,
 }
 

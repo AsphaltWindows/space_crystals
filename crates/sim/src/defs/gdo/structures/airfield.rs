@@ -45,7 +45,7 @@ pub(crate) const AIRFIELD: ObjectDef = ObjectDef {
         }),
         // (M6-GH1) "**Capacity: each Airfield supports at most 4 aircraft.**" (M6-GH2) "An Airfield has **4 landing
         // slots**, one per possible assignment"; "Landing and take-off: **16 frames (1 s)** each (placeholder)"; the
-        // slots' layout a placeholder (not in the design), the quarters' centres.
+        // slots' layout the designer's placeholder ("a 2x2 grid"), the quarters' centres.
         airfield: Some(AIRFIELD_SUPPORT),
         ..StructureDef::NONE
     }),
@@ -55,7 +55,8 @@ pub(crate) const AIRFIELD: ObjectDef = ObjectDef {
 /// (M6-GH2) Its support of its aircraft (`AirfieldDef`): "**Capacity: each Airfield supports at most 4 aircraft**",
 /// on "**4 landing slots**", landing and taking off in "**16 frames (1 s)** each (placeholder)"
 /// (`factions/gdo/structures/airfield.md > Aircraft Support`, `> Landing slots`, `> Returning and rearming`), the slots
-/// 48 su from its centre along both axes (**Placeholder (not in the design: the slots' layout)**).
+/// 48 su from its centre along both axes (**Placeholder (Q0189 point 4)**, the designer's: "**Slot layout** [...]: a
+/// 2x2 grid, one slot near each corner of the footprint").
 pub(crate) const AIRFIELD_SUPPORT: AirfieldDef = AirfieldDef {
     capacity: 4,
     landing_ticks: 16,

@@ -183,10 +183,10 @@ pub struct AirfieldDef {
     /// (`factions/gdo/structures/airfield.md > Returning and rearming`: "Landing and take-off: **16 frames (1 s)**
     /// each (placeholder)"; `crate::landing`).
     pub landing_ticks: u32,
-    /// (M6-GH2) **Placeholder (not in the design: the slots' layout)** (plan decision T88: "4 points in the
-    /// footprint, a placeholder layout"): the slots are the centres of the footprint's quarters, each this far from
-    /// its centre along both axes, space units (`crate::landing::slots`). 48 su on the 3×3 footprint: a Hornet's 48 ×
-    /// 48 Silhouette inside it on each, 48 su apart from the next.
+    /// (M6-GH2) **Placeholder (Q0189 point 4)**, the designer's (`factions/gdo/structures/airfield.md > Aircraft
+    /// Support`: "a 2x2 grid, one slot near each corner of the footprint"): the slots are the centres of the
+    /// footprint's quarters, each this far from its centre along both axes, space units (`crate::landing::slots`). 48
+    /// su on the 3×3 footprint: a Hornet's 48 × 48 Silhouette inside it on each, 48 su apart from the next.
     pub slot_offset_su: f32,
 }
 

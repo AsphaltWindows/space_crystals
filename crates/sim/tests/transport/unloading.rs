@@ -2,8 +2,10 @@
 //! All** (above ground only; they come out around it)"; `sc_sim::carry`, `orders::unload`): an order, untargeted and
 //! queueable, that brings the Transport to rest and then puts every passenger back on the map round it, on the rings
 //! round its shape, none overlapping it or another (`TestSim`'s no-overlap invariant I1 checks every tick), each idle
-//! and facing as the Transport does. **Placeholder (not in the design: where round it each comes out, and that the
-//! carrier first comes to rest)**. A pocket with too little room for them is `sim/holding/carriers/tests.rs`'s.
+//! and facing as the Transport does (`systems/mechanics/carrying.md > Unloading`: "**On the move, it stops first**";
+//! "the **nearest free spots** around the carrier"; "**Crowded**: passengers with no free spot **stay aboard**"). A
+//! pocket with too little room for them is `sim/holding/carriers/tests.rs`'s, and through the gate
+//! `a_packed_unload_leaves_the_rest_aboard_until_a_move_and_another_f`'s.
 
 use super::*;
 
@@ -65,8 +67,9 @@ fn four_guards_come_out_on_the_nearest_ring_with_no_overlap() {
     assert_eq!(space_used(&t, P1), space);
 }
 
-/// "the carrier first comes to rest": a loaded Transport driving east, given Unload All on its way, brakes, and its
-/// passengers come out only once it is at rest, round where it stopped, short of where it was going.
+/// Design change 0469's Verification 3, "Pressing F while it drives makes it stop, then unload" ("**On the move, it
+/// stops first**"): a loaded Transport driving east, given Unload All on its way, brakes, and its passengers come out
+/// only once it is at rest, round where it stopped, short of where it was going.
 #[test]
 fn a_driving_transport_comes_to_rest_before_it_unloads() {
     let mut t = transport_and_guards(2);
@@ -138,4 +141,79 @@ fn unload_all_is_refused_with_no_one_aboard_and_to_a_unit_that_carries_none() {
         .and_then(|orders| orders.current.as_ref())
         .map(|active| active.order.kind);
     assert_eq!(kind, Some(move_to(400.0, 900.0)), "the Guard keeps its move");
+}
+
+/// A pocket of open ground on tiles (4, 2) to (6, 3), x 256..448 and y 128..256, closed by cliffs but for its way east
+/// on tiles (7, 2) to (8, 3), which player 2's Generator ([`PLUG`]) fills, onto the open ground east of column 8.
+const POCKET: [&str; 8] = [
+    "ccccccccc.......",
+    "ccccccccc.......",
+    "cccc............",
+    "cccc............",
+    "ccccccccc.......",
+    "ccccccccc.......",
+    "ccccccccc.......",
+    "ccccccccc.......",
+];
+/// Player 2's Generator in [`POCKET`]'s way out; player 2 has another in the north-east corner.
+const PLUG: ObjectId = ObjectId(6);
+
+/// Design change 0469's Verification 1, "Unload a full Transport with the ground around it packed. Only those with
+/// room come out; the rest stay and can be unloaded after moving": player 1's Transport, facing east at the east end of
+/// [`POCKET`], with its 4 Guards aboard. Its F lets out the two longest aboard, behind it, where the pocket has room
+/// for them, and the other two stay aboard, the order over. Once the Generator is gone, it drives out onto the open
+/// ground, and its next F lets the other two out round it.
+#[test]
+fn a_packed_unload_leaves_the_rest_aboard_until_a_move_and_another_f() {
+    let mut scenario = ScenarioBuilder::new(&POCKET.join("\n"))
+        .faction(P1, Faction::Syndicate)
+        .faction(P2, Faction::Gdo)
+        .spawn(TRANSPORT, Some(P1), point(410.0, 192.0));
+    for (x, y) in [(280.0, 150.0), (280.0, 234.0), (330.0, 150.0), (330.0, 234.0)] {
+        scenario = scenario.spawn(GUARD, Some(P1), point(x, y));
+    }
+    let scenario = (scenario.spawn(ObjectKind::Generator, Some(P2), tile(7, 2))).spawn(
+        ObjectKind::Generator,
+        Some(P2),
+        tile(14, 0),
+    );
+    let mut t = started(scenario);
+    let transport = id(1);
+    let guards = [id(2), id(3), id(4), id(5)];
+    board(&mut t, &guards, transport);
+    let first = aboard(&t, transport);
+    assert_eq!(first.len(), CAPACITY, "full");
+
+    let f = t.sim().tick() + 1;
+    t.at(f, P1, order(&[transport], OrderKind::UnloadAll));
+    step_until(&mut t, 60, "it unloads", |t| !unloaded(t, transport).is_empty());
+    let out: Vec<ObjectId> = unloaded(&t, transport).iter().map(|&(_, unit)| unit).collect();
+    assert_eq!(out, first[..2], "the two longest aboard, where there is room");
+    for &guard in &out {
+        assert!(in_frame(&t, transport, guard).x < 0.0, "{guard:?} behind it");
+    }
+    t.run(32);
+    assert_eq!(aboard(&t, transport), first[2..], "no free spot: aboard still");
+    assert!(is_idle(&t, transport), "the order over");
+
+    let now = t.sim().tick();
+    t.debug_at(now + 1, DebugCommand::Remove { id: PLUG });
+    let goal = Vec2::new(800.0, 192.0);
+    t.at(now + 2, P1, order(&[transport], move_to(goal.x, goal.y)));
+    step_until(&mut t, 400, "out on the open ground", |t| {
+        object(t, transport).pos.distance(goal) < 2.0 && is_idle(t, transport)
+    });
+    assert_eq!(aboard(&t, transport), first[2..], "aboard on the way");
+    let again = t.sim().tick() + 1;
+    t.at(again, P1, order(&[transport], OrderKind::UnloadAll));
+    step_until(&mut t, 60, "the rest unload", |t| aboard(t, transport).is_empty());
+    let rest: Vec<ObjectId> = (unloaded(&t, transport).iter())
+        .filter(|&&(tick, _)| tick >= again)
+        .map(|&(_, unit)| unit)
+        .collect();
+    assert_eq!(rest, first[2..], "the other two, after the move");
+    for &guard in &rest {
+        let p = in_frame(&t, transport, guard);
+        assert!(p.length() < 100.0, "{guard:?} round it: {p}");
+    }
 }

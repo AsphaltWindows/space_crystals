@@ -24,8 +24,9 @@
 //! (M6-GH2) An aircraft on an Airfield's slot, landing or down (`crate::landing::at`), is out of the separation: it is
 //! neither pushed nor pushes, its slot holding it (plan decision T88: "Descend, 16 frames" over its pad; down, it is a
 //! ground unit, design change 0428: "**Landed aircraft are ground targets**"), so that one flying in to land beside it,
-//! or passing over the Airfield, leaves it where it landed. **Placeholder (not in the design: the separation of an
-//! aircraft on its slot)**. One taking off is an air unit again, separated as any.
+//! or passing over the Airfield, leaves it where it landed (`systems/mechanics/aircraft_landing.md > Landed aircraft
+//! (every archetype)`: "**Out of the air separation** while landed"). One taking off is an air unit again, separated as
+//! any.
 
 use std::collections::BTreeMap;
 

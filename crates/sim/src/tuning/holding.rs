@@ -21,7 +21,9 @@ tunables! {
     /// the Proximity (`Orders::proximity_su`, 8 su), within which a unit boards.
     unload_gap_su: f32 = 8.0 / 2.0,
     /// (M6-ST1) How many rings of spots round its carrier a passenger an Unload All puts on the map is tried at, the
-    /// nearest first (`carry::ring_spots`): one for whom none has a free spot stays aboard. Placeholder (not in the
-    /// design: where round the carrier the passengers come out, and what if they can't).
+    /// nearest first (`carry::ring_spots`): one for whom none has a free spot stays aboard
+    /// (`systems/mechanics/carrying.md > Unloading`: "the **nearest free spots** around the carrier"; "passengers with
+    /// no free spot **stay aboard**"). Placeholder (not in the design: how far round the carrier a free spot is
+    /// sought).
     unload_rings: u32 = 3,
 }

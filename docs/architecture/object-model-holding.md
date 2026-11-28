@@ -422,11 +422,12 @@ Read this when you work on units off the map (the held store), sites, buildings 
   puts every passenger out (`Sim::unload`): the `i`th of `n` at the first free spot of the rings round the carrier's
   shape (`carry::ring_spots`: rectangles `Holding::unload_gap_su` (4 su) clear of the shape and of each other, spots
   on the corners and along the sides, `Holding::unload_rings` (3) of them), walking round the nearest ring from its
-  share of it; four Guards come out on the first ring's corners. A passenger with no free spot stays aboard
-  (Placeholder). **Death**: the removal path takes a carrier's passengers along (`Sim::passengers_of`): on the map
-  each dies with a `SimEvent::Died` where the carrier was (`Sim::passengers_die`), held (stranded, a defeat) each is
-  removed with it (`Sim::remove_held`). **No firing out** (0432 point 1): a held unit fires nothing; only a building's
-  occupants fire from inside (`combat::occupants`). **Hashed and saved** as the store is: `Place::Carrier` is the
+  share of it; four Guards come out on the first ring's corners. A passenger with no free spot stays aboard, for
+  the next F (`systems/mechanics/carrying.md > Unloading`). **Death**: the removal path takes a carrier's passengers
+  along (`Sim::passengers_of`): on the map each dies with a `SimEvent::Died` where the carrier was
+  (`Sim::passengers_die`), held (stranded, a defeat) each is removed with it (`Sim::remove_held`). **No firing
+  out** (0432 point 1): a held unit fires nothing; only a building's occupants fire from inside
+  (`combat::occupants`). **Hashed and saved** as the store is: `Place::Carrier` is the
   Place's tag 3, `OrderKind::UnloadAll` the order's tag 25, so no state from before moved; invariant U1
   (*Movement and collision > Invariants*). The client: the Transport's panel (Q Move, R Burrow or Surface held for
   slice M6-ST2, F Unload All, X Stop; `templates/syndicate/transport.rs`), the Vehicle Assembly's R live, and the

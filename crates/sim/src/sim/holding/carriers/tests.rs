@@ -1,7 +1,7 @@
 //! The unload's spots where a test needs the sim's inside (`Sim::unload`, `crate::carry`, *Unload All*): in a pocket of
 //! cliffs, the passengers come out on the rings that have room for them, and one for whom no ring has a free spot stays
-//! aboard (**Placeholder (not in the design: a passenger with no free spot)**). The rings in the open are
-//! `tests/transport/unloading.rs`'s, through the gate.
+//! aboard (`systems/mechanics/carrying.md > Unloading`: "**Crowded**: passengers with no free spot **stay aboard**").
+//! The rings in the open are `tests/transport/unloading.rs`'s, through the gate.
 
 use glam::Vec2;
 

@@ -37,9 +37,10 @@
 //!   (`Sim::check_unit_fits`: clear of blocked tiles, of footprints and of the units of its layer, those that came out
 //!   before it included), so none overlaps another. Idle, as an evacuated unit is
 //!   (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Afterwards evacuated units
-//!   **idle**"), with a `SimEvent::Unloaded`. **Placeholder (not in the design: where round it each comes out, that
-//!   the carrier first comes to rest, and a passenger with no free spot)**: the rings `Holding::unload_gap_su` apart,
-//!   `Holding::unload_rings` of them, and a passenger for whom none of them has a spot stays aboard.
+//!   **idle**"), with a `SimEvent::Unloaded`. `systems/mechanics/carrying.md > Unloading`: "**On the move, it stops
+//!   first**"; "Passengers come out on the **nearest free spots** around the carrier"; "**Crowded**: passengers with no
+//!   free spot **stay aboard**": the rings `Holding::unload_gap_su` apart, `Holding::unload_rings` of them, the
+//!   nearest first, and a passenger for whom none of them has a spot stays aboard, for the next Unload All.
 //! - **Death** (`factions/syndicate/units/subterranean_transport.md > Destroyed with passengers`: "If it is destroyed,
 //!   **all infantry inside die** with it (above ground or underground)"): the removal path takes a carrier's passengers
 //!   along, those of a passenger that carries too, each with a `SimEvent::Died` where the carrier died

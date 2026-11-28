@@ -127,10 +127,37 @@ fn f_from_anywhere_flies_it_home_to_land_and_rearm_and_so_does_a_right_click() {
     assert_eq!(t.pos(7), at);
 }
 
-/// (M6-GH2) Out of the air units' separation (`movement::air`: **Placeholder (not in the design: the separation of an
-/// aircraft on its slot)**): a Hornet down on [`A`]'s first slot stays on it, still, while another flies straight over
-/// it, 10 su off its centre, well within their SeparationRadius of 56 su; and the one flying over isn't pushed off its
-/// line by it either.
+/// Design change 0466's Verification 3, "Right-click a different own Airfield that has room. The aircraft is reassigned
+/// and lands there" (`systems/mechanics/aircraft_landing.md > Assigned base`: "**Reassigning**"): a Hornet landed on
+/// [`A`] takes off on its right-click on player 1's other Airfield (5), a Rebase, which assigns it there as it is
+/// given; it flies there and lands on that Airfield's first slot, its north-west quarter's centre, home.
+#[test]
+fn a_right_click_on_another_own_airfield_reassigns_it_and_it_lands_there() {
+    let mut t = field(|builder| builder);
+    let [hornet] = landed_hornets(&mut t, 7, &[Vec2::new(864.0, 760.0)], A)[..] else {
+        panic!("one Hornet");
+    };
+    let other = 5;
+    let click = right_click(t.sim(), &[hornet], Target::Object(id(other)));
+    assert_eq!(click, order(&[hornet], OrderKind::Rebase(id(other))));
+    next(&mut t, P1, click);
+    assert_eq!(base(t.sim(), hornet), Some(other), "reassigned");
+    assert_eq!(landing_of(t.sim(), hornet), None, "it takes off");
+    until_down(&mut t, hornet, 400);
+    assert_eq!(landing_of(t.sim(), hornet).map(|landing| landing.at), Some(id(other)));
+    let first_slot = Vec2::new(864.0 - 48.0, 864.0 - 48.0);
+    assert!(
+        t.pos(hornet).distance(first_slot) <= ON_SLOT,
+        "on its first slot: {}",
+        t.pos(hornet)
+    );
+    step_until(&mut t, 2, "home there", |sim| home(sim, hornet));
+}
+
+/// (M6-GH2) Out of the air units' separation (`movement::air`; `systems/mechanics/aircraft_landing.md > Landed aircraft
+/// (every archetype)`: "**Out of the air separation** while landed", design change 0465's Verification 4): a Hornet
+/// down on [`A`]'s first slot stays on it, still, while another flies straight over it, 10 su off its centre, well
+/// within their SeparationRadius of 56 su; and the one flying over isn't pushed off its line by it either.
 #[test]
 fn a_hornet_down_on_its_slot_stays_there_while_another_flies_over_it() {
     let mut t = field(|builder| builder);
