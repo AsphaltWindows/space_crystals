@@ -494,3 +494,72 @@ fn in_a_corridor_the_units_behind_give_up_their_chase_once() {
         "the next one walks up and fires"
     );
 }
+
+/// 12 × 9 tiles, as `combat_range.rs`'s RAMP: level 0 up to x = 448 su, tile column 7 ramping up to level 1 at
+/// exactly x = 512, level 1 east of it.
+const LEDGE: &str = "
+    ............
+    ............
+    ............
+    ............
+    ............
+    ............
+    ............
+    ............
+    ............
+
+    0000000011111
+    0000000011111
+    0000000011111
+    0000000011111
+    0000000011111
+    0000000011111
+    0000000011111
+    0000000011111
+    0000000011111
+    0000000011111
+";
+
+/// "An enemy out of weapon range is taken only if the path to a firing position [...] keeps the target within the
+/// unit's SightRange", with the ElevationModifier where the unit would stand (`core/vision.md > ElevationModifier`).
+/// A Peacekeeper (24 × 24 su, SightRange 5, Range 4) on level 1 attack-moves south-west, down off the ledge at
+/// x = 512, past an unarmed Drone (36 × 36 su) on level 0 diagonally ahead: from higher ground the Drone is within
+/// its SightRange (6 grid units from its centre) and out of its Range (5 from its edge). Its path comes to a firing
+/// position 8 su before it steps down to level 0, where the Drone is beyond its SightRange (5). The path keeps the
+/// Drone in sight up to the firing position, so the Peacekeeper takes it at once, and fires from level 1. From each
+/// of 16 starts a space unit apart along the diagonal, so that the firing position falls anywhere between two of the
+/// points a walk in steps of a quarter tile would test.
+#[test]
+fn a_firing_position_just_before_a_step_down_to_lower_ground_is_found() {
+    let (sight, range) = (6.0 * 64.0, 5.0 * 64.0); // from level 1 down to level 0
+    let corners = 12.0 * std::f32::consts::SQRT_2; // centre to edge, less edge to edge, along the diagonal
+    let mut missed = Vec::new();
+    for start in 0..16 {
+        let edge = sight - 24.0 + start as f32; // from the Peacekeeper's centre to the Drone's edge
+        let to_fire = edge - corners - range; // along the diagonal to the firing position
+        let at = v(512.0 + (to_fire + 8.0) / std::f32::consts::SQRT_2, 96.0);
+        let drone = at + v(-1.0, 1.0) * (edge / std::f32::consts::SQRT_2 + 18.0);
+        let mut t = ScenarioBuilder::new(LEDGE)
+            .spawn(ObjectKind::Peacekeeper, Some(P1), SpawnAt::Point(at)) // 1
+            .spawn(DRONE, Some(P2), SpawnAt::Point(drone)) // 2
+            .start();
+        assert_eq!(t.sim().map().elevation_level(at), 1);
+        assert_eq!(t.sim().map().elevation_level(drone), 0);
+        let to = at + v(-1.0, 1.0) * (at.x - 96.0); // on along the diagonal, to x = 96
+        t.order_at(2, P1, &[id(1)], OrderKind::AttackMove(to), false)
+            .run_until(2);
+        assert!(gap(&t, 1, 2) > range, "start {start}: out of range");
+        t.run_until(4);
+        if engaged(&t, 1) != Some(id(2)) || rejection(&t, 1, 2).is_some() {
+            missed.push(start);
+            continue;
+        }
+        walk(&mut t, 40, |t| !attack_ticks(t, 1).is_empty());
+        assert_eq!(
+            t.sim().map().elevation_level(pos(&t, 1)),
+            1,
+            "start {start}: fires from level 1"
+        );
+    }
+    assert_eq!(missed, [] as [u32; 0], "the starts from which it passes the Drone over");
+}

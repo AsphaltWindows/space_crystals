@@ -11,7 +11,9 @@
 //!   PathReference and have the target within the unit's SightRange, measured as the scan measures it (from the
 //!   unit's centre where it would stand to the target's edge, `World::in_sight_range`). A path that ends short of any
 //!   firing position (the target on a cliff, across water) is a chase the unit can't finish either, and so is one
-//!   too long to keep the target in sight ([`JUDGE_PATH_SIGHTS`], which bounds the search).
+//!   too long to keep the target in sight ([`JUDGE_PATH_SIGHTS`], which bounds the search). The step before a point
+//!   out of reach is walked again in steps of [`REFINE_SU`], so that a firing position narrower than a step (at the
+//!   edge of higher ground) isn't passed over.
 //! - **No memory** (0230: "the same enemy, or an identical one swapped in unseen, must get the same response"). A
 //!   rejection is kept ([`Judged`], `Leg::rejected`) only to save judging again, and only while nothing the judgement
 //!   depends on has changed (the Director's decision under 0230's "the exact triggers and caching are the Director's
@@ -68,6 +70,11 @@ pub const SAME_ROUTE_SU: f32 = SU_PER_GU / 2.0;
 
 /// The step in which a judged path is walked, space units. Technical: a quarter of a tile.
 const SAMPLE_SU: f32 = SU_PER_GU / 4.0;
+
+/// The step in which [`finishes`] walks again the last step before a point out of reach, space units, where a firing
+/// position narrower than [`SAMPLE_SU`] may lie (the edge of higher ground, where the ElevationModifier ends).
+/// Technical: one space unit.
+const REFINE_SU: f32 = 1.0;
 
 /// The work of the reach rule in the latest phase 5a: output for tests and timings, never state.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -280,6 +287,20 @@ fn finishes(unit: &Unit, attrs: &AttackAttrs, reference: &[Vec2], target: &View,
         let gap = Shape::silhouette(unit.kind, p, unit.facing).gap(&target.shape);
         Some(within_range(attrs, gap, source, target.elevation))
     };
+    // Whether a firing position lies between `from`, walked, and `to`, out of reach, in steps of [`REFINE_SU`]: a step
+    // of [`SAMPLE_SU`] can pass over one, as off the edge of higher ground, where the unit's SightRange shrinks by the
+    // ElevationModifier just beyond the last point its Range, grown by it, reaches the target from.
+    let refine = |from: Vec2, to: Vec2| {
+        let steps = (from.distance(to) / REFINE_SU).ceil().max(1.0) as u32;
+        for i in 1..steps {
+            match at(from.lerp(to, i as f32 / steps as f32)) {
+                Some(true) => return true,
+                Some(false) => {}
+                None => return false,
+            }
+        }
+        false
+    };
     let Some(&start) = path.first() else {
         return false;
     };
@@ -288,14 +309,16 @@ fn finishes(unit: &Unit, attrs: &AttackAttrs, reference: &[Vec2], target: &View,
         Some(false) => {}
         None => return false,
     }
+    let mut walked = start;
     for leg in path.windows(2) {
         let (a, b) = (leg[0], leg[1]);
         let steps = (a.distance(b) / SAMPLE_SU).ceil().max(1.0);
         for i in 1..=steps as u32 {
-            match at(a.lerp(b, i as f32 / steps)) {
+            let p = a.lerp(b, i as f32 / steps);
+            match at(p) {
                 Some(true) => return true,
-                Some(false) => {}
-                None => return false,
+                Some(false) => walked = p,
+                None => return refine(walked, p),
             }
         }
     }
