@@ -385,3 +385,73 @@ fn tab_stops_once_on_the_recruits() {
     let attack = PanelButton::Command(PanelCommand::Attack);
     assert_eq!(shown(&mut app, a()), Some((a(), attack, ButtonLook::Common, "Attack")));
 }
+
+/// `systems/mechanics/gathering.md > Job rules` (Who sees the load): the model's load marker shows to anyone who sees
+/// the unit, while the amount, the InfoPanel's "Carrying" line, is the owner's alone. A Recruit with a load stands by
+/// a Militant of the other player. Its owner, selecting it, sees "Carrying 2 Space Crystals"; the opponent, who sees
+/// it and selects it alone (an enemy), sees the marker and no "Carrying" line.
+#[test]
+fn an_opponent_sees_a_recruits_load_marker_but_not_the_amount() {
+    for (owner, other) in [(P1, P2), (P2, P1)] {
+        let tile = SpawnAt::Tile;
+        let builder = ScenarioBuilder::new(&vec![".".repeat(64); 48].join("\n"))
+            .faction(P1, Faction::Cults)
+            .faction(P2, Faction::Cults)
+            .spawn(STORAGE_KIND, Some(owner), tile(STORAGE_AT))
+            .spawn(ObjectKind::CrystalPatch, None, tile(PATCH_AT))
+            .spawn(RECRUIT, Some(owner), SpawnAt::Point(Vec2::new(900.0, 1000.0)))
+            .spawn(
+                ObjectKind::Militant,
+                Some(other),
+                SpawnAt::Point(Vec2::new(1060.0, 1100.0)),
+            );
+        let mut app = game_of(builder.build());
+        let order = |kind| Command::Order {
+            units: vec![ObjectId(3)],
+            kind,
+            queue: false,
+        };
+        submit(&mut app, owner, order(OrderKind::Gather(ObjectId(2))));
+        for _ in 0..600 {
+            if carried(&app, 3).is_some() {
+                break;
+            }
+            app.update();
+        }
+        assert!(carried(&app, 3).is_some(), "the Recruit carries a load");
+        submit(
+            &mut app,
+            owner,
+            order(OrderKind::Move(Target::Point(Vec2::new(1000.0, 1000.0)))),
+        );
+        for _ in 0..150 {
+            app.update();
+        }
+        let sim = app.world().resource::<SimRes>();
+        assert!(sim.is_visible(P1, sim.object(ObjectId(3)).unwrap()), "player 1 sees it");
+        let at = pos(&app, 3);
+        click(&mut app, at, &[]);
+        assert_eq!(selected(&app), [3], "clicked at {at}");
+        assert_eq!(
+            markers_shown(&mut app, 3),
+            [(Resource::Crystals, true)],
+            "the marker shows"
+        );
+        let panel = info_body(&mut app).expect("a panel");
+        assert_eq!(
+            panel.contains("Carrying 2 Space Crystals"),
+            owner == P1,
+            "owner {owner:?}: {panel}"
+        );
+        assert_eq!(panel.contains("Carrying"), owner == P1, "{panel}");
+    }
+}
+
+/// The text of the InfoPanel's body, when it shows.
+fn info_body(app: &mut App) -> Option<String> {
+    use space_crystals::hud::info_panel::InfoText;
+    let mut texts = app.world_mut().query::<(&InfoText, &Text, &Node)>();
+    (texts.iter(app.world()))
+        .find(|(which, _, node)| **which == InfoText::Body && node.display != Display::None)
+        .map(|(_, text, _)| text.0.clone())
+}

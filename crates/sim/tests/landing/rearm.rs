@@ -215,3 +215,46 @@ fn at_59_percent_power_a_full_rearm_takes_about_17_s() {
     let ticks = t.sim().tick() - down_at + 1;
     assert_eq!(ticks, 272, "about 17 s, for 5 × 32 = 160 frames at full Power");
 }
+
+/// Design change 0488: "the automatic return **drops the queued orders**". A Hornet given an Attack Move and a
+/// Shift-queued Move to B, which runs dry on the way (`systems/mechanics/aircraft_landing.md > Assigned base`), flies
+/// home by itself, rearms fully and stays landed: it never flies to B.
+#[test]
+fn the_automatic_return_drops_the_queued_orders() {
+    let mut t = field(|builder| {
+        (0..8).fold(builder, |builder, x| {
+            builder.spawn(ObjectKind::Peacekeeper, Some(P2), at(780.0 + 40.0 * x as f32, 1100.0))
+        })
+    });
+    let hornet = landed_hornets(&mut t, 15, &[Vec2::new(864.0, 760.0)], A)[0];
+    debug(&mut t, DebugCommand::SetAutoTargeting { on: true });
+    let ahead = Vec2::new(864.0, 1240.0);
+    let b = Vec2::new(200.0, 1300.0);
+    next(&mut t, P1, order(&[hornet], OrderKind::AttackMove(ahead)));
+    next(&mut t, P1, queued(&[hornet], OrderKind::Move(Target::Point(b))));
+    let mut returned = false;
+    for _ in 0..1500 {
+        t.step();
+        returned |= doing(t.sim(), hornet) == Some(OrderKind::ReturnToBase);
+        assert_ne!(
+            doing(t.sim(), hornet),
+            Some(OrderKind::Move(Target::Point(b))),
+            "never to B: tick {}, ammo {}, returned {returned}",
+            t.sim().tick(),
+            ammo(t.sim(), hornet)
+        );
+        if returned && home(t.sim(), hornet) && ammo(t.sim(), hornet) == AMMO {
+            break;
+        }
+    }
+    assert!(returned, "it flew home by itself");
+    assert_eq!(ammo(t.sim(), hornet), AMMO, "fully rearmed");
+    let held = t.pos(hornet);
+    t.run(200);
+    assert!(home(t.sim(), hornet), "it stays landed");
+    assert_eq!(
+        (t.pos(hornet), doing(t.sim(), hornet)),
+        (held, None),
+        "idle: the queue is gone"
+    );
+}

@@ -21,6 +21,7 @@ mod rules;
 mod storages;
 mod trips;
 
+use sc_sim::Sim;
 use sc_sim::orders::state::{Behaviour, GatherPhase};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
