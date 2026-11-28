@@ -14,7 +14,9 @@ Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea9
   - **Amplify:** `Command::Ability(Ability::Amplify)`. It isn't queueable and keeps the orders. The gate refuses it to a unit without a surge (`Reject::LacksAbility`). The mark is `Object::amplified`, cleared by the next surge.
   - **A surge's hit** lands in `combat/phases.rs` `end()` (Firing, then `effects::fire` and `Shooter::spend_surge`). Its charge is spent in `combat/step.rs` (`surge::spend`).
   - **Left for you:** the scenario tests, the surge consistency check and the docs (Goal 6 and the Tests).
-- **SLb** fixed the deploy model's queued switch. Its handoff: FILLED IN AT LAUNCH.
+- **SLb** (`511f1cb6`) fixed the deploy model's queued switch. From its handoff:
+  - **Where:** a Shift-queued order is judged against the type the unit will be (`vehicle_deploy::kind_then` and `can_take_queued`, in `crates/sim/src/vehicle_deploy.rs`), from `Sim::takers` and `Sim::check_order` (`sim/gate/orders.rs`). When a switch completes, the queue is checked up to the next switch it keeps (`sim/vehicle_deploy.rs`).
+  - **To test again on the Battery's pair:** a Shift-Move behind a queued Undeploy is accepted and runs; a second Shift-Deploy behind a queued Deploy is refused; a Shift-Attack behind a queued Deploy is judged by the deployed type's weapon, so the deployed def must carry the attack.
 
 ## The design
 - `factions/syndicate/units/laser_battery.md`, all but `> Relay` (slice SR's). Its numbers are in the **Placeholder stats** paragraph at the end.
