@@ -42,4 +42,4 @@ Consequence: one patch yields at most 8 crystals per 32 frames (4 Space Crystals
 A structure placed on a resource that extracts it by itself at a rate (e.g. GDO Extraction Plates; factions/gdo/economy.md). Its last load of a patch is partial (as a worker's, above).
 
 ## Used by (index only)
-Worker round trip: Colonists Drone (all job rules; one Drone per patch; pass-through; assigned drop-off), Syndicate Agent (job rules except patch occupancy and Set Drop-off; shared patches; nearest Tunnel hatch), Cults Recruit (shared patches; normal collision; nearest Storage; **whether the job rules apply to Recruits is not stated in its doc: open**). Stationary extractor: GDO Extraction Plate.
+Worker round trip: Colonists Drone (all job rules; one Drone per patch; pass-through; assigned drop-off), Syndicate Agent (job rules except patch occupancy and Set Drop-off; shared patches; nearest Tunnel hatch), Cults Recruit (shared patches; normal collision; nearest Storage; all job rules (user, 2026-11-28)). Stationary extractor: GDO Extraction Plate.

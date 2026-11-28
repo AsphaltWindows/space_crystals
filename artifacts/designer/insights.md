@@ -30,7 +30,6 @@
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
-- **Audit finds (2026-11-28, to raise with user)**: do the gathering job rules (interrupted mining collects nothing, other orders keep the load, etc.) apply to Cults Recruits? (0482)
 - **Cults heavy vehicle IN PROGRESS (2026-11-28)**: "Garrison on treads": tracked, Chop Shop; no gun of its own (only occupants fire, as Garrison); occupants protected; on destruction they come out alive. Open: capacity, fire on the move, Garrison rules carried over (Recruits as Militants, +1 range, Disciples no fire), stats, name. Not yet written to docs.
 - **Notification system** (pinned by the user, 2026-11-27): only the off-screen damage alert exists (hud.md > Alerts). Waiting on it: exit stays blocked (Q0177, user wants it), production waiting for capacity, refinery input full, Agents' empty station. Open: form (ping colour, text line?), trigger delay, throttle, Space jump.
 - **Real in-game menu / game creation screen**: the F10 playtest menu (0414) and command-line flags (computer players, starting exploration 0416) are temporary.
