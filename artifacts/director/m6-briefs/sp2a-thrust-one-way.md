@@ -9,6 +9,9 @@ Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea9
 
 The Prism's def already carries `one_way`, `unfold_ticks` and `thrust: Option<ThrustDef>` (3 charges, 3 GU, 16 ticks), but nothing reads `one_way` or `thrust` yet.
 
+## The architecture
+The core, then the HoverCraft paragraphs of `docs/architecture/movement-and-collision.md` and the Tunnel Network's in `docs/architecture/object-model-holding.md`. Find them with `grep -n -i 'hovercraft\|clamp' ...` and `grep -n -i 'network\|transit' ...`.
+
 ## The design
 - `factions/syndicate/units/prism.md`: `> One way only`, `> Movement` (the thrust charges), and its placeholder stats.
 - The change entry `artifacts/designer/changes/0434-*.md` (Q0168): Thrust is targeted and queues with Shift.

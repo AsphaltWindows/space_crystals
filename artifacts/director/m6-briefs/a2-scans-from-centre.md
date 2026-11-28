@@ -2,6 +2,9 @@
 
 Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, and your budget is 150 tool calls.**
 
+## The architecture
+The core, then the paragraphs on sight in `docs/architecture/vision.md` and those on target scans in `docs/architecture/behaviours.md` and `docs/architecture/combat.md`. Find them with `grep -n -i 'scan\|within\|sight' <file>`.
+
 ## The design
 - `systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`: target scans measure SightRange from the unit's centre, as vision does, so that a unit's scan and its own eyesight always agree. This applies to every target scan: idle, HoldPosition, AttackMove and Patrol.
 - `core/vision.md`, the intro: vision is a disc of radius SightRange around the object's centre.
