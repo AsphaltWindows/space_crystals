@@ -44,6 +44,7 @@ Follow `m6-plan.md > GM`'s Code list. Since the plan:
 - **The mine as a deployed unit (0426 part 1):** an object its owner selects and sees in the InfoPanel, with no commands. It isn't a structure for the Defeat Condition (`Sim`'s defeat check), and it takes no Unit Control.
   - Decide how it fits the selection code (its own selection group, Groupable true) and say so in your report.
 - **The trigger (0426 part 2):** every enemy ground unit except the hover bases. Read it by base, not by kind, so a later hover unit needs nothing.
+  - "Ground" is the kind's Domain through M6-ST1's accessor (`UnitDef::domain()`, which `combat::kind_domain` reads), never the base's field: a surfaced Subterranean Transport triggers a mine, a burrowed one doesn't. Not `combat::object_domain`: a landed aircraft is neither infantry nor a vehicle, so it never sets one off.
 - **The blast** goes through `combat/area.rs` (read-only): ground and underground objects in the radius, air never, friendly fire on.
 - **Hiding:** the mine's arm in `vision/hidden.rs`. The enemy's vision never shows or records it. Its owner sees it.
 - **New `Object` state,** if any (a mine's fuse, say): hash and save it only while present, under **Object tag 19** (the numbers below it are taken, unused or promised (`artifacts/director/hash-tags.md`)).

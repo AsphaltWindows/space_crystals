@@ -1,5 +1,5 @@
 """Fill an M6 brief's 'Running beside you' and 'Landed since' at launch.
-Args: target (SP|SL|GM|GP|GB|S6b), brief path, perf hash, running list (comma-separated, e.g. S6a,GH2,SB).
+Args: target (SP|SL|GM|GP|GB|S6b|SC|ST1|GL|GS1), brief path, perf hash, running list (comma-separated, e.g. S6a,GH2,SB).
 Add a merged slice to MERGED (and drop it from the running list) before using this after a merge."""
 import sys
 target, path, perf = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -21,6 +21,7 @@ RUN = {
  "GB": "**M6-GB, the Field Engineer's Bunker and First Aid Tent:** a third `BuilderGoes` arm, `WorkerDef::crystals` as an `Option`, and the Tent's heal.",
  "ST1": "**M6-ST1, the Subterranean Transport above ground:** the carrier (`UnitDef::carries`, `Place::Carrier`), boarding and Unload All, and `UnitDef::domain` in `combat::kind_domain`.",
  "GL": "**M6-GL, Propulsion Labs and the Dragonfly:** the glider's vertical landing on GH2's slots.",
+ "SC": "**M6-SC, the Shadebringer's Cover:** smoke in `Sim::patches` (Sim tag 4), the game's first sight blocker, in vision and the Scan.",
  "GS1": "**M6-GS1, the supply loop:** the Supply Tower, the Chopper's supply runs and schedule, and the GDO's starting Supply of 1 (0436), which moves every GDO golden.",
  "S6b": "**M6-S6b, an answer sweep:** Metabolism and Inspire as percentages, and one rule for attack-speed frames (0455); the air units' SeparationRadius (0456, 0457); ejected vehicles driving to a stop point (0459: the vehicle arm of `sim/network/ejects.rs`, and GF's `park.rs`); the Shroud cloud's soft edge in the client.",
 }
@@ -28,6 +29,8 @@ EXTRA = {
  ("SP", "GH2"): " Your launch is a rise at the air doors, not a landing: nothing of GH2's.",
  ("SP", "SB"): " Your `NoTransit::OneWay` and the air lane are SD's network code beside SB's services: keep to your arm.",
  ("SP", "SL"): " SR needs both of you: your notes on the Prism go in your report.",
+ ("SP", "SC"): " Its smoke reads your `UnitDef::satellite` (satellites see through it). If it adds the same field before you merge, whoever merges later keeps one.",
+ ("SC", "SP"): " It adds `UnitDef::satellite` (false for every unit but the Prism), which your smoke reads. If you need it before SP merges, add the same field under the same name, false for every unit, with a test; whoever merges later keeps one, and SP sets it on the Prism.",
  ("SL", "S6a"): " The Battery is tracked, so it crushes, by 0453's trigger if S6a merges first. A mobile Battery with a target outside its 30° turret repositions by 0454 once S6a merges: write your tests so that they don't depend on which merges first.",
  ("SL", "GH2"): " A landed aircraft is a Ground target, so a deployed Battery (air only) can't hit a landed Hornet, and a mobile one (ground only) can.",
  ("SL", "SP"): " SR needs both of you: your notes on the deployed Battery go in your report.",
@@ -55,6 +58,7 @@ OWN = {
  "SL": ["**GA's notes for you:** a `vehicle_deploy` row on each kind of the pair is enough, and `templates.rs` gives R to any type with a row. `defs/tests.rs` asserts every deploy is a two-way pair within one faction: yours is.",
         "**Your tags in the other namespaces** (`artifacts/director/hash-tags.md`): **Behaviour tag 27**, if the surge or Amplify needs one."],
  "GM": ["**Your tags in the other namespaces** (`artifacts/director/hash-tags.md`): **Behaviour tag 15**, if laying a mine needs one."],
+ "SC": ["**Your tags in the other namespaces** (`artifacts/director/hash-tags.md`): **Behaviour tag 29**, if needed. Smoke shares `Sim::patches` (Sim tag 4), so Sim tag 5 stays free."],
  "GP": ["**GA's notes for you:** its site arm is marked in `Sim::complete_vehicle_deploy`. `defs/tests.rs` asserts every deploy is a two-way pair within one faction; the Prospector's is one-way (unit to structure), so relax that test for it, by name.",
         "**Your tags in the other namespaces** (`artifacts/director/hash-tags.md`): **Behaviour tag 19**, if the walk to the site needs one."],
  "GB": ["**Your tags in the other namespaces** (`artifacts/director/hash-tags.md`): **Behaviour tag 18**, if the Engineer's build needs one."],
