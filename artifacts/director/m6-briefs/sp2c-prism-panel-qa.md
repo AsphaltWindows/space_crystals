@@ -10,7 +10,10 @@ Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea9
   - **Drawing:** `Object::thrust.burst` is `Some` while a burst runs, and `Burst::step` gives its direction.
   - **Its client placeholders, for you to replace:** no indicator for a Thrust (`command_ui/indicators.rs`, two matches), and the Move pointer (`command_ui/resolution/pointer.rs`).
   - **Q0200 (open):** an order given during a burst doesn't stop it, and a thrust at the Prism's own position goes along its facing. Both are placeholders in `crates/sim/src/thrust.rs`.
-- **SP2b:** the one-way rule, a sim mechanic. Its handoff: FILLED IN AT LAUNCH.
+- **SP2b** (`ae6ac1c6`): the one-way rule, a sim mechanic. From its handoff:
+  - **The reject:** `Reject::OneWay(ObjectId)` (the Tunnel): "none of the units can get back into the Tunnel Network (Tunnel N)". It appears only when every unit of an Enter on a Tunnel is one way. In a mixed group, the Prism ignores the order and the others enter.
+  - **The right-click:** a Prism's right-click on an own Tunnel resolves to `OrderKind::Move(Target::Object(tunnel))`, in both `Sim::default_order` and `Rule::Enter`, by `network::one_way(unit.kind)`. A Guard's is still Enter.
+  - **The client:** `Abilities` has no new field. `right_click_orders` and the pointer can call `sc_sim::network::one_way(kind)`.
 
 ## The design
 - `factions/syndicate/units/prism.md`, in particular the panel (designer placeholder; Q0168):

@@ -39,6 +39,7 @@ The core, then the Carriers paragraphs of `docs/architecture/object-model-state.
 
    Leave room for `Docked { structure, side }` and the Paradrop addition (phase R3), but don't add them now.
 2. **Who can board** is a parameter of the def, if it isn't already.
+   - A one-way unit (`sc_sim::network::one_way(kind)`, SP2b) must never ride a carrier into the Tunnel Network. Today no carrier can take one; keep it so, with a test if a carrier could.
 3. **The Landing carrier:**
    1. **Enter:** units right-clicked onto it make it land where it is (Field landing). They walk to it and board instantly on reaching it.
    2. **Load:** an optional input of the def. The carrier flies to an own eligible unit, lands beside it, and the unit walks in.
