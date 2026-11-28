@@ -13,7 +13,8 @@ The user wants units to be compositions of shared mechanics: "most unit addition
 
   The systems read those parts.
 - **The design** (`artifacts/designer/design/`, read-only) is one file per unit or structure under `factions/<faction>/{units,structures}/`, plus `systems/` and `core/`.
-- **Master is about to get the Dragonfly's landing approach** (`crates/sim/src/movement/approach.rs`). If that file is missing when you reach aircraft, read it with `git show worktree-agent-af1e93d23c0779a00:crates/sim/src/movement/approach.rs`.
+- **The newest mechanics,** each built inside its first unit's slice: the glider landing approach (`crates/sim/src/movement/approach.rs`, the Dragonfly), the carrier (`crates/sim/src/carry.rs`, the Subterranean Transport), the Supply Chopper's cargo and its landing on an object (`Cargo`, `Landing.at`), and the unfold after a launch (`Mover::unfold`, the Prism).
+- **The design may move shared mechanics** into `systems/` docs of their own (question Q0193, open). Where a mechanic's rules are spread over several unit docs, say so.
 
 ## What to find
 1. **Mechanics keyed by a unit's kind, not by its def.** Find code that tests for a specific `ObjectKind` (`grep -rn 'ObjectKind::' crates/sim/src`). Leave out `defs/`, the tests, `scenario/`, `scenarios.rs` and `testing/`. Sort each cluster into:
@@ -33,6 +34,7 @@ The user wants units to be compositions of shared mechanics: "most unit addition
    - the Specter (`factions/syndicate/units/specter.md`);
    - the Prospector;
    - the Field Engineer's Bunker and First Aid Tent.
+   - the Prism's thrust (`factions/syndicate/units/prism.md`).
 3. **The same mechanic built twice:** for example two landing paths, two deploy models, two heal or aura implementations, two stock or ammo systems, or two "hold units inside" models (buildings' holding, the Tunnel Network, the carrier).
 4. **Abilities:** for each `Ability` variant, whether any unit could carry it through its def, or whether it is tied to one unit.
 

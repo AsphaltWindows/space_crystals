@@ -18,11 +18,13 @@ Read `factions/syndicate/units/shadebringer.md` as it stands, `> Cover (toggle)`
 - **0425 (Q0159), D44's answer, as for the Sludge:** read `artifacts/designer/changes/0425-shadebringer-trail-rules.md`.
   1. A stationary Shadebringer with a toggle on lays its effect where it stands, and drains. This replaces D44's "lays only while moving".
   2. A unit is inside smoke while its centre is.
-  3. Entering the Tunnel Network switches both toggles off. An empty tank switches its toggle off.
+  3. Entering the Tunnel Network switches both toggles off. An empty tank switches both toggles off (0468).
   - M6-SB built these rules for the Sludge. Reuse them for Cover, with one rule for both toggles.
 - **0433 (Q0167), D43's answer:** read `artifacts/designer/changes/0433-smoke-reveal-and-scan.md`.
   1. An attacker in or behind smoke is revealed after hitting your unit, as in the fog. The reveal isn't sight, so smoke doesn't block it.
   2. Smoke blocks a Scan for what is inside it. A Scan has no viewpoint, so it isn't blocked "behind" smoke.
+- **0468 (Q0190 follow-up), one shared tank:** read `artifacts/designer/changes/0468-shadebringer-one-shared-tank.md`. Sludge and Cover draw from **one tank of 200** (placeholder), in place of SB's two tanks of 100. It drains **10/s per toggle on** (20/s with both), refills at **10/s** with a Vault (`factions/syndicate/structures/vault.md > Throughput`: 20 s from empty), and an empty tank switches both toggles off. Either toggle switches on with any charge left. A new Shadebringer starts full (0467 part 2). The panel shows one gauge.
+  - **This is your mechanic phase's first step,** before smoke: change SB's tanks (`patches.rs`, `defs/units/tanks.rs`, the Shadebringer's def, the Vault's refill in `network/services.rs`, the client's gauge) to one tank that any number of toggles drain, each at its own rate. Its goldens (the Shadebringer's) move: re-bless those only, in that commit.
 - **The Prism sees through smoke** (`factions/syndicate/units/prism.md > Sight`): a satellite.
 - **Anything the docs don't settle:** a placeholder, cited as m6-common says, and a line in your report. The Director files the question.
 
@@ -35,7 +37,7 @@ Follow `m6-plan.md > SC`'s Code list. Since the plan:
 - **The reveal (0433 part 1):** `vision/reveal.rs` (read-only) stays as it is; add a test that smoke doesn't block it.
   - **M6-SL's note:** a Laser Battery's surge hits from where its notes for you say. Use it for 0433's Verification.
 - **Satellites:** `UnitDef::satellite`. If M6-SN or M6-SP added it (or `manned`), use it. If not, add it, false for every unit but the Prism.
-- **Cover's toggle:** SB built `Ability::Cover { on }` beside `Ability::Sludge` (in `modes.rs`, with `Ability::switching`), and the tanks (`Object::tanks`, Object tag 24). Add smoke's `TankDef` to the Shadebringer's def: the panel then shows F by itself, so remove `Planned::Cover`.
+- **Cover's toggle:** SB built `Ability::Cover { on }` beside `Ability::Sludge` (in `modes.rs`, with `Ability::switching`), and the tanks (`Object::tanks`, Object tag 24). Cover drains the shared tank (0468, above), so the Shadebringer's def needs no second `TankDef`. Once Cover's toggle is in the def, the panel shows F by itself: remove `Planned::Cover`.
 - **New `Object` state,** if any, hashes and saves only while present, under **Object tag 34**. A new `OrderKind`, if any, hashes as **tag 42**.
 - **The client:** the smoke's look, and the fog with a smoke shadow.
 - **The ruleset (X1):** the new def fields are structure, and the numbers are def numbers or tunables, by m6-common's checklist.
@@ -44,6 +46,7 @@ Follow `m6-plan.md > SC`'s Code list. Since the plan:
 ## Acceptance
 `m6-plan.md > SC`'s Acceptance, plus:
 - **0425:** a stationary Shadebringer with Cover on lays smoke where it stands and drains; entering the network switches Cover off; an empty tank switches it off.
+- **0468's Verification:** with only Sludge on, a full tank lasts 20 s; with both on, 10 s, and then both switch off. Inside the network with a Vault, an empty tank refills in 20 s. Either toggle switches on with any charge left.
 - **0433's Verification:**
   1. A Laser Battery firing from smoke at your unit becomes visible to you for 1.5 s after each hit.
   2. A Scan over an area half covered by smoke: units in the smoke stay hidden, and units beyond the smoke inside the circle are shown.
