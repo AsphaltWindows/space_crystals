@@ -80,7 +80,7 @@ pub(super) fn separate(
         let Some(unit) = o.def().unit.as_ref().filter(|_| o.mover.is_some()) else {
             continue;
         };
-        if crate::landing::at(o).is_some() {
+        if crate::landing::of(o).is_some() {
             continue;
         }
         let base = unit.base_def();

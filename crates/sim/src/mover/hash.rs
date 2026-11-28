@@ -116,6 +116,8 @@ impl StateHash for Mover {
             approach,
             // (M5-N10) Set in phase 5a and taken in 5d of the same tick: never set between ticks.
             turn_to: _,
+            // A Field landing asked for: set in phase 5a and taken by the landing step of the same tick.
+            field: _,
         } = self;
         goal.hash(h);
         status.hash(h);

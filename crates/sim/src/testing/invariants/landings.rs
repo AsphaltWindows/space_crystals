@@ -37,7 +37,20 @@ pub(super) fn landings(sim: &Sim) -> Result<(), Violation> {
                 at: o.pos,
             })
         };
-        let Spot::Structure(structure) = landing.at;
+        let structure = match landing.at {
+            Spot::Structure(structure) => structure,
+            // A Field landing: within reach of its point (out of the separation, nothing pushes it off), rising no
+            // more and rearming nothing.
+            Spot::Field(point) => {
+                if point.distance(o.pos) > reach {
+                    return fail(format!("is down on open ground off its point {point}"));
+                }
+                if o.mover.as_ref().is_some_and(|mover| mover.rise.is_some()) || landing.rearm.is_some() {
+                    return fail(format!("rises or rearms, down on open ground at {point}"));
+                }
+                continue;
+            }
+        };
         let at = structure.0;
         if o.chopper.is_some() {
             let Some(spot) = sim.object(structure).and_then(supply_run::spot) else {

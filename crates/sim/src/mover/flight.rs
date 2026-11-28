@@ -82,6 +82,14 @@ impl Mover {
         self.approach = Some(Approach::Flying);
     }
 
+    /// Its order asks it to land at `point` on open ground in this tick, a Field landing ([`Mover::field`];
+    /// `systems/mechanics/aircraft_landing.md > Field landing`): the landing step flies it to the free spot nearest
+    /// `point` and lands it there (`Sim::step_landings`). An order asks again in each tick it wants it, until the unit
+    /// has landed: then its landing says so (`Object::landing`, `landing::down`), on a `landing::Spot::Field`.
+    pub fn land_at(&mut self, point: Vec2) {
+        self.field = Some(point);
+    }
+
     /// (M6-GL) Whether it is a Glider stopped over the point of its landing approach ([`Approach::Over`]).
     pub fn is_over(&self) -> bool {
         self.approach == Some(Approach::Over)

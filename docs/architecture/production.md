@@ -240,10 +240,37 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   RearmTimePerAmmo 64: with no turret it fires along its heading (*Movement and collision > Movement models*,
   GliderMovement), its SeparationRadius 48, pushed at a Glider's third. It lands and takes off vertically (below).
   Tests: `crates/sim/tests/dragonfly/` (below).
+- **The landing capability** (`landing.rs`, `sim/landing.rs`, `movement/approach.rs`;
+  `systems/mechanics/aircraft_landing.md > Landed aircraft (every archetype)`, `systems/mechanics/aircraft_landing.md >
+  Vertical`, `systems/mechanics/aircraft_landing.md > Field landing`): one
+  state, one def part, one step and one take-off for every aircraft that lands. A unit lands if it rearms at an Airfield
+  (`AircraftState`) or has landing times of its own (`UnitDef::landing`, a `LandingDef`; `landing::def_of`). Its
+  landing is `Object::landing`, a `landing::Landing` on a `landing::Spot`: `Structure(id)`, a spot on a structure, or
+  `Field(point)`, a point on open ground; its descent's frames done, it is down. **The spots** come from the structure's
+  def (`landing::pads`): an Airfield's slots (`AirfieldDef`), a Supply Tower's or a station's one spot
+  (`supply_run::spot`), each with its own sharing (`landing::Queue`: the Airfield's by id, the first free slot, waiting
+  over its centre; the one spot by nearness, waiting over it), derived each tick, never stored (`landing::claim`).
+  **The step** (`Sim::step_landings`, right after phase 5a, the supply loop's attachments just before it): each landing
+  under way takes a frame; each unit whose order flies it to a structure to land (`landing::flies_to`) flies to the spot
+  it takes, a Glider by its landing approach (`Mover::approach_to`, the approach for any spot), and lands once at rest
+  over it (`Air::landing_reach_su`), in its own landing time or else the structure's (`AirfieldDef::landing_ticks`); the
+  supply loop adds its rules on its spots (`Sim::spot_rules`). **Field landing**: an order asks for it in each tick
+  until its unit has landed (`Mover::land_at`, taken by the step in the same tick, never saved nor hashed); the unit
+  flies to the free spot nearest the point (`Sim::field_spot`, a bounded search, `landing::field_points`: on the map,
+  over Traversible tiles, clear of blocking footprints, ground units, units landed on open ground or taking off, and
+  the spots taken before it in the tick) and lands there in its own landing time; its order learns it has landed by its
+  landing (`landing::down`). **The take-off** (`landing::take_off`, as an order starts; `landing::lift_off`): any order
+  that doesn't land it on the structure it is on lifts it off, rising in its take-off time (`Mover::rise`). **Landed**,
+  any unit holds fire (`aircraft::may_fire`), is a ground target once down (`combat::object_domain`), is out of the air
+  separation (`movement::air`), and one on a structure dies with it (`Sim::landed_on`). **The hash**: the landing is
+  written inside Object tag 14 (sub-tag 1) for an Airfield's aircraft, inside tag 27 for a chopper, and under tag 36 for
+  any other unit; a structure's spot as the structure's id, a point on open ground under its own sub-tag 1. L1 checks
+  every landing (*Movement and collision > Invariants*). Tests: `sim/landing/tests.rs`, and those of its users below.
 - **Landing and rearming** (slice M6-GH2; `landing.rs`, `sim/landing.rs`, `orders/air_base.rs`; plan decision T88,
   `factions/gdo/structures/airfield.md > Aircraft Support`, `systems/mechanics/aircraft_landing.md > Landed aircraft
   (every archetype)`, `systems/mechanics/aircraft_landing.md > Vertical`, `systems/mechanics/aircraft_landing.md >
-  Assigned base`, design changes 0428 and 0423):
+  Assigned base`, design changes 0428 and 0423), the Airfield's use of *the landing capability* (above), whose step,
+  claims, landing and take-off these are:
   an Airfield has 4 **slots**, the centres of its footprint's quarters (`AirfieldDef::slot_offset_su`; the layout the
   designer's placeholder, Q0189), and who is on which is derived every tick, never stored (`landing::claims`): those
   on it, landing or down, and those rising over it keep the free slot nearest them, in id order; then those flying
@@ -278,7 +305,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`SupplyTowerDef::chopper`), down on it and attached, at no cost (`Sim::spawn_attached_chopper`); one a map or a
   debug spawn places comes alone (a placeholder). It trains more (100 Space Crystals, 160 frames), out over its centre
   in the air, and has a rally point. **A spot** to land on: a Tower's at `SupplyTowerDef::spot_offset_su` from its
-  centre, a station's its centre (`supply_run::spot_of`, a placeholder), one chopper on it at a time. The chopper's
+  centre, a station's its centre (`supply_run::spot_of`, a placeholder), one chopper on it at a time, by *the landing
+  capability* (above), whose step flies and lands the choppers. The chopper's
   three orders (`orders/supply_run.rs`) fly it there and land it in 16 frames (the chopper's own `UnitDef::landing`, a `LandingDef`; GH2's
   `Landing`, its `at` the Tower or the station): **Pick Up Supplies** takes, as it touches down, all the station holds
   that no pick-up has claimed (M4-I's claims: Agents and choppers share a station), and lifts off (a placeholder);

@@ -1,3 +1,13 @@
+//! Landing, one capability for every aircraft that lands (`systems/mechanics/aircraft_landing.md > Landed aircraft
+//! (every archetype)`, `systems/mechanics/aircraft_landing.md > Vertical`, `systems/mechanics/aircraft_landing.md >
+//! Field landing`): its state ([`Landing`] on a [`Spot`], `Object::landing`), its
+//! def's times (`UnitDef::landing`, [`def_of`]), the spots a structure gives by its def ([`pads`]: an Airfield's slots,
+//! a Supply Tower's or a station's spot) and who takes which ([`claim`]), open ground (`Spot::Field`,
+//! [`field_points`]), the one take-off ([`take_off`]), and the one step that flies, lands and counts the landings of
+//! them all (`Sim::step_landings`). The landed rules hold for any landed unit: it holds fire (`aircraft::may_fire`), it
+//! is a ground target once down ([`down`], `combat::object_domain`), it is out of the air separation
+//! (`movement::air`), and one on a structure dies with it (`Sim::landed_on`).
+//!
 //! (M6-GH2) Landing and rearming at an Airfield — plan decision T88; `factions/gdo/structures/airfield.md > Aircraft
 //! Support`, `systems/mechanics/aircraft_landing.md > Vertical` and `systems/mechanics/aircraft_landing.md > Assigned
 //! base`; design changes 0428 (answering Q0162) and 0423 (answering Q0157). An aircraft that rearms at an Airfield
@@ -92,6 +102,9 @@ pub enum Spot {
     /// A spot on a structure: one of an Airfield's slots (which one is derived each tick, never stored: [`claims`]),
     /// a Supply Tower's spot or a Supply Delivery Station's centre (`supply_run::spot`).
     Structure(ObjectId),
+    /// A point on open ground (`systems/mechanics/aircraft_landing.md > Field landing`): the free one nearest the
+    /// point its order asked for (`Mover::land_at`, `Sim::field_spot`), where it came to rest to land.
+    Field(Vec2),
 }
 
 impl Spot {
@@ -100,7 +113,121 @@ impl Spot {
     pub fn structure(self) -> Option<ObjectId> {
         match self {
             Spot::Structure(id) => Some(id),
+            Spot::Field(_) => None,
         }
+    }
+
+    /// The point on open ground, if it is a Field landing's spot.
+    pub fn field(self) -> Option<Vec2> {
+        match self {
+            Spot::Field(point) => Some(point),
+            Spot::Structure(_) => None,
+        }
+    }
+}
+
+/// How far apart the points a Field landing tries are ([`field_points`]), space units, and how many rings of them it
+/// tries round the point asked for. **Placeholder (not in the design: how finely and how far the nearest free spot is
+/// searched)**: a quarter of a tile, out to two tiles.
+const FIELD_STEP_SU: f32 = 16.0;
+const FIELD_RINGS: i32 = 8;
+/// How far from the point asked for a Field landing's spot may be ([`field_points`]), space units.
+pub(crate) const FIELD_SEARCH_SU: f32 = FIELD_STEP_SU * FIELD_RINGS as f32;
+
+/// The points a Field landing asked at `point` tries (`systems/mechanics/aircraft_landing.md > Field landing`: "a
+/// blocked spot means the nearest free spot"), nearest first, a bounded search as a builder's for its spot is
+/// (`Sim::free_spot`): `point` itself, then a square grid round it [`FIELD_STEP_SU`] apart, [`FIELD_RINGS`] rings out,
+/// of two as near the northern one first, then the western one (`y` grows southward).
+pub fn field_points(point: Vec2) -> impl Iterator<Item = Vec2> {
+    let mut offsets: Vec<(i32, i32)> = (-FIELD_RINGS..=FIELD_RINGS)
+        .flat_map(|y| (-FIELD_RINGS..=FIELD_RINGS).map(move |x| (x, y)))
+        .collect();
+    offsets.sort_by_key(|&(x, y)| (x * x + y * y, y, x));
+    (offsets.into_iter()).map(move |(x, y)| point + Vec2::new(x as f32, y as f32) * FIELD_STEP_SU)
+}
+
+/// How a structure's spots are shared among the aircraft flying to land on it ([`Pads`], [`claim`]), by its def.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Queue {
+    /// An Airfield's slots (`AirfieldDef`): those flying to it each take the first free one, in id order; one with
+    /// none free waits over its centre; one taking off over its footprint keeps its slot.
+    Slots,
+    /// A Supply Tower's or a station's one spot (`supply_run::spot`): of those flying to it the nearest takes it, the
+    /// lower id of two as near, and the others wait over it; pushed off it at rest, the one that takes it flies back;
+    /// one taking off within reach of it keeps it (`factions/gdo/economy.md > SupplyTower > Landing and Attachment`).
+    One,
+}
+
+/// The landing spots structure `id` gives (`systems/mechanics/aircraft_landing.md > Vertical`: "a slot or door on a
+/// structure"), from its def ([`pads`]).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Pads {
+    pub id: ObjectId,
+    /// Its spots, in the order they are claimed: at most [`LANDING_SLOTS`].
+    pub spots: Vec<Vec2>,
+    pub queue: Queue,
+    /// Where one flying to it waits while it takes no spot: an Airfield's centre, the one spot.
+    pub wait: Vec2,
+    /// The landing time it gives an aircraft with none of its own (`AirfieldDef::landing_ticks`).
+    pub landing_ticks: Option<u32>,
+    /// Its footprint's bounds, edges included.
+    bounds: (Vec2, Vec2),
+}
+
+impl Pads {
+    /// Whether an aircraft taking off at `pos` keeps a spot of it ([`Queue`]).
+    fn keeps(&self, pos: Vec2) -> bool {
+        match self.queue {
+            Queue::Slots => pos.cmpge(self.bounds.0).all() && pos.cmple(self.bounds.1).all(),
+            Queue::One => {
+                let reach = crate::ruleset::rules().tuning.air.landing_reach_su;
+                self.spots
+                    .iter()
+                    .any(|spot| spot.distance_squared(pos) <= reach * reach)
+            }
+        }
+    }
+}
+
+/// The spots structure `o` gives the aircraft that land on it, by its def: an Airfield's slots (`AirfieldDef`,
+/// [`slots`];
+/// one in operation, `aircraft::is_airfield`, for the landing step), or a Supply Tower's or a Supply Delivery
+/// Station's one spot (`SupplyTowerDef::spot_offset_su`, `supply_run::spot`). `None` for any other object.
+pub(crate) fn pads(o: &Object) -> Option<Pads> {
+    if aircraft::is_airfield(o) {
+        return slot_pads(o);
+    }
+    let spot = supply_run::spot(o)?;
+    Some(Pads {
+        id: o.id,
+        spots: vec![spot],
+        queue: Queue::One,
+        wait: spot,
+        landing_ticks: None,
+        bounds: Shape::of(o).bounds(),
+    })
+}
+
+/// Airfield `airfield`'s slots ([`pads`]), whether it is in operation or not. None for an object that is no Airfield.
+fn slot_pads(airfield: &Object) -> Option<Pads> {
+    let def = aircraft::airfield_def(airfield)?;
+    Some(Pads {
+        id: airfield.id,
+        spots: slots(airfield).collect(),
+        queue: Queue::Slots,
+        wait: airfield.pos,
+        landing_ticks: Some(def.landing_ticks),
+        bounds: Shape::of(airfield).bounds(),
+    })
+}
+
+/// The structure `o`'s current order flies it to land on: an aircraft's base on its flight home ([`flies_home`]), a
+/// chopper's tower or station (`supply_run::lands_for`). The landing step's flights (`Sim::step_landings`).
+pub fn flies_to(o: &Object) -> Option<ObjectId> {
+    let kind = o.orders.as_ref()?.current.as_ref()?.order.kind;
+    match kind {
+        OrderKind::Rebase(_) | OrderKind::ReturnToBase => aircraft::base_of(o),
+        _ => supply_run::lands_for(kind),
     }
 }
 
@@ -210,28 +337,32 @@ pub fn flies_home(o: &Object) -> bool {
         .is_some_and(|active| matches!(active.order.kind, OrderKind::Rebase(_) | OrderKind::ReturnToBase))
 }
 
-/// An aircraft that takes, or will take, a slot of an Airfield ([`users`]), as the tick has it so far.
+/// An aircraft that takes, or will take, a spot of a structure ([`users`]), as the tick has it so far.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct User {
     pub id: ObjectId,
     pub pos: Vec2,
-    /// The Airfield it lands on or is down on.
+    /// The structure it lands on or is down on.
     pub on: Option<ObjectId>,
-    /// It takes off (`Mover::rise`): over the Airfield it takes off from, if it rises in one's footprint.
+    /// It takes off (`Mover::rise`): it keeps the spot it takes off from ([`Queue`]).
     pub rising: bool,
-    /// The Airfield it flies home to ([`flies_home`]): its base.
+    /// The structure it flies to land on ([`flies_to`]): an aircraft's base, a chopper's tower or station.
     pub home: Option<ObjectId>,
 }
 
-/// The aircraft among `objects` that take a slot or will ([`User`]), in their order (id order for a map's range): those
-/// on a slot, those taking off, and those flying home.
+/// The aircraft among `objects` that take a spot of a structure or will ([`User`]), in their order (id order for a
+/// map's range): of the units that land (an aircraft that rearms at an Airfield, or one with landing times of its own,
+/// [`def_of`]), those on a structure, those taking off, and those flying to one to land; not one down on open ground.
 pub(crate) fn users<'a>(objects: impl IntoIterator<Item = &'a Object>) -> Vec<User> {
     (objects.into_iter())
         .filter_map(|o| {
-            let state = o.aircraft?;
+            if o.aircraft.is_none() && def_of(o.kind).is_none() {
+                return None;
+            }
             let on = at(o);
             let rising = o.mover.as_ref().is_some_and(|mover| mover.rise.is_some());
-            let home = state.base.filter(|_| flies_home(o));
+            let afield = of(o).is_some_and(|landing| landing.at.field().is_some());
+            let home = flies_to(o).filter(|_| !afield);
             (on.is_some() || rising || home.is_some()).then_some(User {
                 id: o.id,
                 pos: o.pos,
@@ -243,21 +374,23 @@ pub(crate) fn users<'a>(objects: impl IntoIterator<Item = &'a Object>) -> Vec<Us
         .collect()
 }
 
-/// Whether `pos` lies in `airfield`'s footprint, its edges included.
-fn over(airfield: &Object, pos: Vec2) -> bool {
-    let (lo, hi) = Shape::of(airfield).bounds();
-    pos.cmpge(lo).all() && pos.cmple(hi).all()
-}
-
 /// Who takes each slot of `airfield` (module docs), slot by slot in [`slots`]' order, of `users` in id order: first
 /// the aircraft on it, landing or down, and those taking off over its footprint, each the free slot nearest it (the
 /// first of two as near); then those flying home to it that hold none, each the first free one. A slot past its
-/// count is never taken.
+/// count is never taken. [`claim`] for an Airfield's slots.
 pub(crate) fn claims(airfield: &Object, users: &[User]) -> [Option<ObjectId>; LANDING_SLOTS] {
-    let points: Vec<Vec2> = slots(airfield).collect();
+    slot_pads(airfield).map_or([None; LANDING_SLOTS], |pads| claim(&pads, users, None))
+}
+
+/// Who takes each spot of `pads`, spot by spot in their order, of `users` in id order: first the aircraft on its
+/// structure, landing or down, and those taking off where they keep a spot ([`Pads::keeps`]), each the free spot
+/// nearest it (the first of two as near); then those flying to it that hold none (only `only`, if given: a Supply
+/// Tower's attached chopper, `Sim::spot_rules`), shared by its [`Queue`]. A spot past its count is never taken.
+pub(crate) fn claim(pads: &Pads, users: &[User], only: Option<ObjectId>) -> [Option<ObjectId>; LANDING_SLOTS] {
+    let points = &pads.spots[..pads.spots.len().min(LANDING_SLOTS)];
     let mut taken = [None; LANDING_SLOTS];
     for user in users {
-        let holds = user.on == Some(airfield.id) || (user.on.is_none() && user.rising && over(airfield, user.pos));
+        let holds = user.on == Some(pads.id) || (user.on.is_none() && user.rising && pads.keeps(user.pos));
         if !holds {
             continue;
         }
@@ -272,15 +405,35 @@ pub(crate) fn claims(airfield: &Object, users: &[User]) -> [Option<ObjectId>; LA
             taken[i] = Some(user.id);
         }
     }
-    for user in users
-        .iter()
-        .filter(|user| user.home == Some(airfield.id) && user.on.is_none())
-    {
-        if taken.contains(&Some(user.id)) {
-            continue;
+    let flying: Vec<&User> = (users.iter())
+        .filter(|user| user.home == Some(pads.id) && user.on.is_none() && only.is_none_or(|only| only == user.id))
+        .collect();
+    match pads.queue {
+        Queue::Slots => {
+            for user in flying {
+                if taken.contains(&Some(user.id)) {
+                    continue;
+                }
+                if let Some(i) = (0..points.len()).find(|&i| taken[i].is_none()) {
+                    taken[i] = Some(user.id);
+                }
+            }
         }
-        if let Some(i) = (0..points.len()).find(|&i| taken[i].is_none()) {
-            taken[i] = Some(user.id);
+        Queue::One => {
+            for i in 0..points.len() {
+                if taken[i].is_some() {
+                    continue;
+                }
+                let nearest = (flying.iter())
+                    .filter(|user| !taken.contains(&Some(user.id)))
+                    .min_by(|a, b| {
+                        let (da, db) = (a.pos.distance_squared(points[i]), b.pos.distance_squared(points[i]));
+                        da.total_cmp(&db).then(a.id.cmp(&b.id))
+                    });
+                if let Some(user) = nearest {
+                    taken[i] = Some(user.id);
+                }
+            }
         }
     }
     taken
@@ -371,9 +524,13 @@ pub(crate) fn lift_off(kind: ObjectKind, landing: &mut Option<Landing>, rise: &m
 
 impl StateHash for Spot {
     fn hash(&self, h: &mut StateHasher) {
-        // A spot on a structure hashes as the structure's id alone.
+        // A spot on a structure hashes as the structure's id alone; a point on open ground under a sub-tag of its own.
         match self {
             Spot::Structure(id) => id.hash(h),
+            Spot::Field(point) => {
+                h.tag(1);
+                point.hash(h);
+            }
         }
     }
 }

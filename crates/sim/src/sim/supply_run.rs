@@ -10,17 +10,13 @@ use glam::Vec2;
 
 use super::Sim;
 use crate::augmentation::Research;
-use crate::economy::RATIO_ONE;
 use crate::economy::stations::is_station;
 use crate::economy::supply_run::claimed_at;
 use crate::ids::{ObjectId, PlayerId};
-use crate::landing::{self, Landing, Spot};
-use crate::mover::{MoveGoal, MoveStatus};
+use crate::landing;
 use crate::object::Object;
 use crate::orders::OrderKind;
-use crate::progress::Progress;
-use crate::ruleset::rules;
-use crate::supply_run::{self, attached_to, chopper_def, due_in, is_tower, lands_for, spot};
+use crate::supply_run::{self, attached_to, chopper_def, due_in, is_tower, spot};
 use crate::units::TilePos;
 
 /// The ticks a scheduled chopper leaves before its flight's estimate says it must (`Sim::step_schedules`), and a
@@ -185,9 +181,10 @@ impl Sim {
         )
     }
 
-    /// The supply loop's step, right after the aircraft's landings (`Sim::step_landings`), for the choppers before
-    /// `first_new`,
-    /// as phase 5a's orders leave them:
+    /// The supply loop's step, right before the landing step (`Sim::step_landings`), which flies and lands the choppers
+    /// as every aircraft that lands, for the choppers before `first_new`, as phase 5a's orders leave them. The rules
+    /// below that are the landing's are the landing step's, but for the supply loop's own on its spots
+    /// ([`Sim::spot_rules`]):
     /// - **Attachments**: a chopper whose Attach to Tower has started is attached to its tower, and every other chopper
     ///   on the tower, landing or down, is evicted: it takes off (`factions/gdo/economy.md > SupplyTower > Landing and
     ///   Attachment`). One whose tower has another chopper attached by then (two
@@ -213,29 +210,6 @@ impl Sim {
         }
         for &id in &choppers {
             self.attach(id);
-        }
-        for &id in &choppers {
-            let landing = (self.objects.get_mut(&id))
-                .filter(|o| o.chopper.is_some())
-                .and_then(|o| o.landing.as_mut());
-            if let Some(landing) = landing
-                && !landing.descent.done()
-            {
-                landing.descent.step(RATIO_ONE);
-            }
-        }
-        let flights: Vec<(ObjectId, ObjectId)> = (choppers.iter())
-            .filter_map(|id| {
-                let o = self.objects.get(id)?;
-                let at = lands_for(current_order(o)?)?;
-                landing::of(o).is_none().then_some((*id, at))
-            })
-            .collect();
-        let mut spots: Vec<ObjectId> = flights.iter().map(|&(_, at)| at).collect();
-        spots.sort_unstable();
-        spots.dedup();
-        for at in spots {
-            self.fly_to_spot(at, &choppers, &flights);
         }
     }
 
@@ -277,7 +251,7 @@ impl Sim {
     }
 
     /// Chopper `id`'s order ends where it is.
-    fn end_flight(&mut self, id: ObjectId) {
+    pub(super) fn end_flight(&mut self, id: ObjectId) {
         if let Some(o) = self.objects.get_mut(&id) {
             if let Some(orders) = &mut o.orders {
                 orders.current = None;
@@ -288,73 +262,20 @@ impl Sim {
         }
     }
 
-    /// The flights of `flights` (chopper, object) to object `at`'s spot ([`Sim::step_supply_runs`]); `choppers` are all
-    /// the choppers of the step.
-    fn fly_to_spot(&mut self, at: ObjectId, choppers: &[ObjectId], flights: &[(ObjectId, ObjectId)]) {
-        let Some(target) = self.objects.get(&at) else {
-            return;
-        };
-        let (Some(to), tower, station) = (spot(target), is_tower(target), is_station(target.kind)) else {
-            return;
-        };
-        let reach = rules().tuning.air.landing_reach_su;
-        let near = |o: &Object| o.pos.distance_squared(to) <= reach * reach;
-        let rising = |o: &Object| o.mover.as_ref().is_some_and(|mover| mover.rise.is_some());
-        let chopper_of = |id: &ObjectId| self.objects.get(id);
-        let attached = (choppers.iter())
-            .filter_map(chopper_of)
-            .find(|o| tower && attached_to(o) == Some(at))
-            .map(|o| o.id);
-        let on_it = (choppers.iter())
-            .filter_map(chopper_of)
-            .find(|o| landing::at(o) == Some(at) || (rising(o) && near(o)))
-            .map(|o| o.id);
-        let flying: Vec<ObjectId> = (flights.iter())
-            .filter(|&&(_, to_at)| to_at == at)
-            .map(|&(id, _)| id)
-            .collect();
-        let nearest = (flying.iter())
-            .filter(|id| attached.is_none_or(|a| a == **id))
-            .filter_map(chopper_of)
-            .min_by(|a, b| (a.pos.distance_squared(to).total_cmp(&b.pos.distance_squared(to))).then(a.id.cmp(&b.id)))
-            .map(|o| o.id);
-        let holder = on_it.or(nearest);
-        let due = station.then(|| due_in(target, claimed_at(&self.objects, at))).flatten();
-        let tick = self.tick;
-        for id in flying {
-            if tower && attached.is_some_and(|a| a != id) {
-                self.end_flight(id);
-                continue;
-            }
-            let Some(o) = self.objects.get_mut(&id) else {
-                continue;
-            };
-            let Some(ticks) = landing::def_of(o.kind).map(|def| def.landing_ticks) else {
-                continue;
-            };
-            let close = o.pos.distance_squared(to) <= reach * reach;
-            let (Some(mover), true) = (o.mover.as_mut(), o.chopper.is_some()) else {
-                continue;
-            };
-            // Its move over: an arrival holds it still from its next tick on (`movement::drag`'s braking approach).
-            let at_rest = mover.status != MoveStatus::Moving;
-            let waits = due.is_some_and(|due| due > ticks);
-            if holder == Some(id) && at_rest && close && !waits {
-                mover.stop();
-                o.landing = Some(Landing {
-                    at: Spot::Structure(at),
-                    descent: Progress::new(ticks),
-                    rearm: None,
-                });
-                continue;
-            }
-            // On its way there it flies on; come to rest over the spot while another holds it, or while its Supplies
-            // aren't due, it waits there; the holder, pushed off it by the separation of a chopper waiting beside it
-            // (`movement::air`), flies back.
-            let pushed_off = holder == Some(id) && at_rest && !close;
-            if (mover.goal != MoveGoal::Point(to) && !(at_rest && close)) || pushed_off {
-                mover.go_to(MoveGoal::Point(to), None, tick);
-            }
-        }
+    /// The supply loop's rules on the spot of `target` for the landing step's flights to it (`Sim::step_landings`;
+    /// [`Sim::step_supply_runs`]), as the choppers before `first_new` have them: on a Supply Tower in operation, the
+    /// chopper attached to it, the only one that may take its spot (the others' flights there end); on a station, the
+    /// ticks until its Supplies are due that no pick-up has claimed ([`supply_run::due_in`]), a chopper flying there
+    /// landing only once they are due by the time it is down. Neither on any other structure.
+    pub(super) fn spot_rules(&self, target: &Object, first_new: ObjectId) -> (Option<ObjectId>, Option<u32>) {
+        let at = target.id;
+        let only = is_tower(target)
+            .then(|| (self.objects.range(..first_new)).find(|(_, o)| attached_to(o) == Some(at)))
+            .flatten()
+            .map(|(&id, _)| id);
+        let due = (is_station(target.kind))
+            .then(|| due_in(target, claimed_at(&self.objects, at)))
+            .flatten();
+        (only, due)
     }
 }

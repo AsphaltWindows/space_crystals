@@ -123,7 +123,7 @@ impl Glider {
 
     /// The speed it flies at after `speed`, wanting `wanted`: by at most its Acceleration or Deceleration, within
     /// IdleSpeed and MaxSpeed.
-    fn next_speed(&self, speed: f32, wanted: f32) -> f32 {
+    pub(super) fn next_speed(&self, speed: f32, wanted: f32) -> f32 {
         let change = wanted - speed;
         let change = if change > 0.0 {
             self.acceleration.map_or(change, |up| change.min(up))

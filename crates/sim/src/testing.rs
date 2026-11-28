@@ -215,6 +215,12 @@ impl TestSim {
         &self.sim
     }
 
+    /// The game itself, to change, for a unit test of the sim's own state.
+    #[cfg(test)]
+    pub(crate) fn sim_mut(&mut self) -> &mut Sim {
+        &mut self.sim
+    }
+
     /// Where object `id` is. Panics if it doesn't exist.
     pub fn pos(&self, id: u32) -> Vec2 {
         self.object(id).pos

@@ -288,6 +288,12 @@ pub struct Mover {
     /// (`mover/hash.rs`).
     #[serde(skip)]
     pub turn_to: Option<Vec2>,
+    /// A point on open ground its order asks the unit to land at in this tick, a Field landing
+    /// ([`Mover::land_at`]; `systems/mechanics/aircraft_landing.md > Field landing`), set in phase 5a. The landing step
+    /// right after 5a takes it from every unit in the same tick (`Sim::step_landings`), so it is never set between
+    /// ticks: neither saved nor hashed (`mover/hash.rs`).
+    #[serde(skip)]
+    pub field: Option<Vec2>,
 }
 
 fn is_zero(v: &Vec2) -> bool {
@@ -343,6 +349,7 @@ impl Default for Mover {
             unfold: None,
             approach: None,
             turn_to: None,
+            field: None,
         }
     }
 }

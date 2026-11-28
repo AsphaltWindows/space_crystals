@@ -26,9 +26,10 @@
 //!   (`crate::landing`), and while it rises off one (`Mover::rise`, slice M6-SD's). Its rise's last tick lets it move:
 //!   it flies on from IdleSpeed, as a Glider that hasn't flown yet does (`super::glider`), "leaving at IdleSpeed".
 //!
-//! Glider's own rules (`super::glider`) are read-only to this slice: the speed step ([`next_speed`]) is `Glider`'s,
-//! written again here, and the test of a point inside the turn ([`circles`]) is `Glider`'s, for the path its flight
-//! takes tick by tick.
+//! The approach flies to any spot ([`fly`]: its goal's point, `Mover::approach_to`): an Airfield's slot, a point on
+//! open ground (`Sim::step_landings`, `crate::landing`); the hold is for any landing (`landing::of`). The speed step
+//! is `Glider`'s own (`Glider::next_speed`); the test of a point inside the turn ([`circles`]) is `Glider`'s, for the
+//! path its flight takes tick by tick.
 
 use glam::Vec2;
 
@@ -82,7 +83,7 @@ pub(super) fn fly(glider: &Glider, pos: &mut Vec2, facing: &mut f32, turned: &mu
     } else {
         glider.idle_speed
     };
-    let speed = next_speed(glider, speed, wanted);
+    let speed = glider.next_speed(speed, wanted);
     *turned = 0.0;
     if to != Vec2::ZERO {
         let bearing = math::vector_angle(to);
@@ -112,18 +113,6 @@ pub(super) fn fly(glider: &Glider, pos: &mut Vec2, facing: &mut f32, turned: &mu
     mover.momentum = flight;
     mover.velocity = flight;
     mover.locomotion = Locomotion::Moving;
-}
-
-/// The speed `glider` flies at after `speed`, wanting `wanted`: by at most its Acceleration or Deceleration, within its
-/// IdleSpeed and MaxSpeed (`Glider`'s rule, module docs).
-fn next_speed(glider: &Glider, speed: f32, wanted: f32) -> f32 {
-    let change = wanted - speed;
-    let change = if change > 0.0 {
-        glider.acceleration.map_or(change, |up| change.min(up))
-    } else {
-        glider.deceleration.map_or(change, |down| change.max(-down))
-    };
-    (speed + change).clamp(glider.idle_speed, glider.max_speed)
 }
 
 /// Whether the point `at` lies inside the circle that `glider`, at `pos` facing `facing`, flies at `speed` turning its
