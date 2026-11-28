@@ -29,20 +29,20 @@ While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. Each pi
 - Smoke duration and width: placeholders below.
 
 ## Both at once
-(user, 2026-11-25) Sludge and Cover are independent toggles and **can both be on at the same time**: one pass then leaves a trail that both slows and blinds, draining both tanks.
+(user, 2026-11-25) Sludge and Cover are independent toggles and **can both be on at the same time**: one pass then leaves a trail that both slows and blinds, draining the shared tank **twice as fast**.
 
 ## Trail rules
 (user, 2026-11-26; Q0159)
-- **Standing still lays too**: a Shadebringer with a toggle on that isn't moving keeps laying its effect **where it stands** (and keeps draining). Since sludge and smoke only last a set time, parking to hold a spot is a conscious choice: e.g. a full Cover tank holds one spot of smoke for about 22 s (10 s of tank, then the last smoke's 12 s).
+- **Standing still lays too**: a Shadebringer with a toggle on that isn't moving keeps laying its effect **where it stands** (and keeps draining). Since sludge and smoke only last a set time, parking to hold a spot is a conscious choice: e.g. a full tank used only for Cover holds one spot of smoke for about 32 s (20 s of tank, then the last smoke's 12 s).
 - **In it = its centre is in it**: a unit is in sludge, or inside smoke, when its **centre** is inside the trail, as for Rugged terrain, the Shrine and the First Aid Tent. (Area damage still goes by overlap.)
 - **Entering the Tunnel Network switches both toggles off**: it comes out with both off; the player switches them on again.
-- **An empty tank switches its toggle off** (as in Charges and recharging): it never stays "on" with nothing left.
+- **An empty tank switches its toggles off** (as in Charges and recharging): neither stays "on" with nothing left.
 
 ## Charges and recharging
-(user, 2026-11-25) Sludge and Cover each have their **own, separate charge**. The charges are **recharged only inside the Tunnel Network**, and only while the player owns a **Vault** (this is the Vault's "re-arming" role). Away from the tunnels, a Shadebringer that has used up a charge can't use that ability until it goes back underground.
-- **Each charge is a tank** (user, 2026-11-25) that **drains while its toggle is on**. Using an ability for a short while costs only a little. When a tank runs **empty**, that ability switches off and can't be switched back on until the tank has some charge again.
-- Inside the Tunnel Network (with a Vault), the tanks **refill gradually**, partly used ones included.
-- **A new Shadebringer starts with full tanks** (user, 2026-11-28; Q0190). **Tech gate: possible** (core/tech_and_research.md > Tech Gates): starting full may later require a tech (designer's reading of which point the user meant; to confirm).
+(user, 2026-11-28; Q0190; replaces "each has its own, separate charge", 2026-11-25) Sludge and Cover draw from **one shared tank**: sludge and smoke are related, and sharing makes the player choose between them. The tank is **recharged only inside the Tunnel Network**, and only while the player owns a **Vault** (this is the Vault's "re-arming" role). Away from the tunnels, a Shadebringer that has emptied its tank can't use either ability until it goes back underground.
+- **The tank drains while a toggle is on** (user, 2026-11-25), once per toggle that is on. Using an ability for a short while costs only a little. When the tank runs **empty**, both abilities switch off and can't be switched back on until it has some charge again.
+- Inside the Tunnel Network (with a Vault), the tank **refills gradually**, a partly used one included.
+- **A new Shadebringer starts with a full tank** (user, 2026-11-28; Q0190). If one of the two abilities is later gated by a tech, it is gated as an ability (core/tech_and_research.md > Tech Gates); the shared tank is unaffected.
 - Tank size, drain, refill, minimum charge: placeholders below.
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
@@ -50,7 +50,7 @@ While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. Each pi
 - FixedTurnRadiusMovement: MinimumTurnRadius 80 su; ForwardMaxSpeed 8 su/frame; ForwardAcceleration 1; ReverseMaxSpeed 3; ReverseAcceleration 0.5; Deceleration 1.
 - **Sludge**: each patch lasts **X = 10 s**; units are slowed by **Y = 40%** for **Z = 2 s** after leaving it, and the slow **refreshes while they stay in it**; trail width 48 su.
 - **Cover**: each piece of smoke lasts **12 s**; the wall is **64 su (1 grid unit)** wide and blocks sight at any height except satellites'.
-- **Tanks**: 100 each; drain **10 per second** while on (10 s of use from full); refill **5 per second** inside the network with a Vault; a toggle can be switched on with **any charge** left in its tank (user, 2026-11-27).
+- **Tank** (one, shared; designer placeholder 2026-11-28, keeping the old total): **200**; drains **10 per second per toggle on** (20 s of one ability from full, 10 s of both); refills **10 per second** inside the network with a Vault (20 s from empty, as before); a toggle can be switched on with **any charge** left (user, 2026-11-27).
 - Toggles follow the mode-switch rule (keep orders, not queueable). Hotkeys: **R** Sludge, **F** Cover.
 - Cost: Vehicle Assembly, 150 Space Crystals, 320 frames.
 
