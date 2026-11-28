@@ -148,10 +148,10 @@ impl Sim {
             // (M6-GD) `factions/gdo/units/drone_operator.md > Launching and piloting` (`crate::tether`): the units
             // that launch from their stock take it, the others ignore it.
             OrderKind::Launch => ordered = self.check_launch(ordered)?,
-            // (M6-GH1) `factions/gdo/structures/airfield.md > Assignment` (`crate::aircraft`): the aircraft that the
-            // Airfield has room for take it, the others ignore it.
+            // (M6-GH1) `systems/mechanics/aircraft_landing.md > Assigned base` (`crate::aircraft`): the aircraft that
+            // the Airfield has room for take it, the others ignore it.
             OrderKind::Rebase(airfield) => ordered = self.check_rebase(player, ordered, airfield)?,
-            // (M6-GH1) `factions/gdo/structures/airfield.md > Returning and rearming`: the aircraft with a base take it.
+            // (M6-GH1) `systems/mechanics/aircraft_landing.md > Assigned base`: the aircraft with a base take it.
             OrderKind::ReturnToBase => ordered = self.check_return(ordered)?,
             // (M6-GA) `factions/gdo/units/artillery_rig.md > Modes` (`crate::vehicle_deploy`): the units whose type
             // deploys into the type it names take it, the others ignore it ([`Sim::takers`]).
@@ -384,14 +384,14 @@ impl Sim {
         Ok(armed)
     }
 
-    /// (M6-GH1) The gate for a Rebase to `airfield` (`factions/gdo/structures/airfield.md > Assignment`: "**Reassigning**:
-    /// the player can move an aircraft's assignment to another Airfield, if that Airfield has room: its assignments
-    /// plus the aircraft in its production queue must be **fewer than 4**"; plan decision T88): it is an Airfield of
-    /// the player's in operation (`aircraft::is_airfield`), else [`Reject::NotAnAirfield`]; the aircraft of `units`
-    /// take it (`Object::aircraft`), else [`Reject::LacksAbility`]: those assigned to it already, which need no room,
-    /// and of the others, in the command's order, as many as it has room for (`aircraft::room`); the others ignore
-    /// it. With no room for any of them and none assigned to it: [`Reject::AirfieldFull`]. `Sim::give_order` assigns
-    /// them as it gives the order.
+    /// (M6-GH1) The gate for a Rebase to `airfield` (`systems/mechanics/aircraft_landing.md > Assigned base`:
+    /// "**Reassigning**: the player can move an aircraft's assignment to another Airfield, if that Airfield has room:
+    /// its assignments plus the aircraft in its production queue must be **fewer than 4**"; plan decision T88): it is
+    /// an Airfield of the player's in operation (`aircraft::is_airfield`), else [`Reject::NotAnAirfield`]; the aircraft
+    /// of `units` take it (`Object::aircraft`), else [`Reject::LacksAbility`]: those assigned to it already, which need
+    /// no room, and of the others, in the command's order, as many as it has room for (`aircraft::room`); the others
+    /// ignore it. With no room for any of them and none assigned to it: [`Reject::AirfieldFull`]. `Sim::give_order`
+    /// assigns them as it gives the order.
     fn check_rebase(
         &self,
         player: PlayerId,
@@ -425,7 +425,7 @@ impl Sim {
         Ok(taking)
     }
 
-    /// (M6-GH1) The gate for a Return to Base (`factions/gdo/structures/airfield.md > Returning and rearming`: "An
+    /// (M6-GH1) The gate for a Return to Base (`systems/mechanics/aircraft_landing.md > Assigned base`: "An
     /// unassigned aircraft has no base [...] Return to Base is unavailable until it is reassigned"): the aircraft of
     /// `units` take it, else [`Reject::LacksAbility`], and of them those with a base (`aircraft::base_of`), else
     /// [`Reject::NoBase`].

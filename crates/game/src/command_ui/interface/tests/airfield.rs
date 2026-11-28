@@ -93,7 +93,7 @@ fn look(panel: &Panel, slot: CommandSlot) -> Option<ButtonLook> {
 /// owns no Propulsion Labs ("Requires a Propulsion Labs"; it held its slot, not available, until slice M6-GL); X
 /// Cancel Production (greyed with nothing queued) and C Set Rally Point, as on every producer. With 1 Supply Q is
 /// greyed, "Not enough Supplies" (the Hornet's 2, design change 0435); with three Hornets assigned and one queued,
-/// "Airfield full" (`factions/gdo/structures/airfield.md > Production limit`: "3 assigned + 1 queued = full"). With
+/// "Airfield full" (`factions/gdo/structures/airfield.md > Aircraft Support`: "3 assigned + 1 queued = full"). With
 /// Propulsion Labs W trains a Dragonfly at once, with its 4 Supplies (design change 0435), and is greyed with 3, "Not
 /// enough Supplies".
 #[test]
@@ -167,7 +167,7 @@ fn the_airfields_q_trains_a_hornet_and_w_a_dragonfly() {
 
 /// The Hornet's DefaultState is the BasicCombatUnit's with F Return to Base, "Base", an order at once that Shift
 /// queues, to every Hornet of the ActiveGroup, the Hornet being Groupable ("Groupable true"). Unassigned, its Airfield
-/// gone, F is greyed: "No Airfield assigned" (`factions/gdo/structures/airfield.md > Returning and rearming`: "Return to
+/// gone, F is greyed: "No Airfield assigned" (`systems/mechanics/aircraft_landing.md > Assigned base`: "Return to
 /// Base is unavailable until it is reassigned").
 #[test]
 fn the_hornets_f_returns_it_to_base_unless_it_has_none() {

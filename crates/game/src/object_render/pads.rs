@@ -1,5 +1,5 @@
 //! (M6-GH2) The look of a building its aircraft land on (`Look::Pads`, `sc_sim::landing`: the Airfield,
-//! `factions/gdo/structures/airfield.md > Landing slots`: "An Airfield has **4 landing slots**, one per possible
+//! `factions/gdo/structures/airfield.md > Aircraft Support`: "An Airfield has **4 landing slots**, one per possible
 //! assignment"), over its structure body (`super::structures`): a dark pad with a pale rim on each of its landing slots
 //! (`sc_sim::landing::layout`: the centres of its footprint's quarters), where its aircraft land and stand, clear of
 //! the tag in the middle (`crate::kinds::object_label`). A square footprint's slots are the same however it is turned,

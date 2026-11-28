@@ -173,14 +173,15 @@ pub struct ChamberDef {
 pub struct AirfieldDef {
     /// The most aircraft assigned to it, those in its production queue counting
     /// (`factions/gdo/structures/airfield.md > Aircraft Support`: "**Capacity: each Airfield supports at most 4
-    /// aircraft.**"; `> Assignment`: "An Airfield holds at most **4 assignments**"; `> Production limit`: "An
-    /// Airfield **can't queue another aircraft** if its assignments plus the aircraft already in its production queue
-    /// would exceed 4"). (M6-GH2) It has as many landing slots (`> Landing slots`: "An Airfield has **4 landing
-    /// slots**, one per possible assignment, so all of its aircraft can be landed at the same time";
+    /// aircraft.**"; `systems/mechanics/aircraft_landing.md > Assigned base`: "An Airfield holds at most **4
+    /// assignments**"; `factions/gdo/structures/airfield.md > Aircraft Support`: "An Airfield **can't queue another
+    /// aircraft** if its assignments plus the aircraft already in its production queue would exceed 4"). (M6-GH2) It
+    /// has as many landing slots (`factions/gdo/structures/airfield.md > Aircraft Support`: "An Airfield has **4
+    /// landing slots**, one per possible assignment, so all of its aircraft can be landed at the same time";
     /// `crate::landing::slots`), at most the placeholder layout's 4 (`Ruleset::check`).
     pub capacity: u32,
     /// (M6-GH2) The frames an aircraft takes to land on one of its slots, and to take off from it
-    /// (`factions/gdo/structures/airfield.md > Returning and rearming`: "Landing and take-off: **16 frames (1 s)**
+    /// (`systems/mechanics/aircraft_landing.md > Assigned base`: "Landing and take-off: **16 frames (1 s)**
     /// each (placeholder)"; `crate::landing`).
     pub landing_ticks: u32,
     /// (M6-GH2) **Placeholder (Q0189 point 4)**, the designer's (`factions/gdo/structures/airfield.md > Aircraft

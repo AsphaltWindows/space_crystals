@@ -129,8 +129,8 @@ impl Sim {
     /// slot is free (an aircraft rebased elsewhere still on one, or one rising from it: `landing::claims`), it stays
     /// inside, finished, as a unit behind an occupied doorway does (`Sim::release_unit`;
     /// `systems/mechanics/aircraft_landing.md > Assigned base`: "No free spot: the finished aircraft waits inside"). It
-    /// is assigned to the Airfield that built it (`factions/gdo/structures/airfield.md > Assignment`: "An aircraft is
-    /// assigned to the Airfield that built it"). A producer with no landing slots (no Airfield) lets it out over its
+    /// is assigned to the Airfield that built it (`systems/mechanics/aircraft_landing.md > Assigned base`: "An aircraft
+    /// is assigned to the Airfield that built it"). A producer with no landing slots (no Airfield) lets it out over its
     /// centre, in the air. It replaced slice M6-GH1's release over the Airfield's centre (D34).
     pub(super) fn release_onto_slot(&mut self, producer: ObjectId) {
         let Some(building) = self.objects.get(&producer) else {
@@ -181,10 +181,11 @@ impl Sim {
 
     /// (M6-GH2) The removal path (`Sim::remove_objects`), for the objects `ids` about to leave the game: the aircraft
     /// landed on the Airfields among them, landing or down, those not among `ids`, in id order, each with a
-    /// `SimEvent::Died` (design change 0428 point 3, `factions/gdo/structures/airfield.md > Assignment`: "**Aircraft
-    /// landed on it are destroyed with it**: they don't take off by themselves. Designer's reading: an aircraft still
-    /// **landing** (not yet down) counts as landed and is destroyed; one already **taking off** escapes"). One taking
-    /// off has no landing any more (`landing::take_off`): it flies on, unassigned as the Airfield's other aircraft are.
+    /// `SimEvent::Died` (design change 0428 point 3, `systems/mechanics/aircraft_landing.md > Assigned base`:
+    /// "**Aircraft landed on it are destroyed with it**: they don't take off by themselves. Designer's reading: an
+    /// aircraft still **landing** (not yet down) counts as landed and is destroyed; one already **taking off**
+    /// escapes"). One taking off has no landing any more (`landing::take_off`): it flies on, unassigned as the
+    /// Airfield's other aircraft are.
     pub(super) fn landed_on(&mut self, ids: &[ObjectId]) -> Vec<ObjectId> {
         let landed: Vec<ObjectId> = (self.objects.values())
             .filter(|o| landing::at(o).is_some_and(|at| ids.contains(&at)) && !ids.contains(&o.id))

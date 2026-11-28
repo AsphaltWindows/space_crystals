@@ -1,6 +1,6 @@
 //! The Hornet's missiles (`factions/gdo/units/hornet.md > AttackAttributes`: "Ammo: **5 missiles**, then it must
 //! reload at its assigned Airfield"; "**DoublyDisjointed** (not homing [...] it can Attack Ground)"), the automatic
-//! return (`factions/gdo/structures/airfield.md > Returning and rearming`), (M6-GH2) the burst at the spot each flies
+//! return (`systems/mechanics/aircraft_landing.md > Assigned base`), (M6-GH2) the burst at the spot each flies
 //! to (design change 0458), and its aim: "No turret (fires forward; it turns in place to aim)".
 
 use sc_sim::math;

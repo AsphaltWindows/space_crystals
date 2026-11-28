@@ -1,4 +1,4 @@
-//! Design change 0428 point 3 (`factions/gdo/structures/airfield.md > Assignment`): "If the Airfield is destroyed,
+//! Design change 0428 point 3 (`systems/mechanics/aircraft_landing.md > Assigned base`): "If the Airfield is destroyed,
 //! its aircraft lose their assignment [...] **Aircraft landed on it are destroyed with it**: they don't take off by
 //! themselves. Designer's reading: an aircraft still **landing** (not yet down) counts as landed and is destroyed; one
 //! already **taking off** escapes" (`Sim::landed_on`). The Airfield goes by a debug removal, the removal path of a

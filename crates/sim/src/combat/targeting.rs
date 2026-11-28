@@ -24,7 +24,7 @@ pub fn object_box(o: &Object) -> (Vec2, Vec2) {
 }
 
 /// The domain an object is targeted in: its type's ([`kind_domain`]), but (M6-GH2) Ground for an aircraft down on an
-/// Airfield's slot (`crate::landing::down`; `factions/gdo/structures/airfield.md > Returning and rearming`: "**Landed
+/// Airfield's slot (`crate::landing::down`; `systems/mechanics/aircraft_landing.md > Assigned base`: "**Landed
 /// aircraft are ground targets** [...] Air-only weapons (TargetDomain Air) can't hit it. Once it takes off it is an air
 /// target again. **During landing and take-off** [...] it is an **air target**", design change 0428 point 1). Every
 /// reader of an object's domain asks it: the scans and ValidTarget ([`can_attack_now`], `orders::world`), the blasts

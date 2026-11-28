@@ -99,7 +99,7 @@ impl Mover {
 }
 
 /// (M6-GL) A Glider's landing approach to its goal's point ([`Mover::approach`], [`Mover::approach_to`]):
-/// `factions/gdo/structures/airfield.md > Returning and rearming`: "**The Dragonfly** (a Glider) lands and takes off
+/// `systems/mechanics/aircraft_landing.md > Assigned base`: "**The Dragonfly** (a Glider) lands and takes off
 /// **vertically**, as the Specter at an air door (user, 2026-11-26; Q0162): it approaches its slot at IdleSpeed, stops
 /// over it while it lands (16 frames), and takes off straight up, leaving at IdleSpeed. Landed, it doesn't move"
 /// (design change 0428 point 5). The movement step flies it (`movement::approach`); a new leg and a stop end it.

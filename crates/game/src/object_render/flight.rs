@@ -22,7 +22,7 @@
 //! the top, evenly by the sim's whole ticks in between ([`object_lift`]), its shadow under it all the way.
 //!
 //! (M6-GH2) An aircraft landing on an Airfield's slot (`sc_sim::landing::lift`;
-//! `factions/gdo/structures/airfield.md > Landing slots`: "Landing and take-off: **16 frames (1 s)** each") is drawn
+//! `factions/gdo/structures/airfield.md > Aircraft Support`: "Landing and take-off: **16 frames (1 s)** each") is drawn
 //! sinking from its flight's height to the ground, evenly by the sim's whole ticks, its shadow under it; down on its
 //! slot it is drawn on the ground with no shadow ([`shadow_shown`]: plan §GH2's landed look, "no air shadow"). Its
 //! take-off is a rise (`Mover::rise`), drawn as one out of an air door is.

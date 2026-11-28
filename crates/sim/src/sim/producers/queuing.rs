@@ -169,7 +169,7 @@ impl Sim {
                         (short.then_some(Refusal::NoRecruit), units)
                     }
                     // (M6-GH1) An aircraft at an Airfield without room for it (`crate::aircraft::room`; `factions/gdo/
-                    // structures/airfield.md > Production limit`: "E.g. 3 assigned + 1 queued = full"), passed over as
+                    // structures/airfield.md > Aircraft Support`: "E.g. 3 assigned + 1 queued = full"), passed over as
                     // a full queue.
                     None => {
                         let refusal = (production.is_full().then_some(Refusal::QueueFull))

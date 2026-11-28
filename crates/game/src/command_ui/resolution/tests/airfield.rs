@@ -1,7 +1,8 @@
-//! (M6-GH1) An aircraft's right-click on an own Airfield (`factions/gdo/structures/airfield.md > Assignment`: "select the
-//! aircraft and **right-click the other Airfield**"; `> Returning and rearming`: "Right-clicking its own Airfield does
-//! the same"): a Rebase onto another, a Return to Base onto its own, under the Enter pointer (a placeholder,
-//! `PointerDisplay::of_order`); a unit that isn't an aircraft moves there. Out of ammo, a Hornet attacks nothing.
+//! (M6-GH1) An aircraft's right-click on an own Airfield (`systems/mechanics/aircraft_landing.md > Assigned base`:
+//! "select the aircraft and **right-click the other Airfield**"; `systems/mechanics/aircraft_landing.md > Assigned
+//! base`: "Right-clicking its own Airfield does the same"): a Rebase onto another, a Return to Base onto its own, under
+//! the Enter pointer (a placeholder, `PointerDisplay::of_order`); a unit that isn't an aircraft moves there. Out of
+//! ammo, a Hornet attacks nothing.
 
 use super::*;
 

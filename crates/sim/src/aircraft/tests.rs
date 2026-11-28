@@ -65,7 +65,7 @@ fn a_round_a_shot_until_none_is_left() {
     assert!(!spend(&mut peacekeeper) && peacekeeper.aircraft.is_none());
 }
 
-/// `factions/gdo/structures/airfield.md > Production limit`: "its assignments plus the aircraft already in its
+/// `factions/gdo/structures/airfield.md > Aircraft Support`: "its assignments plus the aircraft already in its
 /// production queue", against its capacity of 4: the aircraft assigned to it and the aircraft its queue trains count, the others don't; an object that is no
 /// Airfield has no room.
 #[test]

@@ -1,6 +1,7 @@
-//! Assignment (`factions/gdo/structures/airfield.md > Assignment`, `> Production limit`): each aircraft is assigned to
-//! an Airfield, which holds at most 4, its production queue counting; a right-click on another Airfield with room
-//! reassigns; a destroyed Airfield's aircraft are unassigned, and none is reassigned by itself.
+//! Assignment (`systems/mechanics/aircraft_landing.md > Assigned base`, `factions/gdo/structures/airfield.md > Aircraft
+//! Support`): each aircraft is assigned to an Airfield, which holds at most 4, its production queue counting; a
+//! right-click on another Airfield with room reassigns; a destroyed Airfield's aircraft are unassigned, and none is
+//! reassigned by itself.
 
 use super::*;
 
@@ -36,9 +37,9 @@ fn an_airfield_holds_four_aircraft_its_queue_counting() {
 
 /// "**Reassigning** an aircraft to another Airfield is possible only if that Airfield has room [...] Input: select the
 /// aircraft and **right-click the other Airfield**": its right-click there is a Rebase, which assigns it; on its own
-/// Airfield, a Return to Base (`> Returning and rearming`: "Right-clicking its own Airfield does the same"). A
-/// Rebase onto a full one, its queue counting, is refused (`Reject::AirfieldFull`), and of a group only as many as it
-/// has room for move over, the first ones; the rest keep theirs.
+/// Airfield, a Return to Base (`systems/mechanics/aircraft_landing.md > Assigned base`: "Right-clicking its own
+/// Airfield does the same"). A Rebase onto a full one, its queue counting, is refused (`Reject::AirfieldFull`), and of
+/// a group only as many as it has room for move over, the first ones; the rest keep theirs.
 #[test]
 fn a_right_click_on_another_airfield_with_room_reassigns() {
     let mut t = field(|builder| builder);

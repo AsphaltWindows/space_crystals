@@ -237,7 +237,7 @@ impl CarrierDef {
 
 /// (M6-GH1) An aircraft's ammo (plan decision T88, `crate::aircraft`): "Ammo per unit is on each aircraft"
 /// (`factions/gdo/structures/airfield.md > Aircraft Support`), and "**Rearm time is per unit of ammo**, and the value
-/// differs per aircraft type" (`factions/gdo/structures/airfield.md > Returning and rearming`).
+/// differs per aircraft type" (`systems/mechanics/aircraft_landing.md > Assigned base`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AmmoDef {
     /// The rounds it carries, full, as it comes into the game: each shot spends one as it is fired or launched, and at
@@ -245,7 +245,7 @@ pub struct AmmoDef {
     /// Airfield" (`factions/gdo/units/hornet.md > AttackAttributes`).
     pub max: u32,
     /// RearmTimePerAmmo, frames: "Rearming an aircraft takes RearmTimePerAmmo × missing ammo"
-    /// (`factions/gdo/structures/airfield.md > Returning and rearming`). The Hornet's
+    /// (`systems/mechanics/aircraft_landing.md > Assigned base`). The Hornet's
     /// "**RearmTimePerAmmo 32 frames** (5 missiles in 10 s)" (`factions/gdo/units/hornet.md > Placeholder stats`).
     /// Slice M6-GH2 rearms; nothing reads it before.
     pub rearm_ticks_per_ammo: u32,

@@ -1,15 +1,15 @@
-//! The landing slots (`factions/gdo/structures/airfield.md > Landing slots`: "An Airfield has **4 landing slots**, one
-//! per possible assignment, so all of its aircraft can be landed at the same time"; "Landing and take-off: **16
-//! frames (1 s)** each (placeholder)") and the flight home that ends there (`> Returning and rearming`: "**Return to
-//! Base** command: sends the aircraft to its assigned Airfield to land and rearm (hotkey **F**, placeholder).
-//! Right-clicking its own Airfield does the same").
+//! The landing slots (`factions/gdo/structures/airfield.md > Aircraft Support`: "An Airfield has **4 landing slots**,
+//! one per possible assignment, so all of its aircraft can be landed at the same time"; "Landing and take-off: **16
+//! frames (1 s)** each (placeholder)") and the flight home that ends there (`systems/mechanics/aircraft_landing.md >
+//! Assigned base`: "**Return to Base** command: sends the aircraft to its assigned Airfield to land and rearm (hotkey
+//! **F**, placeholder). Right-clicking its own Airfield does the same").
 
 use super::*;
 
 /// The plan's acceptance, "Four Hornets out of ammo land on the 4 pads": four Hornets assigned to [`A`], landed there,
 /// fire their 5 missiles at the ground (each lifting off as its Attack Ground starts), fly home by themselves
-/// (`> Returning and rearming`: "When an aircraft runs out of ammo, it automatically flies back to its assigned
-/// Airfield, lands and rearms"), and land on the 4 slots, one each, where they rearm and stay.
+/// (`systems/mechanics/aircraft_landing.md > Assigned base`: "When an aircraft runs out of ammo, it automatically flies
+/// back to its assigned Airfield, lands and rearms"), and land on the 4 slots, one each, where they rearm and stay.
 #[test]
 fn four_hornets_out_of_ammo_land_on_the_four_slots() {
     let mut t = field(|builder| builder);

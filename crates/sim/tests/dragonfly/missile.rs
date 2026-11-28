@@ -2,7 +2,7 @@
 //! air-to-air missile)", "TargetDomain: Air", "Damage **90**", "Ammo: **1 missile**, then it must reload at its
 //! assigned Airfield", "**RearmTimePerAmmo 64 frames**"; "No turret (fires forward)", which follows the Sparrow's rule
 //! (`m6-plan.md > GL > Placeholders`: its attack is its base's, `combat::turret::Source::Base`, fired once its heading
-//! faces its target); `factions/gdo/structures/airfield.md > Returning and rearming`: "**Automatic return**: when an
+//! faces its target); `systems/mechanics/aircraft_landing.md > Assigned base`: "**Automatic return**: when an
 //! aircraft runs out of ammo, it automatically flies back to its assigned Airfield, lands and rearms".
 
 use sc_sim::mover::Pass;

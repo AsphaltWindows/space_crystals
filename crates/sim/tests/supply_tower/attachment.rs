@@ -91,7 +91,7 @@ fn a_command_breaks_the_attachment() {
     );
 }
 
-/// The chopper lands as an aircraft does (`factions/gdo/structures/airfield.md > Returning and rearming`): landing on
+/// The chopper lands as an aircraft does (`systems/mechanics/aircraft_landing.md > Assigned base`): landing on
 /// its Tower, player 2's Twister (air only) may attack it and their Peacekeeper (ground only) may not
 /// (`Reject::CannotHit`); down, the other way round; taking off, an air target again.
 #[test]

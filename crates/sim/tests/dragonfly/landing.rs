@@ -1,9 +1,9 @@
-//! `tests/landing`'s rules (slice M6-GH2), for a Dragonfly: design change 0428 point 1 (`factions/gdo/structures/
-//! airfield.md > Returning and rearming`), "**Landed aircraft are ground targets**", and "**During landing and
-//! take-off** (16 frames each), the aircraft is an **air target**"; point 3 (`> Assignment`), "**Aircraft landed on it
-//! are destroyed with it** [...] an aircraft still **landing** (not yet down) counts as landed and is destroyed; one
-//! already **taking off** escapes"; point 4, "**An order during rearming**: the aircraft takes off at once **with the
-//! ammo rearmed so far**".
+//! `tests/landing`'s rules (slice M6-GH2), for a Dragonfly: design change 0428 point 1
+//! (`systems/mechanics/aircraft_landing.md > Landed aircraft (every archetype)`), "**Landed aircraft are ground
+//! targets**", and "**During landing and take-off** (16 frames each), the aircraft is an **air target**"; point 3
+//! (`systems/mechanics/aircraft_landing.md > Assigned base`), "**Aircraft landed on it are destroyed with it** [...] an
+//! aircraft still **landing** (not yet down) counts as landed and is destroyed; one already **taking off** escapes";
+//! point 4, "**An order during rearming**: the aircraft takes off at once **with the ammo rearmed so far**".
 
 use super::*;
 

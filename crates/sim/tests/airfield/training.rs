@@ -50,10 +50,10 @@ fn until_produced(t: &mut TestSim, producer: u32) -> (Tick, u32) {
 
 /// The Hornet comes out 320 frames after its Q, (M6-GH2) landed on the first slot of its Airfield (design change 0428
 /// point 2: "New aircraft appear **landed on a free slot** [...] with no rally point they stay landed"), assigned to
-/// the Airfield that built it (`> Assignment`: "An aircraft is assigned to the Airfield that built it") with its 5
-/// missiles, and stays there without a rally point (`ExitRule::Pad`). The next, with a rally point set on the ground,
-/// appears on the next free slot, facing it, and takes off and flies there: its default order on the point, a Move
-/// (design change 0136).
+/// the Airfield that built it (`systems/mechanics/aircraft_landing.md > Assigned base`: "An aircraft is assigned to the
+/// Airfield that built it") with its 5 missiles, and stays there without a rally point (`ExitRule::Pad`). The next,
+/// with a rally point set on the ground, appears on the next free slot, facing it, and takes off and flies there: its
+/// default order on the point, a Move (design change 0136).
 #[test]
 fn a_new_hornet_appears_landed_on_its_airfield_assigned_to_it() {
     let mut t = field(|builder| builder);

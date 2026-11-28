@@ -51,9 +51,9 @@
 //!   moment of the click** resolves to **Repair** (the pointer shows Repair). This applies to every building that
 //!   holds units").
 //! - (M6-GH1) **An own Airfield** in operation gives an aircraft that rearms at one (`crate::aircraft`) a Rebase to it
-//!   (`factions/gdo/structures/airfield.md > Assignment`: "Input: select the aircraft and **right-click the other
+//!   (`systems/mechanics/aircraft_landing.md > Assigned base`: "Input: select the aircraft and **right-click the other
 //!   Airfield**"), whether or not it has room, which the gate judges (`Reject::AirfieldFull`); its own Airfield a
-//!   Return to Base (`factions/gdo/structures/airfield.md > Returning and rearming`: "Right-clicking its own Airfield
+//!   Return to Base (`systems/mechanics/aircraft_landing.md > Assigned base`: "Right-clicking its own Airfield
 //!   does the same").
 //! - **A Supply Chopper** (`crate::supply_run`; `factions/gdo/units/supply_chopper.md >
 //!   ObjectInterfaceState[SupplyChopper]`): a Supply Delivery Station gives Pick Up Supplies ("Right-click

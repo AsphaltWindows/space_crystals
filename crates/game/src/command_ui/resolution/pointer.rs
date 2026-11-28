@@ -62,7 +62,7 @@ impl PointerDisplay {
     /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"), Enter for
     /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"), Assist for an Assist and Repair for a
     /// Repair (design change 0322). (M6-GH1) An aircraft's right-click on an own Airfield, a Rebase onto another or a
-    /// Return to Base onto its own (`factions/gdo/structures/airfield.md > Assignment`: "right-click the other
+    /// Return to Base onto its own (`systems/mechanics/aircraft_landing.md > Assigned base`: "right-click the other
     /// Airfield"), shows Enter: **Placeholder (not in the design: `systems/controls/hud.md > Types` has no row for it;
     /// the aircraft flies there to land, as a unit goes into what it enters)**; and so does a Supply Chopper's
     /// Attach to Tower, the same placeholder, its Pick Up Supplies GatherResources and its Drop Off Supplies

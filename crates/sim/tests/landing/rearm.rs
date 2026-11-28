@@ -1,4 +1,4 @@
-//! Rearming (`factions/gdo/structures/airfield.md > Returning and rearming`): "Rearming an aircraft takes
+//! Rearming (`systems/mechanics/aircraft_landing.md > Assigned base`): "Rearming an aircraft takes
 //! RearmTimePerAmmo × missing ammo"; "After rearming, the aircraft **stays landed** at the Airfield"; design change
 //! 0428 point 4, "**An order during rearming**: the aircraft takes off at once **with the ammo rearmed so far**";
 //! design change 0423, "Each frame, these timers advance by the speed ratio (generated ÷ consumed, capped at 100%), as

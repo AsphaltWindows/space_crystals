@@ -1,4 +1,4 @@
-//! Design change 0428 point 1 (`factions/gdo/structures/airfield.md > Returning and rearming`): "**Landed aircraft are
+//! Design change 0428 point 1 (`systems/mechanics/aircraft_landing.md > Assigned base`): "**Landed aircraft are
 //! ground targets**: once an aircraft has touched down, it can be attacked by ground-targeting weapons. Air-only
 //! weapons (TargetDomain Air) can't hit it. Once it takes off it is an air target again"; "**During landing and
 //! take-off** (16 frames each), the aircraft is an **air target**: anti-air can hit it until it has fully landed, and

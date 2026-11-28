@@ -270,10 +270,10 @@ pub enum Reject {
     /// (M6-GD) None of the units of a Launch has an item in its stock to launch (`crate::stock`).
     StockEmpty,
     /// (M6-GH1) The Airfield has no room (`crate::aircraft::room`): for the aircraft a Train would queue
-    /// (`factions/gdo/structures/airfield.md > Production limit`: "An Airfield **can't queue another aircraft** if its
+    /// (`factions/gdo/structures/airfield.md > Aircraft Support`: "An Airfield **can't queue another aircraft** if its
     /// assignments plus the aircraft already in its production queue would exceed 4"), or for any of the aircraft a
-    /// Rebase names that it doesn't hold yet (`factions/gdo/structures/airfield.md > Assignment`: "if that Airfield has
-    /// room: its assignments plus the aircraft in its production queue must be **fewer than 4**").
+    /// Rebase names that it doesn't hold yet (`systems/mechanics/aircraft_landing.md > Assigned base`: "if that
+    /// Airfield has room: its assignments plus the aircraft in its production queue must be **fewer than 4**").
     AirfieldFull,
     /// (M6-GH1) A Rebase's target isn't an Airfield of the player's in operation (`crate::aircraft::is_airfield`).
     NotAnAirfield(ObjectId),

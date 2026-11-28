@@ -49,7 +49,7 @@ tunables! {
     landing_reach_su: f32 = 8.0,
 
     /// (M6-GL) How far from the point of its landing approach a Glider slows to its IdleSpeed, for the last of the way
-    /// (`crate::movement::approach`; `factions/gdo/structures/airfield.md > Returning and rearming`: "it approaches its
+    /// (`crate::movement::approach`; `systems/mechanics/aircraft_landing.md > Assigned base`: "it approaches its
     /// slot at IdleSpeed, stops over it while it lands"), grid units. **Placeholder (Q0192 point 2)**, the designer's
     /// (`systems/mechanics/aircraft_landing.md > Vertical`: "it slows from MaxSpeed to IdleSpeed 4 GU before the
     /// spot"): the Dragonfly, braking 0.6 su/frame² from its MaxSpeed of 14, is at its IdleSpeed of 6 some 133 su on,

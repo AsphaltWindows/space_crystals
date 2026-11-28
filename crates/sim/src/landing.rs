@@ -27,7 +27,7 @@
 //!   ground target only while it is down ([`down`]), for every reader of its domain (the scans, ValidTarget, the
 //!   blasts, the gate's `Reject::CannotHit`, the right-click).
 //! - **Rearming** ([`rearm`], in the economy phase): "Rearming an aircraft takes RearmTimePerAmmo × missing ammo"
-//!   (`factions/gdo/structures/airfield.md > Returning and rearming`): a round every
+//!   (`systems/mechanics/aircraft_landing.md > Assigned base`): a round every
 //!   `AmmoDef::rearm_ticks_per_ammo` ("**RearmTimePerAmmo 32 frames** (5 missiles in 10 s)",
 //!   `factions/gdo/units/hornet.md`), from the frame it comes down, at the speed of its Airfield's owner's Power
 //!   (design change 0423: "Each frame, these timers advance by the speed ratio (generated ÷ consumed, capped at 100%),

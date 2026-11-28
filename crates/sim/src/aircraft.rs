@@ -9,21 +9,22 @@
 //!   behind a raised Riot Shield), it is no threat to the others' scans (`combat::threat`), its right-click attacks
 //!   nothing (`orders::resolution::Abilities::may_attack`), and the gate refuses it an Attack or an Attack Ground
 //!   (`Reject::OutOfAmmo`). A sequence under way runs on to its end, firing nothing more. It "stays out of ammo until
-//!   it returns" (`> Returning and rearming`): slice M6-GH2 rearms it.
-//! - **Assignment** (`> Assignment`): "An aircraft is assigned to the Airfield that built it" (`Sim::release_unit`).
-//!   "An Airfield holds at most **4 assignments**" (`AirfieldDef::capacity`), the aircraft in its production queue
-//!   counting: its counts are derived from the game, never stored ([`taken`], [`room`]). The production gate refuses
-//!   an aircraft that would pass them (`Reject::AirfieldFull`: "An Airfield **can't queue another aircraft** if its
-//!   assignments plus the aircraft already in its production queue would exceed 4"), and so does a reassignment, a
-//!   Rebase (`OrderKind::Rebase`), applied as it is given: the aircraft then flies to its new base (`orders::air_base`).
-//!   "**No manual unassigning**". When an Airfield goes, the removal path unassigns its aircraft ("its aircraft become
-//!   **unassigned** [...] **There is no automatic reassignment**"; `Sim::remove_objects`).
-//! - **The return** (`> Returning and rearming`): "when an aircraft runs out of ammo, it automatically flies back to
-//!   its assigned Airfield": its last round gone, it gets a Return to Base (`OrderKind::ReturnToBase`) once phase 5e's
-//!   dead are removed, which replaces its orders and which any order replaces in turn ("The automatic return **can be
-//!   interrupted** by giving the aircraft any other order"; `Sim::send_home`), the orders queued behind the one it
-//!   ran out in dropped (a placeholder there). "An unassigned aircraft has no base: it doesn't return automatically,
-//!   and Return to Base is unavailable until it is reassigned."
+//!   it returns" (`systems/mechanics/aircraft_landing.md > Assigned base`): slice M6-GH2 rearms it.
+//! - **Assignment** (`systems/mechanics/aircraft_landing.md > Assigned base`): "An aircraft is assigned to the Airfield
+//!   that built it" (`Sim::release_unit`). "An Airfield holds at most **4 assignments**" (`AirfieldDef::capacity`), the
+//!   aircraft in its production queue counting: its counts are derived from the game, never stored ([`taken`],
+//!   [`room`]). The production gate refuses an aircraft that would pass them (`Reject::AirfieldFull`: "An Airfield
+//!   **can't queue another aircraft** if its assignments plus the aircraft already in its production queue would exceed
+//!   4"), and so does a reassignment, a Rebase (`OrderKind::Rebase`), applied as it is given: the aircraft then flies
+//!   to its new base (`orders::air_base`). "**No manual unassigning**". When an Airfield goes, the removal path
+//!   unassigns its aircraft ("its aircraft become **unassigned** [...] **There is no automatic reassignment**";
+//!   `Sim::remove_objects`).
+//! - **The return** (`systems/mechanics/aircraft_landing.md > Assigned base`): "when an aircraft runs out of ammo, it
+//!   automatically flies back to its assigned Airfield": its last round gone, it gets a Return to Base
+//!   (`OrderKind::ReturnToBase`) once phase 5e's dead are removed, which replaces its orders and which any order
+//!   replaces in turn ("The automatic return **can be interrupted** by giving the aircraft any other order";
+//!   `Sim::send_home`), the orders queued behind the one it ran out in dropped. "An unassigned
+//!   aircraft has no base: it doesn't return automatically, and Return to Base is unavailable until it is reassigned."
 //! - **(M6-GH2) The landing**: its flight home ends as it is down on a landing slot of its base, where it rearms and
 //!   stays ([`AircraftState::landing`], `crate::landing`) unless an order queued behind the flight lifts it off,
 //!   holding fire until an order does ([`may_fire`]).
@@ -46,8 +47,9 @@ use crate::production::QueueEntry;
 pub struct AircraftState {
     /// The rounds it has left, from none to its type's max (`AmmoDef::max`).
     pub ammo: u32,
-    /// The Airfield it is assigned to (`> Assignment`); none while it is unassigned: one whose Airfield was
-    /// destroyed, or one that no Airfield built (a debug spawn's). Left out of files while none.
+    /// The Airfield it is assigned to (`systems/mechanics/aircraft_landing.md > Assigned base`); none while it is
+    /// unassigned: one whose Airfield was destroyed, or one that no Airfield built (a debug spawn's). Left out of files
+    /// while none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base: Option<ObjectId>,
     /// (M6-GH2) Its landing on a slot of an Airfield, from its first frame to its take-off (`crate::landing`); none in
@@ -118,9 +120,9 @@ pub fn spend(o: &mut Object) -> bool {
     aircraft.ammo == 0
 }
 
-/// The places taken at `airfield` (`> Production limit`: "its assignments plus the aircraft already in its production
-/// queue"): the aircraft among `objects` whose base it is, and the entries of its production queue that train one,
-/// the one in production included. Derived, never stored (plan decision T88).
+/// The places taken at `airfield` (`factions/gdo/structures/airfield.md > Aircraft Support`: "its assignments plus the
+/// aircraft already in its production queue"): the aircraft among `objects` whose base it is, and the entries of its
+/// production queue that train one, the one in production included. Derived, never stored (plan decision T88).
 pub fn taken(objects: &BTreeMap<ObjectId, Object>, airfield: ObjectId) -> u32 {
     let assigned = (objects.values()).filter(|o| base_of(o) == Some(airfield)).count();
     let queued = (objects.get(&airfield).and_then(|o| o.production.as_ref())).map_or(0, |production| {
@@ -129,8 +131,9 @@ pub fn taken(objects: &BTreeMap<ObjectId, Object>, airfield: ObjectId) -> u32 {
     u32::try_from(assigned + queued).unwrap_or(u32::MAX)
 }
 
-/// The places left at `airfield` (`> Assignment`: "its assignments plus the aircraft in its production queue must be
-/// **fewer than 4**"): its capacity less those [`taken`], none below. None for an object that is no Airfield.
+/// The places left at `airfield` (`systems/mechanics/aircraft_landing.md > Assigned base`: "its assignments plus the
+/// aircraft in its production queue must be **fewer than 4**"): its capacity less those [`taken`], none below. None for
+/// an object that is no Airfield.
 pub fn room(objects: &BTreeMap<ObjectId, Object>, airfield: ObjectId) -> u32 {
     let capacity = (objects.get(&airfield))
         .and_then(airfield_def)

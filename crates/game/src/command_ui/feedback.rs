@@ -43,8 +43,8 @@
 //!   operator refuses Move, with feedback, until the drone is gone"): every order it gives refused, one of them for a
 //!   drone out (`sc_sim::Reject::DroneOut`), said as a greyed Move is ([`DRONE_OUT_TEXT`], `super::CommandRefused`);
 //! - (M6-GH1) a right-click on an own Airfield that reassigns no aircraft, the Airfield full
-//!   (`factions/gdo/structures/airfield.md > Assignment`: "if that Airfield has room"; `sc_sim::Reject::AirfieldFull`):
-//!   [`AIRFIELD_FULL_TEXT`], as a greyed Q says it;
+//!   (`systems/mechanics/aircraft_landing.md > Assigned base`: "if that Airfield has room";
+//!   `sc_sim::Reject::AirfieldFull`): [`AIRFIELD_FULL_TEXT`], as a greyed Q says it;
 //! - (M6-GA) an order a vehicle deploy dropped as it ended (`SimEvent::OrderDropped`; `factions/gdo/units/
 //!   artillery_rig.md > Modes`: "one it can't carry out (e.g. **Move**, since a deployed unit can't move) is **dropped**
 //!   with the usual unavailable-command feedback"): the gate's refusal of that order to the unit as it is now
@@ -204,10 +204,10 @@ pub const PURCHASE_UNDER_WAY_TEXT: &str = "Already building a drone";
 pub const STOCK_EMPTY_TEXT: &str = "No drone to launch";
 /// (M6-GH1) The message of an Airfield's Q with its assignments and its queue at its capacity, and of a Rebase onto it
 /// (`Reject::AirfieldFull`, `Refusal::AirfieldFull`; `m6-plan.md > GH1 > Acceptance`: "Q is refused ("Airfield
-/// full")"; `factions/gdo/structures/airfield.md > Production limit`).
+/// full")"; `factions/gdo/structures/airfield.md > Aircraft Support`).
 pub const AIRFIELD_FULL_TEXT: &str = "Airfield full";
 /// (M6-GH1) The message of a Return to Base for aircraft without a base (`Reject::NoBase`;
-/// `factions/gdo/structures/airfield.md > Returning and rearming`: "An unassigned aircraft has no base [...] Return to
+/// `systems/mechanics/aircraft_landing.md > Assigned base`: "An unassigned aircraft has no base [...] Return to
 /// Base is unavailable until it is reassigned"). Placeholder wording.
 pub const NO_BASE_TEXT: &str = "No Airfield assigned";
 /// (M6-GH1) The message of an Attack or an Attack Ground for aircraft with no ammo left (`Reject::OutOfAmmo`;

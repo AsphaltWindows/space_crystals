@@ -418,7 +418,7 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
 }
 
 /// (M6-GH1) `factions/gdo/units/hornet.md > AttackAttributes`: "Panel: BasicCombatUnitInterfaceState plus **F: Return to
-/// Base**" (`factions/gdo/structures/airfield.md > Returning and rearming`: "hotkey **F**, placeholder").
+/// Base**" (`systems/mechanics/aircraft_landing.md > Assigned base`: "hotkey **F**, placeholder").
 const RETURN_TO_BASE_SLOT: usize = 7;
 
 /// (M6-CM) `factions/cults/units/disciple.md > Placeholder stats`: "ObjectInterfaceState:

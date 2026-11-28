@@ -1,5 +1,5 @@
 //! (M6-GL) Propulsion Labs and the Dragonfly (`factions/gdo/structures/propulsion_labs.md`,
-//! `factions/gdo/units/dragonfly.md`; `factions/gdo/structures/airfield.md > Returning and rearming`; design changes
+//! `factions/gdo/units/dragonfly.md`; `systems/mechanics/aircraft_landing.md > Assigned base`; design changes
 //! 0366, 0428, 0435 and 0457; plan decision T88), through the gate. One test binary:
 //! - `training`: the Deployment Center's Propulsion Labs behind an Airfield, and the Airfield's W, a Dragonfly behind
 //!   Propulsion Labs for 175 Space Crystals and 4 Supplies in 320 frames; a new one appears landed on a free slot,
@@ -42,7 +42,7 @@ const MAX: f32 = 14.0;
 const ACCELERATION: f32 = 0.6;
 const AMMO: u32 = 1;
 const REARM: Tick = 64;
-/// `factions/gdo/structures/airfield.md > Returning and rearming`: "Landing and take-off: **16 frames (1 s)** each
+/// `systems/mechanics/aircraft_landing.md > Assigned base`: "Landing and take-off: **16 frames (1 s)** each
 /// (placeholder)".
 const LANDING: Tick = 16;
 /// The rounding a speed may carry (a Glider's flight is its facing's unit vector times its speed).
@@ -401,7 +401,7 @@ fn lands_on(frames: &[Frame], slot: Vec2, idle: usize) -> Frame {
 
 /// Dragonfly `n`'s take-off off `slot`, which began in this tick: it rises straight up, held still on the slot's spot
 /// with no speed for its rise's first 15 ticks, an air target, and flies in the rise's last, from IdleSpeed: "takes off
-/// straight up, leaving at IdleSpeed" (`factions/gdo/structures/airfield.md > Returning and rearming`; `Mover::rise`,
+/// straight up, leaving at IdleSpeed" (`systems/mechanics/aircraft_landing.md > Assigned base`; `Mover::rise`,
 /// slice M6-SD's, as the Hornet's). Returns the game in the tick of its first flight.
 fn rises_off(t: &mut TestSim, n: u32, slot: Vec2) {
     assert_eq!(landing_of(t.sim(), n), None, "off its slot");

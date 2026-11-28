@@ -1,5 +1,5 @@
 //! The GDO's Dragonfly golden game (slice M6-GL; `factions/gdo/structures/propulsion_labs.md`,
-//! `factions/gdo/units/dragonfly.md`, `factions/gdo/structures/airfield.md > Returning and rearming`; design changes
+//! `factions/gdo/units/dragonfly.md`, `systems/mechanics/aircraft_landing.md > Assigned base`; design changes
 //! 0366, 0428 and 0435): the Deployment Center constructs Propulsion Labs, which unlocks the Airfield's Dragonfly;
 //! three Dragonflies rebased onto the Airfield land on its slots by their landing approach, stopping over each in the
 //! air and landing vertically, and the one it trains appears landed on the last. A raid on player 2's Sparrows: each

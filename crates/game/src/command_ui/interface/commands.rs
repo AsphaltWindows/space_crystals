@@ -283,7 +283,7 @@ pub enum PanelCommand {
     /// runs (`super::PanelSlot::progress`), and its price in its hint (`super::Conditions::price`).
     Buy(ObjectKind),
     /// (M6-GH1) An aircraft's F (`factions/gdo/units/hornet.md > AttackAttributes`: "Panel: BasicCombatUnitInterfaceState
-    /// plus **F: Return to Base**"; `factions/gdo/structures/airfield.md > Returning and rearming`: "**Return to Base**
+    /// plus **F: Return to Base**"; `systems/mechanics/aircraft_landing.md > Assigned base`: "**Return to Base**
     /// command: sends the aircraft to its assigned Airfield to land and rearm (hotkey **F**, placeholder)"): a Return to
     /// Base order, at once (`sc_sim::OrderKind::ReturnToBase`), to every aircraft of the ActiveGroup, each flying to its
     /// own Airfield, where (M6-GH2) it lands and rearms. Shift queues it, as any unit order. Greyed while none

@@ -375,7 +375,7 @@ fn body_at(app: &App, id: u32) -> Vec2 {
 }
 
 /// Design change 0461 by the domain the target is in now, not its type's (slice M6-GH2; design change 0428 point 1,
-/// `factions/gdo/structures/airfield.md > Returning and rearming`: "**Landed aircraft are ground targets** [...]
+/// `systems/mechanics/aircraft_landing.md > Assigned base`: "**Landed aircraft are ground targets** [...]
 /// Air-only weapons (TargetDomain Air) can't hit it. Once it takes off it is an air target again"): player 2's Hornet,
 /// rebased onto its Airfield, lands on a slot. Down, it is an invalid target for the Twister alone, and beside the
 /// Raptor, which attacks it, the Twister follows it. Flown off again, it is the Twister's to attack. The gate's half:

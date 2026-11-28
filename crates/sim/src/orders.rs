@@ -190,14 +190,14 @@ pub enum OrderKind {
     /// ([`launch`], `crate::tether`). Only a unit whose stock holds drones takes it, with one in stock and none out
     /// (the gate).
     Launch,
-    /// (M6-GH1) `factions/gdo/structures/airfield.md > Assignment`: "**Reassigning**: the player can move an aircraft's
-    /// assignment to another Airfield, if that Airfield has room [...] Input: select the aircraft and **right-click the
-    /// other Airfield**. The aircraft is reassigned and flies there to land" (plan decision T88). Applied as it is
-    /// given (`Sim::give_order`): this Airfield is the aircraft's base from then on (`crate::aircraft`), and the order
-    /// flies it there ([`air_base`]). Only an aircraft that rearms at an Airfield takes it, to an own Airfield in
-    /// operation that has room for it (the gate).
+    /// (M6-GH1) `systems/mechanics/aircraft_landing.md > Assigned base`: "**Reassigning**: the player can move an
+    /// aircraft's assignment to another Airfield, if that Airfield has room [...] Input: select the aircraft and
+    /// **right-click the other Airfield**. The aircraft is reassigned and flies there to land" (plan decision T88).
+    /// Applied as it is given (`Sim::give_order`): this Airfield is the aircraft's base from then on
+    /// (`crate::aircraft`), and the order flies it there ([`air_base`]). Only an aircraft that rearms at an Airfield
+    /// takes it, to an own Airfield in operation that has room for it (the gate).
     Rebase(ObjectId),
-    /// (M6-GH1) `factions/gdo/structures/airfield.md > Returning and rearming`: "**Return to Base** command: sends the
+    /// (M6-GH1) `systems/mechanics/aircraft_landing.md > Assigned base`: "**Return to Base** command: sends the
     /// aircraft to its assigned Airfield to land and rearm (hotkey **F**, placeholder). Right-clicking its own Airfield
     /// does the same"; and the automatic return, "when an aircraft runs out of ammo, it automatically flies back to its
     /// assigned Airfield", which "**can be interrupted** by giving the aircraft any other order" (plan decision T88:

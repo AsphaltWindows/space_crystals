@@ -125,7 +125,7 @@ pub enum ExitRule {
     /// (M6-GH1) An Airfield's landing slots (plan decision T88; `crate::landing`): its aircraft use no doorway
     /// (`core/entities.md > Structure Type > Exit Doorway`: "Aircraft [...] are not covered by this rule"). (M6-GH2)
     /// Each appears landed on a free slot, facing its building's rally point if it has one, and takes off with the
-    /// order the rally point gives, or stays landed (`factions/gdo/structures/airfield.md > Returning and rearming`:
+    /// order the rally point gives, or stays landed (`systems/mechanics/aircraft_landing.md > Assigned base`:
     /// "**New aircraft** [...] appear **landed on a free slot**; they take off for the Airfield's rally point, and with
     /// no rally point they stay landed", design change 0428 point 2; `Sim::release_onto_slot`), waiting inside while no
     /// slot is free. It replaced slice M6-GH1's placeholder (D34), an appearance over the footprint's centre.

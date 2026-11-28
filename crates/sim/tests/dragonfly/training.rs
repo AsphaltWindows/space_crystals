@@ -5,7 +5,7 @@
 //! `factions/gdo/structures/deployment_center.md > Constructs`: "Propulsion Labs: 200 Space Crystals, 400 frames (25
 //! seconds) (placeholder). Requires: player owns at least one Airfield". A new Dragonfly appears landed on a free slot
 //! of its Airfield (design change 0428 point 2) and, landed, doesn't move; with a rally point it takes off straight up
-//! and leaves at IdleSpeed (`factions/gdo/structures/airfield.md > Returning and rearming`).
+//! and leaves at IdleSpeed (`systems/mechanics/aircraft_landing.md > Assigned base`).
 
 use sc_sim::aircraft::AircraftState;
 use sc_sim::{BuildingOrientation, ConstructionCommand, Constructor, ProductionCommand};

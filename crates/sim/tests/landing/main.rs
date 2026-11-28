@@ -1,5 +1,5 @@
 //! (M6-GH2) Landing and rearming at the Airfield (`sc_sim::landing`, plan decision T88;
-//! `factions/gdo/structures/airfield.md > Landing slots`, `factions/gdo/structures/airfield.md > Returning and
+//! `factions/gdo/structures/airfield.md > Aircraft Support`, `factions/gdo/structures/airfield.md > Returning and
 //! rearming`; design changes 0428 and 0423), and the Hornet's burst (design change 0458), through the gate. One test
 //! binary:
 //! - `slots`: four Hornets out of ammo land on the Airfield's 4 slots, each in 16 frames, holding still, and rearm
@@ -38,7 +38,7 @@ const HORNET: ObjectKind = ObjectKind::Hornet;
 /// missiles in 10 s)".
 const AMMO: u32 = 5;
 const REARM: Tick = 32;
-/// `factions/gdo/structures/airfield.md > Landing slots`: "Landing and take-off: **16 frames (1 s)** each
+/// `factions/gdo/structures/airfield.md > Aircraft Support`: "Landing and take-off: **16 frames (1 s)** each
 /// (placeholder)".
 const LANDING: Tick = 16;
 
