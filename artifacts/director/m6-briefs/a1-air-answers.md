@@ -2,6 +2,9 @@
 
 Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, and your budget is 200 tool calls.**
 
+## The architecture
+The core, then the Airfield paragraphs of `docs/architecture/production.md` only: `grep -n -i 'airfield\|rearm\|landing' docs/architecture/production.md`.
+
 ## The design
 - `factions/gdo/structures/airfield.md > Returning and rearming` and `> Landing slots`, as they stand now.
 - The change entries in `artifacts/designer/changes/`:
@@ -11,7 +14,7 @@ Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea9
 
 ## Goal
 1. **0466: an order queued behind a return starts on landing.** An order Shift-queued behind a Return to Base, or behind the automatic return when the ammo runs out, starts right after the aircraft lands on its slot. It works like an order given during rearming: the aircraft takes off with the ammo rearmed so far. With nothing queued, the aircraft stays landed and rearms fully, as now.
-   - **Where.** GH2 made the return end only once the aircraft is rearmed:
+   - **Where.** GH2 made the return end only once the aircraft is rearmed. The mechanics audit confirms that 0466 isn't built yet: `run` in `orders/air_base.rs` (about lines 35–42) ends the flight only after the rearm. The places:
      - `crates/sim/src/orders/air_base.rs`: its module doc (lines 10–12) and `run`;
      - `crates/sim/src/orders/run.rs`, near lines 266 and 341;
      - `crates/sim/src/sim/aircraft.rs`: the automatic return, near line 41;

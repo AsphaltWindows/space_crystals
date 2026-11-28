@@ -30,7 +30,7 @@
   - M3-G2's indefinite wait was removed for this reason.
 
 ## Codebase
-- Layout and rules: see `ARCHITECTURE.md` at the repo root (the brief every sub-agent reads first).
+- Layout and rules: `ARCHITECTURE.md` at the repo root is the 20 KB core every sub-agent reads in full (X3, `830462ab`; it was 727 KB). The per-system rules are the 29 files of `docs/architecture/`, indexed in the core's *System docs*. Most are one section of bold-led paragraphs, up to 56 KB, so a brief names the file and a grep keyword, never the whole file. The citations gate checks that every architecture reference names a heading.
 - `cargo run` = game; `cargo test` = both crates (both are default-members).
 
 ## Environment facts
@@ -63,7 +63,7 @@
   - **Phases** are run by fresh agents and merged one by one; each report ends with a Handoff for the next phase.
   - **Tests:** agents run targeted tests while working, then fmt, clippy, `cargo test --workspace` and the 6 s seed sweep once at the end. The Director runs the same gate at each merge and stores the perf binary. ai_games, the soaks and perf A/Bs run between milestones (MQ), with the stored perf binaries for bisecting.
   - **Comments:** full-path design citations and `Placeholder (...)` marks; no long design quotes, no history (git and the plan hold it). Existing comments are cleaned in one pass after M6.
-  - **`ARCHITECTURE.md`** becomes a short core plus `docs/architecture/` (slice X3). Briefs tell agents to read the core and only the docs their phase touches, with `grep -n` then line ranges.
+  - **`ARCHITECTURE.md`** becomes a short core plus `docs/architecture/` (slice X3). Briefs tell agents to read the core and only the docs their phase touches, with `grep -n` then line ranges. Done (`830462ab`).
 - **The way of working since 2026-11-28 is `artifacts/director/token-efficiency.md`** (adopted by the user as written): short phase agents with call budgets (usually 250), precise briefs, lean reading, Opus or Sonnet by phase, one agent at a time. Measure every finished phase with `m6-briefs/tools/ctx_stats.py` (and `token_split.py` for the Director's share), and revise the doc when the numbers say so.
 - **Counts merge silently** (SP's merge, 2026-11-28): when both sides change a count to the same number (`Planned::ALL`'s `[Planned; 27]`) while removing different entries, git merges without a conflict and the build breaks. After every merge, check each count against its list. The gate catches it, but only after a full build.
 - **`checks.sh <label> <worktree> gate`** runs the merge gate only (fmt, clippy, the workspace tests, the seed sweep); without `gate` it also runs ai_games. Under the new process, ai_games runs between milestones and after a change that moves the computer players' games (A2).
@@ -205,3 +205,4 @@
 - **A comments-only pass across the repository** (citations) must run while nothing else does, or every slice gets conflicts in its comments.
 - **A golden re-bless is fine when you can explain it.** M4-B re-blessed 8 goldens and proved it by re-running with the new starting banks zeroed and getting the old hashes back. Ask for that kind of proof whenever a slice re-blesses.
 - **Ask agents to commit in coherent steps,** each building and passing the tests. R1 did, across 245 files, and review was easy.
+- **A bare `cd` into another directory moves the session's working directory** (2026-11-28, four times: into a worktree, the design, the changes). The harness then treats the session as working there, and removing a worktree it stands in breaks the shell. Put paths in variables (`D=`, `WT=`, `S=`) and use `git -C`; the only `cd` is `cd /home/iv/dev/space_crystals &&`.

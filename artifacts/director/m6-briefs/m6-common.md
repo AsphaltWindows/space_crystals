@@ -28,7 +28,7 @@ This section overrides m5-common and the rest of this file where they differ.
 
 ## Read first (this replaces m5-common's "Read first" entirely)
 Every call you make carries everything you have read so far, so read only what your phase needs. Your brief names it: the design sections and change entries, the code (files, types, functions), and the tests. Find each with `grep -n`, then read just the lines you need.
-1. **The architecture.** Until slice X3 splits `ARCHITECTURE.md` (now 712 KB, about 180k tokens), don't read it whole. Read the sections your brief names: `grep -n '^## ' ARCHITECTURE.md`, then their line ranges. Once X3 has split it, read the core (at most 30 KB) in full, and the docs in `docs/architecture/` that your brief names.
+1. **The architecture.** Read `ARCHITECTURE.md`, the core (20 KB), in full. Of the system docs in `docs/architecture/`, read only those your brief names, and in them only the paragraphs you need: they are long (up to 56 KB) and mostly one section of bold-led paragraphs, so find yours with `grep -n -i '<keyword>' docs/architecture/<file>.md`, then read that range.
 2. **Planning documents:** `artifacts/director/m6-plan.md`, `plan.md`, the earlier milestones' plans and the questions. Read only the parts your brief names, found with grep, and never read them whole.
 3. **The design sections and change entries** your brief names, and a section they cite when you need it.
 
