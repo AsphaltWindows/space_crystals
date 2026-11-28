@@ -44,7 +44,7 @@ Filled in when ST1, GL and GS2 have merged. What is known now:
   - The Pilgrim appears landed and waits, where the Sparrow takes off at once.
   - A landed Pilgrim holds the runway, so a finished aircraft waits at 100%, as behind a blocked exit (`core/entities.md > Exit Doorway`).
   - W is greyed without a Scrap Hangar, the TechPrerequisite rule every producer uses.
-- **The landing:** GH2's `landing.rs` lands aircraft on slots, and GL added the glider's arm. A runway landing (lining up along it) is a third arm. A landed Pilgrim is a ground target through `combat::object_domain`.
+- **The landing:** GH2's `landing.rs` lands aircraft on slots, and GL added the glider's arm. **GL's note:** `approach::next_speed`, `circles` and the on-line arrival check can be reused; a runway landing needs a heading constraint that GL's slot approach doesn't have (`movement/approach.rs`, `sim/landing.rs::glide_home`). A runway landing (lining up along it) is a third arm. A landed Pilgrim is a ground target through `combat::object_domain`.
 - **The carrier:** ST1's `UnitDef::carries` and `Place::Carrier`, with GS2's loading onto a landed aircraft. Loading only while landed on an Airstrip, Unload All only while landed, and everyone dies with the carrier.
   - **ST1's note:** the Pilgrim (16 places) loads while landed with no extra rule (`carry::loads` is true for a landed aircraft), but "out along the runway's side" needs its own spots in place of `carry::ring_spots`.
   - **Q0191 is open** (a crowded unload, who sees the passenger pips). Build as ST1 did.

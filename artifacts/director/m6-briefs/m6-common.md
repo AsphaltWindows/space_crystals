@@ -12,8 +12,21 @@ These rules apply to every M6 slice. Each slice runs in its own git worktree, an
 - "Done means";
 - the report.
 
+## How you work (from 2026-11-28)
+This section overrides m5-common and the rest of this file where they differ.
+- **One phase, one agent.** Your brief names your phase:
+  - **mechanic:** a new shared behaviour in `crates/sim`, with unit tests. Shape it for every unit the design gives it (your brief lists them), not for the first one, and drive it from def data rather than from a unit's kind;
+  - **entity:** a unit or structure assembled from existing mechanics: its def, recipe and panel, the client, the QA screenshots, the golden and the docs;
+  - sometimes a refactor that comes first.
+
+  Do your phase only. The Director merges it, then starts the next phase with a fresh agent. Slices run one at a time, so master won't move under you unless the Director says so.
+- **Read lean.** Read the core `ARCHITECTURE.md` in full. From `docs/architecture/`, read only the docs your phase touches: the core's index says which. In code, find what you need with `grep -n`, then read just those lines (`sed -n 'A,Bp'`). Never read a whole large file or a log.
+- **Tests.** While you work, run the tests for the code you touch, such as `cargo test -p sc_sim --lib <module>::` or `cargo test -p sc_sim --test sim <file>::`, and write unit tests for each new module. At the end, run each of these once: fmt, clippy (`-D warnings`), `cargo test --workspace` and the seed sweep (about 6 s). Don't run ai_games, the soaks or perf A/Bs: the Director runs them between milestones.
+- **Comments.** Cite the design section by its full path, and mark placeholders `Placeholder (QNNNN point N)` or `Placeholder (not in the design: why)`. Don't quote the design beyond a few words, and don't record history (which slice or design change did what). Don't rewrite existing comments.
+- **Handoff.** End your report with **Handoff**, at most 8 lines: what the next phase needs to know, such as the types, functions and files it builds on, and anything left undone.
+
 ## Read first (instead of m5-common's "Read first" 2 and 4)
-1. **`ARCHITECTURE.md`**, all of it, as M5 left it: the ruleset (X1), data files (X2), crushing, tracked movement, and the playtest docs' generators.
+1. **`ARCHITECTURE.md`**, the core, in full, and the docs in `docs/architecture/` that your phase touches.
 2. **The M6 spec, `artifacts/director/m6-plan.md`:**
    - **The adoption note at its top,** with "Answered since adoption": each answered question, and which slice builds it.
    - **Your slice in §B.** Implement it as written, unless your brief says otherwise.
@@ -43,8 +56,7 @@ M5-X1 made every number the sim reads part of one `Ruleset`, and M5-X2 exports i
 X1's and X2's shapes are summarised below (filled in at launch).
 
 ## The computer players
-- The `ai_games` table (192 rows, `cargo test --release -p sc_ai --test ai games::ai_games -- --ignored --nocapture`, about 15 minutes) must stay identical, unless your slice changes something every game has: for example GS, whose Supply Tower changes the GDO's start (0436).
-- **If it changes,** say which rows moved and why.
+- **The `ai_games` table** (192 rows, about 15 minutes) is checked between milestones, not per slice: don't run it. If your slice changes something every game has, say so in your report.
 - **No computer player builds an M6 kind** until A3. Keep it so: the AI crate constructs by kind.
 
 ## Goldens
@@ -64,7 +76,7 @@ Save them in `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-81
   - A faction's own rules are its struct in `defs/<faction>.rs` (`GdoRules`, `SyndicateRules`, `CultsRules`, `ColonistsRules`), inside `FactionRules`.
 - **The state hash leaves the rules out.** A kind's place in the registry is hashed, so new kinds go last.
 - **Hash tags** (`artifacts/director/hash-tags.md`, the Director's registry): new optional state hashes only while present, under a tag of its own, so no golden moves. Your brief names your `Object`, `OrderKind` and `Sim` tags. For `Behaviour`, `Mover`, `Place`, `Held` and `Service`, use the number the registry gives your slice. For any other hash you extend, take its next free number. Either way, list every tag you used in your report.
-- **Counts after a merge of master:** a count that both sides changed the same way merges once, with no conflict, and comes out short. After each merge, set every count to the true number: the goldens (the client's playback count in `replay.rs`, `golden/main.rs`'s doc and ARCHITECTURE.md), and `Planned::ALL`'s length.
+- **Counts after a merge of master:** a count that both sides changed the same way merges once, with no conflict, and comes out short. After each merge, set every count to the true number: the goldens (the client's playback count in `replay.rs`, `golden/main.rs`'s doc and the architecture doc that lists them), and `Planned::ALL`'s length.
 
 **M5-X1b, merged** (`a8e9f9af`): `DebugCommand::SetRules` replaces a game's rules between two ticks.
 - It is refused for a structural change (`Reject::RulesStructural`), a number that isn't finite (`RulesNotFinite`), or a 64th ruleset (`RulesFull`).

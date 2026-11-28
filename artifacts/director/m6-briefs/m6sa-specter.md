@@ -28,6 +28,8 @@ Read `factions/syndicate/units/specter.md` as it stands, all of it, and `faction
 Follow `m6-plan.md > SA`'s Code list. Since the plan:
 - **M6-SD built the air doors** (`UnitDef::air_door_ticks`, `Mover::rise`, `Enter::descent`, the air lane `TunnelState::air_in`/`air_out`). The Specter uses them at 24 frames. Read SD's Built entry in `artifacts/director/plan.md`.
 - **M6-GL built the glider's vertical landing** (the approach at IdleSpeed, the stop over the spot, the lift), overriding the glider's "must keep moving" rule while it lands. Reuse it at the door. Read GL's Built entry and its notes for you.
+  - **GL's notes for you:** call `Mover::approach_to(door)` and start the descent once `is_over()`. Phase 5d already holds a Glider that is over its point or rising (the one override of "must keep moving", invariant G1 amended), and `approach::stale` releases it if its order ends. SD's `Mover::rise` is the lift.
+  - **Q0192 is open** on the approach (the 4 GU slow-down, lining up, circling when no spot is free). Build as GL did.
 - **M6-GH1 and GH2 built ammo and rearming** (`UnitDef::ammo`, `Object::aircraft`). Use them for the single bomb; re-arming here is the Vault's service, not an Airfield's.
 - **M6-SB built the Vault's service** in `network/services.rs` (2 at a time per Vault). The Specter's re-arm is a Vault turn: 160 frames.
 - **The bomb:** DoublyDisjointed with a fixed fall (T100), `UnitDef::bomb_fall`. It lands 24 ticks after release, where it was aimed.
