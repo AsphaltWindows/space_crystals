@@ -1,15 +1,16 @@
-//! The Vault — `factions/syndicate/structures/vault.md` (design change 0367's placeholders; slice M6-SK).
+//! The Vault — `factions/syndicate/structures/vault.md` (design change 0367's placeholders; slice M6-SK, made live by
+//! slice M6-SB).
 
-use crate::defs::structures::{ExpansionDef, StructureDef, SymmetryType};
+use crate::defs::structures::{ExpansionDef, StructureDef, SymmetryType, VaultDef};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/syndicate/structures/vault.md`: the Syndicate's "equipment storage warehouse for re-arming Syndicate
-/// forces", an underground expansion, the Shadebringer's prerequisite and, with a Chemical Plant, the Specter's. Its
-/// numbers only (slice M6-SK, plan decision T84, by T69's rule): no Tunnel builds one yet, its construction
-/// ([`VAULT_EXPANSION`]) being kept out of its def, so the gate refuses its Expand (`Reject::CannotConstruct`) and its
-/// ExpandMenu entry stays `Planned`; its re-arming and its refilling of tanks, network-wide and two units at a time
-/// (`> Placeholder stats`: "**Throughput**"), come with slice M6-SB. Its numbers are the design's "Placeholder stats".
+/// forces", an underground expansion, the Shadebringer's prerequisite and, with a Chemical Plant, the Specter's. Slice
+/// M6-SK registered its numbers; since slice M6-SB a Tier 1 Tunnel builds it ([`VAULT_EXPANSION`], its ExpandMenu
+/// entry a `Kind`), and it refills the tanks of the units in its owner's network, two units at a time
+/// ([`VAULT_SERVICE`], `network::services`; "a Vault re-arms and recharges units **anywhere in the Tunnel
+/// Network**"). Its numbers are the design's "Placeholder stats".
 pub(crate) const VAULT: ObjectDef = ObjectDef {
     kind: ObjectKind::Vault,
     name: "Vault",
@@ -34,17 +35,16 @@ pub(crate) const VAULT: ObjectDef = ObjectDef {
         build_radius_extension: 0,
         power: 0,
         underground: true, // Entity Type - Structure Type (Underground)
-        expansion: None,   // with slice M6-SB: [`VAULT_EXPANSION`]
+        expansion: Some(VAULT_EXPANSION),
         // TechPrerequisite - player owns at least one Hideout (anywhere in the Tunnel Network)
         requires: &[ObjectKind::Hideout],
+        vault: Some(VAULT_SERVICE),
         ..StructureDef::NONE
     }),
     ..ObjectDef::NONE
 };
 
-/// The Vault's construction by a Tunnel (`StructureDef::expansion`), for slice M6-SB to make live: until then no Tunnel
-/// builds a Vault.
-#[cfg_attr(not(test), expect(dead_code, reason = "slice M6-SB: a Tunnel builds the Vault"))]
+/// The Vault's construction by a Tunnel (`StructureDef::expansion`), live since slice M6-SB.
 pub(crate) const VAULT_EXPANSION: ExpansionDef = ExpansionDef {
     tier: 1,     // Tier Requirement - 1
     cost: 150,   // Cost 150 Space Crystals
@@ -54,13 +54,19 @@ pub(crate) const VAULT_EXPANSION: ExpansionDef = ExpansionDef {
     start_hp: 0.1,
 };
 
+/// (M6-SB) Its service of the Tunnel Network (`StructureDef::vault`, plan decision T98, `network::services`):
+/// `> Placeholder stats`, "**Throughput**: each Vault re-arms or recharges **2 units at a time**; others wait their
+/// turn (network-wide, first come first served)".
+pub(crate) const VAULT_SERVICE: VaultDef = VaultDef { slots: 2 };
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::defs::syndicate::tests::assert_expansion;
 
     /// The stat block (design change 0367): an underground structure, 2×2, MaxHP 400, the expansions' 6 / 24, behind a
-    /// Hideout; a Tier 1 Tunnel's for 150 Space Crystals in 400 frames, once slice M6-SB makes it live.
+    /// Hideout; a Tier 1 Tunnel's for 150 Space Crystals in 400 frames (slice M6-SB); serving 2 units at a time, the
+    /// one type with a Vault's service.
     #[test]
     fn the_vault_follows_the_design() {
         let expansion = ExpansionDef {
@@ -70,6 +76,12 @@ mod tests {
             start_hp: 0.1,
         };
         assert_expansion(ObjectKind::Vault, "Vault", 2, 400.0, &[ObjectKind::Hideout]);
-        assert_eq!(VAULT_EXPANSION, expansion);
+        let structure = ObjectKind::Vault.def().structure.as_ref().unwrap();
+        assert_eq!((structure.expansion, VAULT_EXPANSION), (Some(expansion), expansion));
+        assert_eq!(structure.vault, Some(VaultDef { slots: 2 }));
+        let vaults: Vec<ObjectKind> = (ObjectKind::ALL.iter().copied())
+            .filter(|kind| kind.def().structure.as_ref().is_some_and(|s| s.vault.is_some()))
+            .collect();
+        assert_eq!(vaults, [ObjectKind::Vault]);
     }
 }

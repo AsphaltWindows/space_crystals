@@ -88,14 +88,14 @@ impl ExpandEntry {
 /// slot; ones not available (tier, prerequisite, or not yet in the build) are greyed. The **Laser Turret is always the
 /// tenth slot**, so no hotkey ever moves": those no Tunnel builds yet are [`ExpandEntry::Planned`], the turret until
 /// slice M4-S2. The Hideout, the Optics Lab and the Chemical Plant are in the game (slices M4-F and M4-K), in Q, W and
-/// E, the Vehicle Assembly in A (slice M6-SV), the Forge and the Aerospace Assembly in S and F (slice M6-SD), and the
-/// Null Chamber in D (slice M6-SN). Tests check it against the table, and that it lists every type a Tunnel builds,
-/// once.
+/// E, the Vault in R (slice M6-SB), the Vehicle Assembly in A (slice M6-SV), the Forge and the Aerospace Assembly in S
+/// and F (slice M6-SD), and the Null Chamber in D (slice M6-SN). Tests check it against the table, and that it lists
+/// every type a Tunnel builds, once.
 pub const EXPAND_MENU: &[ExpandEntry] = &[
     ExpandEntry::Kind(ObjectKind::Hideout),
     ExpandEntry::Kind(ObjectKind::OpticsLab),
     ExpandEntry::Kind(ObjectKind::ChemicalPlant),
-    ExpandEntry::Planned("Vault"),
+    ExpandEntry::Kind(ObjectKind::Vault),
     ExpandEntry::Kind(ObjectKind::VehicleAssembly),
     ExpandEntry::Kind(ObjectKind::Forge),
     ExpandEntry::Kind(ObjectKind::NullChamber),

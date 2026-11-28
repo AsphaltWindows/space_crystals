@@ -295,6 +295,11 @@ pub enum Reject {
     /// `factions/cults/units/disciple.md > Spells > Mirage`: "**No spells**: illusions can't cast"): what greys an
     /// illusion's R and F. Only its owner, who gives it orders, ever meets it.
     IllusionsCantCast,
+    /// (M6-SB) Every unit a toggle would switch on has an empty tank (`crate::patches`;
+    /// `factions/syndicate/units/shadebringer.md > Charges and recharging`: "When a tank runs **empty**, that ability
+    /// switches off and can't be switched back on until the tank has some charge again"): what greys a Shadebringer's
+    /// R once its Sludge's tank is empty.
+    TankEmpty,
 }
 
 impl fmt::Display for Reject {
@@ -390,6 +395,7 @@ impl fmt::Display for Reject {
             Reject::CannotMove => write!(f, "none of the units can move"),
             Reject::Deploying => write!(f, "every unit deploys already"),
             Reject::IllusionsCantCast => write!(f, "illusions can't cast"),
+            Reject::TankEmpty => write!(f, "every tank is empty"),
         }
     }
 }

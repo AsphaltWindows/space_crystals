@@ -37,6 +37,8 @@
 //! - (M6-SN) **Not only abilities** (plan decision T98, [`BuffKind`]): the Null Chamber exit buff is one too, which a
 //!   unit leaves the Tunnel Network with (`network::services`); it ends as an ability's does, and its effects work
 //!   through what reads them (the unit's eye, `vision/sight.rs`, and the hits on it, `combat::pre_armor_multiplier`).
+//!   (M6-SB) So is the sludge's slow, which a unit in a Shadebringer's trail holds while it is in it and for 2 s after
+//!   (`crate::patches`), and which lowers its top speeds (`Object::movement`, `patches::speed_factor`).
 
 use std::collections::BTreeMap;
 
@@ -50,6 +52,7 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::network::{Held, services};
 use crate::object::Object;
+use crate::patches;
 use crate::suppress;
 use crate::units::{TICKS_PER_SECOND, Tick, gu};
 
@@ -73,12 +76,12 @@ impl StateHash for Buff {
     }
 }
 
-/// (M6-SN) What a buff is of ([`Buff::ability`], plan decision T98): an area ability's effect (T75), or the Null
-/// Chamber exit buff (`factions/syndicate/structures/null_chamber.md > Null Chamber Exit Buff`, `network::services`).
-/// Ordered as the abilities are, the Null Chamber's after them: a unit's buffs keep that order. In files by its name:
-/// an ability's, as every buff's was before the Null Chamber's (`"HealthRegeneration"`), and `"NullChamber"`, which no
-/// ability is called. Hashed as its ability was, and the Null Chamber's as a number past every ability's place, so that
-/// the states with an ability's buff hash as they did.
+/// (M6-SN) What a buff is of ([`Buff::ability`], plan decision T98): an area ability's effect (T75), the Null Chamber
+/// exit buff (`factions/syndicate/structures/null_chamber.md > Null Chamber Exit Buff`, `network::services`), or (M6-SB)
+/// the sludge's slow (`crate::patches`). Ordered as the abilities are, the Null Chamber's and the slow after them: a
+/// unit's buffs keep that order. In files by its name: an ability's, as every buff's was before the Null Chamber's
+/// (`"HealthRegeneration"`), `"NullChamber"` and `"Sludge"`, which no ability is called. Hashed as its ability was, and
+/// the others as numbers past every ability's place, so that the states with an ability's buff hash as they did.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(from = "SavedKind", into = "SavedKind")]
 pub enum BuffKind {
@@ -87,39 +90,47 @@ pub enum BuffKind {
     /// "every **manned** Syndicate unit that exits the Tunnel Network through any Tunnel receives a temporary buff that
     /// wears off over time", for the Null Chamber's duration (`ChamberDef::duration`).
     NullChamber,
+    /// (M6-SB) "**Infantry and non-hover vehicles** that step into sludge are **slowed by Y%** for **Z seconds**"
+    /// (`factions/syndicate/units/shadebringer.md > Sludge (toggle)`): held while in a sludge patch and for the slow's
+    /// time after (`SlowDef::after`, `patches::slow`).
+    Sludge,
 }
 
 impl BuffKind {
-    /// The area ability whose effect it is; `None` for the Null Chamber's.
+    /// The area ability whose effect it is; `None` for the Null Chamber's and (M6-SB) the sludge's.
     pub fn ability(self) -> Option<AreaAbility> {
         match self {
             BuffKind::Area(ability) => Some(ability),
-            BuffKind::NullChamber => None,
+            BuffKind::NullChamber | BuffKind::Sludge => None,
         }
     }
 
     /// What an ability's buff does every tick it lasts (`AbilityDef::effect`); `None` for the Null Chamber's, whose two
-    /// effects their readers ask for by its kind (`network::services`).
+    /// effects their readers ask for by its kind (`network::services`), and (M6-SB) the sludge's, whose the top speed
+    /// asks for (`patches::speed_factor`).
     #[inline]
     pub fn effect(self) -> Option<&'static BuffEffect> {
         self.ability().map(|ability| &ability.def().effect)
     }
 
     /// Whether an object of `kind` holds it, whoever's it is: an ability's of the types the ability affects
-    /// (`AreaAbility::affects`), the Null Chamber's a manned unit's (`network::services::manned`).
+    /// (`AreaAbility::affects`), the Null Chamber's a manned unit's (`network::services::manned`), (M6-SB) the sludge's
+    /// one that sludge slows (`patches::slows`).
     pub fn affects(self, kind: ObjectKind) -> bool {
         match self {
             BuffKind::Area(ability) => ability.affects(kind),
             BuffKind::NullChamber => services::manned(kind),
+            BuffKind::Sludge => patches::slows(kind),
         }
     }
 
     /// How long it lasts, ticks: an ability's duration (`AreaAbility::duration`), the Null Chamber's
-    /// (`ChamberDef::duration`).
+    /// (`ChamberDef::duration`), (M6-SB) the sludge's from the last tick in a patch (`patches::slow_duration`).
     pub fn duration(self) -> Tick {
         match self {
             BuffKind::Area(ability) => ability.duration(),
             BuffKind::NullChamber => services::duration(),
+            BuffKind::Sludge => patches::slow_duration(),
         }
     }
 }
@@ -137,6 +148,8 @@ impl StateHash for BuffKind {
             BuffKind::Area(ability) => ability.hash(h),
             // Past every ability's place.
             BuffKind::NullChamber => (1u32 << 16).hash(h),
+            // (M6-SB) The next number past it.
+            BuffKind::Sludge => (2u32 << 16).hash(h),
         }
     }
 }
@@ -153,6 +166,7 @@ enum SavedKind {
 #[derive(Copy, Clone, Serialize, Deserialize)]
 enum OtherBuff {
     NullChamber,
+    Sludge,
 }
 
 impl From<SavedKind> for BuffKind {
@@ -160,6 +174,7 @@ impl From<SavedKind> for BuffKind {
         match saved {
             SavedKind::Area(ability) => BuffKind::Area(ability),
             SavedKind::Other(OtherBuff::NullChamber) => BuffKind::NullChamber,
+            SavedKind::Other(OtherBuff::Sludge) => BuffKind::Sludge,
         }
     }
 }
@@ -169,6 +184,7 @@ impl From<BuffKind> for SavedKind {
         match kind {
             BuffKind::Area(ability) => SavedKind::Area(ability),
             BuffKind::NullChamber => SavedKind::Other(OtherBuff::NullChamber),
+            BuffKind::Sludge => SavedKind::Other(OtherBuff::Sludge),
         }
     }
 }

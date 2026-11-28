@@ -17,6 +17,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::network::Held;
 use crate::object::{Object, Placement, ResourceState};
+use crate::patches::Patches;
 use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::player::Player;
@@ -92,6 +93,11 @@ pub struct Sim {
     /// states without one are as they were before Shroud.
     #[serde(skip_serializing_if = "Clouds::is_empty")]
     clouds: Clouds,
+    /// (M6-SB) The patches on the ground (`crate::patches`, plan decision T93): the Shadebringers' trails. History,
+    /// hashed and serialized; left out of the hash and of files while there is none, so that the states without one
+    /// are as they were before the Shadebringer.
+    #[serde(skip_serializing_if = "Patches::is_empty")]
+    patches: Patches,
     next_id: u32,
     /// The only source of randomness (`ARCHITECTURE.md > Determinism`), seeded from
     /// `GameSetup::seed`.
@@ -182,6 +188,7 @@ impl Sim {
             held: BTreeMap::new(),
             projectiles: Vec::new(),
             clouds: Clouds::default(),
+            patches: Patches::default(),
             next_id: 1,
             rng: Rng::from_seed(scenario.setup.seed),
             config: scenario.setup.config,
@@ -267,6 +274,11 @@ impl Sim {
         &self.clouds
     }
 
+    /// (M6-SB) The patches on the ground as the latest tick left them (`crate::patches`): the Shadebringers' trails.
+    pub fn patches(&self) -> &Patches {
+        &self.patches
+    }
+
     /// Every player's vision at the end of the latest tick (`core/vision.md`): tile states, which objects each
     /// player sees, and a revision per player that changes with its tiles.
     pub fn vision(&self) -> &Vision {
@@ -292,8 +304,8 @@ impl Sim {
 
     /// FNV-1a 64 hash of the whole state: tick, map, players, the outcome, objects in id order, next id,
     /// PRNG state, config, next order group, nav version, each player's Explored tiles and records and its path
-    /// knowledge, the held units, the projectiles in flight and (M5-N4b) the clouds while there are any (`f32` by its
-    /// bits; encoding in `hash.rs`). Events are output, and the grids and the Visible tiles
+    /// knowledge, the held units, the projectiles in flight, (M5-N4b) the clouds and (M6-SB) the patches while there are
+    /// any (`f32` by its bits; encoding in `hash.rs`). Events are output, and the grids and the Visible tiles
     /// derived data, so they are left out. Equal states give equal hashes on every machine, so
     /// comparing hashes checks determinism.
     pub fn state_hash(&self) -> u64 {
@@ -307,6 +319,7 @@ impl Sim {
             held,
             projectiles,
             clouds,
+            patches,
             next_id,
             rng,
             config,
@@ -360,6 +373,11 @@ impl Sim {
         if !clouds.is_empty() {
             h.tag(3);
             clouds.hash(&mut h);
+        }
+        // (M6-SB) The patches on the ground, the same way, under a tag of their own.
+        if !patches.is_empty() {
+            h.tag(4);
+            patches.hash(&mut h);
         }
         h.finish()
     }
@@ -458,6 +476,8 @@ impl Sim {
             // (`Sim::release_unit`).
             aircraft: crate::aircraft::fresh(kind),
             illusion_of: None,
+            // (M6-SB) Its type's tanks, full and off (`crate::patches`).
+            tanks: crate::patches::fresh(kind),
         };
         if let Some(rally) = crate::production::default_rally(&self.map, &object)
             && let Some(production) = &mut object.production

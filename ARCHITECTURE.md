@@ -197,7 +197,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Hornet, `aircraft` (`AircraftState`, `aircraft.rs`: its ammo, the Airfield it is assigned to and (slice M6-GH2) its
   `landing` on an Airfield's slot, `landing::Landing`, hashed under tag 14, the landing under its sub-tag 1, and saved
   only while set; see *Production > The Airfield*); (slice M6-CM) for an illusion, `illusion_of` (the
-  Disciple whose Mirage made it, `mirage.rs`, hashed under tag 15 and saved only while set; see *Combat > Mirage*).
+  Disciple whose Mirage made it, `mirage.rs`, hashed under tag 15 and saved only while set; see *Combat > Mirage*);
+  (slice M6-SB) for a unit whose type has tanks, the Shadebringer, `tanks` (`Tanks`, `patches.rs`: what each tank has
+  used, its toggle and its trail's newest patch, hashed under tag 24 and saved only while set; see *The Vault and the
+  Sludge* below).
   The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
@@ -385,6 +388,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   regeneration too since slice M5-N8) and may leave `TRANSIT_DELAY_TICKS` (32, placeholder, 0245) after it walked in, a
   unit produced inside at once (0246; `Held::may_exit`). (Slice M6-SN) A manned unit takes its turns at its owner's
   Null Chambers there, `Held::service` (*The Null Chamber* below), hashed (tag 2) and saved only while it has one.
+  (Slice M6-SB) A unit with a tank that isn't full has it refilled at its owner's Vaults there, its tanks being its
+  turn (*The Vault and the Sludge* below).
   **Measured** (`tests/agents_perf.rs`, ignored, release; slice
   M4-M): 4 Tunnels with 4 Agents each on two shared fields and 60 Guards cycling through Enter and Eject, a mean of
   0.043 ms and a p99 of 0.067 ms a whole sim tick; then 40 Grenadiers shelling a Tunnel field, 0.070 and 0.090 ms (load
@@ -695,17 +700,59 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   of it (`Service::chamber`, a `Progress` of the turn's ticks), the others waiting with what of theirs is done. So a
   unit in, or finished, in tick E takes ticks E to E+31 and may leave buffed at E+32, as the transit delay lets it; a
   chamber finished in tick C serves in C. A turn done is kept while the unit stays inside, with no chamber left too
-  (Placeholder). **Side by side** (0424, Q0158): each service has a queue and a field of its own in `Service`, hashed
-  under a tag of its own (the chamber's 0); the EjectMenu takes the unit inside longest, done or not. **The buff**
-  (`Sim::leave_network`, both lanes: Side A's exit path and the air exit door): a unit whose turn is done, out while
-  its owner owns a chamber in operation, holds `BuffKind::NullChamber` from that tick for 320 ticks (`buffs::hold`, a
-  restart if it had one): +2 GU in its eye (`vision/sight.rs`'s `range`, `services::sight_bonus`; the auto-targeting
-  scan and the AttackMove reach keep the type's SightRange, a Placeholder) and the hits on it × 0.8 before armour
+  (design change 0463). **Side by side** (0424, Q0158): each service has a queue of its own, and a field of its own in
+  `Service` hashed under a tag of its own (the chamber's 0; the Vault's turn, slice M6-SB, is the unit's tanks); the
+  EjectMenu takes the unit inside longest, done or not. **The buff** (`Sim::leave_network`, both lanes: Side A's exit
+  path and the air exit door): a unit whose turn is done, out whatever became of its owner's chambers meanwhile
+  (design change 0463, answering Q0187: "**A finished turn always buffs**"), holds `BuffKind::NullChamber` from that
+  tick for 320 ticks (`buffs::hold`, a restart if it had one): +2 GU in its eye (`vision/sight.rs`'s `range`,
+  `services::sight_bonus`; the auto-targeting scan and the AttackMove reach keep the type's SightRange, 0463: "**vision
+  only**", though a scan takes only what its owner sees, so a buffed unit alone may engage up to its and its target's
+  half extents sooner, `tests/null_chamber/buff.rs`'s reading) and the hits on it × 0.8 before armour
   (`services::damage_factor` in `combat::pre_armor_multiplier`). `buffs::step` drops it as any buff, in the 319th tick
   after the exit's. Detection, the design's first effect, isn't built (0267). The step returns at once while no unit
   waits or no player owns a chamber: `tests/agents_perf.rs` (no chamber) measured the same A/B against master (mean
   0.090 ms a tick with the network, 0.125 ms shelled; load 3). Tests: `tests/null_chamber/`, the golden
   `syndicate_null_chamber`.
+- **The Vault and the Sludge** (`patches.rs`, `network/services.rs`, `defs/units/tanks.rs`; slice M6-SB, plan decisions
+  T93 and T98; `factions/syndicate/units/shadebringer.md`, `factions/syndicate/structures/vault.md`, design changes
+  0369, 0424 and 0425). **The tanks** (`Object::tanks`, a `Tanks`): a unit whose type has tanks (`UnitDef::tanks`, each
+  a `TankDef`: what it lays, its capacity, drain and refill, its patches' life and width and their slow, all def
+  numbers) has them from the start, full (Placeholder), in fixed point (`RATIO_ONE` to a unit of charge: 100 is 6553600,
+  a tick's drain 40960, a tick's refill 20480); the Shadebringer's Sludge (R) and its Cover (F, slice M6-SC, which adds
+  its smoke's `TankDef`). **The toggles** (`Ability::Sludge { on }`, `Ability::Cover { on }`, `patches::switch`): the
+  mode-switch rule (`modes.rs`: applied in the commands phase, the orders kept, never queued), on with any charge left
+  and refused with none (`Reject::TankEmpty`, `check_charged` in `gate/orders.rs`), off by itself once the tank is
+  empty, and off as the unit goes into the network (`Tanks::switch_off` in `Sim::take_off_map`). **The trail**
+  (`Sim::patches`, a `Patches` of `Patch` discs, kept by the 2 GU cell of their centres, a lookup reading the cells
+  round its point; `patches::lay`, after the tethers): every tick a toggle is on, its unit lays a disc as wide as the
+  trail (48 su) at its rear edge where 5d left it, or its front while it backs up (`patches::trail_point`), a new one
+  each time that point has moved `tuning.patches.spacing` (24 su, Placeholder) from the last, the last laid again until
+  then, its life starting over (a parked one holds its spot), and its tank drains. A patch lasts its `TankDef::life`
+  (160 ticks) and goes in the step of its `until`. **The slow** (`patches::slow`, first in 5d): a unit of a base sludge
+  slows (`SlowDef::bases`: infantry, the non-hover vehicles, Mechs, Drill Units on the surface), on the ground, whose
+  centre the last tick left in a sludge patch (its edge too, Placeholder) holds `BuffKind::Sludge` for 33 ticks, the
+  tick and 2 s after, its top speeds × 0.6 while it does (`patches::speed_factor`, after the buffs' in
+  `Object::movement_ref`): its own layer too; hover units and aircraft never. **The Vault** (`StructureDef::vault`, a
+  `VaultDef`: 2 slots; `services::vaults`, the services' first pass): while a player owns a Vault in operation, the
+  units in their network with a tank that isn't full take their turns first come first served (`Held::since`, then id):
+  the first so many, the Vaults' slots together, each have every tank of theirs filled a tick's refill. The tanks are
+  the turn, so it has no field in `Service` (Service sub-tag 1 stays free): over when the unit leaves, however full
+  (0424: "half-filled if ejected early"); nothing drains a held unit's tanks; one slot fills both (Placeholder). It runs
+  beside the Null Chamber's queue (0424): a unit is served by both at once. **Hashed** only while there is something:
+  `Sim::patches` under tag 4 of `Sim::state_hash`, `Object::tanks` under tag 24, each tank under a sub-tag only while it
+  isn't full and off, `BuffKind::Sludge` as the number past the Null Chamber's; saved the same way, so no state from
+  before moved. Invariant N1 (*Movement and collision > Invariants*). The client draws the trail (`patches_view.rs`),
+  the tanks' bars and the slow's mark (*Client architecture > Visuals*), and the toggles' keys (*The Shadebringer's
+  panel*). Tests: `tests/sludge/`, the golden `syndicate_sludge`. **Measured** (`tests/movement_perf.rs`, ignored,
+  release; three sets of five to eight rounds interleaved with master's build f4651a44, load 4 to 8): the 500 units on
+  256 × 256 the same, a mean of 0.71, 0.67 and 0.86 ms a tick against 0.69, 0.71 and 0.87; through four Shadebringers'
+  trails (a mean of 109 patches on the ground, 11.7 units slowed) 12 % and 17 % over the same game with the
+  Shadebringers' Sludge off (1.03 against 0.92 ms at load 5, 0.81 against 0.69 at load 8), most of it the slowed armies'
+  moves (7 % more box tests and 10 % more repath searches, deterministic counters) and the lookups of every unit where
+  it stands, 20 to 40 µs a tick timed alone (a filter of the cells with a patch, tried, gained 2 % of the tick, within
+  the runs' noise, and was left out). The network case of `tests/agents_perf.rs` the same: 0.080 and 0.094 ms a tick,
+  0.110 and 0.129 shelled, against 0.083 and 0.094, 0.111 and 0.131.
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
   a Beacon warping in a building, a Legionnaire converting its weapon, a Peacekeeper raising or lowering its Riot
   Shield) stays the same object, its id included.
@@ -1080,12 +1127,17 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      (see Movement and collision). Units move one after another in id order and never come to overlap, gathering
      Drones apart (design change 0106). (M5-V4) A crusher's move passes through its crushable enemies and crushes
      those it overlaps or sweeps: they leave the game at the end of 5d, before 5e, through the removal path, each with
-     a `SimEvent::Crushed` (see *Movement and collision > Crushing*).
+     a `SimEvent::Crushed` (see *Movement and collision > Crushing*). (M6-SB) Before the move, the sludge's slow
+     (`patches::slow`): a unit whose centre the last tick left in a sludge patch holds `BuffKind::Sludge`, its top
+     speeds × 0.6 for this move (*Object model > The Vault and the Sludge*).
    - Tethers, `Sim::step_tethers` (slice M6-GD, `sim/drones.rs`, `tether.rs`): right after 5d, for the drones before
      the tick's new objects, in id order. A drone whose end came (its operator gone, past its leash where 5d left it,
      its battery spent) leaves the game through the removal path with `SimEvent::DroneFell` and `Died`, and one past
      its leash drops its explosion where it fell. Before 5e, so that a fallen drone attacks nothing in the tick and
      its explosion lands in it.
+   - Patches, `patches::lay` (slice M6-SB): right after the tethers, the patches whose time is over go; then each
+     unit with a toggle on, in id order, lays its trail where 5d left it (a new patch, or its last again) and drains
+     its tank, its toggle off once the tank is empty. Before 5f, whose vision the client shows them by.
    - 5e `combat::step`: attack phases (a unit's turret turning first) and launches, then those of the units that
      fire from inside a building (slice M5-N2, `combat::occupants`), the projectiles due landing in launch order, the
      tick's list of
@@ -1177,8 +1229,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      unit's purchase under way advances a frame, whatever its owner's Power, and one whose frames are done adds its
      item to the stock (`SimEvent::StockBought`).
    - The Tunnel Network, `Sim::step_network` (slice M4-C, `sim/network.rs`): part of the economy phase, right after
-     the producers. Every held unit regenerates; (slice M6-SN) the manned units take a tick of their Null Chamber
-     turns (`network::services::step`, *The Null Chamber*); then each Tunnel with an eject queue, in id order, lets
+     the producers. Every held unit regenerates; (slice M6-SB) the units with a tank that isn't full take a tick of
+     their Vault turns, and (slice M6-SN) the manned units a tick of their Null Chamber turns
+     (`network::services::step`, *The Null Chamber*, *The Vault and the Sludge*); then each Tunnel with an eject
+     queue, in id order, lets
      its first unit out onto the exit spot if that is clear of tiles, footprints and units of its layer
      (`Sim::check_unit_fits`, the rule of every unit put on the map), else the queue waits: no other spot, no minimum
      gap (design change 0250), one unit a tick at most. The unit keeps its id (`Sim::put_on_map`,
@@ -1349,6 +1403,8 @@ ticks spent in it. Hashed and serialized like all state.
   (Slice M6-SN) `Buff::ability` is a `BuffKind`: an area ability's (`BuffKind::Area`), or a buff no cast gives, the
   Null Chamber exit buff's (`BuffKind::NullChamber`, *The Null Chamber*; `BuffKind::duration` and `affects` in place
   of an `AbilityDef`'s, `effect()` `None`); an area ability's hashes and saves as the ability did, so no state moved.
+  (Slice M6-SB) So is the sludge's slow (`BuffKind::Sludge`, *The Vault and the Sludge*): held while a unit's centre
+  is in a sludge patch and for 2 s after, its top speeds × 0.6 (`patches::speed_factor`).
   F1 (*Movement and collision > Invariants*) checks them. The client marks each buff a seen unit has beside its HP
   bar's place (`combat_effects/buffs.rs`, *Client architecture*).
 - **Inspire and Suppress** (`buffs.rs`, `suppress.rs`, `defs/cults/units/prayer_mobile.rs`; slice M5-N11,
@@ -2628,7 +2684,9 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   moving (`tests/production/portal_stalls.rs` has the energy doorway's negative tests for I1 and I2); I3 a unit moves at most its speed per tick; I4 every float
   is finite (I3's speed is the model's maximum for a unit with momentum: a mode that slows it only weakens its thrust;
   (M5-N3) in a tick a research level completes, after the movement step, the larger of its MaxSpeeds before and after;
-  (M5-N11) so too in a tick that changed what its buffs add to it, an Inspire cast or ended);
+  (M5-N11) so too in a tick that changed what its buffs add to it, an Inspire cast or ended; (M6-SB) a unit with
+  momentum that the sludge slows brakes from the speed it carried down to its lowered top speeds, the larger of the
+  two);
   I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
   than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order or a move of its behaviour, and a
   unit without a goal is at rest. A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase,
@@ -2667,7 +2725,10 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   made before it, no illusion, of its type, a type that casts Mirage; a parent has no more illusions than its Mirage
   makes; an illusion has no lineage; (M6-GH2) L1 (`landings`): an aircraft on a slot, landing or down, is on an
   Airfield in the game, within `Air::landing_reach_su` of one of its slots, rises no more, and rearms exactly while it
-  is down and short of ammo; no Airfield has more on it than its 4 slots; a held unit is on none;
+  is down and short of ammo; no Airfield has more on it than its 4 slots; a held unit is on none; (M6-SB) N1
+  (`tanks`): an object has tanks exactly when its type has one, a tank its type doesn't have is full and off, a toggle
+  is on only with a charge left and its trail's newest patch on the ground where it says, a held unit's toggles are
+  off, and every patch on the ground is of a kind a type lays, a disc, and not yet gone;
   (M5-V2) W1 (`momentum`): a FixedTurnRadiusMovement unit turns in a tick by at most the speed it can have in it (its
   momentum and one tick's acceleration) over its MinimumTurnRadius, never in place; (M5-V3) S1 (`momentum`): a
   SpeedTurnRadiusMovement unit turns in a tick by at most the tread law's rate at the slowest speed it can have in it
@@ -2678,8 +2739,8 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   the map (`TestSim::ascii`: units as letters, with a legend). The check is on by default; `check_invariants(false)`
   turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
   step, as the golden games do (`tests/golden/harness.rs`). The fuzz's games (`tests/robustness.rs`, the seed sweep's)
-  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1, F1, G1, M1): V1
-  and K1, which
+  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1, F1, G1, M1, L1,
+  N1): V1 and K1, which
   rebuild the vision and the planning grids, would take the sweep from 5 s to 26 s.
 
 ## Economy
@@ -4310,7 +4371,20 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   chamber gives none; a Phantom out of the air exit door buffed) and `saves` (turns under way saved at six points and
   replayed; `Held::service` saved and hashed only while set). `buffs/tests.rs` checks that `BuffKind` hashes and
   saves as the abilities did, `ruleset/check/tests.rs` the turn's bound. In the client, the ExpandMenu's tests above
-  (its D).
+  (its D). (Design change 0463) `turns` has a turn done before the last chamber is lost leaving buffed, and `buff` a
+  buffed Guard on AttackMove engaging where an unbuffed one does, its owner seeing 2 GU farther.
+- **Sludge tests** (slice M6-SB) are `crates/sim/tests/sludge/`, under the invariants (N1 and F1 among them): `building`
+  (the Vault behind a Hideout for 150 in 400 frames, serving once finished; the Shadebringer behind a Vault for 150 in
+  320 frames), `toggle` (on with any charge, 10 a second, parked or not, off at empty, refused at none, the orders
+  kept), `trail` (48 su behind it, each patch 10 s, at its front while it backs up), `slow` (0.6 in it and 2 s after, a
+  Shadebringer over its own trail and braking across another's, hover units and aircraft not, a box in it but its centre
+  out not), `vault` (both toggles off into the network, 5 a second, 2 at a time first come first served, with the Null
+  Chamber at once, 0424; the EjectMenu's order kept) and `saves` (a save and a replay at eight points; the patches and
+  the tanks in the hash and the file only while there are any); with `patches/tests.rs` (the store and its lookups, each
+  toggle its own tank). In the client, `command_ui/interface/tests/shadebringer.rs` (R, F, the off key and "Tank
+  empty"), `patches_view/tests.rs` (the discs, the fog, the shrink), `crates/game/tests/commands/sludge.rs` (R on and
+  off in a game, the trail drawn, the tank bar, the slow's mark) and the Vehicle Assembly's and the ExpandMenu's tests
+  (W, and R).
 - **Landing tests** (slice M6-GH2) are `crates/sim/tests/landing/`, under the invariants: `slots` (four out of ammo
   on the four slots, a landing in 16 ticks holding still, F and the right-click home from anywhere, one down left on
   its slot under an overflight), `rearm` (2 of 5 in 96 ticks, then landed until a Move; an order 5 s in leaves with
@@ -4544,11 +4618,14 @@ these.
   placeholder violet), shown with the HP bar alone, energy short of its maximum being no damage (Placeholder),
   (slice M6-GH1) an aircraft's ammo as pips under its bars, one square per round of its type's max, filled amber for
   each it has left (`HpBar::ammo`, from `sc_sim::aircraft`; `AMMO_FILL`, a placeholder look), shown with the HP bar,
+  (slice M6-SB) a unit's tanks as thin bars under those, as wide as its HP bar, sludge's murky yellow and smoke's grey,
+  filled for what is left, lighter while its toggle is on (`HpBar::tanks`, from `sc_sim::patches`; `TANK_FILLS`, a
+  placeholder look), shown with the HP bar,
   (slice M5-N5) a mark of each buff a unit the local player sees has, a cross in a dark rim right of its HP bar's
   place, whether the bar shows or not, green for Health regeneration and violet for Energy regeneration, in
   `Object::buffs`' order, their `BuffKind`s' (`combat_effects/buffs.rs`, `buff_marks`; who sees a buff and its look are
   Placeholders, Q0001; (M5-N11) Inspire's a gold chevron, Suppress's a red X; (M6-SN) the Null Chamber exit buff's a
-  pale blue diamond), (slice M5-N11) where a cast round its
+  pale blue diamond; (M6-SB) the Sludge's slow a murky green chevron, downward), (slice M5-N11) where a cast round its
   caster or ahead of it was seen, for `feedback.cast_ticks` (16), Inspire's gold ring of its radius over a faint disc
   and Suppress's red wedge along `SimEvent::Cast::facing`, fading (`combat_effects/casts.rs`, `CastFlash`; a placeholder
   look; under the blasts, as each shows only while its point's tile is Visible), and a fading marker for each
@@ -4595,6 +4672,15 @@ these.
   and lengths are placeholders (Q0001). Tests: `shroud_view/tests.rs` (the texels, the stance's rings),
   `tests/combat/shroud.rs` (each player's Visible tiles, the release's flash, (M6-CM) the circle lingering where it
   was after a Stop).
+- **The sludge trails** (`patches_view.rs`, slice M6-SB; `factions/syndicate/units/shadebringer.md > Sludge
+  (toggle)`): each sludge patch a murky disc as wide as it, with a darker rim, on the ground under the units
+  (`DrawLayer::GroundDecals`, as its mesh's transform's z: alpha blending orders the blended meshes by theirs, so the
+  effects' HP bars and buffs' marks come over it), at its centre's height (`drawn_at_height`), shown while the tile
+  of its centre is Visible to the local player (`patches_view::sludge_discs`; with the fog off, every one), shrinking
+  to 0.4 of its radius over its last `look.sludge_fade_ticks` (32), by the sim's ticks and the render alpha
+  (`patches_view::shown_share`). One mesh, all the rims then all the bodies, rebuilt every frame while a patch shows
+  and hidden while none does. Its look is a placeholder (Q0001); slice M6-SC's smoke needs its own. Tests:
+  `patches_view/tests.rs`, `tests/commands/sludge.rs` (with the slow's mark on another player's unit).
 - **Fog of war** (`fog.rs`, `core/vision.md`): `Sight` (`fog/sight.rs`) says what the local player is shown: its own
   objects, and everything on its Visible tiles (`Sight::sees`); on Explored tiles the terrain and the player's records
   of the structures and resources it saw there, in their last-known state, never the live objects (`Sight::remembered`,
@@ -5334,7 +5420,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   (`InterfaceTemplate::Temple`) is Q and W `PanelCommand::Research(tech)` of each line's Level 1, A, S, D and F
   `PanelCommand::ReleaseOne(kind)` (Plain, Constitution, Metabolism, Both, the kind buttons' order), X
   `CancelProduction` and V `EjectAll`. **A key shows its line's next level** as the gate answers
-  (`Conditions::key`, the panel's one substitution, from `Sim::validate` alone, as plan decision T10 has every button):
+  (`Conditions::key`, a substitution from `Sim::validate` alone, as plan decision T10 has every button; the other is
+  (slice M6-SB) a toggle's off form, *The Shadebringer's panel*):
   the first level the gate doesn't refuse as `Researched`; `PanelCommand::Researching(tech)`, labelled "InProg",
   greyed and saying "In progress", while it refuses it as `ResearchUnderWay` (0335's "its key shows "In progress"
   meanwhile"); Level 2 greyed "Requires a Cathedral" while the gate wants one; nothing once the line is completed
@@ -5478,6 +5565,16 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   explosion is drawn as a blast's ring on the ground (`combat_effects/blasts.rs`). The Barracks trains it in R,
   greyed "Requires a Career Campus" until one stands and "Not enough Supplies" while its owner has no Supply
   (`Refusal::Supplies`; the GDO has none to start with until slice M6-GS's Supply Tower).
+- **The Shadebringer's panel** (slice M6-SB; `factions/syndicate/units/shadebringer.md > ObjectInterfaceState`: "the two
+  toggles", and its `Placeholder stats`: "Hotkeys: **R** Sludge, **F** Cover"): `templates/syndicate/shadebringer.rs` is
+  the BasicCombatUnit's grid without attack commands, its W Reverse, and `templates::grid` puts a `PanelCommand::Toggle
+  { lays, on: true }` in R or F for each of its type's tanks (`shadebringer::slot`), so that slice M6-SC's smoke tank
+  brings F's toggle by itself (F holds `Planned::Cover`, "Not available yet", until then). A press sends
+  `Ability::switching(lays, on)` at once (no target, no queue: the mode-switch rule). **The key shows the way a press
+  switches** (`Conditions::key`, `Conditions::on`): on, "Sludge" / "Sludge On", while one of its recipients has it off,
+  and off, "Sl.Off" / "Sludge Off", once every one has it on (Placeholders); greyed "Tank empty" by the gate
+  (`Reject::TankEmpty`). The Vehicle Assembly trains it in W, greyed "Requires a Vault" until one stands; the Tunnel's
+  ExpandMenu builds the Vault in R, greyed "Requires a Hideout"; the Vault has no panel.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
   its count in its bottom-right corner. **Every label keeps
@@ -5776,8 +5873,8 @@ unchecked.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
   `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs`,
-  `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs`, `mirage.rs`, `airfield.rs` and `main.rs`, the
-  recording and the comparison in `harness.rs`): thirty-two games, a 3v3 duel,
+  `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs`, `mirage.rs`, `airfield.rs`, `syndicate_sludge.rs`
+  and `main.rs`, the recording and the comparison in `harness.rs`): thirty-three games, a 3v3 duel,
   a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5792,7 +5889,8 @@ unchecked.
   `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
   M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below), `syndicate_air` (slice
   M6-SD, below), `gdo_artillery` (slice M6-GA, below), `syndicate_null_chamber` (slice M6-SN, below),
-  `cults_mirage` (slice M6-CM, below) and `gdo_air` (slice M6-GH2, below), are blessed as replays
+  `cults_mirage` (slice M6-CM, below), `gdo_air` (slice M6-GH2, below) and `syndicate_sludge` (slice M6-SB, below),
+  are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5944,7 +6042,13 @@ unchecked.
   air, and their missiles' bursts hit up to six at once; out of ammo, each flies home by itself, lands on the first
   slot free in id order, rearms its five missiles in 160 ticks and stays landed (`during`: all four home, full and
   idle, the tick before each raid). The second raid kills the rest; sent home (F), all four end landed and rearmed,
-  every landing and take-off counted (`expect`). The
+  every landing and take-off counted (`expect`). In `syndicate_sludge` (slice M6-SB, to 0:45, on an open test map, a
+  debug command on for player 1's Tier 2, auto-targeting off) two Shadebringers lay their trails east side by side, B
+  switching its Sludge off in tick 70 and A's tank empty in tick 161; four of the GDO's Peacekeepers walking south
+  across them are slowed, each 2.4 su a tick at most while it holds the slow, and arrive after a fifth that crosses
+  none; A backs up over its own trail, slowed; B drives into the Tunnel laying, its Sludge switched off as it goes
+  in, and A after it, slowed by B's trail; the Vault refills both tanks at once, 5 a second, until both are full
+  (`during`: every new patch at its layer's trail point, none on the ground past 10 s). The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -6422,10 +6526,11 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
     (`Sim::forget_references`), a defeated player's units, the state hash and saves, `testing::dangling_references`,
     the client's control groups. A new kind of holder (a transport) gives `Place` a variant and matches it
     everywhere `Place` is matched. The client reads the store for its menus (`Sim::network_counts`, `next_out`).
-    (M6-SN) **A network service** (the Null Chamber's; the Vault's next, M6-SB): a field of its own in
-    `network::Service`, hashed under a tag of its own only while set, its queue in `network::services::step` (design
-    change 0424: services run side by side, each in its own queue), and what it gives on the way out in
-    `Sim::leave_network`; the EjectMenu's order is untouched.
+    (M6-SN) **A network service** (the Null Chamber's, (M6-SB) the Vault's): its queue in
+    `network::services::step` (design change 0424: services run side by side, each in its own queue), its turn a
+    field of its own in `network::Service`, hashed under a tag of its own only while set, unless the unit's own state
+    is its turn (the Vault's: the tanks), and what it gives on the way out in `Sim::leave_network`; the EjectMenu's
+    order is untouched.
 16. **Sites** (M4-E, M4-F, M4-S1, M4-S2, plan decision T31): a structure built where it stands is the object from its
     first frame, with `Object::construction` while it is a site (*Object model > Sites*): a worker's
     (`StructureDef::site`, the builder held at `Place::Site`) or a Tunnel's expansion (`StructureDef::expansion`,
@@ -6471,6 +6576,10 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
 20. **A computer player** (slices A1, A2): its module in `crates/ai/src/factions/<faction>.rs` and its `HOOK`
     (*Computer players > The crate*). `--ai` then takes its players, and `ai_games` plays it against every faction
     that has one.
+21. **What a unit lays on the ground** (M6-SB, plan decision T93): a `PatchKind` and its `TankDef` in the unit's
+    `UnitDef::tanks` (its toggle, its key in R or F and its bar follow), what a patch does where it is read (the
+    sludge's slow in `patches::slow`, before the move; slice M6-SC's smoke in the vision), and its look in the client
+    (`patches_view.rs`). The store, its grid and its hash are `patches.rs`'s, one for every kind.
 
 ## Tunables
 
@@ -6505,7 +6614,8 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
     themselves, each left out while it is the built-in rules or none, so the saves of games on the built-in rules are
     as they were; a save whose rules have another structure than the build's doesn't load.
 - **The sim's tunables** (`crates/sim/src/tuning/`, slices M4-R1 and M5-X1): one module per system, `air.rs`,
-  `combat.rs`, `construction.rs`, `gathering.rs`, `holding.rs`, `movement.rs`, `orders.rs`, `paths.rs`,
+  `combat.rs`, `construction.rs`, `gathering.rs`, `holding.rs`, `movement.rs`, `orders.rs`, `patches.rs` (slice
+  M6-SB), `paths.rs`,
   `production.rs`, `repair.rs`, `shields.rs`, `spells.rs`, `tunnel.rs` and `vision.rs`, each one struct
   (`tunables!`: the struct, its serde form and its `BUILTIN`) whose fields are named as its constants were
   (`Movement::jammed_ticks`). A faction's own rules are a struct in its `defs/<faction>.rs` (`GdoRules`,
@@ -6518,7 +6628,8 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   `feedback.rs` (how long an order's flash, a refused command's message, a tracer, a death marker, a blast, a cast and
   a HUD notice show; slice M5-MM2: the minimap's pings, how long one shows and the throttle's time and area).
   Slice M5-X2 made each module one struct, declared by the client's own `tunables!` (`CameraTuning`, `InputTuning`,
-  `FeedbackTuning`), and added `look.rs` (`LookTuning`: the Shroud's haze and flashes, the bars over the units, the
+  `FeedbackTuning`), and added `look.rs` (`LookTuning`: the Shroud's haze and flashes, (M6-SB) the sludge's fade, the
+  bars over the units, the
   air units' lift over their shadows). Together they are the `ClientTuning` resource, which the systems read
   (`Res<ClientTuning>`, every plugin that reads it initializing it) and the data files replace while a game runs. A
   function takes the module it reads (`&LookTuning`), or the whole `&ClientTuning` when it is public; a test or a

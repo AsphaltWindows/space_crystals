@@ -1,5 +1,6 @@
 //! The Vehicle Assembly — `factions/syndicate/structures/vehicle_assembly.md` (design change 0367's placeholders; slice
-//! M6-SK: its numbers; slice M6-SV: a Tier 2 Tunnel builds it, and it produces the Assault Bike).
+//! M6-SK: its numbers; slice M6-SV: a Tier 2 Tunnel builds it, and it produces the Assault Bike; slice M6-SB: the
+//! Shadebringer).
 
 use crate::defs::structures::{ExitRule, ExpansionDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
@@ -10,7 +11,8 @@ use crate::player::Faction;
 /// with slice M6-SK (plan decision T84, by T69's rule); slice M6-SV makes it live: a Tier 2 Tunnel builds it
 /// ([`VEHICLE_ASSEMBLY_EXPANSION`], its ExpandMenu entry its kind), and its production is the Hideout's
 /// (`ExitRule::Network`, plan decision T100: into the Tunnel Network, out of a Tier 2+ Tunnel's Side A), the Assault
-/// Bike its one recipe; each other recipe goes live with its unit's slice (M6-SB, M6-SL, M6-ST1), in its panel slot.
+/// Bike its first recipe and (slice M6-SB) the Shadebringer its second; each other recipe goes live with its unit's
+/// slice (M6-SL, M6-ST1), in its panel slot.
 /// Its numbers are the design's "Placeholder stats".
 pub(crate) const VEHICLE_ASSEMBLY: ObjectDef = ObjectDef {
     kind: ObjectKind::VehicleAssembly,
@@ -37,10 +39,11 @@ pub(crate) const VEHICLE_ASSEMBLY: ObjectDef = ObjectDef {
         power: 0,
         // `> Placeholder stats`: "Panel as the Hideout": the Hideout's production, into the Tunnel Network
         // (`factions/syndicate/structures/README.md > Tunnel Expansions > Rally Point Behavior`), its recipes the
-        // consts below, in the panel's order, each live with its unit's slice: the Assault Bike (slice M6-SV).
+        // consts below, in the panel's order, each live with its unit's slice: the Assault Bike (slice M6-SV) and the
+        // Shadebringer (slice M6-SB).
         production: Some(ProductionDef {
             exits: ExitRule::Network,
-            recipes: &[ASSAULT_BIKE_RECIPE],
+            recipes: &[ASSAULT_BIKE_RECIPE, SHADEBRINGER_RECIPE],
             recruitment: None,
             augment: &[],
             default_rally: None,
@@ -79,8 +82,7 @@ pub(crate) const ASSAULT_BIKE_RECIPE: Recipe = Recipe {
     supplies: 0,
 };
 
-/// W: the Shadebringer, behind a Vault, for slice M6-SB.
-#[cfg_attr(not(test), expect(dead_code, reason = "slice M6-SB: the Vehicle Assembly's W"))]
+/// W: the Shadebringer, behind a Vault (slice M6-SB).
 pub(crate) const SHADEBRINGER_RECIPE: Recipe = Recipe {
     kind: ObjectKind::Shadebringer,
     cost: 150,
@@ -117,7 +119,8 @@ mod tests {
     /// The stat block (design change 0367): an underground structure, 3×3, MaxHP 600, the expansions' 6 / 54, behind a
     /// Chemical Plant; a Tier 2 Tunnel's for 250 Space Crystals in 480 frames, from 10% of its MaxHP. Its four recipes,
     /// in its panel's order, each with its unit's TechPrerequisite; live (slice M6-SV), its production the Hideout's
-    /// into the Tunnel Network, with the Assault Bike's alone, the others each its unit's slice's.
+    /// into the Tunnel Network, with the Assault Bike's and (slice M6-SB) the Shadebringer's, the others each its unit's
+    /// slice's.
     #[test]
     fn the_vehicle_assembly_follows_the_design() {
         let expansion = ExpansionDef {
@@ -133,7 +136,7 @@ mod tests {
         assert_eq!(structure.expansion, Some(expansion), "a Tier 2 Tunnel builds it");
         let production = ProductionDef {
             exits: ExitRule::Network,
-            recipes: &[ASSAULT_BIKE_RECIPE],
+            recipes: &[ASSAULT_BIKE_RECIPE, SHADEBRINGER_RECIPE],
             recruitment: None,
             augment: &[],
             default_rally: None,
@@ -141,7 +144,7 @@ mod tests {
         assert_eq!(
             structure.production,
             Some(production),
-            "the Hideout's production, into the network; the Assault Bike's recipe alone so far"
+            "the Hideout's production, into the network; the Assault Bike's and the Shadebringer's recipes so far"
         );
         let recipes = [
             ASSAULT_BIKE_RECIPE,

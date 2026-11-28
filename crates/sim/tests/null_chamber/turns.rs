@@ -233,12 +233,14 @@ fn two_chambers_take_eight_at_a_time() {
     assert_eq!(turns(&t, &guards), [Some(TURN); 9]);
 }
 
-/// A chamber serves while its owner owns it: lost (removed outright), the units inside wait, keeping what of their
-/// turns is done, and one whose turn is done keeps it, **Placeholder (not in the design: a turn done before the last
-/// chamber is lost)**, but leaves unbuffed while its owner owns none ("While the player owns at least one Null
-/// Chamber"). A chamber again, the waiting go on from where they were, and the one done leaves buffed with no new turn.
+/// A chamber serves while its owner owns it: lost (removed outright, as if destroyed), the units inside wait, keeping
+/// what of their turns is done, and one whose turn is done keeps it and leaves buffed though its owner owns none: design
+/// change 0463's Verification 2 (answering Q0187; `> Placeholder stats`: "**A finished turn always buffs**"): "Let a
+/// unit finish its turn, destroy the player's only Null Chamber, then eject the unit. It comes out buffed", for 20 s
+/// from the tick it comes out. A chamber again, the waiting go on from where they were, and the next one done leaves
+/// buffed with no new turn.
 #[test]
-fn a_turn_done_is_kept_while_the_unit_stays_but_without_a_chamber_it_leaves_unbuffed() {
+fn a_turn_done_is_kept_and_leaves_buffed_with_no_chamber_left() {
     let mut t = started(with_chamber(), 1);
     let guards = guards_in(&mut t, 6);
     // The first four done, the other two under way.
@@ -256,7 +258,13 @@ fn a_turn_done_is_kept_while_the_unit_stays_but_without_a_chamber_it_leaves_unbu
     assert_eq!(turns(&t, &guards[4..]), [fifth, sixth], "they wait");
     let first_out = guards[0];
     assert!(t.sim().object(first_out).is_some(), "out: {:?}", exits(&t));
-    assert_eq!(buff_until(&t, first_out), None, "no chamber, no buff");
+    let out = left(&t, first_out);
+    assert!(out > lost, "out after the chamber was lost");
+    assert_eq!(
+        buff_until(&t, first_out),
+        Some(out + DURATION),
+        "a finished turn always buffs"
+    );
     assert_eq!(turns(&t, &guards[1..4]), [Some(TURN); 3], "kept");
     // A chamber again, serving from the tick it is spawned in.
     let again = t.sim().tick() + 1;

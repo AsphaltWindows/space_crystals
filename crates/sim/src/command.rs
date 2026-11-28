@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::augmentation::{Augmentation, RecruitKind};
 use crate::construction::ConstructionCommand;
-use crate::defs::{AreaAbility, ObjectKind};
+use crate::defs::{AreaAbility, ObjectKind, PatchKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
 use crate::production::ProductionCommand;
@@ -158,6 +158,40 @@ pub enum Ability {
     /// Shroud") and makes its new illusions, its old ones vanishing. Its other orders stay. Refused for a unit that
     /// can't pay ("**50 energy**") and for an illusion ("**No spells**: illusions can't cast").
     Mirage,
+    /// (M6-SB) `factions/syndicate/units/shadebringer.md > Sludge (toggle)`: switch the Sludge on (`on`) or off
+    /// (`crate::patches`): on, each unit lays its trail of sludge and drains its tank, until it is switched off or its
+    /// tank is empty. The command says which, as the Riot Shield's does, so that it means the same to every unit of a
+    /// group: the panel sends on unless every unit it goes to has it on already. "Toggles follow the mode-switch rule
+    /// (keep orders, not queueable)". Switching on is refused for a unit whose tank is empty ("a toggle can be switched
+    /// on with **any charge** left in its tank", design change 0369).
+    Sludge { on: bool },
+    /// (M6-SB) `factions/syndicate/units/shadebringer.md > Cover (toggle)`: switch the Cover on or off, by the
+    /// Sludge's rule (`crate::patches`), with its own tank. Slice M6-SC gives the Shadebringer that tank and the smoke
+    /// it lays: until then no unit has it, and the gate refuses the press (`Reject::LacksAbility`).
+    Cover { on: bool },
+}
+
+impl Ability {
+    /// (M6-SB) The kind of patch a toggle lays, and whether it switches it on: the Sludge's and the Cover's
+    /// (`crate::patches`, one rule for both). `None` for the abilities that aren't a tank's toggle.
+    pub fn toggle(self) -> Option<(PatchKind, bool)> {
+        match self {
+            Ability::Sludge { on } => Some((PatchKind::Sludge, on)),
+            Ability::Cover { on } => Some((PatchKind::Smoke, on)),
+            Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert | Ability::Buy | Ability::Mirage => {
+                None
+            }
+        }
+    }
+
+    /// (M6-SB) The toggle of the tank that lays `kind`'s patches, switching it on (`on`) or off: [`Ability::Sludge`] or
+    /// [`Ability::Cover`], whose [`Ability::toggle`] this is the other way round. The client's panel sends it.
+    pub fn switching(kind: PatchKind, on: bool) -> Ability {
+        match kind {
+            PatchKind::Sludge => Ability::Sludge { on },
+            PatchKind::Smoke => Ability::Cover { on },
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

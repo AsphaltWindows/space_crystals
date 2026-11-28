@@ -18,6 +18,8 @@
 //! - [`path_overlay`]: the units' remaining paths, a development view;
 //! - [`combat_effects`]: placeholder combat feedback: tracers, HP bars, death markers;
 //! - [`shroud_view`]: the Disciples' Shroud clouds and their releases, over each player's Visible tiles;
+//! - [`patches_view`]: (M6-SB) the patches on the ground, the Shadebringers' trails of sludge, over each player's
+//!   Visible tiles;
 //! - [`selection`]: the players' selections and control groups (client-side UI state), and their markers;
 //! - [`command_ui`]: orders from the command panel, right-clicks and targeting; command indicators and cursors;
 //! - [`placement`]: the placement ghost of the building being placed, and the build area overlay;
@@ -52,6 +54,7 @@ pub mod input;
 pub mod kinds;
 pub mod map_render;
 pub mod object_render;
+pub mod patches_view;
 pub mod path_overlay;
 pub mod placement;
 pub mod platform;
@@ -81,6 +84,7 @@ use crate::hud::HudPlugin;
 use crate::input::{ActionInputPlugin, InputContext};
 use crate::map_render::MapRenderPlugin;
 use crate::object_render::ObjectRenderPlugin;
+use crate::patches_view::PatchesViewPlugin;
 use crate::path_overlay::PathOverlayPlugin;
 use crate::placement::PlacementPlugin;
 use crate::platform::{DisplayMode, PlatformPlugin};
@@ -269,6 +273,7 @@ pub fn build_app(config: AppConfig) -> App {
             },
             CombatEffectsPlugin,
             ShroudViewPlugin,
+            PatchesViewPlugin,
             FogPlugin {
                 enabled: !config.qa.no_fog,
             },

@@ -234,6 +234,8 @@ impl Sim {
             // (M6-CM) Kept: no illusion changes its kind, the Garrison, which trains nothing, being the one building
             // that takes one in (`crate::mirage`).
             illusion_of: _,
+            // (M6-SB) Kept: no type of the design gains or loses tanks by a change of kind (`crate::patches`).
+            tanks: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

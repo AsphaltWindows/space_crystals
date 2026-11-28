@@ -1,15 +1,15 @@
-//! The Shadebringer — `factions/syndicate/units/shadebringer.md` (design change 0367's placeholders; slice M6-SK).
+//! The Shadebringer — `factions/syndicate/units/shadebringer.md` (design change 0367's placeholders; slice M6-SK: its
+//! numbers; slice M6-SB: the Vehicle Assembly trains it, and its Sludge).
 
-use crate::defs::units::{MovementAttrs, UnitBase, UnitDef};
+use crate::defs::units::{MovementAttrs, PatchKind, SlowDef, TankDef, UnitBase, UnitDef};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/syndicate/units/shadebringer.md`: the "Syndicate **support vehicle**. Wheeled. **No attack and no
-/// turret.**", with its two toggles, Sludge and Cover. Its numbers only (slice M6-SK, plan decision T84, by T69's
-/// rule): it drives by its FixedTurnRadiusMovement as any wheeled unit does, and nothing makes one yet: the Vehicle
-/// Assembly trains it behind a Vault with slice M6-SB, which brings its Sludge and its tanks (`> Sludge (toggle)`,
-/// `> Charges and recharging`), and slice M6-SC its Cover (`> Cover (toggle)`). Its numbers are the design's
-/// "Placeholder stats".
+/// turret.**", with its two toggles, Sludge and Cover. It drives by its FixedTurnRadiusMovement as any wheeled unit
+/// does; since slice M6-SB the Vehicle Assembly trains it behind a Vault (`SHADEBRINGER_RECIPE`), and it carries its
+/// Sludge's tank ([`SLUDGE_TANK`], `crate::patches`: `> Sludge (toggle)`, `> Charges and recharging`); slice M6-SC adds
+/// its Cover's (`> Cover (toggle)`). Its numbers are the design's "Placeholder stats".
 pub(crate) const SHADEBRINGER: ObjectDef = ObjectDef {
     kind: ObjectKind::Shadebringer,
     name: "Shadebringer",
@@ -45,9 +45,39 @@ pub(crate) const SHADEBRINGER: ObjectDef = ObjectDef {
         turret: None,                       // "No attack and no turret."
         attack: None,                       // AttackAttributes - none
         tunnel_space_cost: Some(2),         // TunnelSpaceCost 2
+        // "Sludge and Cover each have their **own, separate charge**": Sludge's (slice M6-SB).
+        tanks: &[SLUDGE_TANK],
         ..UnitDef::NONE
     }),
     ..ObjectDef::NONE
+};
+
+/// (M6-SB) Its Sludge's tank (`UnitDef::tanks`, `crate::patches`): `> Placeholder stats`, "**Sludge**: each patch lasts
+/// **X = 10 s**; units are slowed by **Y = 40%** for **Z = 2 s** after leaving it, and the slow **refreshes while they
+/// stay in it**; trail width 48 su", and "**Tanks**: 100 each; drain **10 per second** while on (10 s of use from
+/// full); refill **5 per second** inside the network with a Vault"; the bases it slows, `> Sludge (toggle)`'s.
+pub(crate) const SLUDGE_TANK: TankDef = TankDef {
+    lays: PatchKind::Sludge,
+    capacity: 100.0, // "Tanks: 100 each"
+    drain: 10.0,     // "drain 10 per second while on"
+    refill: 5.0,     // "refill 5 per second inside the network with a Vault"
+    life: 10.0,      // "each patch lasts X = 10 s"
+    width: 48.0,     // "trail width 48 su"
+    slow: Some(SlowDef {
+        by: 0.4,    // "slowed by Y = 40%"
+        after: 2.0, // "for Z = 2 s after leaving it"
+        // "**Infantry and non-hover vehicles** that step into sludge are **slowed**"; "**Mechs** are slowed like
+        // vehicles"; "**Drill Units** are slowed while on the surface" (while on the ground: `patches::slows`). "Not
+        // affected: hover units (HoverVehicle, HoverCraft) and air units".
+        bases: &[
+            UnitBase::LightInfantry,
+            UnitBase::HeavyInfantry,
+            UnitBase::WheeledVehicle,
+            UnitBase::TrackedVehicle,
+            UnitBase::DrillUnit,
+            UnitBase::Mech,
+        ],
+    }),
 };
 
 #[cfg(test)]
@@ -58,7 +88,8 @@ mod tests {
 
     /// A 56×40 WheeledVehicle, MaxHP 160, PointArmor 2, FullArmor 2, SightRange 6, Groupable ("true (assumed)"),
     /// TunnelSpaceCost 2; FixedTurnRadiusMovement at 8 su a frame forward and 3 in reverse, on a turning radius of 80
-    /// su; no turret and no attack.
+    /// su; no turret and no attack; (M6-SB) its Sludge's tank of 100, draining 10 a second and refilled at 5, its
+    /// patches 48 su across for 10 s, slowing the ground bases but the hover ones by 40% for 2 s after.
     #[test]
     fn the_shadebringer_follows_the_design() {
         let def = ObjectKind::Shadebringer.def();
@@ -94,5 +125,22 @@ mod tests {
             (Some(2), None, None)
         );
         assert_eq!((unit.worker, unit.deploy, unit.separation_radius), (None, None, None));
+        let sludge = unit.tank(PatchKind::Sludge).expect("its Sludge's tank");
+        assert_eq!(
+            (sludge.capacity, sludge.drain, sludge.refill, sludge.life, sludge.width),
+            (100.0, 10.0, 5.0, 10.0, 48.0)
+        );
+        let slow = sludge.slow.expect("sludge slows");
+        assert_eq!((slow.by, slow.after), (0.4, 2.0));
+        let slowed: Vec<UnitBase> = (UnitBase::ALL.into_iter())
+            .filter(|base| slow.bases.contains(base))
+            .collect();
+        let hover_or_air = [UnitBase::HoverVehicle, UnitBase::HoverCraft, UnitBase::Glider];
+        let ground: Vec<UnitBase> = (UnitBase::ALL.into_iter())
+            .filter(|base| !hover_or_air.contains(base))
+            .collect();
+        assert_eq!(slowed, ground, "infantry, non-hover vehicles, Mechs and Drill Units");
+        assert_eq!(unit.tanks.len(), 1, "Cover's is slice M6-SC's");
+        assert_eq!(unit.tank(PatchKind::Smoke), None);
     }
 }

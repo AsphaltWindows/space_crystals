@@ -12,6 +12,7 @@
 mod attack;
 mod bases;
 mod movement_attrs;
+mod tanks;
 mod worker;
 
 pub use attack::{
@@ -20,6 +21,7 @@ pub use attack::{
 };
 pub use bases::{ContactStep, Domain, MovementModel, UnitBase, UnitBaseDef};
 pub use movement_attrs::{MovementAttrs, ReverseSpeed};
+pub use tanks::{PatchKind, SlowDef, TankDef};
 pub use worker::{DropOffChoice, LoadDef, Nearest, RepairDef, RepairPayment, RepairTargets, Resource, WorkerDef};
 
 use serde::{Deserialize, Serialize};
@@ -145,6 +147,12 @@ pub struct UnitDef {
     /// `crate::vehicle_deploy`): the Artillery Rig's two types (`factions/gdo/units/artillery_rig.md > Modes`), one row
     /// on each. `None` for every other type.
     pub vehicle_deploy: Option<VehicleDeploy>,
+    /// (M6-SB) Its tanks, for a unit that lays patches on the ground while a toggle is on (plan decision T93,
+    /// `crate::patches`): the Shadebringer's Sludge (`factions/syndicate/units/shadebringer.md > Charges and
+    /// recharging`: "Sludge and Cover each have their **own, separate charge**"), and (slice M6-SC) its Cover's; at
+    /// most one of each kind ([`TankDef::lays`]). Empty for every other type.
+    #[serde(deserialize_with = "super::leak::slice")]
+    pub tanks: &'static [TankDef],
 }
 
 /// (M6-GH1) An aircraft's ammo (plan decision T88, `crate::aircraft`): "Ammo per unit is on each aircraft"
@@ -239,6 +247,11 @@ impl UnitDef {
     /// (M6-CM) Its Mirage's numbers, if it casts Mirage ([`UnitDef::spells`]; `crate::mirage`).
     pub fn mirage(&self) -> Option<&'static MirageDef> {
         self.spells.iter().find_map(SpellDef::mirage)
+    }
+
+    /// (M6-SB) Its tank of `kind`'s patches, if it has one ([`UnitDef::tanks`]; `crate::patches`).
+    pub fn tank(&self, kind: PatchKind) -> Option<&'static TankDef> {
+        self.tanks.iter().find(|tank| tank.lays == kind)
     }
 
     /// (M5-V2) Whether it takes the Reverse order (`systems/controls/commands.md > Reverse`: "Only available to bases

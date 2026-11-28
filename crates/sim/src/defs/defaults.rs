@@ -40,7 +40,7 @@ impl ObjectDef {
 impl UnitDef {
     /// The struct-update default of every unit type's attributes (module docs): no Rugged-terrain bonus, turret or
     /// attack, no Unit Control, Tunnel Space or Beacon Capacity cost, and none of the abilities of a few types (nor, M6-GA, a
-    /// vehicle deploy).
+    /// vehicle deploy, nor, M6-SB, a tank).
     pub(crate) const NONE: UnitDef = UnitDef {
         base: UnitBase::LightInfantry,
         movement: MovementAttrs::TurnRate {
@@ -69,6 +69,7 @@ impl UnitDef {
         air_door_ticks: 0,
         ammo: None,
         vehicle_deploy: None,
+        tanks: &[],
     };
 }
 
@@ -76,7 +77,7 @@ impl StructureDef {
     /// The struct-update default of every structure type's attributes (module docs): it seeds no build area,
     /// produces, mines, constructs and warps in nothing, takes no drop-off, isn't underground, requires nothing, and has
     /// none of the parts of a few types (a Tunnel's, a site, an expansion's, an attack, a pop-up, a hold, research,
-    /// abilities, an Airfield's, a Null Chamber's).
+    /// abilities, an Airfield's, a Null Chamber's, (M6-SB) a Vault's).
     pub(crate) const NONE: StructureDef = StructureDef {
         symmetry: SymmetryType::AAAA,
         build_radius_extension: 0,
@@ -101,5 +102,6 @@ impl StructureDef {
         abilities: None,
         airfield: None,
         chamber: None,
+        vault: None,
     };
 }

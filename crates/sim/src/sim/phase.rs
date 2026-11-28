@@ -6,7 +6,7 @@ use crate::augmentation::Research;
 use crate::command::TickInputs;
 use crate::economy::defeat;
 use crate::ids::ObjectId;
-use crate::{buffs, combat, economy, energy, movement, orders, paths, shields};
+use crate::{buffs, combat, economy, energy, movement, orders, patches, paths, shields};
 
 /// The parts of a tick, in the order [`Sim::step`](super::Sim::step) runs them (`ARCHITECTURE.md > Tick pipeline`):
 /// [`Sim::step_observed`](super::Sim::step_observed) marks each as it starts, then [`Phase::End`] when the tick is
@@ -177,6 +177,9 @@ impl Sim {
         );
         // 5d: the one movement pipeline, the single place that moves units.
         observe(Phase::Movement);
+        // (M6-SB) The units in sludge, where the last tick left them, are slowed from this tick on
+        // (`patches::slow`): before they move, by top speeds that their slow lowers.
+        patches::slow(&mut self.objects, &self.patches, first_new, self.tick);
         let (nav, scratch) = self.nav.for_movement();
         let crushed = movement::step(
             &mut self.objects,
@@ -201,6 +204,9 @@ impl Sim {
         // their leash; before 5e, so that a drone that falls attacks nothing in the tick, and the blast of one past its
         // leash lands in it.
         self.step_tethers(first_new);
+        // (M6-SB) The patches whose time is over go, and the Shadebringers with a toggle on lay their trails where 5d
+        // left them and drain (`patches::lay`): after the crushed left, who lay nothing; before 5f, which shows them.
+        patches::lay(&mut self.objects, &mut self.patches, first_new, self.tick);
         // 5e: shoots from the positions movement committed, and the projectiles due land (`combat::projectiles`). The
         // dead leave through the removal path; a footprint they leave behind no longer blocks, so the grids follow as
         // in 5b.

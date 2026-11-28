@@ -3,14 +3,15 @@
 //! ([`Object::movement`], [`Object::max_speed`]) and the weapon ([`augmented`], which `combat::weapon` applies). The
 //! numbers are data (`defs::CultsRules::augmentation`); a unit's net increments are derived from them and its owner's
 //! levels whenever a stat is read, never stored ([`Increments`]). A unit without an Augmentation reads its kind's stats
-//! unchanged, at the cost of one branch. (M5-N11) The same accessors add an Inspire's top speed and faster attack, the
-//! one buff that changes a stat (`crate::buffs::max_speed_bonus`, `crate::buffs::inspired`): a unit without an
-//! Augmentation nor a buff reads its kind's.
+//! unchanged, at the cost of one branch. (M5-N11) The same accessors add an Inspire's top speed and faster attack
+//! (`crate::buffs::max_speed_bonus`, `crate::buffs::inspired`), and (M6-SB) the sludge's slow lowers the top speeds
+//! (`crate::patches::speed_factor`): a unit without an Augmentation nor a buff reads its kind's.
 
 use super::{Augmentation, Levels, Research};
 use crate::buffs;
 use crate::defs::{AttackAttrs, Augmentable, MovementAttrs, ObjectKind};
 use crate::object::Object;
+use crate::patches;
 use crate::ruleset::rules;
 use crate::transform;
 
@@ -123,7 +124,8 @@ impl Object {
 /// The movement numbers of `o`, which has an Augmentation or (M5-N11) a buff, from its kind's `movement`, made in `slot`
 /// ([`Object::movement_ref`]): its Augmentations' top speed ([`movement_of`]), and its Inspire's on top
 /// (`crate::buffs::max_speed_bonus`: "**Stacks with augmentation** (e.g. Improved Metabolism): different sources add
-/// up", `factions/cults/units/prayer_mobile.md > Abilities`), as [`faster`] raises it.
+/// up", `factions/cults/units/prayer_mobile.md > Abilities`), as [`faster`] raises it; then (M6-SB) the sludge's slow
+/// on the whole (`crate::patches::speed_factor`: "slowed by **Y = 40%**"), as [`slower`] lowers it.
 #[inline(never)]
 fn augmented_movement<'a>(
     o: &Object,
@@ -133,10 +135,16 @@ fn augmented_movement<'a>(
 ) -> &'a MovementAttrs {
     let augmented = movement_of(*movement, o.increments(research));
     let extra = buffs::max_speed_bonus(o);
-    slot.insert(if extra == 0.0 {
+    let movement = if extra == 0.0 {
         augmented
     } else {
         faster(augmented, extra)
+    };
+    let factor = patches::speed_factor(o);
+    slot.insert(if factor == 1.0 {
+        movement
+    } else {
+        slower(movement, factor)
     })
 }
 
@@ -191,6 +199,46 @@ fn faster(movement: MovementAttrs, extra: f32) -> MovementAttrs {
             drag_ratio,
             ..
         } => *forward_acceleration += extra * *drag_ratio,
+    }
+    movement
+}
+
+/// (M6-SB) `movement` with every top speed of its model times `factor` (`crate::patches::speed_factor`): forward and,
+/// for the models that back up, in reverse; a Glider's least speed too, which stays below its top one; and for a model
+/// with momentum its thrusts, whose balance with its drag is its top speed. Its accelerations and its turning are its
+/// own, but where the model turns by its speed (a tracked unit's spin, from its treads' top speed).
+#[inline(never)]
+fn slower(movement: MovementAttrs, factor: f32) -> MovementAttrs {
+    let mut movement = movement;
+    match &mut movement {
+        MovementAttrs::TurnRate { max_speed, .. } => *max_speed *= factor,
+        MovementAttrs::FixedTurnRadius {
+            forward_max_speed,
+            reverse_max_speed,
+            ..
+        }
+        | MovementAttrs::SpeedTurnRadius {
+            max_speed: forward_max_speed,
+            reverse_max_speed,
+            ..
+        } => {
+            *forward_max_speed *= factor;
+            *reverse_max_speed *= factor;
+        }
+        MovementAttrs::Drag {
+            forward_acceleration,
+            omni_directional_acceleration,
+            ..
+        } => {
+            *forward_acceleration *= factor;
+            *omni_directional_acceleration *= factor;
+        }
+        MovementAttrs::Glider {
+            idle_speed, max_speed, ..
+        } => {
+            *idle_speed *= factor;
+            *max_speed *= factor;
+        }
     }
     movement
 }

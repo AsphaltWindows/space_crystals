@@ -52,6 +52,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
         cooldown: None,
         aircraft: None,
         illusion_of: None,
+        tanks: None,
     }
 }
 

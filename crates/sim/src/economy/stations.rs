@@ -126,6 +126,7 @@ mod tests {
             cooldown: None,
             aircraft: None,
             illusion_of: None,
+            tanks: None,
         }
     }
 

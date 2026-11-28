@@ -5,8 +5,10 @@
 //! not. Health regeneration's is a green cross, Energy regeneration's a violet one, the energy bar's
 //! (`super::draw`); (M5-N11) the Prayer-mobile's Inspire's a gold chevron pointing up ("+1.5 su/frame MaxSpeed"), its
 //! Suppress's a red X ("can't attack"), on every unit Suppress took in, of any player; (M6-SN) the Null Chamber exit
-//! buff's a pale blue diamond, an eye's shape for its "+2 grid units SightRange" (`sc_sim::network::services`). Every
-//! player who sees the unit sees them, as its bars: **Placeholder (not in the design: who sees a buff, and its look;
+//! buff's a pale blue diamond, an eye's shape for its "+2 grid units SightRange" (`sc_sim::network::services`); (M6-SB)
+//! the sludge's slow a murky green chevron pointing down, Inspire's turned over ("slowed by **Y = 40%**",
+//! `sc_sim::patches`), on every unit the sludge holds back, of any player. Every player who sees the unit sees them, as
+//! its bars: **Placeholder (not in the design: who sees a buff, and its look;
 //! Q0001)**.
 
 use bevy::prelude::*;
@@ -34,6 +36,8 @@ const INSPIRE_COLOR: Color = Color::srgb(1.0, 0.80, 0.25);
 const SUPPRESS_COLOR: Color = Color::srgb(1.0, 0.28, 0.22);
 /// (M6-SN) The Null Chamber exit buff's pale blue (a placeholder).
 const NULL_CHAMBER_COLOR: Color = Color::srgb(0.45, 0.85, 1.0);
+/// (M6-SB) The sludge's slow's murky green, the trail's (a placeholder).
+const SLUDGE_COLOR: Color = Color::srgb(0.55, 0.70, 0.22);
 const RIM_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 
 /// A buff's mark: centred on `center` (view space), of the buff `ability` (`sc_sim::buffs::Buff::ability`): an
@@ -64,11 +68,15 @@ pub fn buff_marks(sim: &Sim, sight: &Sight, alpha: f32, tuning: &ClientTuning) -
 }
 
 /// Draws `mark` in its buff's colour inside a dark rim: a cross, (M5-N11) Inspire's chevron and Suppress's X, (M6-SN)
-/// the Null Chamber's diamond.
+/// the Null Chamber's diamond, (M6-SB) the sludge's chevron pointing down.
 pub(super) fn mark_shape(mesh: &mut ColorMesh, mark: BuffMark, z: f32) {
     let center = view_to_world(mark.center);
     let ability = match mark.ability {
         BuffKind::Area(ability) => ability,
+        BuffKind::Sludge => {
+            chevron(mesh, center, -1.0, SLUDGE_COLOR, z);
+            return;
+        }
         BuffKind::NullChamber => {
             let corners = [
                 Vec2::new(0.0, ARM),
@@ -93,12 +101,7 @@ pub(super) fn mark_shape(mesh: &mut ColorMesh, mark: BuffMark, z: f32) {
         AreaAbility::Scan => {}
         AreaAbility::HealthRegeneration => cross(mesh, center, HEALTH_COLOR, z),
         AreaAbility::EnergyRegeneration => cross(mesh, center, ENERGY_COLOR, z),
-        AreaAbility::Inspire => {
-            // A chevron pointing up the screen (Bevy world space: +y): two arms from its tip.
-            let tip = center + Vec2::new(0.0, ARM * 0.7);
-            let arms = [Vec2::new(-ARM, -ARM * 0.5), Vec2::new(ARM, -ARM * 0.5)];
-            strokes(mesh, arms.map(|arm| (tip, center + arm)), INSPIRE_COLOR, z);
-        }
+        AreaAbility::Inspire => chevron(mesh, center, 1.0, INSPIRE_COLOR, z),
         AreaAbility::Suppress => {
             let corners = [
                 Vec2::new(-ARM, -ARM),
@@ -115,6 +118,14 @@ pub(super) fn mark_shape(mesh: &mut ColorMesh, mark: BuffMark, z: f32) {
             );
         }
     }
+}
+
+/// A chevron round `center` (Bevy world space) in `color` inside a dark rim, pointing up the screen (Bevy world space:
+/// +y) for an `up` of 1, down for -1: two arms from its tip.
+fn chevron(mesh: &mut ColorMesh, center: Vec2, up: f32, color: Color, z: f32) {
+    let tip = center + Vec2::new(0.0, ARM * 0.7 * up);
+    let arms = [Vec2::new(-ARM, -ARM * 0.5 * up), Vec2::new(ARM, -ARM * 0.5 * up)];
+    strokes(mesh, arms.map(|arm| (tip, center + arm)), color, z);
 }
 
 /// A cross round `center` (Bevy world space) in `color` inside a dark rim.

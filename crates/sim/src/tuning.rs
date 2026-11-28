@@ -50,6 +50,7 @@ pub mod gathering;
 pub mod holding;
 pub mod movement;
 pub mod orders;
+pub mod patches;
 pub mod paths;
 pub mod production;
 pub mod repair;
@@ -70,6 +71,7 @@ pub struct Tuning {
     pub holding: holding::Holding,
     pub movement: movement::Movement,
     pub orders: orders::Orders,
+    pub patches: patches::Patches,
     pub paths: paths::Paths,
     pub production: production::Production,
     pub repair: repair::Repair,
@@ -88,6 +90,7 @@ pub const BUILTIN: Tuning = Tuning {
     holding: holding::BUILTIN,
     movement: movement::BUILTIN,
     orders: orders::BUILTIN,
+    patches: patches::BUILTIN,
     paths: paths::BUILTIN,
     production: production::BUILTIN,
     repair: repair::BUILTIN,

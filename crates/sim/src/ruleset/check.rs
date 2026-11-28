@@ -24,6 +24,9 @@
 //!   round (`AmmoDef::rearm_ticks_per_ammo`), counted in fixed point as well (`crate::landing`). An Airfield has a
 //!   landing slot for each of its assignments, so its capacity is at most [`LANDING_SLOTS`], the slots of the
 //!   placeholder layout (`landing::slots`), which lie inside its footprint (`AirfieldDef::slot_offset_su`).
+//!   (M6-SB) A tank holds at most [`LARGEST_TANK`] units of charge, counted in fixed point (`crate::patches`), and a
+//!   patch's slow takes less than the whole of a unit's speed (`SlowDef::by`), so that a unit in sludge still moves
+//!   out of it.
 
 use super::structure::{Skeleton, variant_name};
 use super::{RuleField, Ruleset};
@@ -35,6 +38,10 @@ use crate::units::{SU_PER_GU, seconds};
 /// The longest recipe or research, ticks: its progress, `frames × RATIO_ONE` (`crate::construction`), fits a `u32`
 /// (`defs/tests.rs`: "short enough for their progress in fixed point").
 const LONGEST_RECIPE: u32 = u32::MAX / RATIO_ONE;
+
+/// (M6-SB) The largest tank, units of charge (`TankDef::capacity`): its charge in fixed point, `capacity × RATIO_ONE`
+/// (`crate::patches`), fits a `u32`.
+const LARGEST_TANK: f32 = (u32::MAX / RATIO_ONE) as f32;
 
 /// The widest Recruitment Area, tiles a side (`RecruitmentDef::area`; the design's is 10): a bound on the tiles a
 /// Hall's claims look over (`crate::recruitment`). Placeholder (not in the design: a technical bound, the side of the
@@ -175,6 +182,15 @@ fn def_bounds(kind: ObjectKind, def: &ObjectDef) -> Option<Invalid> {
             return invalid("slot_offset_su", "must keep the landing slots inside the footprint");
         }
     }
+    // (M6-SB) A tank's charge, in fixed point, and a slow that leaves a unit some speed (`crate::patches`).
+    for tank in def.unit.as_ref().map_or(&[][..], |unit| unit.tanks) {
+        if tank.capacity > LARGEST_TANK {
+            return invalid("capacity", "must be at most 65535");
+        }
+        if tank.slow.is_some_and(|slow| slow.by >= 1.0) {
+            return invalid("by", "must be less than 1");
+        }
+    }
     None
 }
 
@@ -193,6 +209,7 @@ fn recipe_frames(def: &ObjectDef) -> impl Iterator<Item = u32> + '_ {
 }
 
 const _: () = assert!(LONGEST_RECIPE == 65535, "the bound the messages give");
+const _: () = assert!(LARGEST_TANK == 65535.0, "the bound the message gives");
 
 #[cfg(test)]
 mod tests;

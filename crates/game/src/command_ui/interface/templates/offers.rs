@@ -30,7 +30,8 @@ fn unfinished_offers(kind: sc_sim::ObjectKind, command: PanelCommand) -> bool {
 /// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu; a pool building's KindMenus' entries, every
 /// kind's; an Altar's AugmentMenus' tiles and entries, every type's and state's (slice M5-N1b); a Recruit's buildings
 /// of its Construct menus (slice M5-J1: [`menu_builds`]); a research structure's keys, each of its technologies' and
-/// the same in progress (slice M5-N3, `PanelCommand::Researching`). In order, each once.
+/// the same in progress (slice M5-N3, `PanelCommand::Researching`); (M6-SB) each of a unit's toggles both ways, as
+/// its key shows it (`PanelCommand::Toggle`). In order, each once.
 pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -76,6 +77,11 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
             commands.extend([PanelCommand::Research(tech), PanelCommand::Researching(tech)]);
         }
     }
+    let toggles = (grid(kind).into_iter().flatten()).filter_map(|command| match command {
+        PanelCommand::Toggle { lays, .. } => Some(PanelCommand::Toggle { lays, on: false }),
+        _ => None,
+    });
+    commands.extend(toggles.collect::<Vec<_>>());
     commands.sort_unstable();
     commands.dedup();
     commands
@@ -100,7 +106,8 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// M5-N1b). A worker offers the Build its grid has (the Agent's) and those of the build menus it opens (the Recruit's
 /// Construct menus, slice M5-J1: [`menu_builds`]). A research structure offers the Research of each technology it
 /// researches (`StructureDef::research`), its keys showing their line's next level, and the same in progress (slice
-/// M5-N3).
+/// M5-N3). (M6-SB) A unit with tanks offers each tank's toggle both ways, its key showing the way a press switches it
+/// (`PanelCommand::Toggle`).
 pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -132,6 +139,9 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
         PanelCommand::Build(_) if menu_builds(kind).any(|build| build == command) => return true,
         PanelCommand::Research(tech) | PanelCommand::Researching(tech) => {
             return research_of(kind).is_some_and(|research| research.offers(tech));
+        }
+        PanelCommand::Toggle { lays, on: false } => {
+            return grid(kind).contains(&Some(PanelCommand::Toggle { lays, on: true }));
         }
         _ => {}
     }

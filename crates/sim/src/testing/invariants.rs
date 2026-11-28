@@ -22,8 +22,9 @@
 //! within its leash and battery, its operator standing still: `tethers`), (M6-CM) the illusion invariant M1 (an
 //! illusion's parent is in the game, a Disciple that casts Mirage, with one set at most: `illusions`), (M6-GH2) the
 //! landing invariant L1 (an aircraft on a slot is on an Airfield in the game, at most 4 there, rising no more, and
-//! rearms exactly while down and short of ammo: `landings`), and an ASCII picture of the map with its units for
-//! readable failures.
+//! rearms exactly while down and short of ammo: `landings`), (M6-SB) the tank invariant N1 (tanks on the types that
+//! have them, a toggle on only with a charge and its newest patch on the ground, off in the network, the patches on
+//! the ground in their time: `tanks`), and an ASCII picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step, as the golden games do (slice M5-M1); the fuzz's
@@ -45,6 +46,7 @@ mod picture;
 mod projectiles;
 mod research;
 mod reservations;
+mod tanks;
 mod tethers;
 
 use std::collections::BTreeMap;
@@ -79,7 +81,7 @@ pub use picture::ascii;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
     /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1", "W1", "S1", "D1",
-    /// "M1", "L1".
+    /// "M1", "L1", "N1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -192,7 +194,7 @@ impl Invariants {
 
     /// (M5-M1) Of [`Invariants::check`]'s invariants, those of the game's rules alone: P1, O1, R1, H1, B1, A1, E1
     /// (slice M5-N4a), T1 (slice M5-N3), C1 (slice M5-N4b), F1 (slice M5-N5), G1 (slice M5-H1), D1 (slice M6-GD), M1
-    /// (slice M6-CM) and L1 (slice M6-GH2),
+    /// (slice M6-CM), L1 (slice M6-GH2) and N1 (slice M6-SB),
     /// which hold whatever the input and cost little. Not the movement invariants, whose I6 bounds how far a scenario
     /// may fall behind, nor V1 and K1, which rebuild every player's vision and planning grids and make most of a
     /// check's cost. For a harness of many games of random input: `tests/robustness.rs`, whose seed sweep V1 and K1
@@ -219,6 +221,7 @@ impl Invariants {
             .and_then(|()| tethers::tethers(sim, &self.seen, &teleported))
             .and_then(|()| illusions::illusions(sim))
             .and_then(|()| landings::landings(sim))
+            .and_then(|()| tanks::tanks(sim))
     }
 
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
@@ -320,7 +323,8 @@ impl Invariants {
             // or one whose last tick this was, which it moved with too and which the tick's end took (`crate::buffs`).
             // (M5-H1) An air unit that keeps apart from others may be pushed by at most `SEPARATION_PUSH_SU` on top
             // (`gliders`), (M5-H2) its base's share of it (a Glider's a third, design change 0412; a quarter from
-            // design change 0405).
+            // design change 0405). (M6-SB) A unit with momentum that the sludge slows (`crate::patches`) brakes from
+            // the speed it carried down to its lowered top speed, as for a mode: at most the larger of the two.
             let drag = momentum::carries(&unit.movement);
             let glides = gliders::glides(o);
             let max_speed = o.max_speed(sim.research());
@@ -328,6 +332,10 @@ impl Invariants {
                 Some(b) if levels_changed || b.speed_bonus != crate::buffs::max_speed_bonus(o) => {
                     b.max_speed.max(max_speed)
                 }
+                _ => max_speed,
+            };
+            let max_speed = match before {
+                Some(b) if drag && crate::patches::slowed(o) => max_speed.max(b.momentum.length()),
                 _ => max_speed,
             };
             let step = max_speed * if drag { 1.0 } else { mover.speed_factor } + gliders::push_allowance(o);

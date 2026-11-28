@@ -15,6 +15,7 @@ mod place_buttons;
 mod prayer_mobile;
 mod recruit;
 mod rocketman;
+mod shadebringer;
 mod shrine;
 mod syndicate;
 mod temple;

@@ -23,8 +23,8 @@ impl PanelCommand {
 
     /// The ability of an ability command issued at once (`sc_sim::Command::Ability`): Raise Shield's raises, Lower
     /// Shield's lowers (each type's panel has the one that turns its shields the other way, design change 0173),
-    /// Convert's flips the target form, (M6-GD) a Drone Operator's Build Drone buys one, and (M6-CM) a Disciple's
-    /// Mirage casts it. Set Drop-off's waits for
+    /// Convert's flips the target form, (M6-GD) a Drone Operator's Build Drone buys one, (M6-CM) a Disciple's
+    /// Mirage casts it, and (M6-SB) a tank's toggle switches it the way its key says. Set Drop-off's waits for
     /// its target, the drop-off (`crate::command_ui::resolution::target_resolution`).
     pub fn ability(self) -> Option<Ability> {
         match self {
@@ -33,6 +33,7 @@ impl PanelCommand {
             PanelCommand::Convert(_) => Some(Ability::Convert),
             PanelCommand::Buy(_) => Some(Ability::Buy),
             PanelCommand::Mirage => Some(Ability::Mirage),
+            PanelCommand::Toggle { lays, on } => Some(Ability::switching(lays, on)),
             _ => None,
         }
     }

@@ -100,7 +100,7 @@ mod tests {
     /// The panels of a selection of one object of type `ty`, in every state it may be in: DefaultState, for a
     /// constructor idle, constructing and holding ready each building it constructs; in each of its menus; awaiting
     /// the target of each of its commands that needs one. An Egress Node has Drones to select; an unfinished object
-    /// may be a site (slice M4-J1).
+    /// may be a site (slice M4-J1); (M6-SB) a unit's toggles may be on.
     fn panels_of(ty: GroupType) -> Vec<Panel> {
         let selection = Selection::new([(ObjectId(1), ty)]);
         let base = Conditions::default().with_returning(vec![ObjectId(2)]);
@@ -132,6 +132,12 @@ mod tests {
             let under_way = sc_sim::Reject::ResearchUnderWay(tech);
             conditions.push(reached.clone().refusing(PanelCommand::Research(tech), under_way));
             conditions.push(reached);
+        }
+        // (M6-SB) A unit's toggles on, whose keys switch them off (`Conditions::key`).
+        for command in grid(ty.kind).into_iter().flatten() {
+            if let PanelCommand::Toggle { lays, .. } = command {
+                conditions.push(base.clone().toggled_on(lays));
+            }
         }
         let commands = grid(ty.kind).into_iter().flatten();
         let mut states = vec![InterfaceState::DefaultState];
@@ -169,14 +175,16 @@ mod tests {
     /// Slice M3-K2a: the hint names every button of every panel in full, after its hotkey: every command each type
     /// may show, in every state, greyed out or not, and Back. A label that is its command's name in full ("Move",
     /// "Back", the Disciple's "Shroud" since slice M5-N4a, the Radar Station's "Scan" since slice M6-GR, the Disciple's
-    /// "Mirage" since slice M6-CM) is the only one the hint repeats; a button that makes something names it in full
+    /// "Mirage" since slice M6-CM, the Shadebringer's "Cover" placeholder since slice M6-SB) is the only one the hint
+    /// repeats; a button that makes something names it in full
     /// ("PK": "Train Peacekeeper").
     #[test]
     fn the_hint_names_every_button_in_full() {
         let bindings = Bindings::default();
         let hotkeys: Vec<String> = CommandSlot::all().map(|slot| hotkey_label(&bindings, slot)).collect();
         let whole = [
-            "Move", "Attack", "Patrol", "Stop", "Deploy", "Eject", "Repair", "Shroud", "Scan", "Mirage", "Back",
+            "Move", "Attack", "Patrol", "Stop", "Deploy", "Eject", "Repair", "Shroud", "Scan", "Mirage", "Cover",
+            "Back",
         ];
         let mut types: Vec<GroupType> = ObjectKind::ALL.iter().map(|&kind| GroupType::finished(kind)).collect();
         let warped_in = transform::warp_in_recipes(ObjectKind::Beacon).iter().map(|r| r.kind);

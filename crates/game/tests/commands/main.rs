@@ -53,7 +53,8 @@
 //! Suppress cast at once, the buffs' marks, the cast's ring and wedge, and the keys greyed without the energy):
 //! `prayer_mobile`, on another. The Disciple's Mirage (slice M6-CM: F casting it, the illusions as their owner sees
 //! them, washed out and named "Disciple (illusion)", with their parent's energy and their spells greyed, and as the
-//! other player sees them after F2, Disciples): `mirage`, on another.
+//! other player sees them after F2, Disciples): `mirage`, on another. The Shadebringer's Sludge (slice M6-SB: R
+//! switching it on and off, its Move kept, its trail drawn and its tank's bar): `sludge`, on a Syndicate field.
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
 //! over Recruits and Militants, the group's placement with its Shift chain, and, slice M5-S4, a Hall placed flush
@@ -120,6 +121,7 @@ mod rocketman_ui;
 mod shield_orders;
 mod shift_targeting;
 mod shrine;
+mod sludge;
 mod supplies;
 mod syndicate_panels;
 mod targeting;

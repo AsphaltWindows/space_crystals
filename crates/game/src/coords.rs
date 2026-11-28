@@ -163,7 +163,7 @@ pub fn lerp_facing(from: f32, to: f32, alpha: f32) -> f32 {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DrawLayer {
     Terrain,
-    /// Decals on the ground, under every object (none yet).
+    /// Decals on the ground, under every object: (M6-SB) the sludge's patches (`crate::patches_view`).
     GroundDecals,
     /// The tile-based objects, structures and map resources (live, and the records of the remembered ones), and the
     /// selection frames inside their footprints.

@@ -124,7 +124,7 @@ fn the_files_mirror_the_def_modules_and_cover_every_part() {
         ObjectKind::COUNT + count("bases") + count("factions") + count("tuning") + 4,
         "a file for every part"
     );
-    assert_eq!(count("tuning"), 14, "every tuning module of `sc_sim::tuning`");
+    assert_eq!(count("tuning"), 15, "every tuning module of `sc_sim::tuning`");
     for path in [
         "defs/gdo/units/peacekeeper.json",
         "defs/gdo/units/peacekeeper_shielded.json",

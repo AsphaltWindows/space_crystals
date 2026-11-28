@@ -34,6 +34,11 @@ const ENERGY_FILL: Color = Color::srgb(0.72, 0.45, 1.0);
 /// (M6-GH1) An ammo pip's fill, a round left: Placeholder (not in the design: Q0001's art direction), an amber, apart
 /// from the bars' colours; a spent round's pip is its dark frame alone.
 const AMMO_FILL: Color = Color::srgb(1.0, 0.68, 0.15);
+/// (M6-SB) A tank bar's fill, by its kind (`PatchKind::ALL`'s order): Placeholder (not in the design: Q0001's art
+/// direction), the sludge's olive brown (`crate::patches_view`) and (slice M6-SC) the smoke's grey; while the toggle
+/// is on, lightened by [`TANK_ON_LIGHTEN`].
+const TANK_FILLS: [Srgba; 2] = [Srgba::rgb(0.55, 0.50, 0.16), Srgba::rgb(0.62, 0.64, 0.68)];
+const TANK_ON_LIGHTEN: f32 = 0.45;
 /// Above the path overlay, in the overlays layer.
 const EFFECTS_Z: f32 = 1.0;
 
@@ -180,7 +185,8 @@ fn death_marker(mesh: &mut ColorMesh, map: &Map, death: &DeathMarker, fade: f32,
 /// A dark frame around the bar's fill, each bar `height` su high (`LookTuning::bar_height`): green above 60%, yellow
 /// above 30%, red below. The shield bar, if any, right above it, its fill in [`SHIELD_FILL`]; (M5-N4a) the energy
 /// bar, if any, right under it, its fill in [`ENERGY_FILL`]; (M6-GH1) an aircraft's ammo pips under them, one square
-/// a round, as high as a bar, centred under it, those of the rounds left filled in [`AMMO_FILL`] from the left.
+/// a round, as high as a bar, centred under it, those of the rounds left filled in [`AMMO_FILL`] from the left;
+/// (M6-SB) a unit's tank bars under those, one a tank, in its kind's [`TANK_FILLS`], lighter while its toggle is on.
 fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
     let center = view_to_world(bar.center);
     let fill = match bar.fraction {
@@ -208,6 +214,14 @@ fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
             let full = if round < left { 1.0 } else { 0.0 };
             bar_shape(mesh, at, Vec2::splat(height), full, AMMO_FILL, z);
         }
+    }
+    for (tank, fill) in bar.tanks.into_iter().zip(TANK_FILLS) {
+        let Some((fraction, on)) = tank else {
+            continue;
+        };
+        under -= Vec2::new(0.0, height + 1.0);
+        let fill = if on { lighten(fill, TANK_ON_LIGHTEN) } else { fill };
+        bar_shape(mesh, under, size, fraction, fill.into(), z);
     }
 }
 

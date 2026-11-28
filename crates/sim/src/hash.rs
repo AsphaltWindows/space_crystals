@@ -343,6 +343,7 @@ impl StateHash for Object {
             cooldown,
             aircraft,
             illusion_of,
+            tanks,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -446,6 +447,12 @@ impl StateHash for Object {
         if let Some(parent) = illusion_of {
             h.tag(15);
             parent.hash(h);
+        }
+        // (M6-SB) The same for a unit's tanks (`crate::patches`), under a tag of its own: only a unit whose type has
+        // tanks has them.
+        if let Some(tanks) = tanks {
+            h.tag(24);
+            tanks.hash(h);
         }
     }
 }

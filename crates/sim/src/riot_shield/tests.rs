@@ -53,6 +53,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         cooldown: None,
         aircraft: None,
         illusion_of: None,
+        tanks: None,
     }
 }
 

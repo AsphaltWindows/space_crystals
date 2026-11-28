@@ -2,9 +2,10 @@
 //! Buff`, `factions/syndicate/structures/null_chamber.md > Placeholder stats`; `network::services`): "**+2 grid units
 //! SightRange**" in its eye and "**20%** damage-taken reduction" before armour while the buff lasts, its abrupt end
 //! 20 s after the unit came out, its restart, by Side A or (M6-SD) a Tier 3 Tunnel's air exit door, and none without a
-//! chamber of its owner's.
+//! chamber of its owner's; (design change 0463) its eye's alone, its scans keeping the type's SightRange.
 
 use sc_sim::combat::pre_armor_multiplier;
+use sc_sim::orders::Behaviour;
 use sc_sim::vision::TILE_SIGHT_POINT;
 use sc_sim::{VisibilityState, Vision};
 
@@ -12,6 +13,7 @@ use super::*;
 
 const PK: ObjectKind = ObjectKind::Peacekeeper;
 const PHANTOM: ObjectKind = ObjectKind::Phantom;
+const SHADEBRINGER: ObjectKind = ObjectKind::Shadebringer;
 
 /// The Guard's SightRange, grid units (`factions/syndicate/units/guard.md`: "SightRange - 5"). The plan's acceptance
 /// reads "its sight is 6 + 2": the Guard's is 5, so its buffed eye sees 7.
@@ -119,6 +121,96 @@ fn a_guard_2_s_inside_with_a_chamber_leaves_seeing_farther_and_taking_less_befor
     });
     assert_eq!(hits_since(&t, plain, 0), [PLAIN_HIT], "10 − 1");
     assert!(t.sim().tick() < out + DURATION, "all while the buff lasts");
+}
+
+/// Design change 0463's Verification 1 (answering Q0187): "A buffed unit on Attack Move reveals 2 GU more of the map but
+/// engages at the same distance as an unbuffed one" (`> Null Chamber Exit Buff`: "**vision only**: the unit and its
+/// owner see farther, but its target scans (idle auto-targeting, AttackMove, Patrol) keep the **unbuffed**
+/// SightRange"). With auto-targeting on, the buffed Guard and one that never went in AttackMove east in the same tick,
+/// each from the same spot of a lane of its own, 1000 su apart: past a Shadebringer of player 2's (no weapon, so that
+/// nothing fires first) 6 grid units to the side, which the buffed one's owner sees and the other's not, and which
+/// neither turns on, its gap past the scan's 5; then on to another straight ahead, which a Shadebringer of player 1's
+/// beyond it spots for both, and which both engage in the same tick, at the same gap. The spotter makes what stops a
+/// scan its reach, not its owner's sight: alone, the unbuffed one's own eye, 5 grid units from its centre, is shorter
+/// than the scan's 5 from its edge, and a scan takes only what its owner sees. Without the spotters the buffed Guard
+/// engages its Shadebringer ahead 6 ticks sooner, 314 su off where the other is 284: a reading for the Director (the
+/// buff's sight reaches its scans that far).
+#[test]
+fn a_buffed_guard_on_attack_move_sees_farther_but_engages_where_an_unbuffed_one_does() {
+    let (mut t, buffed, out) = buffed_guard();
+    const LANES: [f32; 2] = [250.0, 1250.0];
+    const START: f32 = 1300.0;
+    let plain = id(next_id(&t));
+    t.spawn_unit_at(out + 1, GUARD, P1, Vec2::new(START, LANES[1]));
+    // The side Shadebringers, away from the other lane; the ones ahead, and their spotters.
+    let first = next_id(&t) + 1;
+    let at = |n: u32| id(first + n);
+    let (beside, ahead, spotters) = ([at(0), at(1)], [at(2), at(3)], [at(4), at(5)]);
+    let sides = [LANES[0] + 6.0 * SU_PER_GU, LANES[1] - 6.0 * SU_PER_GU];
+    for (owner, x, ys) in [(P2, 1600.0, sides), (P2, 2100.0, LANES), (P1, 2250.0, LANES)] {
+        for y in ys {
+            t.debug_at(out + 1, spawn(SHADEBRINGER, owner, SpawnAt::Point(Vec2::new(x, y))));
+        }
+    }
+    run_checked(&mut t, out + 20);
+    assert!(
+        object(&t, buffed).orders.as_ref().is_some_and(|o| o.current.is_none()),
+        "out 1 GU, and idle"
+    );
+    t.debug_at(
+        out + 21,
+        DebugCommand::SetPosition {
+            id: buffed,
+            pos: Vec2::new(START, LANES[0]),
+        },
+    );
+    t.debug_at(out + 21, DebugCommand::SetAutoTargeting { on: true });
+    let east = |y: f32| OrderKind::AttackMove(Vec2::new(2600.0, y));
+    t.at(out + 22, P1, order(&[buffed], east(LANES[0])));
+    t.at(out + 22, P1, order(&[plain], east(LANES[1])));
+    run_checked(&mut t, out + 22);
+    sees_as_far_as(&t, buffed, GUARD_SIGHT + BONUS);
+    let guards = [buffed, plain];
+    let engaged = |t: &TestSim, guard: ObjectId| match object(t, guard).orders.as_ref().and_then(|o| o.current.as_ref())
+    {
+        Some(active) => match &active.state {
+            Behaviour::AttackMove(leg) => leg.engaged.map(|pursuit| pursuit.target),
+            _ => None,
+        },
+        None => None,
+    };
+    let mut seen_beside = [false; 2];
+    let mut took: [Option<(Tick, f32)>; 2] = [None; 2];
+    while took.iter().any(Option::is_none) {
+        assert!(t.sim().tick() < out + DURATION, "both engage while the buff lasts");
+        step_checked(&mut t);
+        for (k, guard) in guards.into_iter().enumerate() {
+            assert!(buff_until(&t, guard).is_some() == (k == 0), "only the first is buffed");
+            seen_beside[k] |= t.sim().is_visible(P1, object(&t, beside[k]));
+            match engaged(&t, guard) {
+                None => {}
+                Some(target) if target == ahead[k] && took[k].is_none() => {
+                    let o = object(&t, guard);
+                    let shape = sc_sim::Shape::on_map(o, t.sim().map());
+                    let gap = shape.gap(&sc_sim::Shape::on_map(object(&t, ahead[k]), t.sim().map()));
+                    took[k] = Some((t.sim().tick(), gap));
+                }
+                Some(target) => assert_eq!(target, ahead[k], "tick {}: {guard:?}", t.sim().tick()),
+            }
+        }
+    }
+    assert_eq!(seen_beside, [true, false], "the buffed one's owner sees 2 GU farther");
+    let [Some((tick, gap)), Some(other)] = took else {
+        unreachable!();
+    };
+    assert_eq!(other, (tick, gap), "engaged in the same tick, at the same gap");
+    // The scan reads where the tick began, and the Guard walks its 5 su in the tick: within 5 GU then, and as the tick
+    // ended no more than two ticks' walk inside it.
+    assert!(
+        gap <= 5.0 * SU_PER_GU && gap > 5.0 * SU_PER_GU - 10.0,
+        "at the scan's reach: {gap}"
+    );
+    assert!(t.sim().is_visible(P1, object(&t, spotters[0])));
 }
 
 /// The plan's acceptance: "The buff ends at once, 20 s after the unit leaves" ("ends abruptly"). Held until 20 s from

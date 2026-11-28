@@ -4,9 +4,11 @@
 //! - `building`: a Tier 2 Tunnel builds it behind a Hideout, for 200 Space Crystals in 480 frames, refused a tier lower
 //!   and without its prerequisite, and it serves no one before it is finished;
 //! - `turns`: the turns, 4 at a time for each chamber, 2 s each, first come first served (the plan's six Guards), the
-//!   order the units came in by, a unit trained into the network from its production, two chambers' 8;
-//! - `buff`: what a unit whose turn is done leaves with, by Side A or (M6-SD) by the air exit door: its sight and its
-//!   hits, its end 20 s on, its restart, and none without a chamber;
+//!   order the units came in by, a unit trained into the network from its production, two chambers' 8, and (design
+//!   change 0463) a turn done buffing its unit with no chamber left;
+//! - `buff`: what a unit whose turn is done leaves with, by Side A or (M6-SD) by the air exit door: its sight (design
+//!   change 0463: its eye's alone, its AttackMove engaging where an unbuffed one's does) and its hits, its end 20 s
+//!   on, its restart, and none without a chamber;
 //! - `saves`: a game with units waiting, taking their turns, done and buffed goes on alike after a save and in a
 //!   replay, and a held unit's turn is in the hash and the save only while it has one.
 //!

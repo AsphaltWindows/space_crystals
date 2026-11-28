@@ -85,6 +85,15 @@ pub fn every_command() -> Vec<Command> {
         units: units.clone(),
         ability: Ability::Mirage,
     });
+    // (M6-SB) The tanks' toggles, each on and off.
+    commands.extend([true, false].map(|on| Command::Ability {
+        units: units.clone(),
+        ability: Ability::Sludge { on },
+    }));
+    commands.extend([true, false].map(|on| Command::Ability {
+        units: units.clone(),
+        ability: Ability::Cover { on },
+    }));
     commands.extend(
         [
             ConstructionCommand::Construct(ObjectKind::Generator),
@@ -270,7 +279,13 @@ pub fn every_command() -> Vec<Command> {
             },
             Command::Ability {
                 ability:
-                    Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert | Ability::Buy | Ability::Mirage,
+                    Ability::RiotShield { .. }
+                    | Ability::SetDropOff(_)
+                    | Ability::Convert
+                    | Ability::Buy
+                    | Ability::Mirage
+                    | Ability::Sludge { .. }
+                    | Ability::Cover { .. },
                 ..
             } => {}
             Command::Production { command, .. } => match command {

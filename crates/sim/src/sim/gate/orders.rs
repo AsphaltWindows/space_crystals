@@ -14,7 +14,7 @@ use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::sim::{Reject, Sim};
 use crate::stock::{self, Unbuyable};
-use crate::{aircraft, combat, conversion, mirage, tether, vehicle_deploy};
+use crate::{aircraft, combat, conversion, mirage, patches, tether, vehicle_deploy};
 
 impl Sim {
     /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped. (M6-GA) A unit that
@@ -479,7 +479,9 @@ impl Sim {
     /// player's remains at all, [`Reject::LacksAbility`] if none of it has the ability. A toggle is never refused for
     /// what the unit is doing (design change 0198: a press flips the unit's target, `sim/modes.rs`): a Convert goes
     /// to every unit with another form (`conversion::converts_to`), a conversion waiting or under way included, and
-    /// a Riot Shield's to every unit that carries one.
+    /// a Riot Shield's to every unit that carries one. (M6-SB) A tank's toggle goes to every unit with the tank
+    /// (`crate::patches`), but that one switched on goes to those whose tank has any charge left: [`Reject::TankEmpty`]
+    /// if none has (design change 0369: "a toggle can be switched on with **any charge** left in its tank").
     ///
     /// TODO(Bunker): units inside a Bunker can't use their abilities (`factions/gdo/structures/bunker.md >
     /// Garrison`: "a Peacekeeper cannot raise its Riot Shield"); drop them here once units can enter one.
@@ -497,6 +499,9 @@ impl Sim {
             Ability::Buy => o.stock.is_some(),
             // (M6-CM) A unit whose type casts Mirage (`crate::mirage`).
             Ability::Mirage => mirage::def_of(o.kind).is_some(),
+            // (M6-SB) A unit with the tank (`crate::patches`): the Shadebringer's Sludge's; its Cover's is slice M6-SC's.
+            Ability::Sludge { .. } | Ability::Cover { .. } => (ability.toggle())
+                .is_some_and(|(kind, _)| o.tanks.is_some() && patches::tank_def(o.kind, kind).is_some()),
         };
         let own = self.own_units(player, units, |_| true)?;
         if own.is_empty() {
@@ -517,8 +522,35 @@ impl Sim {
             // (M6-CM) No illusion, with the energy it costs: "**50 energy**" (`factions/cults/units/disciple.md >
             // Placeholder stats > Mirage numbers`), as a spell's order is checked.
             Ability::Mirage => self.check_spell(units, |spell| matches!(spell, SpellDef::Mirage(_)))?,
-            Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert => units,
+            // (M6-SB) On, only with a charge left; off, every unit with the tank.
+            Ability::Sludge { on: true } | Ability::Cover { on: true } => self.check_charged(units, ability)?,
+            Ability::RiotShield { .. }
+            | Ability::SetDropOff(_)
+            | Ability::Convert
+            | Ability::Sludge { on: false }
+            | Ability::Cover { on: false } => units,
         };
         Ok(Checked::Ability { units, ability })
+    }
+
+    /// (M6-SB) Of `units`, which have the tank `ability` toggles, those whose tank has any charge left, so that a press
+    /// switches it on (`crate::patches`): [`Reject::TankEmpty`] if none has.
+    fn check_charged(&self, units: Vec<ObjectId>, ability: Ability) -> Result<Vec<ObjectId>, Reject> {
+        let Some((kind, _)) = ability.toggle() else {
+            return Ok(units);
+        };
+        let charged = |o: &Object| {
+            let (Some(tanks), Some(def)) = (o.tanks.as_ref(), patches::tank_def(o.kind, kind)) else {
+                return false;
+            };
+            !tanks.get(kind).is_empty(def)
+        };
+        let units: Vec<ObjectId> = (units.into_iter())
+            .filter(|id| self.objects.get(id).is_some_and(charged))
+            .collect();
+        match units.is_empty() {
+            true => Err(Reject::TankEmpty),
+            false => Ok(units),
+        }
     }
 }

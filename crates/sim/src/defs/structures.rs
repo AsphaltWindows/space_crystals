@@ -128,6 +128,20 @@ pub struct StructureDef {
     /// `network::services`): the units it buffs at a time, each one's turn, and the buff they leave the network with.
     /// `None` for every other structure.
     pub chamber: Option<ChamberDef>,
+    /// (M6-SB) Its service of its owner's Tunnel Network, for a Vault (plan decision T98, `network::services`): the
+    /// units it re-arms or recharges at a time. `None` for every other structure.
+    pub vault: Option<VaultDef>,
+}
+
+/// (M6-SB) A Vault's service of the Tunnel Network (`StructureDef::vault`, plan decision T98, `network::services`):
+/// `factions/syndicate/structures/vault.md > Placeholder stats`, "**Throughput**: each Vault re-arms or recharges **2
+/// units at a time**; others wait their turn (network-wide, first come first served)". How fast a unit's tanks refill
+/// is each tank's (`TankDef::refill`: "Shadebringer tanks refill at 5 per second each"); (slice M6-SA) a Specter's
+/// re-arming joins it.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VaultDef {
+    /// How many units it serves at a time: "each Vault re-arms or recharges **2 units at a time**".
+    pub slots: u32,
 }
 
 /// (M6-SN) A Null Chamber's service of the Tunnel Network (`StructureDef::chamber`, plan decision T98,

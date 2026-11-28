@@ -7,6 +7,7 @@ mod flow;
 mod names;
 mod sim;
 
+use sc_sim::defs::PatchKind;
 use sc_sim::{AreaAbility, AugmentOrder, ObjectKind, RecruitKind, Tech};
 
 use super::{BuildMenu, Planned};
@@ -29,7 +30,8 @@ use super::{BuildMenu, Planned};
 /// (`factions/cults/structures/shrine.md > Placeholder stats`, slice M5-N5), and the Rocketman's Target Lock
 /// (`factions/gdo/units/rocketman.md > Placeholder stats`, slice M5-K), and the Drone Operator's Launch Drone and Build
 /// Drone (`factions/gdo/units/drone_operator.md > Placeholder stats`, slice M6-GD), and the Hornet's Return to Base
-/// (`factions/gdo/units/hornet.md > AttackAttributes`, slice M6-GH1).
+/// (`factions/gdo/units/hornet.md > AttackAttributes`, slice M6-GH1), and the Shadebringer's toggles
+/// (`factions/syndicate/units/shadebringer.md > Placeholder stats`, slice M6-SB).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -303,4 +305,20 @@ pub enum PanelCommand {
     /// gate would refuse it: below its 50 energy (`sc_sim::Reject::NotEnoughEnergy`: "**50 energy**"), or for an illusion
     /// (`sc_sim::Reject::IllusionsCantCast`: "**No spells**: illusions can't cast"), whose R is greyed alike.
     Mirage,
+    /// (M6-SB) A tank's toggle (`factions/syndicate/units/shadebringer.md > Placeholder stats`: "Hotkeys: **R** Sludge,
+    /// **F** Cover"; `> Sludge (toggle)`): the Shadebringer's R, its Sludge, switched on (`on`) or off, at once
+    /// (`sc_sim::Ability::Sludge`), by every unit of the selection that has the tank, the Shadebringer being Groupable
+    /// ("Groupable - true (assumed)"), each laying its trail and draining its tank (`sc_sim::patches`). Its key shows
+    /// it switching off while every one of its recipients has it on already, and on otherwise
+    /// (`super::Conditions::key`), as the Riot Shield's R shows the way a press turns the shield: a press means the
+    /// same to every unit it goes to (`sc_sim::Ability::Sludge`'s rule). "Toggles follow the mode-switch rule (keep
+    /// orders, not queueable)": an ability, which Shift doesn't queue. Greyed while the gate would refuse it: switched
+    /// on, while none of its recipients has any charge left ("a toggle can be switched on with **any charge** left in
+    /// its tank", `sc_sim::Reject::TankEmpty`). Its F, Cover, holds its slot until slice M6-SC (`Planned::Cover`),
+    /// which gives the Shadebringer its smoke tank, and so this command with `lays` smoke in F
+    /// (`super::templates::syndicate::shadebringer`).
+    Toggle {
+        lays: PatchKind,
+        on: bool,
+    },
 }

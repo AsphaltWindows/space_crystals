@@ -237,9 +237,9 @@ impl Sim {
 
     /// (M6-SN) Held unit `unit` comes out of the network at `pos`, facing along `facing` ([`Sim::put_on_map`]), and
     /// holds the Null Chamber exit buff from this tick if it leaves buffed (`network::services::leaves_buffed`: its
-    /// turn done, its owner owning a chamber in operation). Returns whether it was held.
+    /// turn done, whether or not its owner still owns a chamber, design change 0463). Returns whether it was held.
     fn leave_network(&mut self, unit: ObjectId, pos: Vec2, facing: Vec2) -> bool {
-        let buffed = (self.held.get(&unit)).is_some_and(|held| services::leaves_buffed(held, self.objects.values()));
+        let buffed = (self.held.get(&unit)).is_some_and(services::leaves_buffed);
         if !self.put_on_map(unit, pos, facing) {
             return false;
         }

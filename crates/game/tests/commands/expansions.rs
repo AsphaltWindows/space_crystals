@@ -157,9 +157,10 @@ fn placing_hideout() -> InterfaceState {
 /// Design change 0291's verification, "The ExpandMenu shows nine expansion slots and then the turret": W opens it
 /// (design change 0257), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice M4-K), the Vehicle
 /// Assembly in A (slice M6-SV), the Forge in S and the Aerospace Assembly in F (slice M6-SD) and the Null Chamber in D
-/// (slice M6-SN), each greyed by its gate: this Tunnel is at Tier 1 ("Tier Requirement - 2", "- 3"), the two
-/// expansions not in the game yet greyed in R and X, Z being Back, and the Laser Turret in C (slice M4-S2), greyed by
-/// its gate with its prerequisite: this player owns no Optics Lab. A greyed entry says why and leaves the menu open;
+/// (slice M6-SN), each greyed by its gate: this Tunnel is at Tier 1 ("Tier Requirement - 2", "- 3"); the Vault in R
+/// (slice M6-SB), greyed by its TechPrerequisite: this player owns no Hideout; the expansion not in the game yet
+/// greyed in X, Z being Back, and the Laser Turret in C (slice M4-S2), greyed by its gate with its prerequisite: this
+/// player owns no Optics Lab. A greyed entry says why and leaves the menu open;
 /// Z goes back to DefaultState, and so does Escape. A right-click does the Tunnel's, nothing, and the menu stays open
 /// (design change 0400: "right-click **doesn't reset a menu**").
 #[test]
@@ -176,7 +177,7 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
             (slot(0, 0), c(Expand(HIDEOUT)), Common),
             (slot(0, 1), c(Expand(OPTICS_LAB)), Common),
             (slot(0, 2), c(Expand(CHEMICAL_PLANT)), Common),
-            (slot(0, 3), c(P(Vault)), Unavailable),
+            (slot(0, 3), c(Expand(ObjectKind::Vault)), ButtonLook::Disabled),
             (slot(1, 0), c(Expand(VEHICLE_ASSEMBLY)), ButtonLook::Disabled),
             (slot(1, 1), c(Expand(ObjectKind::Forge)), ButtonLook::Disabled),
             (slot(1, 2), c(Expand(ObjectKind::NullChamber)), ButtonLook::Disabled),
@@ -192,11 +193,12 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
     );
     let optics_lab = requires_text(OPTICS_LAB);
     for (key, says) in [
-        (KeyR, NOT_YET_TEXT),
+        (KeyR, requires_text(HIDEOUT)),
         (KeyA, TIER_TOO_LOW_TEXT),
         (KeyS, TIER_TOO_LOW_TEXT),
         (KeyD, TIER_TOO_LOW_TEXT),
         (KeyF, TIER_TOO_LOW_TEXT),
+        (KeyX, NOT_YET_TEXT),
         (KeyC, optics_lab),
     ] {
         tap(&mut app, &[], key);

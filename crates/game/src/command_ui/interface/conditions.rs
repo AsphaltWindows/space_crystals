@@ -98,13 +98,21 @@
 //! bar shows the purchase under way ([`Conditions::purchase`]) and its hint the price ([`Conditions::price`]). While
 //! every recipient of a Move or a Patrol holds still for its drone ("The Drone Operator **cannot move** while it has a
 //! drone active"), the command is greyed for what the gate would say of its order (`Reject::DroneOut`;
-//! [`Modes::tethered`]). The commands each button would send are `probes.rs`'.
+//! [`Modes::tethered`]).
+//!
+//! (M6-SB) A Shadebringer's R, its Sludge's toggle (`factions/syndicate/units/shadebringer.md > Placeholder stats`),
+//! shows the way a press switches it ([`Conditions::key`]): off while every one of its recipients has it on, on
+//! otherwise, as the gate takes the press for each of them (`sc_sim::Ability::Sludge`: "the panel sends on unless every
+//! unit it goes to has it on already"). It asks for its `Command::Ability`: switched on, it is greyed while none of its
+//! recipients has any charge left (`Reject::TankEmpty`: "a toggle can be switched on with **any charge** left in its
+//! tank"); switched off, never. The commands each button would send are `probes.rs`'.
 
 mod modes;
 mod probes;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
+use sc_sim::defs::PatchKind;
 use sc_sim::{
     Constructor, ObjectId, ObjectKind, PlayerId, Progress, RecruitKind, Reject, Sim, combat, stock, vehicle_deploy,
 };
@@ -189,6 +197,9 @@ pub struct Conditions {
     /// (M6-GA) The deploy under way of the first unit of the ActiveGroup that deploys (`sc_sim::vehicle_deploy::
     /// under_way`), which R's bar shows ([`Conditions::deploy`]); none while none of them deploys.
     deploy: Option<Progress>,
+    /// (M6-SB) The toggles that every recipient of theirs has on (`sc_sim::patches::Tank::on`), whose keys switch them
+    /// off ([`Conditions::key`]); none while the ActiveGroup has no toggle.
+    on: BTreeSet<PatchKind>,
 }
 
 impl Conditions {
@@ -210,7 +221,8 @@ impl Conditions {
     /// count its staff. (M5-N4b) A Disciple's Shroud asks for its `Command::Order`, unqueued. (M5-N5) A Shrine's cast
     /// asks `Sim::can_cast`, and its releases count its participants as a Temple's count its staff. (M6-GD) A Drone
     /// Operator's Launch Drone asks for its `Command::Order`, unqueued, and its Build Drone for its `Command::Ability`,
-    /// priced at its stock's price, its bar the ActiveGroup's first purchase under way.
+    /// priced at its stock's price, its bar the ActiveGroup's first purchase under way. (M6-SB) A tank's toggle asks for
+    /// its `Command::Ability` both ways, its key showing the way a press switches it, by its recipients' tanks.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -287,6 +299,22 @@ impl Conditions {
             .filter_map(|&id| vehicle_deploy::under_way(sim.object(id)?))
             .map(|(_, progress)| progress)
             .next();
+        let on = (commands.iter())
+            .filter_map(|&command| match command {
+                PanelCommand::Toggle { lays, on: true } => Some((command, lays)),
+                _ => None,
+            })
+            .filter(|&(command, lays)| {
+                let units = recipients(selection, command);
+                let on = |id: ObjectId| {
+                    (sim.object(id))
+                        .and_then(|o| o.tanks)
+                        .is_some_and(|tanks| tanks.get(lays).on)
+                };
+                !units.is_empty() && units.into_iter().all(on)
+            })
+            .map(|(_, lays)| lays)
+            .collect();
         Self {
             modes: Modes::of(sim, selection),
             constructor: first.and_then(|o| o.constructor),
@@ -299,6 +327,7 @@ impl Conditions {
             stored,
             purchase,
             deploy,
+            on,
         }
     }
 
@@ -316,7 +345,15 @@ impl Conditions {
             stored: BTreeMap::new(),
             purchase: None,
             deploy: None,
+            on: BTreeSet::new(),
         }
+    }
+
+    /// (M6-SB) The same, with the toggle of the tanks that lay `lays`' patches on for every recipient: for the unit
+    /// tests.
+    pub fn toggled_on(mut self, lays: PatchKind) -> Self {
+        self.on.insert(lays);
+        self
     }
 
     /// The same, with the ActiveGroup's constructor in state `constructor`: for the unit tests.
@@ -438,8 +475,14 @@ impl Conditions {
     /// progress" while that one is queued or in progress (`Reject::ResearchUnderWay`: `PanelCommand::Researching`;
     /// `factions/cults/structures/temple.md > Placeholder stats`: "**Q** Enhanced Constitution (next level)", "its key
     /// shows "In progress" meanwhile"); nothing once the line is completed (`core/tech_and_research.md > Research >
-    /// Shared Rules` 4: "Once completed, it no longer appears in any research menu"). Any other command itself.
+    /// Shared Rules` 4: "Once completed, it no longer appears in any research menu"). (M6-SB) A tank's toggle, which
+    /// holds it switching on: switching off while every one of its recipients has it on, on otherwise (module docs).
+    /// Any other command itself.
     pub fn key(&self, command: PanelCommand) -> Option<PanelCommand> {
+        if let PanelCommand::Toggle { lays, .. } = command {
+            let on = !self.on.contains(&lays);
+            return Some(PanelCommand::Toggle { lays, on });
+        }
         let PanelCommand::Research(tech) = command else {
             return Some(command);
         };

@@ -108,8 +108,10 @@ impl Sim {
     /// reference to it on the map ends as for a removal, without the effects of a death (`Sim::forget_references`:
     /// "orders, attacks and follows on it end, and rallies on it reset"; no `Died`, no `Removed`, no refund). Its own
     /// orders, "queued ones included", its move and its attack are cleared (design change 0249: "it is idle
-    /// inside"); what it carries stays (an Agent "keeps its load"), and so do its HP and its modes. `entered` says
-    /// whether it walked in, for the transit delay (`Held::entered`). Returns whether there was such an object.
+    /// inside"); what it carries stays (an Agent "keeps its load"), and so do its HP and its modes, but (M6-SB) its
+    /// tanks' toggles, which go off (`crate::patches`; design change 0425: "Entering the Tunnel Network switches both
+    /// toggles off: it comes out with both off"). `entered` says whether it walked in, for the transit delay
+    /// (`Held::entered`). Returns whether there was such an object.
     ///
     /// Call it before 5b (a step right after 5a), as a change of kind: the grids hold no unit, but the movement,
     /// the combat and the vision of the tick must not see a unit that has gone.
@@ -131,6 +133,9 @@ impl Sim {
         }
         if let Some(attack) = &mut object.attack {
             *attack = AttackState::default();
+        }
+        if let Some(tanks) = &mut object.tanks {
+            tanks.switch_off();
         }
         object.prev_pos = object.pos;
         object.prev_facing = object.facing;

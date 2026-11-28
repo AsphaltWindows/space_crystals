@@ -1,7 +1,7 @@
 //! (Slice M5-X2) The looks a playtest tunes, all placeholders until the art direction (Q0001) settles them: the
 //! Shroud's clouds (`crate::shroud_view`), the bars over the units (`crate::combat_effects`: HP, Shields and energy)
-//! and how high the air units fly over their shadows (`crate::object_render::flight`). Their colours and the other
-//! drawing sizes stay with the drawing code.
+//! and how high the air units fly over their shadows (`crate::object_render::flight`); (M6-SB) how the sludge's
+//! patches end (`crate::patches_view`). Their colours and the other drawing sizes stay with the drawing code.
 
 use sc_sim::Tick;
 
@@ -41,4 +41,8 @@ super::tunables! {
     /// half the Airstrip's runway (4 grid units long), so that a Sparrow rolls along its first half and rises along
     /// the rest (`crate::object_render::flight`). Placeholder (Q0001).
     lift_off_su: f32 = 128.0,
+
+    /// (M6-SB) How long a patch of sludge shrinks before it goes, ticks: its last 2 s, as long as a unit stays slowed
+    /// after it leaves one (`crate::patches_view`). Placeholder (Q0001).
+    sludge_fade_ticks: Tick = 32,
 }

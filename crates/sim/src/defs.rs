@@ -48,15 +48,15 @@ pub use spells::{MirageDef, ShroudDef, SpellDef};
 pub use structures::{
     AirfieldDef, AugmentRecipe, BuilderGoes, ChamberDef, DropOff, ExitRule, ExpansionDef, HoldsDef, MiningDef,
     OccupantFire, PopUpDef, ProductionDef, Recipe, RecruitmentDef, ResearchDef, SiteDef, SitePrice, StructureDef,
-    SymmetryType, TierDef, Transit, TunnelDef, UpgradeDef,
+    SymmetryType, TierDef, Transit, TunnelDef, UpgradeDef, VaultDef,
 };
 pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
 pub use syndicate::{EJECT_MENU_ORDER, EXPAND_MENU, ExpandEntry, SyndicateRules};
 pub use units::{
     AmmoDef, AttackAttrs, AttackType, Augmentable, BlastDomain, ContactStep, ConversionDef, Domain, DropOffChoice,
-    FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest, RepairDef, RepairPayment,
-    RepairTargets, Resource, ReverseSpeed, RiotShieldDef, StockDef, TargetDomain, TargetLockDef, TargetType, TetherDef,
-    TurretAttrs, UnitBase, UnitBaseDef, UnitDef, VehicleDeploy, WorkerDef,
+    FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest, PatchKind, RepairDef,
+    RepairPayment, RepairTargets, Resource, ReverseSpeed, RiotShieldDef, SlowDef, StockDef, TankDef, TargetDomain,
+    TargetLockDef, TargetType, TetherDef, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, VehicleDeploy, WorkerDef,
 };
 
 /// The kind registry's macro: from the list of kinds below, each with its def, it makes [`ObjectKind`],

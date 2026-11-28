@@ -6,7 +6,8 @@
 //! shield bar above the HP bar of an object that has Shields (`systems/combat.md > Shields > Display`, slice M3-B,
 //! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass) and (slice
 //! M5-N4a) an energy bar under it of an object that has an energy pool (a Disciple's, [`hp_bars`]), (slice M6-GH1) an
-//! aircraft's ammo pips under that (a Hornet's missiles left, [`HpBar::ammo`]), and a fading marker
+//! aircraft's ammo pips under that (a Hornet's missiles left, [`HpBar::ammo`]), (slice M6-SB) a tank bar under them for
+//! each tank of a unit that has tanks (a Shadebringer's Sludge, [`HpBar::tanks`]), and a fading marker
 //! where an object died (`SimEvent::Died`; (M5-V4) or was crushed, `SimEvent::Crushed`). Slice M4-O adds the
 //! projectiles in flight
 //! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52), each in its thrower's style (the
@@ -58,6 +59,7 @@ pub mod locks;
 pub mod projectiles;
 
 use bevy::prelude::*;
+use sc_sim::defs::PatchKind;
 use sc_sim::network::{Held, Place};
 use sc_sim::{Map, Object, ObjectId, ObjectKind, PlayerId, SU_PER_GU, Sim, SimEvent, Tick, VisibilityState};
 
@@ -176,6 +178,12 @@ pub struct HpBar {
     /// missiles, "Ammo: **5 missiles**" (`factions/gdo/units/hornet.md > AttackAttributes`), shown as pips under its
     /// bars, one a round (plan §GH1: "the Hornet's ammo pips"). Placeholder (not in the design: Q0001's art direction).
     pub ammo: Option<(u32, u32)>,
+    /// (M6-SB) A unit's tanks (`sc_sim::patches`), in `PatchKind::ALL`'s order, each its type has with the share of
+    /// its capacity left and whether its toggle is on (`factions/syndicate/units/shadebringer.md > Charges and
+    /// recharging`: "**Each charge is a tank** that **drains while its toggle is on**"): a Shadebringer's Sludge, and
+    /// (slice M6-SC) its Cover. Shown as bars under the others, each in its kind's colour, brighter while on (plan
+    /// §SB: "the tank bars"). Placeholder (not in the design: Q0001's art direction).
+    pub tanks: [Option<(f32, bool)>; 2],
 }
 
 /// The entity holding the effects mesh.
@@ -217,7 +225,8 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
 /// aircraft's ammo pips alike: shown with its HP bar, ammo short of its maximum not counting as damage. (M6-CM) An
 /// illusion, which has no energy of its own, shows its parent's, live, to every player who sees it
 /// (`sc_sim::Sim::energy_shown`; design change 0452: "an illusion's energy bar and InfoPanel always show its
-/// **parent's current energy**, live"), as a Disciple's bar would.
+/// **parent's current energy**, live"), as a Disciple's bar would. (M6-SB) A unit's tank bars alike, as the energy
+/// bar: shown with its HP bar, to every player who sees the unit, a tank short of full not counting as damage.
 ///
 /// (M5-X2) Their sizes and the air units' lift are `tuning`'s (`LookTuning::bar_height` and the next).
 pub fn hp_bars(
@@ -241,6 +250,7 @@ pub fn hp_bars(
             let ammo = ammo.map(|(state, def)| (state.ammo.min(def.max), def.max));
             (damaged || selected(o.id)).then(|| HpBar {
                 ammo,
+                tanks: tank_bars(o),
                 ..hp_bar(sim.map(), o, alpha, bars, &tuning.look)
             })
         })
@@ -332,7 +342,21 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, bars: (f32, (Option<f32>, Option<f3
         shields: shields.map(|shields| shields.clamp(0.0, 1.0)),
         energy: energy.map(|energy| energy.clamp(0.0, 1.0)),
         ammo: None,
+        tanks: [None; 2],
     }
+}
+
+/// (M6-SB) `o`'s tank bars ([`HpBar::tanks`]): each tank its type has (`sc_sim::patches::tank_def`), the share of it
+/// left (`sc_sim::patches::Tank::fraction`) and its toggle; none for a unit without tanks.
+fn tank_bars(o: &Object) -> [Option<(f32, bool)>; 2] {
+    let Some(tanks) = o.tanks else {
+        return [None; 2];
+    };
+    PatchKind::ALL.map(|kind| {
+        let def = sc_sim::patches::tank_def(o.kind, kind)?;
+        let tank = tanks.get(kind);
+        Some((tank.fraction(def), tank.on))
+    })
 }
 
 /// (M5-N2) The form whose weapon unit `held` fires from inside its building: in a building whose occupants fire, the

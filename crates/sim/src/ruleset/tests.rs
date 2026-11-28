@@ -409,3 +409,104 @@ fn a_mirage_is_structure_and_its_numbers_live() {
         change("Peacekeeper", "spells")
     );
 }
+
+/// (M6-SB) The Shadebringer's tanks and the Vault's service (`crate::patches`, `network::services`): their numbers apply
+/// live (a tank's capacity, drain, refill, its patches' life and width, its slow's share and time, the Vault's slots,
+/// and the trail's spacing, a tunable); having a tank, and so its toggle, what it lays, whether its patches slow and
+/// which bases, and having a Vault's service are structure, the Shadebringer's and the Vault's as another type's.
+#[test]
+fn tanks_and_a_vault_are_structure_and_their_numbers_live() {
+    use crate::defs::{PatchKind, SlowDef, StructureDef, TankDef, UnitBase, VaultDef};
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    let change = |entry, field| Some(RuleField { entry, field });
+    fn shadebringer(rules: &mut Ruleset) -> &mut UnitDef {
+        rules.defs.get_mut(ObjectKind::Shadebringer).unit.as_mut().unwrap()
+    }
+    fn structure(rules: &mut Ruleset, kind: ObjectKind) -> &mut StructureDef {
+        rules.defs.get_mut(kind).structure.as_mut().unwrap()
+    }
+    let sludge = *ObjectKind::Shadebringer
+        .def()
+        .unit
+        .as_ref()
+        .unwrap()
+        .tank(PatchKind::Sludge)
+        .expect("its Sludge's tank");
+    let slow = sludge.slow.expect("sludge slows");
+    let with = |tanks: Vec<TankDef>| -> &'static [TankDef] { Vec::leak(tanks) };
+    let numbers = TankDef {
+        capacity: 50.0,
+        drain: 4.0,
+        refill: 20.0,
+        life: 3.0,
+        width: 96.0,
+        slow: Some(SlowDef {
+            by: 0.9,
+            after: 0.5,
+            ..slow
+        }),
+        ..sludge
+    };
+    assert_eq!(
+        changed(&|r| shadebringer(r).tanks = with(vec![numbers])),
+        None,
+        "its numbers"
+    );
+    assert_eq!(
+        changed(&|r| structure(r, ObjectKind::Vault).vault = Some(VaultDef { slots: 5 })),
+        None,
+        "the Vault's slots"
+    );
+    assert_eq!(changed(&|r| r.tuning.patches.spacing = 8.0), None, "the tunable");
+    assert_eq!(
+        changed(&|r| shadebringer(r).tanks = with(vec![])),
+        change("Shadebringer", "tanks"),
+        "its tank, and its toggle"
+    );
+    let smoke = TankDef {
+        lays: PatchKind::Smoke,
+        slow: None,
+        ..sludge
+    };
+    assert_eq!(
+        changed(&|r| shadebringer(r).tanks = with(vec![sludge, smoke])),
+        change("Shadebringer", "tanks"),
+        "a second tank"
+    );
+    assert_eq!(
+        changed(&|r| shadebringer(r).tanks = with(vec![smoke])),
+        change("Shadebringer", "lays")
+    );
+    assert_eq!(
+        changed(&|r| shadebringer(r).tanks = with(vec![TankDef { slow: None, ..sludge }])),
+        change("Shadebringer", "slow")
+    );
+    let bases = TankDef {
+        slow: Some(SlowDef {
+            bases: &[UnitBase::LightInfantry],
+            ..slow
+        }),
+        ..sludge
+    };
+    assert_eq!(
+        changed(&|r| shadebringer(r).tanks = with(vec![bases])),
+        change("Shadebringer", "bases")
+    );
+    assert_eq!(
+        changed(&|r| unit(r).tanks = with(vec![sludge])),
+        change("Peacekeeper", "tanks")
+    );
+    assert_eq!(
+        changed(&|r| structure(r, ObjectKind::Vault).vault = None),
+        change("Vault", "vault")
+    );
+    assert_eq!(
+        changed(&|r| structure(r, ObjectKind::Hideout).vault = Some(VaultDef { slots: 2 })),
+        change("Hideout", "vault")
+    );
+}

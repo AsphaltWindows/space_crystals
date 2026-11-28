@@ -19,6 +19,7 @@ const AGENT: ObjectKind = ObjectKind::Agent;
 const GRENADIER: ObjectKind = ObjectKind::Grenadier;
 const VEHICLE_ASSEMBLY: ObjectKind = ObjectKind::VehicleAssembly;
 const BIKE: ObjectKind = ObjectKind::AssaultBike;
+const SHADEBRINGER: ObjectKind = ObjectKind::Shadebringer;
 const AEROSPACE_ASSEMBLY: ObjectKind = ObjectKind::AerospaceAssembly;
 const PHANTOM: ObjectKind = ObjectKind::Phantom;
 
@@ -318,12 +319,14 @@ fn the_hideout_has_q_w_e_x_and_c() {
 
 /// `factions/syndicate/structures/vehicle_assembly.md > Placeholder stats` (slice M6-SV): "Panel as the Hideout:
 /// **Q** Assault Bike, **W** Shadebringer, **E** Laser Battery, **R** Subterranean Transport (greyed until their
-/// prerequisites are owned), **X** Cancel Production, **C** Set Rally Point". Q is its recipe, which trains a Bike; W,
-/// E and R hold the units it doesn't train yet (slices M6-SB, M6-SL and M6-ST1), not available ("Not available yet"),
-/// each labelled and named by its type; C awaits the rally point's target, and the panel's right-click sets it.
+/// prerequisites are owned), **X** Cancel Production, **C** Set Rally Point". Q and W are its recipes, which train a
+/// Bike and (slice M6-SB) a Shadebringer, W greyed while the gate refuses it for want of its Vault ("**Shadebringer**
+/// (requires a Vault)": `Reject::Requires`); E and R hold the units it doesn't train yet (slices M6-SL and M6-ST1), not
+/// available ("Not available yet"), each labelled and named by its type; C awaits the rally point's target, and the
+/// panel's right-click sets it.
 #[test]
 fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
-    use ButtonLook::{Common, Unavailable};
+    use ButtonLook::{Common, Disabled, Unavailable};
     use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
     let assembly = Selection::new([(id(1), VEHICLE_ASSEMBLY)]);
     let shown_panel = panel(&assembly, InterfaceState::DefaultState, &Conditions::default());
@@ -332,7 +335,7 @@ fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
         shown(&shown_panel),
         [
             (slot(0, 0), c(Train(BIKE)), Common),
-            (slot(0, 1), c(P(Planned::Shadebringer)), Unavailable),
+            (slot(0, 1), c(Train(SHADEBRINGER)), Common),
             (slot(0, 2), c(P(Planned::LaserBattery)), Unavailable),
             (slot(0, 3), c(P(Planned::SubterraneanTransport)), Unavailable),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Common),
@@ -354,7 +357,7 @@ fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
             "Train Subterranean Transport"
         ]
     );
-    for slot in [slot(0, 1), slot(0, 2), slot(0, 3)] {
+    for slot in [slot(0, 2), slot(0, 3)] {
         assert_eq!(why_text(&shown_panel, slot), Some("Not available yet"));
         assert_eq!(press(&shown_panel, slot), SlotPress::Nothing);
     }
@@ -362,6 +365,15 @@ fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
         press(&shown_panel, slot(0, 0)),
         SlotPress::Produce(Train(BIKE), ProductionCommand::Train(BIKE))
     );
+    assert_eq!(
+        press(&shown_panel, slot(0, 1)),
+        SlotPress::Produce(Train(SHADEBRINGER), ProductionCommand::Train(SHADEBRINGER))
+    );
+    let no_vault = Conditions::default().refusing(Train(SHADEBRINGER), Reject::Requires(ObjectKind::Vault));
+    let without = panel(&assembly, InterfaceState::DefaultState, &no_vault);
+    assert_eq!(without.get(slot(0, 1)).map(|s| s.look), Some(Disabled));
+    assert_eq!(why_text(&without, slot(0, 1)), Some("Requires a Vault"));
+    assert_eq!(press(&without, slot(0, 1)), SlotPress::Nothing);
     assert_eq!(
         press(&shown_panel, CommandSlot::RALLY_POINT),
         SlotPress::AwaitTarget(SetRallyPoint)

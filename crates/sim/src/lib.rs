@@ -38,6 +38,7 @@ pub mod nav;
 pub mod network;
 pub mod object;
 pub mod orders;
+pub mod patches;
 mod paths;
 pub mod placement;
 pub mod player;

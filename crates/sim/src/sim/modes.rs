@@ -16,24 +16,32 @@
 //! change 0153: "deferred, not rejected"; design change 0172: "the shot finishes, then the shield starts rising
 //! immediately"): the first Modes step after its Cooldown's last tick, before the Reloading that followed has run a
 //! tick, starts its conversion, or its shield up, as a press in that tick would.
+//!
+//! (M6-SB) **A tank's toggle** (`Ability::Sludge`, `Ability::Cover`; `crate::patches`) switches no type: it sets the
+//! tank's toggle at the press, which nothing defers, the unit having no attack ("Toggles follow the mode-switch rule
+//! (keep orders, not queueable)", `factions/syndicate/units/shadebringer.md > Placeholder stats`).
 
 use super::Sim;
 use crate::command::Ability;
 use crate::defs::ObjectKind;
 use crate::ids::ObjectId;
-use crate::{conversion, riot_shield};
+use crate::{conversion, patches, riot_shield};
 
 impl Ability {
     /// The type a unit of type `kind` switches to at the press of this ability, if it does (module docs; design change
     /// 0198: "The type, and so the SelectionGroup, switches **at the press**"): a Convert flips a Legionnaire's
     /// (`conversion::converts_to`: "Pressing R **flips the unit's target form**"), a raise or a lowering of the Riot
     /// Shield makes a Peacekeeper the type it asks for, if it is the other one (`riot_shield::toggled_kind`). `None`
-    /// for Set Drop-off Location, (M6-GD) a Buy and (M6-CM) a Mirage, and for a unit without the ability. What the
-    /// client shows of a press before the sim has it.
+    /// for Set Drop-off Location, (M6-GD) a Buy, (M6-CM) a Mirage and (M6-SB) a tank's toggle, and for a unit without
+    /// the ability. What the client shows of a press before the sim has it.
     pub fn switched_kind(self, kind: ObjectKind) -> Option<ObjectKind> {
         match self {
             Ability::RiotShield { raise } => riot_shield::toggled_kind(kind, raise),
-            Ability::SetDropOff(_) | Ability::Buy | Ability::Mirage => None,
+            Ability::SetDropOff(_)
+            | Ability::Buy
+            | Ability::Mirage
+            | Ability::Sludge { .. }
+            | Ability::Cover { .. } => None,
             Ability::Convert => conversion::converts_to(kind),
         }
     }
@@ -46,7 +54,8 @@ impl Sim {
     /// and its attack go on as they are) until the Modes step changes it, a conversion that hasn't started and whose
     /// form is the type again being dropped (`conversion::retarget`). A worker's AssignedDropOff changes. (M6-GD) A Buy
     /// starts each unit's purchase, paid at the press (`Sim::buy`), until its owner's bank can't pay for one. (M6-CM) A
-    /// Mirage is each unit's cast (`Sim::cast_mirage`).
+    /// Mirage is each unit's cast (`Sim::cast_mirage`). (M6-SB) A tank's toggle goes on or off (`patches::switch`), the
+    /// unit's orders kept.
     pub(super) fn use_ability(&mut self, units: &[ObjectId], ability: Ability) {
         for &id in units {
             if ability == Ability::Mirage {
@@ -71,6 +80,12 @@ impl Sim {
                 Ability::Buy => {
                     if !self.buy(id) {
                         break;
+                    }
+                }
+                // (M6-SB) `crate::patches`: one rule for both toggles.
+                Ability::Sludge { .. } | Ability::Cover { .. } => {
+                    if let Some((kind, on)) = ability.toggle() {
+                        patches::switch(o, kind, on);
                     }
                 }
                 Ability::RiotShield { .. } | Ability::Convert => {

@@ -20,6 +20,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::mover::Mover;
 use crate::orders::Orders;
+use crate::patches::Tanks;
 use crate::popup::PopUp;
 use crate::production::Production;
 use crate::progress::Progress;
@@ -220,6 +221,13 @@ pub struct Object {
     /// so that states saved before it existed load and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub illusion_of: Option<ObjectId>,
+    /// (M6-SB) A unit's tanks and their toggles (plan decision T93, `crate::patches`): how much of each charge it has
+    /// used, whether its toggle is on, and where it laid its trail's last patch, for a unit whose type has tanks
+    /// (`UnitDef::tanks`, the Shadebringer). `None` for every other object. Optional in files and left out of them
+    /// while `None`, and hashed only while set, so that states saved before it existed load (a Shadebringer's full and
+    /// off: `sim/load.rs`) and those without one hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tanks: Option<Tanks>,
 }
 
 impl Object {

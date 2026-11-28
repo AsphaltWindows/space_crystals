@@ -1,6 +1,7 @@
 //! The panel commands' labels and names ([`PanelCommand::label`], [`PanelCommand::name`], [`PanelCommand::name_on`]):
 //! what a button shows, and what the InfoPanel's hint for it says (`crate::hud::info_panel::hint`).
 
+use sc_sim::defs::PatchKind;
 use sc_sim::{AreaAbility, AugmentOrder, ObjectKind, RecruitKind, Tech, vehicle_deploy};
 
 use super::super::BuildMenu;
@@ -35,7 +36,9 @@ impl PanelCommand {
     /// word, "Base", where it goes (slice M6-GH1). A Radar Station's Scan is its name, whole, and so is (M6-CM) a
     /// Disciple's Mirage, "Mirage" (6 letters, as "Shroud")
     /// (slice M6-GR). A vehicle's R is "Deploy", its name, into a type that can't move, and "Undep.", a shortening of
-    /// Undeploy, into one that can (`sc_sim::vehicle_deploy::immobile`; slice M6-GA).
+    /// Undeploy, into one that can (`sc_sim::vehicle_deploy::immobile`; slice M6-GA). (M6-SB) A tank's toggle says what
+    /// a press does, as the Riot Shield's "Raise" and "Lower": its name, "Sludge", switching it on, and a shortening of
+    /// "Sludge Off", "Sl.Off", switching it off; (slice M6-SC) a Cover's alike, "Cover" and "Cv.Off".
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -96,6 +99,15 @@ impl PanelCommand {
             PanelCommand::VehicleDeploy(into) if vehicle_deploy::immobile(into) => "Deploy",
             PanelCommand::VehicleDeploy(_) => "Undep.",
             PanelCommand::Mirage => "Mirage",
+            PanelCommand::Toggle { lays, on: true } => toggle_name(lays),
+            PanelCommand::Toggle {
+                lays: PatchKind::Sludge,
+                on: false,
+            } => "Sl.Off",
+            PanelCommand::Toggle {
+                lays: PatchKind::Smoke,
+                on: false,
+            } => "Cv.Off",
         }
     }
 
@@ -151,6 +163,8 @@ impl PanelCommand {
             PanelCommand::Buy(kind) => named("Build", kind),
             PanelCommand::VehicleDeploy(into) if vehicle_deploy::immobile(into) => "Deploy".into(),
             PanelCommand::VehicleDeploy(_) => "Undeploy".into(),
+            PanelCommand::Toggle { lays, on: true } => format!("{} On", toggle_name(lays)),
+            PanelCommand::Toggle { lays, on: false } => format!("{} Off", toggle_name(lays)),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol
@@ -182,6 +196,15 @@ impl PanelCommand {
             None if self == PanelCommand::CancelTransform => "Cancel Warp In".into(),
             None => self.name(),
         }
+    }
+}
+
+/// (M6-SB) The name of the toggle of a tank that lays `lays`' patches (`PanelCommand::Toggle`), the design's:
+/// `factions/syndicate/units/shadebringer.md`, "Has two **toggleable abilities**, Sludge and Cover".
+fn toggle_name(lays: PatchKind) -> &'static str {
+    match lays {
+        PatchKind::Sludge => "Sludge",
+        PatchKind::Smoke => "Cover",
     }
 }
 

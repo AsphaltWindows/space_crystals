@@ -185,6 +185,8 @@ mod shrine;
 #[path = "shroud/main.rs"]
 mod shroud;
 mod skirmish_soak;
+#[path = "sludge/main.rs"]
+mod sludge;
 mod starting_exploration;
 mod structures;
 mod structures_vision;

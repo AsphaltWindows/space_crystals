@@ -14,6 +14,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::network::Held;
 use crate::object::Object;
+use crate::patches::Patches;
 use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::player::Player;
@@ -82,6 +83,9 @@ pub(super) struct SimState {
     /// (M5-N4b) Optional, so that states saved before Shroud still load, and those without a cloud.
     #[serde(default)]
     clouds: Clouds,
+    /// (M6-SB) Optional, so that states saved before the Shadebringer still load, and those without a patch.
+    #[serde(default)]
+    patches: Patches,
     next_id: u32,
     rng: Rng,
     config: SimConfig,
@@ -114,6 +118,7 @@ impl TryFrom<SimState> for Sim {
             held: held_list,
             projectiles,
             clouds,
+            patches,
             next_id,
             rng,
             config,
@@ -146,6 +151,10 @@ impl TryFrom<SimState> for Sim {
             if o.aircraft.is_none() {
                 o.aircraft = crate::aircraft::fresh(o.kind);
             }
+            // (M6-SB) A Shadebringer saved before it had tanks (`Object::tanks`, a debug spawn's) has them full and off.
+            if o.tanks.is_none() {
+                o.tanks = crate::patches::fresh(o.kind);
+            }
             if o.id.0 >= next_id {
                 return Err(format!("object id {} is not below next_id {next_id}", o.id.0));
             }
@@ -163,6 +172,9 @@ impl TryFrom<SimState> for Sim {
             }
             if unit.object.aircraft.is_none() {
                 unit.object.aircraft = crate::aircraft::fresh(unit.object.kind);
+            }
+            if unit.object.tanks.is_none() {
+                unit.object.tanks = crate::patches::fresh(unit.object.kind);
             }
             let id = unit.object.id;
             if id.0 >= next_id {
@@ -192,6 +204,15 @@ impl TryFrom<SimState> for Sim {
         if let Some(id) = clouds.ids().find(|id| id.0 >= next_id) {
             return Err(format!("cloud member id {} is not below next_id {next_id}", id.0));
         }
+        // (M6-SB) A patch names the unit that laid it, which it may outlive; between ticks it is on the ground.
+        for patch in patches.iter() {
+            if patch.by.0 >= next_id {
+                return Err(format!("patch layer id {} is not below next_id {next_id}", patch.by.0));
+            }
+            if patch.until <= tick {
+                return Err(format!("patch gone in tick {} of a state at tick {tick}", patch.until));
+            }
+        }
         // The Visible tiles follow from the objects, which is how phase 5f left them.
         let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
         if let Some(winner) = outcome.iter().flat_map(|o| &o.winners).find(|w| !ids.contains(w)) {
@@ -214,6 +235,7 @@ impl TryFrom<SimState> for Sim {
             held,
             projectiles,
             clouds,
+            patches,
             next_id,
             rng,
             config,

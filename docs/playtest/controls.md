@@ -457,7 +457,9 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | Q | Move | Move | click a target; Shift queues |
 | W | Rev. | Reverse | click a target; Shift queues |
 | E | Hold | Hold Position | Shift queues |
+| R | Sludge | Sludge On |  |
 | S | Patrol | Patrol | click a target; Shift queues |
+| F | Cover | Cover | greyed: "Not available yet" |
 | X | Stop | Stop | Shift queues |
 
 #### Laser Battery (LB)
@@ -513,7 +515,7 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | W → Q | HI | Build Hideout | place it |
 | W → W | OL | Build Optics Lab | place it |
 | W → E | CP | Build Chemical Plant | place it |
-| W → R | VT | Build Vault | greyed: "Not available yet" |
+| W → R | VT | Build Vault | place it; Requires a Hideout |
 | W → A | VA | Build Vehicle Assembly | place it; Requires a Chemical Plant; needs a Tier 2 Tunnel |
 | W → S | FE | Build Forge | place it; Requires a Vehicle Assembly; needs a Tier 2 Tunnel |
 | W → D | NC | Build Null Chamber | place it; Requires a Hideout; needs a Tier 2 Tunnel |
@@ -554,7 +556,7 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | Keys | Button | Command | Notes |
 |---|---|---|---|
 | Q | AB | Train Assault Bike |  |
-| W | SBR | Train Shadebringer | greyed: "Not available yet" |
+| W | SBR | Train Shadebringer | Requires a Vault |
 | E | LB | Train Laser Battery | greyed: "Not available yet" |
 | R | STR | Train Subterranean Transport | greyed: "Not available yet" |
 | X | Cancel | Cancel Production |  |

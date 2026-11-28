@@ -236,6 +236,39 @@ fn an_airfield_s_landing_and_slots_stay_within_their_bounds() {
     assert_eq!(checked(&rearm(LONGEST_RECIPE)), None);
 }
 
+/// (M6-SB) The Shadebringer's Sludge's tank: at most 65535 units of charge, its charge counted in fixed point, and its
+/// slow less than the whole speed, both positive by the sign's rule.
+#[test]
+fn a_tank_stays_within_its_fixed_point_and_a_slow_below_a_standstill() {
+    use crate::defs::TankDef;
+    let tank = |change: fn(&mut TankDef)| {
+        move |r: &mut Ruleset| {
+            let unit = r.defs.get_mut(ObjectKind::Shadebringer).unit.as_mut().expect("a unit");
+            let mut tanks = unit.tanks.to_vec();
+            change(&mut tanks[0]);
+            unit.tanks = Vec::leak(tanks);
+        }
+    };
+    assert_eq!(checked(&tank(|t| t.capacity = 65535.0)), None);
+    assert_eq!(
+        checked(&tank(|t| t.capacity = 65536.0)),
+        Some(("Shadebringer", "capacity", "must be at most 65535"))
+    );
+    assert_eq!(
+        checked(&tank(|t| t.capacity = 0.0)),
+        Some(("Shadebringer", "capacity", "must be positive"))
+    );
+    assert_eq!(checked(&tank(|t| t.slow.as_mut().unwrap().by = 0.99)), None);
+    assert_eq!(
+        checked(&tank(|t| t.slow.as_mut().unwrap().by = 1.0)),
+        Some(("Shadebringer", "by", "must be less than 1"))
+    );
+    assert_eq!(
+        checked(&tank(|t| t.slow.as_mut().unwrap().by = 0.0)),
+        Some(("Shadebringer", "by", "must be positive"))
+    );
+}
+
 /// (M6-GD) The Drone Operator's stock in `rules`.
 fn stock(rules: &mut Ruleset) -> &mut StockDef {
     let unit = rules

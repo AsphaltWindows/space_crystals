@@ -346,7 +346,9 @@ pub use sc_sim::combat::can_target_ground;
 /// ammo (`sc_sim::aircraft::def_of`), the Hornet, Return to Base in F ([`PanelCommand::ReturnToBase`]); (M6-GA) a unit
 /// of a type that deploys into another (`sc_sim::defs::UnitDef::vehicle_deploy`), the Artillery Rig, its Deploy or
 /// Undeploy in R ([`PanelCommand::VehicleDeploy`], [`gdo::artillery_rig`]); (M6-CM) a unit that casts Mirage, the
-/// Disciple, Mirage in F ([`PanelCommand::Mirage`], `sc_sim::mirage::def_of`). These are the commands the type offers
+/// Disciple, Mirage in F ([`PanelCommand::Mirage`], `sc_sim::mirage::def_of`); (M6-SB) a unit with tanks
+/// (`sc_sim::defs::UnitDef::tanks`), the Shadebringer, each tank's toggle in its slot, switching it on, which its key
+/// turns about ([`PanelCommand::Toggle`], [`syndicate::shadebringer::slot`]). These are the commands the type offers
 /// ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a constructor's panel follows its state
 /// ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
@@ -388,6 +390,14 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     }
     if mirage::def_of(kind).is_some() {
         grid[MIRAGE_SLOT] = Some(PanelCommand::Mirage);
+    }
+    let tanks = kind.def().unit.as_ref().map_or(&[][..], |unit| unit.tanks);
+    for tank in tanks {
+        let toggle = PanelCommand::Toggle {
+            lays: tank.lays,
+            on: true,
+        };
+        grid[syndicate::shadebringer::slot(tank.lays)] = Some(toggle);
     }
     grid
 }
