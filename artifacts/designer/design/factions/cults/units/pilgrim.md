@@ -19,20 +19,13 @@
 - **Landed**: it is a **ground target** (as landed GDO aircraft and the landed Supply Chopper). **Recruits can repair it** while it is landed (user, 2026-11-27; factions/cults/units/recruit.md > Repair).
 - **After a drop it doesn't come back by itself** (user, 2026-11-27): it circles where it is (as a glider's Stop) until given an order; the player may not want it to land while that Airstrip is busy producing.
 
-## Loading
+## Carrying
+Uses **Carrying, Docked carrier + Paradrop** (systems/mechanics/carrying.md), with:
 - **Capacity: 16 infantry** (user, 2026-11-27). **Who**: every Cults infantry type (Recruits, Militants, Gunners, Disciples) and **Disciples' illusions** (factions/cults/units/disciple.md > Mirage). Each takes one place.
-- **Only while landed on an Airstrip.** Right-click the landed Pilgrim with infantry selected (**Enter**): they **walk over to the plane** and board on reaching it (instantly, as the Supply Chopper). Those that don't fit stay outside, idle.
-- **Passengers** can't fire or cast from inside (as every transport) and keep counting toward Unit Control.
-- **Unload All** (while landed; user, 2026-11-27): everyone comes out **at once along the side of the runway** (placeholder: the long side to the left of the takeoff direction; at the nearest free spots if it is crowded).
-
-## Drop
-- **Drop (targeted)** (user, 2026-11-27): left-click a spot anywhere on the map. The Pilgrim flies there, and on reaching the spot **rapidly unloads everyone**, one passenger every **2 frames** (placeholder; 16 in about 2 s), flying on as it does, so they come down in a short line along its path.
-- **Parachutes**: each passenger falls for **3 s** (48 frames, placeholder) before landing. While falling it is an **air target** (user, 2026-11-27): anti-air can shoot it, and it has its normal HP and armor. It **can't act** while falling (no attacks, spells or orders carried out; designer's reading).
-- **Landing spot**: each lands below where it jumped. If that ground isn't walkable for infantry, it lands at the nearest walkable spot (designer's reading, as the Supply Chopper's landing).
-- A Drop with no passengers just flies to the spot. Drop Shift-queues like any command.
-
-## Destroyed
-**Everyone aboard dies with it** (user, 2026-11-27), landed or in the air, as with the Supply Chopper.
+- **Docked on**: an own **Airstrip** (On the runway, above). Input: **Enter** (right-click the landed Pilgrim with infantry selected; they walk over to it).
+- **Unload All** (while landed; user, 2026-11-27): along the **side of the runway** (placeholder: the long side to the left of the takeoff direction).
+- **Drop** (user, 2026-11-27): targeted, anywhere on the map; one passenger every **2 frames** (placeholder; 16 in about 2 s); each falls for **3 s** (48 frames, placeholder) as an **air target** (user, 2026-11-27: anti-air can shoot them).
+- **Destroyed**: everyone aboard dies (user, 2026-11-27), as every carrier.
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette **96x96 su** (fits the 128 su wide runway); MaxHP **600**; PointArmor 2, FullArmor 2; SightRange **8 grid units**; Groupable true; SeparationRadius **104 su** (Silhouette side + 8).

@@ -6,7 +6,8 @@
 ## UnitBase - DrillUnit (confirmed, Q0071; exits only through Tier 2+ Tunnels like other vehicles)
 ## Produced at - Vehicle Assembly
 ## TechPrerequisite - player owns at least one **Forge** (user, 2026-11-25)
-## AttackAttributes - none (confirmed, Q0071). **Passengers don't fire out** (user, 2026-11-26; Q0166): they are carried, not fighting.
+## AttackAttributes - none (confirmed, Q0071)
+## Uses - **Carrying, Ground carrier** (systems/mechanics/carrying.md): capacity 4 infantry; loading state **above ground only**; Enter to load; **F: Unload All** around it. Exceptions and additions below (Entering the Tunnel Network loaded).
 
 ## Above-ground mode
 - When built, it **drives out of the Tunnel in its above-ground mode**, behaving as a tracked vehicle. Above ground it **crushes** enemy Light Infantry like any tracked vehicle (user, 2026-11-26; Q0153; systems/units.md > UnitCollision > Crushing); underground it crushes nothing.
@@ -33,13 +34,13 @@ Brings it back to its above-ground mode. **It can't surface on top of a building
 - **An Enter order while burrowed surfaces it by itself** (user, 2026-11-26; Q0166): right-clicking an own Tunnel (or Enter) with a burrowed Transport makes it **surface** (48 frames, where it is, by the Surface rules) and then **drive in** through Side A like any vehicle. It never enters from below.
 
 ## Destroyed with passengers
-(user, 2026-11-25) If it is destroyed, **all infantry inside die** with it (above ground or underground).
+As every carrier (systems/mechanics/carrying.md > Carrier destroyed): all infantry inside die, above ground or underground.
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 72x48 space units; MaxHP 300; PointArmor 3, FullArmor 3; SightRange 5 grid units; TunnelSpaceCost 3.
 - Above ground as a TrackedVehicle: MaxSpeed 4.5 su/frame; Acceleration 0.4; Deceleration 1; TrackWidth 36 su; ReverseMaxSpeed 2.25 (designer placeholders, 2026-11-26; Q0153: the Laser Battery's handling; spins about 14.3° a frame); underground MaxSpeed 3.5.
 - **Burrow and Surface: 48 frames** each.
 - **Capacity 4** infantry (user, 2026-11-27: **4 heavy infantry, e.g. 4 Guards**; Syndicate infantry are Heavy Infantry).
-- **Loading**: right-click the transport with infantry selected (Enter); it must be above ground. **Unloading**: **F: Unload All** (above ground only; they come out around it). **Unloading rules** (user, 2026-11-28; Q0191; shared by every transport, the Supply Chopper and the Pilgrim included, unless its doc says otherwise): **on the move, F stops it first**, and the passengers come out once it is at rest; they come out on the **nearest free spots** around it; **passengers with no free spot stay aboard** (the player moves it and presses F again); the **passenger count** (one pip per passenger on a selected transport) is shown **to its owner only**: opponents can't tell how many are aboard.
+- Loading and unloading: systems/mechanics/carrying.md (Enter; F: Unload All, above ground only, around it).
 - Panel: Q Move, X Stop, **R: Burrow / Surface**, **F: Unload All**.
 - Cost: Vehicle Assembly, 200 Space Crystals, 400 frames.

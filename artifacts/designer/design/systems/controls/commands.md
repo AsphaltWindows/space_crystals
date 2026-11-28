@@ -104,6 +104,7 @@ Order the unit to enter an own structure that can hold units. The unit walks to 
 - **Cults — Shrine**: Recruits only (to join the ritual).
 - **Cults — Garrison**: Recruits, Militants, Gunners, and Disciples (up to 4; Recruits fire as Militants; Disciples and their illusions are sheltered but don't fire; Militants and Gunners get +1 range).
 - **GDO — Bunker**: all GDO infantry (up to 4; fire their own weapons, no range bonus).
+- **Carriers** (units that carry units): eligible units walk to the carrier and board it (systems/mechanics/carrying.md > Loading).
 
 Each faction's unit and building docs define the right-click resolution and capacity details (factions/syndicate/, factions/cults/).
 

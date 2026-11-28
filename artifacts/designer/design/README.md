@@ -31,6 +31,13 @@ Index of the design docs. Paths are relative to this folder.
 | `systems/controls/command_behaviors.md` | One behavior per command: moving, attacking, reversing, attack-move, patrol, hold, stop |
 | `systems/controls/action_channels.md` | Action channels: locomotion, orientation, attack phases (base and turret) |
 
+## systems/mechanics/ — shared mechanics, one per file
+(user, 2026-11-28; Q0193) Each mechanic is defined once, independently of the units, often as a few **archetypes**; unit and structure docs say which mechanic and archetype they use, with their own parameters and exceptions. A new mechanic gets its doc before the first unit that uses it.
+
+| File | Contents |
+|---|---|
+| `systems/mechanics/carrying.md` | Carrying units: Ground, Landing and Docked carriers, Paradrop; loading, unloading, passengers, carrier destroyed |
+
 ## factions/ — one folder per faction
 | File | Contents |
 |---|---|

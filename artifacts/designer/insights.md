@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 
-- Q0193: shared mechanics in systems docs.
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
 - **Cults heavy vehicle IN PROGRESS (2026-11-28)**: "Garrison on treads": tracked, Chop Shop; no gun of its own (only occupants fire, as Garrison); occupants protected; on destruction they come out alive. Open: capacity, fire on the move, Garrison rules carried over (Recruits as Militants, +1 range, Disciples no fire), stats, name. Not yet written to docs.
@@ -115,6 +114,7 @@ New standing decisions worth remembering: Drones Groupable + lingering build gho
 - **Colonists faction — econ loop plus first combat units now defined**: Drone, Beacon, Warp In mechanic, Egress Node, Roboport, Bioport, Starting Conditions, and the first two combat units (Sabre Legionnaire, Rifle Legionnaire) are all fully stated (see colonists_objects.md summary in TOC above). Still open: Beacon's own ObjectInterfaceState (should expose Warp In as a command — never formalized which panel button/flow triggers it), Roboport's and Bioport's full ObjectInterfaceState (which panel button queues a unit into BuildQueue, how RallyPoint is set via panel — explicitly deferred by user across multiple sessions, not yet resumed), and Shield regen upgrades (still a placeholder noted in combat.md, "discuss later"). Colonists now have combat capability but still only one unit line (two forms of the same Legionnaire) — no Vehicle/Mech/Air combat units yet, unlike the analogous gaps already tracked for GDO/Syndicate. If/when new Colonists buildings are added, remember to also add their row to the Constructs List table in the Warp In section (colonists_objects.md) — cost/time is easy to forget since it lives in a separate section from the building's own stat block.
 
 ## Insights
+- **Docs organization (user, 2026-11-28; Q0193)**: shared mechanics live in `design/systems/mechanics/`, one file each, defined **independently of units**, usually as a few **archetypes**; unit docs say "Uses <mechanic>, <archetype>" + parameters + exceptions only. New mechanic → its doc first. Migration in progress (carrying done 0471; next: aircraft landing/rearming + runways, vehicle deploy, garrisoning, channelling, energy, heals/auras, hidden deployed objects, tanks/toggles).
 - User: buffs must not change unit behaviour (e.g. extra sight widens vision, not target scans), since that may be undesirable (Q0187).
 - Never `cd` out of artifacts/designer in a chained command before `git commit -- .`; a wrong cwd once committed a stray artifacts/log.md (fixed). Use absolute paths.
 - **Minimal UI feedback** (2026-11-26): the user prefers minimal alerts (minimap ping, no text/sound) and wants playtest conveniences (restart menu, explored start, full screen) as temporary tools.

@@ -11,15 +11,11 @@ A Supply Chopper carries one of the following at a time:
 
 ## Unit Transport
 (user, 2026-11-26: "it lands to load and unload and loads and unloads instantly like the Subterranean Transport")
-- **Loading**:
-  - Right-click the Chopper with own infantry or a vehicle selected (**Enter**): the Chopper **lands where it is**, the units walk to it, and each **gets in instantly** on reaching it.
-  - With the Chopper selected, right-click an own infantry unit or vehicle (**Load**): it flies over, lands beside it, and the unit walks in.
-  - Units that don't fit stay outside (idle).
-- **Unloading**: **F: Unload All** (targeted; Shift-queues like any command): left-click a spot; the Chopper flies there, lands, and **everyone comes out at once** around it.
-- **Landing**: only on ground that infantry can walk on, with no building or unit in the way (if the spot is blocked it lands at the nearest free spot). **Landing and taking off take 16 frames (1 s) each** (as at the Airfield): it is an **air target** while landing and taking off, and a **ground target** while landed.
-- **It takes off by itself** once loading or unloading is done (user, 2026-11-26).
-- **Passengers can't fire out** (as the Subterranean Transport's).
-- **Destroyed with passengers** (user, 2026-11-26): **everyone inside dies**, landed or in the air, as with the Subterranean Transport.
+Uses **Carrying, Landing carrier** (systems/mechanics/carrying.md), with:
+- **Capacity**: as above (4 infantry, or any one vehicle; not while carrying Supplies).
+- **Inputs**: **Enter** (right-click the Chopper with own infantry or a vehicle selected) and **Load** (with the Chopper selected, right-click an own infantry unit or vehicle).
+- **F: Unload All**, targeted.
+- **Landing and taking off: 16 frames (1 s) each** (as at the Airfield).
 
 ## Faction - GlobalDefenseOrganization
 ## Silhouette - 60x60 space units (square)
