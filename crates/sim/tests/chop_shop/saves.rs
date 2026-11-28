@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): a Chop Shop's queue with the pairs of
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): a Chop Shop's queue with the pairs of
 //! Recruits it reserves, and a Seeker driving out of its doorway, its momentum with it, are part of the state.
 
 use sc_sim::{Replay, Sim};

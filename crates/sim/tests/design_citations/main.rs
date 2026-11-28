@@ -13,7 +13,10 @@
 //! - **It must exist**: a design path in `artifacts/designer/design/`, the others from the repository's root (a
 //!   `docs/` path in the repository's `docs/`); a file for a path that ends in `.md`, a folder for one that ends in
 //!   `/`. Any other path (a module's `systems/panel.rs`) cites nothing.
-//! - **The sections** after a path (`core/map.md > Elevation > Map resources only on flat terrain`) are not checked:
+//! - **Architecture references are a gate**: an `ARCHITECTURE.md` with a section or `docs/architecture/<file>.md > Section`
+//!   reference must name a heading of that file ([`architecture_references_name_headings`]; a heading may carry a
+//!   suffix after ` — `, as the title of a file that holds one part of a section does).
+//! - **The other sections** after a path (`core/map.md > Elevation > Map resources only on flat terrain`) are not checked:
 //!   the design names many of them by bold paragraphs, not headings. The ignored
 //!   `report_cited_sections_that_are_not_headings` lists the ones that aren't headings of the file they cite:
 //!   `cargo test -p sc_sim --test sim design_citations -- --ignored --nocapture`.
@@ -294,6 +297,63 @@ fn a_planted_bad_path_is_named_with_its_line() {
     assert_eq!(sections[0], ["Riot Shield (toggled ability)"]);
     assert_eq!(sections[3], ["Beacon"]);
     assert!(sections[5].is_empty(), "not in a code span");
+}
+
+/// Each reference to the architecture docs whose first section isn't a heading of the file it cites, as
+/// `file:line: path > section`: `ARCHITECTURE.md` with a section and `docs/architecture/<file>.md > Section`. Also how
+/// many references were checked.
+fn bad_architecture_references(root: &Path) -> (Vec<String>, usize) {
+    let prefixes = Prefixes::of(root);
+    let mut docs: BTreeMap<PathBuf, String> = BTreeMap::new();
+    let (mut bad, mut count) = (Vec::new(), 0);
+    for file in scanned_files(root) {
+        let text = fs::read_to_string(root.join(&file)).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+        let mut cited: Vec<Cited> = citations(&text, &prefixes)
+            .into_iter()
+            .filter(|c| c.path.starts_with("docs/architecture/") && c.path.ends_with(".md"))
+            .collect();
+        for (start, name) in text.match_indices("ARCHITECTURE.md") {
+            let line = 1 + text[..start].matches('\n').count();
+            cited.push(Cited {
+                line,
+                path: name.to_owned(),
+                base: root,
+                start,
+                end: start + name.len(),
+            });
+        }
+        for cited in cited {
+            let Some(section) = sections(&text, &cited).into_iter().next() else {
+                continue;
+            };
+            count += 1;
+            let at = PathBuf::from(&cited.path);
+            let doc = docs
+                .entry(at.clone())
+                .or_insert_with(|| fs::read_to_string(root.join(&at)).unwrap_or_default());
+            if !headings(doc).iter().any(|heading| names(heading, &section)) {
+                bad.push(format!("{}:{}: {} > {section}", file.display(), cited.line, cited.path));
+            }
+        }
+    }
+    (bad, count)
+}
+
+/// The gate on the architecture docs: every `ARCHITECTURE.md` with a section and `docs/architecture/<file>.md > Section`
+/// names a heading of its file (a file that holds one part of a section is titled `# Section — Part`).
+#[test]
+fn architecture_references_name_headings() {
+    let (bad, count) = bad_architecture_references(&root());
+    assert!(
+        count > 100,
+        "only {count} architecture references found: is the scan looking in the right place?"
+    );
+    assert!(
+        bad.is_empty(),
+        "{} architecture references name no heading of their file:\n{}",
+        bad.len(),
+        bad.join("\n")
+    );
 }
 
 /// The headings of a markdown file, without their `#`s, bold markers and a trailing colon.

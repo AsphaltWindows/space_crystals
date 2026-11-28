@@ -37,7 +37,7 @@ pub use phase::Phase;
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SimConfig {
-    /// `Command::Debug` is accepted (development and QA, `ARCHITECTURE.md > Commands, events and replays`). Off
+    /// `Command::Debug` is accepted (development and QA, `docs/architecture/commands-events-replays.md > Commands, events and replays`). Off
     /// by default: a real match never offers debug commands.
     pub debug: bool,
     /// (Slice M5-S7, design change 0416) The map starts explored (`core/vision.md > Starting exploration`): every

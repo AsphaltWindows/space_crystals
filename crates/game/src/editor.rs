@@ -1,4 +1,4 @@
-//! The map editor (`cargo run -- --editor [path.json]`, `ARCHITECTURE.md > Map editor`).
+//! The map editor (`cargo run -- --editor [path.json]`, `docs/architecture/map-editor.md > Map editor`).
 //!
 //! It edits a map (`sc_sim::MapDef`, the document: [`doc::EditorDoc`]) and draws it with the game's own renderer,
 //! camera and object visuals: the sim shows [`sc_sim::Sim::preview`] of the map, paused at tick 0, and is replaced

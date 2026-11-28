@@ -1,4 +1,4 @@
-//! The terrain: one mesh for the whole map, never an entity per tile (`ARCHITECTURE.md > Client architecture >
+//! The terrain: one mesh for the whole map, never an entity per tile (`docs/architecture/client-architecture-visuals.md > Client architecture >
 //! Visuals`), plus a grid overlay toggled with [`InputAction::ToggleGrid`].
 //!
 //! `core/art_direction.md > Elevation Display`, with placeholder colours until Q0001 settles the art:

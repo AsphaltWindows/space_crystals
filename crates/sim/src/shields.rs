@@ -18,7 +18,7 @@
 //!   (`Shields::shield_regen_per_tick`), "continuously (not gated by a delay after taking damage)", up to the maximum
 //!   now ([`Object::max_shields`]): while the object transforms, the interpolated one (design changes 0110: "Shields
 //!   regenerate normally up to the current maximum", and 0146). It runs right after phase 5e's dead have left the game
-//!   and before the economy (`ARCHITECTURE.md > Tick pipeline`), so the dead never regenerate and a unit hit in a tick
+//!   and before the economy (`docs/architecture/tick-pipeline.md > Tick pipeline`), so the dead never regenerate and a unit hit in a tick
 //!   already regenerates in it. Whoever owns the object: a defeated player's objects, which have become neutral
 //!   (`core/game_rules.md > On Defeat`), regenerate as well (`systems/combat.md > ShieldRegenRate`: "Regeneration
 //!   applies to every object with Shields, including neutral ones", design change 0146).
@@ -39,7 +39,7 @@ pub fn regenerate(shields: f32, max: f32) -> f32 {
 }
 
 /// The regeneration of a tick (module docs): every object before `first_new` with Shields, in id order (an object
-/// created this tick has full Shields, and starts in the next, `ARCHITECTURE.md > Tick pipeline`).
+/// created this tick has full Shields, and starts in the next, `docs/architecture/tick-pipeline.md > Tick pipeline`).
 pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId) {
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         if o.shields.is_none() {

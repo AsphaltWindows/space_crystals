@@ -28,7 +28,7 @@
 //!   `factions/syndicate/tunnels.md > Losing Tunnels`: "a Tunnel that is mid-upgrade counts at its current
 //!   (pre-upgrade) tier").
 //! - **The frames** ([`Sim::step_upgrades`], in the economy phase right after the sites): one a tick, from the tick
-//!   the command applies, as a recipe's (`ARCHITECTURE.md > Economy > Recipe timing`): the Tunnel exists already, so
+//!   the command applies, as a recipe's (`docs/architecture/economy.md > Economy > Recipe timing`): the Tunnel exists already, so
 //!   an upgrade of 480 frames ordered in tick `t` completes at the end of `t + 479` ("A Tunnel upgrade takes 30 s",
 //!   design change 0229). A Tunnel that came into the game in the tick starts on it in the next (the spawn-tick rule).
 //! - **Completion** ([`Sim::complete_upgrade`]): the Tunnel is at the target tier (`Sim::set_tier`): "**HP on

@@ -1,4 +1,4 @@
-//! Player input never panics the sim (`ARCHITECTURE.md > Commands, events and replays`):
+//! Player input never panics the sim (`docs/architecture/commands-events-replays.md > Commands, events and replays`):
 //! a long stream of random, mostly invalid debug commands, orders and abilities runs deterministically,
 //! the commands the gate rejects change nothing, and any per-object values a file holds are
 //! handled.
@@ -314,7 +314,7 @@ fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
             );
         }
     }
-    // The removal path (`ARCHITECTURE.md > Combat`) leaves no reference to an object that is gone.
+    // The removal path (`docs/architecture/combat.md > Combat`) leaves no reference to an object that is gone.
     assert_eq!(
         testing::dangling_references(sim),
         [],

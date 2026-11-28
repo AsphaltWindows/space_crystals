@@ -48,7 +48,7 @@ impl OrderOutbox<'_> {
         if units.is_empty() {
             return Err(Reject::NoUnits);
         }
-        // `ARCHITECTURE.md > Commands, events and replays`: never a non-finite number, which a replay can't store.
+        // `docs/architecture/commands-events-replays.md > Commands, events and replays`: never a non-finite number, which a replay can't store.
         if !finite(kind) {
             return Err(Reject::OffMap);
         }
@@ -244,7 +244,7 @@ impl OrderOutbox<'_> {
     /// (M5-N5) `player`'s Shrine among `casters` casts `ability` at `at` (`Command::Cast`), at once: the one Shrine of
     /// the ActiveGroup (the Shrine is Ungroupable: "each press casts from one Shrine"); (M5-N11) or the one
     /// Prayer-mobile, Ungroupable too, round it or ahead of it, `at` where it stands. Nothing when none of them is the
-    /// player's, for a point that isn't finite (`ARCHITECTURE.md > Commands, events and replays`), or when the sim
+    /// player's, for a point that isn't finite (`docs/architecture/commands-events-replays.md > Commands, events and replays`), or when the sim
     /// would reject it (`Sim::validate`: a point out of vision, too little energy).
     pub(super) fn cast(&mut self, player: PlayerId, casters: Vec<ObjectId>, ability: AreaAbility, at: Vec2) -> bool {
         let casters: Vec<ObjectId> = (casters.into_iter())

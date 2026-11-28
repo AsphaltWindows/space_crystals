@@ -1,4 +1,4 @@
-//! The input layer (`ARCHITECTURE.md > Client architecture > Input`), driven through the virtual keyboard and
+//! The input layer (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`), driven through the virtual keyboard and
 //! mouse: control group keys, hotkeys and modifiers, rebinding, panning, map clicks, the selection box, and
 //! clicks over the UI.
 

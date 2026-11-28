@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): the units inside a building, and the
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): the units inside a building, and the
 //! mark of those Eject All lets out, are part of the state.
 
 use sc_sim::{Replay, Sim};

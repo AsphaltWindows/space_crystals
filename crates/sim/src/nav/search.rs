@@ -1,6 +1,6 @@
 //! Tile A\* and the Dijkstra field — `docs/movement.md > 5.3`, `> 5.5`.
 //!
-//! All arithmetic is `u32`: no float enters a search. `ARCHITECTURE.md > Tick pipeline` lists the lessons this
+//! All arithmetic is `u32`: no float enters a search. `docs/architecture/tick-pipeline.md > Tick pipeline` lists the lessons this
 //! follows: a correct closed set, a best-cost map, deterministic tie-breaking, and no parent overwritten at equal
 //! cost.
 

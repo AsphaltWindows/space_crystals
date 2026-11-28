@@ -1,5 +1,5 @@
 //! The end of the game in the client (slice M2-F2; `core/game_rules.md > End of Game`, design changes 0101, 0102,
-//! 0163 and 0164), headless, one tick per update (`ARCHITECTURE.md > Client architecture > Client tests`):
+//! 0163 and 0164), headless, one tick per update (`docs/architecture/client-architecture-placement-and-tests.md > Client architecture > Client tests`):
 //! - the winner sees Victory and the loser Defeat, the game stops at its last tick, and nobody gives orders any more;
 //! - when the last sides fall in the same tick, everyone sees Draw (0163), the players defeated before it too;
 //! - the recording is saved at the end, complete, a QA run's later stops come down to the last tick, and a

@@ -1,9 +1,9 @@
-//! Construction times (`ARCHITECTURE.md > Economy > Recipe timing`): at full power, and under the power
+//! Construction times (`docs/architecture/economy.md > Economy > Recipe timing`): at full power, and under the power
 //! penalty, which slows the Extraction Facility and never the Deployment Center (design change 0089).
 
 use super::*;
 
-/// The plan's acceptance, times at full power (`ARCHITECTURE.md > Economy > Recipe timing`): ordered in tick 1, a
+/// The plan's acceptance, times at full power (`docs/architecture/economy.md > Economy > Recipe timing`): ordered in tick 1, a
 /// Barracks is ready at the end of tick 160, a Generator of tick 240, an Extraction Facility of 320, a plate of 400
 /// (160, 240, 320 and 400 frames, the command's own tick the first), and each can be placed from the next tick on.
 /// Each cost is paid when the command applies.

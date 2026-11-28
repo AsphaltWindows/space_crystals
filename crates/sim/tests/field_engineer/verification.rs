@@ -76,7 +76,7 @@ fn at_work(sim: &Sim, units: &[ObjectId], hp: f32) -> Sim {
 /// (`factions/gdo/structures/career_campus.md`: "Power −20": 50 consumed of the 50 the Deployment Center and the
 /// Generator make). Then the Barracks takes E: two Field Engineers for 75 each, which take their Unit Control as their
 /// production starts, one after the other (`factions/gdo/overview.md > GDOResources > Unit Control`, design change
-/// 0143: "Reserved when production starts"), and come out, the first 160 frames after its Train (`ARCHITECTURE.md >
+/// 0143: "Reserved when production starts"), and come out, the first 160 frames after its Train (`docs/architecture/economy.md >
 /// Economy > Recipe timing`: released in the recipe's last frame). The Barracks damaged to 150 of its 300 HP, a
 /// right-click on it gives a Field Engineer a Repair (`Sim::default_order`, the client's rule), and by N8's terms
 /// (`repair::terms`: half of its 160 frames and of its 200 Space Crystals) one Field Engineer repairs it to full in 40

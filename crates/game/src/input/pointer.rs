@@ -1,5 +1,5 @@
 //! The pointer over the map: where the cursor points, whether it is over the UI, and the presses, clicks and boxes of
-//! the pointer actions (`ARCHITECTURE.md > Client architecture > Input`).
+//! the pointer actions (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`).
 //!
 //! The pointer follows a press of a primary pointer action that goes down on the map until its release
 //! ([`Pointer::press`]): [`InputAction::Select`] in the game, [`EditorInput::UseTool`] in the editor. A

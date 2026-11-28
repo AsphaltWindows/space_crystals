@@ -13,7 +13,7 @@
 //!   remembered by several shows as last seen. The sim has no teams yet, so a defeated player has no allies and
 //!   watches their own vision alone, which has no Visible tile left: they own nothing.
 //! - **The fog layer**: one mesh over the whole map and one texture of one texel per tile, never an entity or a
-//!   material per tile (`ARCHITECTURE.md > Client architecture > Visuals`). The mesh follows the terrain's surface
+//!   material per tile (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals`). The mesh follows the terrain's surface
 //!   tile by tile as the terrain mesh draws it (a quad per flat tile, four triangles around the centre of a sloped
 //!   one), in front of it in the terrain's z band ([`FOG_Z`]): objects stand on it. Each texel is black, with [`UNEXPLORED_ALPHA`] for an Unexplored tile, [`EXPLORED_ALPHA`] for an
 //!   Explored one and none for a Visible one, sampled linearly so the edges soften across a tile

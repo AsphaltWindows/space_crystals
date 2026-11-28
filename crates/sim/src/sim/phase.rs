@@ -1,4 +1,4 @@
-//! The tick pipeline (`ARCHITECTURE.md > Tick pipeline`): [`Sim::step`] runs the phases of a tick in their fixed
+//! The tick pipeline (`docs/architecture/tick-pipeline.md > Tick pipeline`): [`Sim::step`] runs the phases of a tick in their fixed
 //! order, and [`Phase`] names them, for measurements ([`Sim::step_observed`]).
 
 use super::Sim;
@@ -8,7 +8,7 @@ use crate::economy::defeat;
 use crate::ids::ObjectId;
 use crate::{buffs, combat, economy, energy, movement, orders, patches, paths, shields};
 
-/// The parts of a tick, in the order [`Sim::step`](super::Sim::step) runs them (`ARCHITECTURE.md > Tick pipeline`):
+/// The parts of a tick, in the order [`Sim::step`](super::Sim::step) runs them (`docs/architecture/tick-pipeline.md > Tick pipeline`):
 /// [`Sim::step_observed`](super::Sim::step_observed) marks each as it starts, then [`Phase::End`] when the tick is
 /// done, so the time from one mark to the next is that phase's. Only measurements look at them (slice M2-J2,
 /// `tests/structures_perf.rs`).
@@ -98,7 +98,7 @@ impl Sim {
             o.prev_pos = o.pos;
             o.prev_facing = o.facing;
         }
-        // `ARCHITECTURE.md > Tick pipeline`: objects that commands create during this tick are first updated in
+        // `docs/architecture/tick-pipeline.md > Tick pipeline`: objects that commands create during this tick are first updated in
         // the next one. Ids only grow, so they are exactly the ids from here on.
         let first_new = ObjectId(self.next_id);
         // The defeat check compares with the structures each player owns as the tick starts (`economy::defeat`).

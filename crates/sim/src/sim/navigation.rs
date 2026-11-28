@@ -15,7 +15,7 @@ use crate::paths::knowledge::PathKnowledge;
 use crate::paths::{self, NavState};
 
 /// The keys of the grids the units in a game walk on (`paths::walking_keys`), the held ones among them: what a game's
-/// grids are built for at its start and on a load (`ARCHITECTURE.md > Object model > Units off the map: the held
+/// grids are built for at its start and on a load (`docs/architecture/object-model-holding.md > Object model > Units off the map: the held
 /// store`: what must count held units says so).
 pub(super) fn walking_keys(
     objects: &BTreeMap<ObjectId, Object>,
@@ -42,7 +42,7 @@ impl Sim {
         self.path_knowledge = PathKnowledge::start(self.players.iter().map(|p| p.id));
         let keys = walking_keys(&self.objects, &self.held);
         self.nav = NavState::build(&self.map, &self.objects, &keys, &self.vision, &self.path_knowledge);
-        // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
+        // Scenario spawns emit no events (`docs/architecture/commands-events-replays.md > Commands, events and replays`).
         self.events.clear();
     }
 

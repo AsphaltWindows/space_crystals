@@ -1,4 +1,4 @@
-//! AI against AI, headless (slices A1 and A2; `ARCHITECTURE.md > Computer players > Tests`): each faction with a
+//! AI against AI, headless (slices A1 and A2; `docs/architecture/computer-players.md > Computer players > Tests`): each faction with a
 //! computer player against itself and the others, each game played and checked by `harness` after every step (the
 //! invariants, the gate, design change 0402's Verification).
 //!

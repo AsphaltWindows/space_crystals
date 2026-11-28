@@ -24,7 +24,7 @@ fn kind_changes(t: &TestSim) -> Vec<(Tick, u32, ObjectKind, ObjectKind)> {
 ///   (no footprint to go back to, nothing paid), with neither orders nor a move nor a worker.
 /// - Design change 0112: "The Drone's 1 Beacon Capacity is freed as soon as deployment starts", "The Beacon's 5 is
 ///   provided only on completion": 9/10 at once, 9/15 at completion.
-/// - `> Deployment Duration` (48 frames) and `ARCHITECTURE.md > Economy > Recipe timing`: the first frame is the
+/// - `> Deployment Duration` (48 frames) and `docs/architecture/economy.md > Economy > Recipe timing`: the first frame is the
 ///   tick it began, and it is complete at the end of that tick + 47.
 /// - `> HP/Shields Interpolation`: "HP = Drone MaxHP + (Beacon MaxHP - Drone MaxHP) x progress", 20 to 120, and an
 ///   undamaged one at its maximum; its maximum Shields 10 throughout ("Shields stay at 10", 10 to 10).

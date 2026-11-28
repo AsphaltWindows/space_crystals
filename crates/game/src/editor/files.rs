@@ -1,5 +1,5 @@
 //! Map files: the `maps/` directory at the repository root, listing it, and loading and saving maps in the sim's
-//! versioned JSON map format (`ARCHITECTURE.md > Sim scenarios and tests > Map files`).
+//! versioned JSON map format (`docs/architecture/sim-scenarios-and-tests-setup.md > Sim scenarios and tests > Map files`).
 
 use std::io::Write;
 use std::path::{Path, PathBuf};

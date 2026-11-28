@@ -1,7 +1,7 @@
 //! # space_crystals — the Bevy client
 //!
 //! Draws the deterministic simulation (`sc_sim`), turns input into commands, and hosts the HUD, the map editor and
-//! QA mode. Read `ARCHITECTURE.md > Client architecture` before changing anything here.
+//! QA mode. Read `docs/architecture/client-architecture-visuals.md > Client architecture` before changing anything here.
 //!
 //! [`build_app`] assembles one plugin per feature module:
 //! - [`platform`]: a window, in borderless full screen by default, an offscreen image (QA) or no rendering at all
@@ -141,7 +141,7 @@ impl ClientMode {
 #[derive(Clone, Debug)]
 pub struct AppConfig {
     /// The scenario to play: the map and the game setup, whose game options say whether debug commands are on
-    /// (`ARCHITECTURE.md > Commands, events and replays`; on unless `--no-debug`). In the editor: the map to edit,
+    /// (`docs/architecture/commands-events-replays.md > Commands, events and replays`; on unless `--no-debug`). In the editor: the map to edit,
     /// and the game options its play-tests run with.
     pub scenario: Scenario,
     /// Whose view the client shows. In the editor: the slot play-tests start as (the first slot if the map has no

@@ -1,7 +1,7 @@
 //! The units' modes in a game (plan decision T28 moved them here from `sim.rs`): what an ability command does to the
-//! units it goes to ([`Sim::use_ability`]), and the Modes step of the tick ([`Sim::step_modes`], `ARCHITECTURE.md >
+//! units it goes to ([`Sim::use_ability`]), and the Modes step of the tick ([`Sim::step_modes`], `docs/architecture/tick-pipeline.md >
 //! Tick pipeline`), which takes every mode under way one tick on: a Riot Shield going up or down (`riot_shield`) and
-//! a Weapon Conversion (`conversion`, slice M3-B). A mode isn't an order (`ARCHITECTURE.md > Adding a new system`): an
+//! a Weapon Conversion (`conversion`, slice M3-B). A mode isn't an order (`docs/architecture/tick-pipeline.md > Tick pipeline`): an
 //! ability leaves the units' orders as they are.
 //!
 //! **A toggle sets a target state** (design change 0198, slice M3-T; `factions/colonists/units/weapon_conversion.md >
@@ -10,7 +10,7 @@
 //! ("The unit's type, and so its SelectionGroup, switches at the press to the target form", "including when the raise
 //! is deferred behind a shot"), through [`Sim::change_kind`] ([`Ability::switched_kind`]), and leave what the unit has
 //! in the world, its weapon or its shield, to the mode's own state, which the Modes step then works toward the type
-//! (`ARCHITECTURE.md > Object model > Type and form`). So the type is what the player commands, and a press reaches the
+//! (`docs/architecture/object-model-state.md > Object model > Type and form`). So the type is what the player commands, and a press reaches the
 //! units as they are now: "however fast R is pressed, every unit that received the presses ends up in the same form". A
 //! unit Firing or in Cooldown (`combat::mid_attack`: the phases that can't be interrupted) finishes them first (design
 //! change 0153: "deferred, not rejected"; design change 0172: "the shot finishes, then the shield starts rising

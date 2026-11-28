@@ -20,7 +20,7 @@
 //!   sludge's alone ([`sludge_discs`]).
 //!
 //! One vertex-coloured mesh, rebuilt every frame while a patch shows and hidden while none does: no entity per patch
-//! (`ARCHITECTURE.md > Client architecture > Visuals`). Placeholders (Q0001, the design being silent on the look): the
+//! (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals`). Placeholders (Q0001, the design being silent on the look): the
 //! colours, the rim, the shrinking; (M5-X2) its length is a tunable (`crate::tuning::look`), the colours stay here.
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-//! Replays (`ARCHITECTURE.md > Replays and golden hashes`): the client records every game it plays ([`record`]) and
+//! Replays (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): the client records every game it plays ([`record`]) and
 //! plays recordings back (`--replay`, [`playback`]).
 //!
 //! A replay file is the sim's [`Replay`] as JSON: the scenario (the map and the game setup, game options included),

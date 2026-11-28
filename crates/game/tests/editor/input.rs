@@ -1,4 +1,4 @@
-//! The editor's input through the shared input layer (`ARCHITECTURE.md > Client architecture > Input`): its keys are
+//! The editor's input through the shared input layer (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`): its keys are
 //! bindings of the one table, its tools follow the layer's pointer, nothing reaches the map over the UI, and no key
 //! fires while a text field has the keyboard. Driven through the layer's virtual keyboard and mouse.
 

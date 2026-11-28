@@ -103,7 +103,7 @@ fn each_building_needs_the_one_before_it() {
     }
 }
 
-/// Their times (`ARCHITECTURE.md > Economy > Recipe timing`): ordered in tick 2, the Factory is ready at the end of
+/// Their times (`docs/architecture/economy.md > Economy > Recipe timing`): ordered in tick 2, the Factory is ready at the end of
 /// tick 481 (480 frames, the command's own tick the first), and so is the Industrial Powerplant; Advanced Mechanics,
 /// in 400 frames, at the end of tick 401. Each Deployment Center builds at full speed (its construction is never
 /// slowed by Power, design change 0089).

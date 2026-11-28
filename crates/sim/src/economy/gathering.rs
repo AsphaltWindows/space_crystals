@@ -22,7 +22,7 @@
 //!   (design change 0138, `factions/colonists/units/drone.md > Last load of a patch`: the full 32 frames, and then
 //!   "what is left"); a DroppingOff phase counts its frames and, at DropOffDuration, credits the owner's bank
 //!   (`SimEvent::ResourcesDelivered`). All bank changes stay in the economy phase.
-//! - **Timing**, by the Director's convention for recipes (`ARCHITECTURE.md > Economy > Recipe timing`): the frame
+//! - **Timing**, by the Director's convention for recipes (`docs/architecture/economy.md > Economy > Recipe timing`): the frame
 //!   in which the behaviour starts the work counts. A worker that reaches its patch in phase 5a of tick `t` holds
 //!   its load at the end of tick `t + 31` and sets off in `t + 32`, when the patch is free again; one that reaches
 //!   its drop-off in tick `t` is paid at the end of `t + 1` and sets off in `t + 2`.

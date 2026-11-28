@@ -82,7 +82,7 @@ impl Sim {
         Ok(admitted)
     }
 
-    /// The entries' step, right after phase 5a and before 5b (module docs; `ARCHITECTURE.md > Tick pipeline`): each
+    /// The entries' step, right after phase 5a and before 5b (module docs; `docs/architecture/tick-pipeline.md > Tick pipeline`): each
     /// unit from before this tick (`first_new`) whose current order is an Enter, in id order, goes in if it has walked
     /// into its target's entry path, and loses the order if it can't go on; (M6-SD) an air unit descends by its air
     /// entry door ([`Sim::fly_in`]); (M6-ST1) a unit boards the carrier on the map that it is on its way to

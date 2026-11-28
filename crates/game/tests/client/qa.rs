@@ -1,4 +1,4 @@
-//! QA runs (`ARCHITECTURE.md > QA flags`): the exit tick and the state dump, timed commands from a file, the path
+//! QA runs (`docs/architecture/qa-mode.md > QA mode`): the exit tick and the state dump, timed commands from a file, the path
 //! overlay, and (slice M6-S6a) an input script under `--fast`.
 
 use bevy::prelude::*;

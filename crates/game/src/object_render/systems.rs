@@ -201,7 +201,7 @@ pub(super) fn sync_object_visuals(
     }
 }
 
-/// `ARCHITECTURE.md > Client architecture > Visuals > Interpolation`.
+/// `docs/architecture/client-architecture-visuals.md > Client architecture > Visuals > Interpolation`.
 pub(super) fn place_object_visuals(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,

@@ -1,9 +1,9 @@
-//! The Warp In's timings (the plan's acceptance, "Timings"; `ARCHITECTURE.md > Economy > Recipe timing`):
+//! The Warp In's timings (the plan's acceptance, "Timings"; `docs/architecture/economy.md > Economy > Recipe timing`):
 //! each building's cost paid as the command applies, its WarpInTime, and the building at work from the next tick.
 
 use super::*;
 
-/// The plan's acceptance, "Timings" (`ARCHITECTURE.md > Economy > Recipe timing`): for each building, the cost is
+/// The plan's acceptance, "Timings" (`docs/architecture/economy.md > Economy > Recipe timing`): for each building, the cost is
 /// paid when the command applies; ordered in tick 1, the Warp In is complete at the end of tick 1 + N - 1 = N (its
 /// WarpInTime), and the building works from tick N + 1: a portal refuses Train until then and takes it in that
 /// tick. From its first frame the object is the building, still transforming, and stays the same object.

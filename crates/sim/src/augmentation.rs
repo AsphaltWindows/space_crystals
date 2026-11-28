@@ -18,7 +18,7 @@
 //!   the Altar sets them as its orders complete (slice M5-N1b, `Sim::augment`), and `DebugCommand::SetAugmentation`
 //!   for tests and QA runs.
 //!   `tests/augmentation/raw_reads.rs` keeps the stats' raw reads out of the code outside the accessors
-//!   (`ARCHITECTURE.md > Object model > Augmented stats`).
+//!   (`docs/architecture/object-model-state.md > Object model > Augmented stats`).
 //! - **The Altar's orders** (slice M5-N1b, `orders.rs`): Enhanced Constitution, Improved Metabolism or Both
 //!   ([`AugmentOrder`]), each for a unit missing every Augmentation it applies.
 

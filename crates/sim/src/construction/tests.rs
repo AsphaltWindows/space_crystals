@@ -160,7 +160,7 @@ fn a_refund_follows_the_state() {
 }
 
 /// `factions/gdo/economy.md > Generator`: 240 frames. Ordered in tick 10, a construction does its first frame in tick
-/// 10 (the command applies before the economy phase; `ARCHITECTURE.md > Economy > Recipe timing`) and is ready at the
+/// 10 (the command applies before the economy phase; `docs/architecture/economy.md > Economy > Recipe timing`) and is ready at the
 /// end of tick 249, with one event.
 #[test]
 fn a_construction_is_ready_after_its_frames() {
@@ -201,7 +201,7 @@ fn the_facility_is_slowed_by_negative_power_and_the_center_is_not() {
     );
 }
 
-/// The spawn-tick rule (`ARCHITECTURE.md > Tick pipeline`) and ownerless objects: a constructor created this tick, or
+/// The spawn-tick rule (`docs/architecture/tick-pipeline.md > Tick pipeline`) and ownerless objects: a constructor created this tick, or
 /// owned by no one, builds nothing.
 #[test]
 fn new_and_ownerless_constructors_wait() {

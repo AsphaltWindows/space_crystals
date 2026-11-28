@@ -1,4 +1,4 @@
-//! Visuals (`ARCHITECTURE.md > Client architecture > Visuals`): objects on the terrain and their picking, one
+//! Visuals (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals`): objects on the terrain and their picking, one
 //! visual per object, draw order, facing, the grid overlay, loading another map, and interpolation between
 //! ticks.
 //!

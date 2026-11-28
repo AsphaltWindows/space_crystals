@@ -22,7 +22,7 @@ fn unit_control(t: &TestSim) -> u32 {
 /// "+ 1 Supply": a Raptor and a Twister queued in tick 2 take 225 Space Crystals and the Supply at once; the Raptor,
 /// first, is in production at once, its Unit Control 2 reserved from that tick (`Sim::army_cap`), the Twister's not
 /// yet. The Raptor comes out at the end of tick 241, 240 frames with the command's own tick the first
-/// (`ARCHITECTURE.md > Economy > Recipe timing`); the Twister starts in the next tick, its 2 reserved then, and comes
+/// (`docs/architecture/economy.md > Economy > Recipe timing`); the Twister starts in the next tick, its 2 reserved then, and comes
 /// out 320 frames later. Both are player 1's, each 2 of the 4 then in use.
 #[test]
 fn the_factory_trains_both_vehicles_at_their_cost_and_time_unit_control_reserved_at_the_start() {

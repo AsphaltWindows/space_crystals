@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): a neutral expansion's decay
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): a neutral expansion's decay
 //! (`Object::decay`) is part of the state, hashed and saved only while it is set.
 
 use sc_sim::{Replay, Sim};

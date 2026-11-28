@@ -1,6 +1,6 @@
 //! (M5-M1) The bank invariant B1, the M5 plan's "nor takes a bank below 0" (slice M): no player's bank goes below 0,
 //! nor past its top. The banks are every resource a player stores: Space Crystals, Supplies, and the Colonists' Alloys,
-//! Essence and Flux (`Player::banks`, `ARCHITECTURE.md > Economy`). Power is no bank: it is derived from the objects,
+//! Essence and Flux (`Player::banks`, `docs/architecture/economy.md > Economy`). Power is no bank: it is derived from the objects,
 //! and what is used may exceed what is produced by design (`Sim::power`).
 //!
 //! A bank is a `u32`, so it can't hold a number below 0, and every debit is checked (`Player::spend_crystals`,

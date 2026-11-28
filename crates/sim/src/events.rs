@@ -182,7 +182,7 @@ pub enum SimEvent {
     /// Object `id` changed its kind in place, from `from` to `to`, and is still the same object (plan decision T15,
     /// `Sim::change_kind`): a Drone deploying into a Beacon, a Beacon warping in a building, a Legionnaire converting
     /// its weapon, or one of these cancelled. The client draws the object anew and keeps it selected as its new kind
-    /// (slice M3-E's response, `ARCHITECTURE.md > Client architecture`).
+    /// (slice M3-E's response, `docs/architecture/client-architecture-visuals.md > Client architecture`).
     KindChanged {
         id: ObjectId,
         from: ObjectKind,

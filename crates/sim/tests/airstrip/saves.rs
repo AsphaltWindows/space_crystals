@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): a Sparrow's takeoff run
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): a Sparrow's takeoff run
 //! (`Mover::takeoff`) is part of the state.
 
 use sc_sim::{Replay, Sim};

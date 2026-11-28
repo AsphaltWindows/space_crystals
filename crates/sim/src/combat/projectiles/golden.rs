@@ -1,4 +1,4 @@
-//! The golden game of slice M4-O (`ARCHITECTURE.md > Replays and golden hashes`; the Director's note on the goldens):
+//! The golden game of slice M4-O (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`; the Director's note on the goldens):
 //! test throwers in a fight (`combat::testing`), so that projectiles, their blasts and an Attack Ground are pinned by
 //! state hash as the units' games are (`tests/golden/`). It is a unit test, not one of those: the test defs exist only
 //! in the sim's own tests (`defs::test_defs`). Its replay is blessed in `tests/golden/test_defs/`, beside the others

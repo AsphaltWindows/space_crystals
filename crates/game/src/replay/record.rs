@@ -1,4 +1,4 @@
-//! Recording the game (`ARCHITECTURE.md > Replays and golden hashes`). The client records every game it plays, but
+//! Recording the game (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`). The client records every game it plays, but
 //! not the map editor, its play-tests or a replay's playback: the scenario the game started from, the inputs of every
 //! step, and a state-hash checkpoint every `CHECKPOINT_INTERVAL` ticks (`Replay::record_checked`). The file is
 //! written when the game starts, every [`AUTOSAVE_TICKS`] ticks of game time and when the app exits, each time with

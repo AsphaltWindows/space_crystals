@@ -1,4 +1,4 @@
-//! Recording games and playing them back (`ARCHITECTURE.md > Replays and golden hashes`). Headless, one tick per
+//! Recording games and playing them back (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`). Headless, one tick per
 //! update at the normal speed, as in `client.rs`; the first update only starts the clock. The computer players' games
 //! (slice A1): `computers`.
 

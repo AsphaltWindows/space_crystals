@@ -7,7 +7,7 @@ use super::*;
 
 /// The plan's acceptance, "Energy: start, cap and regeneration, exact in integers": a Disciple of the map's starts at
 /// 50, and each tick adds 2048 exactly; one spawned in tick 1 has its start at that tick's end, as an object a command
-/// brings in regenerates from the next tick (`ARCHITECTURE.md > Tick pipeline`). 150 points to go take each 4800 ticks,
+/// brings in regenerates from the next tick (`docs/architecture/tick-pipeline.md > Tick pipeline`). 150 points to go take each 4800 ticks,
 /// 300 s, to the tick, and then the energy stays at 200.
 #[test]
 fn a_disciple_regenerates_from_50_to_200_in_300_seconds_exactly() {

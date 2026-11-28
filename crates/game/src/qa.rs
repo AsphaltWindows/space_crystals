@@ -1,4 +1,4 @@
-//! QA mode: screenshots of exact ticks, exit at a tick, and a JSON state dump at exit (`ARCHITECTURE.md > QA mode`).
+//! QA mode: screenshots of exact ticks, exit at a tick, and a JSON state dump at exit (`docs/architecture/qa-mode.md > QA mode`).
 //!
 //! The sim is held at each screenshot tick (`SimControl::hold_at`) until the PNG is saved. A held sim draws every
 //! object exactly at its tick position, and raw input is off in QA runs, so a screenshot shows the same pixels on

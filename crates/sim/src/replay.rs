@@ -1,5 +1,5 @@
 //! Replays: the scenario (the map and the game setup, which holds the game options) plus the inputs of every tick
-//! (`ARCHITECTURE.md > Commands, events and replays`), and state-hash checkpoints. The sim is deterministic, so
+//! (`docs/architecture/commands-events-replays.md > Commands, events and replays`), and state-hash checkpoints. The sim is deterministic, so
 //! playing them back reproduces the game bit for bit; the checkpoints say whether it did ([`Replay::verify`]): a
 //! replay recorded by an older build may diverge once the game's rules changed, and its checkpoints show where.
 

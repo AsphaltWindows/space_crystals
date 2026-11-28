@@ -12,7 +12,7 @@
 //! "pressing R flips the Peacekeeper's target (shield up or down), and the unit works to reach it. The type, and so the
 //! SelectionGroup, switches **at the press**, including when the raise is deferred behind a shot"), the rule of
 //! `crate::toggle`. As a Legionnaire's (`crate::conversion`), a Peacekeeper's type is the state it works toward, and
-//! its shield the state it is in (`ARCHITECTURE.md > Object model > Type and form`): its type is the way the shield
+//! its shield the state it is in (`docs/architecture/object-model-state.md > Object model > Type and form`): its type is the way the shield
 //! goes, and what commands the unit reads; its shield is how far up it is ([`RiotShield`]), and what it does in the
 //! world, the speed, the attack and the damage taken, reads the two together ([`mode`]).
 //!
@@ -235,7 +235,7 @@ pub(crate) fn settle(o: &mut Object) {
     }
 }
 
-/// The Riot Shields' part of the Modes step: on each object before `first_new`, in id order (`ARCHITECTURE.md > Tick
+/// The Riot Shields' part of the Modes step: on each object before `first_new`, in id order (`docs/architecture/tick-pipeline.md > Tick
 /// pipeline`: one created this tick starts in the next), the shield goes one tick further the way its unit's type
 /// takes it (module docs), but for a raise that waits for the unit's shot ([`ShieldMode::Deferred`]: it begins in the
 /// first Modes step after the Cooldown's last tick), and the unit's speed follows.

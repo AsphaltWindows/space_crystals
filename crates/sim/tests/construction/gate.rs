@@ -1,4 +1,4 @@
-//! The gate of the construction commands (`ARCHITECTURE.md > Commands, events and replays`): the commands it
+//! The gate of the construction commands (`docs/architecture/commands-events-replays.md > Commands, events and replays`): the commands it
 //! refuses, a command to several constructors carried out in id order (design change 0071), and the gate
 //! fuzzed.
 
@@ -132,7 +132,7 @@ fn a_command_goes_to_each_constructor_that_can_in_id_order() {
     assert_eq!(bank(&t, P1), 325);
 }
 
-/// The gate (`ARCHITECTURE.md > Commands, events and replays`), fuzzed: random construction commands from any player
+/// The gate (`docs/architecture/commands-events-replays.md > Commands, events and replays`), fuzzed: random construction commands from any player
 /// (in the game or not) to any ids, of any building and anywhere, never panic; a rejected one changes nothing, but a
 /// Place the placement check refuses, which only reports `PlacementRefused`. Each command runs alone in a tick, next
 /// to a copy of the game that runs the same tick without it. Twice from the same seed, the runs are identical, and

@@ -116,7 +116,7 @@ impl BuildPrice {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Construction {
     /// Its frames done, out of its def's [`SiteDef::frames`]: a frame a tick from the tick after the site appears, a new
-    /// object (`ARCHITECTURE.md > Tick pipeline > Spawn tick`), so that a site started in tick `t` completes at the end
+    /// object (`docs/architecture/tick-pipeline.md > Tick pipeline > Spawn tick`), so that a site started in tick `t` completes at the end
     /// of tick `t + frames`.
     pub progress: Progress,
     pub builder: Builder,

@@ -343,7 +343,7 @@ impl Sim {
         }
     }
 
-    /// The arrivals' step, right after phase 5a and before 5b (`orders::build`; `ARCHITECTURE.md > Tick pipeline`):
+    /// The arrivals' step, right after phase 5a and before 5b (`orders::build`; `docs/architecture/tick-pipeline.md > Tick pipeline`):
     /// each worker from before this tick (`first_new`) whose walk to its site is over (its behaviour's `arrived`, set
     /// by phase 5a), in id order: a Drone deploys there or fails its order (`Sim::arrive`, slice M3-F), and so does a
     /// worker's Build (`Sim::arrive_to_build`). (M5-E) Then each group's Build with such a worker, once, in the order

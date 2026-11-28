@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): the held store and the eject queues
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): the held store and the eject queues
 //! are part of the state, and of nothing while they are empty.
 
 use sc_sim::defs::TRANSIT_DELAY_TICKS;

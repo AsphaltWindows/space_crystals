@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): a Temple's research queued and in
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): a Temple's research queued and in
 //! progress, its staff, and the technologies a player has completed (`Player::techs`) are part of the state; a player's
 //! technologies are left out of a save while they have none, so that the games without research save, and hash, as
 //! they did before it (the goldens).

@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`) with the Null Chamber's turns and buff:
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`) with the Null Chamber's turns and buff:
 //! units waiting for a slot, taking their turns and done inside (`Held::service`), and out with the buff
 //! (`BuffKind::NullChamber`).
 

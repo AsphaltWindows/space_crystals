@@ -1,4 +1,4 @@
-//! Replay playback (`--replay`, `ARCHITECTURE.md > Replays and golden hashes`): the client plays a recorded game
+//! Replay playback (`--replay`, `docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): the client plays a recorded game
 //! instead of a live one. Each step applies the recording's inputs of its tick and nothing else, so the local player
 //! can't give commands: the command UI's input doesn't run, and whatever else is pending is dropped. The playback
 //! pauses at the end of the recording.

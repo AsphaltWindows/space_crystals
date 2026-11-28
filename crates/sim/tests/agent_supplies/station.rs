@@ -69,7 +69,7 @@ fn a_crowd_from_one_side_spreads_round_the_station() {
 }
 
 /// Point 2: a Supply leaves the station as its pick-up ends, and not before. The pick-up's PickUpDuration counts
-/// the tick it began in and the one it ended in (`ARCHITECTURE.md > Economy > Recipe timing`): the station holds 2
+/// the tick it began in and the one it ended in (`docs/architecture/economy.md > Economy > Recipe timing`): the station holds 2
 /// through its first 47 frames, and 1 at the end of the 48th, when the Agent carries the Supply. A pick-up stopped
 /// before then takes nothing (design change 0130: "interrupted work collects nothing"), and the Supply it claimed is
 /// free again: the next Gather picks it up.

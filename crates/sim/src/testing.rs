@@ -1,4 +1,4 @@
-//! Test helpers, public so client tests can reuse them (`ARCHITECTURE.md > Sim scenarios
+//! Test helpers, public so client tests can reuse them (`docs/architecture/sim-scenarios-and-tests-setup.md > Sim scenarios
 //! and tests`). They panic on misuse, since they are meant for tests only.
 //!
 //! ```

@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): the scans under way are history, each
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): the scans under way are history, each
 //! player's (`sc_sim::vision::scans`), and the cooldowns are the stations' state (`Object::cooldown`); a save leaves
 //! out both while there are none, so that the games without a Scan save, and hash, as they did before them.
 

@@ -140,7 +140,7 @@ fn the_patch_amount_comes_from_the_spawn() {
     }
 }
 
-/// `ARCHITECTURE.md > Tick pipeline`: an object a command creates during tick t is first updated in tick t + 1,
+/// `docs/architecture/tick-pipeline.md > Tick pipeline`: an object a command creates during tick t is first updated in tick t + 1,
 /// so a station spawned empty during tick t delivers at t + its interval, like one placed at game start (tick 0).
 #[test]
 fn objects_spawned_by_a_command_are_first_updated_in_the_next_tick() {

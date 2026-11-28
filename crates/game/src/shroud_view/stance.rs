@@ -10,7 +10,7 @@
 //!
 //! One vertex-coloured, alpha-blended mesh in the units' decals layer, under the units and over the structures they
 //! stand on, rebuilt every frame while a unit stands so and hidden while none does: no entity per unit
-//! (`ARCHITECTURE.md > Client architecture > Visuals`).
+//! (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals`).
 
 use std::f32::consts::TAU;
 

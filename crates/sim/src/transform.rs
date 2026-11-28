@@ -23,9 +23,9 @@
 //!   current Shields (`crate::shields`, slice M3-B) follow their maximum the same way, and regenerate up to it
 //!   ("Shields regenerate normally up to the current maximum").
 //! - **The step** (`Sim::step_transforms`, in the economy phase after construction, plan decision T5's position;
-//!   `ARCHITECTURE.md > Tick pipeline`): each transformation advances one frame a tick ([`Transform::advance`] by
+//!   `docs/architecture/tick-pipeline.md > Tick pipeline`): each transformation advances one frame a tick ([`Transform::advance`] by
 //!   `RATIO_ONE`: the Colonists have no power, plan decision T21), its first in the tick of its command, as a
-//!   construction's (`ARCHITECTURE.md > Economy > Recipe timing`): ordered in tick `t`, a WarpInTime of `N` frames is
+//!   construction's (`docs/architecture/economy.md > Economy > Recipe timing`): ordered in tick `t`, a WarpInTime of `N` frames is
 //!   complete at the end of tick `t + N - 1`, and the building works from tick `t + N`. Completion clears
 //!   `Object::transform` and turns its functions on, with a `SimEvent::TransformCompleted`.
 //! - **The commands** (plan decision T22): `ConstructionCommand::WarpIn` names one Beacon, a building and its

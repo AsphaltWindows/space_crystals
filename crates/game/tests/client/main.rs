@@ -1,8 +1,8 @@
 //! Headless client tests: no window and no GPU. Every `App::update` runs `FixedUpdate` exactly once
 //! (`TimeUpdateStrategy::FixedTimesteps(1)`), and real time advances by one tick (1/16 s) per update; the first
 //! update only starts the clock, so the tests assert on `Sim::tick()`, never on the number of updates
-//! (`ARCHITECTURE.md > Client architecture > Client tests`). Input arrives through `InjectedInput`, a virtual
-//! keyboard and mouse (`ARCHITECTURE.md > Client architecture > Input`).
+//! (`docs/architecture/client-architecture-placement-and-tests.md > Client architecture > Client tests`). Input arrives through `InjectedInput`, a virtual
+//! keyboard and mouse (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`).
 
 mod camera;
 mod input;

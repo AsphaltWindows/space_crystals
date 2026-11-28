@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): a Shrine's energy, its participants
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): a Shrine's energy, its participants
 //! and the buffs under way (`Object::buffs`) are part of the state; a unit's buffs are left out of a save while it has
 //! none, so that the games without a cast save, and hash, as they did before them (the goldens).
 

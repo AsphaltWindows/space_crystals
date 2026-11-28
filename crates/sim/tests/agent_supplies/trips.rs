@@ -8,7 +8,7 @@ use super::*;
 /// Four trips of 1 Supply each (`factions/syndicate/units/agent.md > Gathering > Supplies`: "CarryCapacity: 1 Supply
 /// per trip") empty it: the bank's Supplies gain 4 and its Space Crystals nothing. The last pick-up notifies player 1
 /// (design change 0256 point 3), and the Agent comes back and waits beside the station, keeping its Gather. The
-/// countdown begins in the tick the station empties, its first frame (the recipes' convention, `ARCHITECTURE.md >
+/// countdown begins in the tick the station empties, its first frame (the recipes' convention, `docs/architecture/economy.md >
 /// Economy > Recipe timing`); 4 Supplies arrive 960 frames on, and the Agent picks up again in the next tick.
 #[test]
 fn one_agent_empties_a_station_of_four_and_four_arrive_again() {

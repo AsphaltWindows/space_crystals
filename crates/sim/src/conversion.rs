@@ -5,7 +5,7 @@
 //! **A toggle sets a target form** (design change 0198, `> A toggle sets a target form`): "Pressing R **flips the
 //! unit's target form**; the unit then works to get itself into that form. So however fast R is pressed, every unit
 //! that received the presses ends up in the same form", the rule of `crate::toggle`. While a change is pending, a
-//! Legionnaire is two forms at once (`ARCHITECTURE.md > Object model > Type and form`):
+//! Legionnaire is two forms at once (`docs/architecture/object-model-state.md > Object model > Type and form`):
 //! - its **type**, `Object::kind`, is the form it works toward: "The unit's type, and so its SelectionGroup, switches
 //!   at the press to the target form" (`Sim::change_kind`, the same object). Whatever commands the unit reads it: the
 //!   client's selection, groups and panel, the gate, the default command;
@@ -50,7 +50,7 @@
 //!     its orders, its move and its target. "If the target form changed meanwhile, the unit converts back right
 //!     after" (`> Completion`): the same Modes step starts the conversion back (a round trip takes 8 frames, longer
 //!     than either form's reload, as `> Orders are kept > New weapon starts ready` reckons).
-//! - **Timing** (as `ARCHITECTURE.md > Economy > Recipe timing` counts frames): pressed in tick `t`, the unit is of its
+//! - **Timing** (as `docs/architecture/economy.md > Economy > Recipe timing` counts frames): pressed in tick `t`, the unit is of its
 //!   new type from tick `t` on; converting from `t` (or from the tick after its Cooldown), it spends ticks `t` to
 //!   `t + 3` converting and has its new form from tick `t + 4` on: the Modes step of that tick completes the
 //!   conversion, before any other phase. Its type changed at the press (with a `SimEvent::KindChanged`); the end of the

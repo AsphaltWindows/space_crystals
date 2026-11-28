@@ -1,5 +1,5 @@
 //! Damage and death (`systems/combat.md > SingleTargetDamage`, `systems/combat.md > DamageModifierOrder`,
-//! `systems/combat.md > MinimumDamage`, `ARCHITECTURE.md > Combat`): armor and the rugged-terrain bonus, the tick's
+//! `systems/combat.md > MinimumDamage`, `docs/architecture/combat.md > Combat`): armor and the rugged-terrain bonus, the tick's
 //! hits applied together, death at 0 HP and the one removal path that leaves no reference to the dead behind.
 //!
 //! Idle units fight on their own (`systems/controls/behaviors.md > BaseAutoTargeting`), so a unit that must not

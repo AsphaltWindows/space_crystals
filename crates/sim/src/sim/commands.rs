@@ -1,4 +1,4 @@
-//! The commands phase (`ARCHITECTURE.md > Commands, events and replays`): each player command, once the gate has
+//! The commands phase (`docs/architecture/commands-events-replays.md > Commands, events and replays`): each player command, once the gate has
 //! checked it ([`Sim::validate`]), applied; an order only fills the units' queues (`systems/controls/commands.md >
 //! Unit Command`), which phase 5a then starts.
 
@@ -10,7 +10,7 @@ use crate::ids::ObjectId;
 use crate::orders::{Order, OrderGroup, OrderKind, Target, destinations};
 
 impl Sim {
-    /// `ARCHITECTURE.md > Commands, events and replays`: every command passes the gate ([`Sim::validate`]) first.
+    /// `docs/architecture/commands-events-replays.md > Commands, events and replays`: every command passes the gate ([`Sim::validate`]) first.
     /// A rejected one changes nothing; player input never panics the sim. The one rejection the sim reports is a
     /// Place the placement check refuses (plan decision T4, `Sim::report_refusal`).
     pub(super) fn apply_command(&mut self, cmd: &PlayerCommand) {

@@ -1,4 +1,4 @@
-//! The selection's systems: the input layer's clicks, boxes and actions (`ARCHITECTURE.md > Client architecture >
+//! The selection's systems: the input layer's clicks, boxes and actions (`docs/architecture/client-architecture-input-and-selection.md > Client architecture >
 //! Input`) become the selection rules (`super::rules`) on the local player's ControlState, and the sim's removals
 //! leave every ControlState at once, each player's those they perceive (`crate::viewer_events`).
 

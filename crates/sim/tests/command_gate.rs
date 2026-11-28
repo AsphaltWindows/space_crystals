@@ -1,4 +1,4 @@
-//! The command gate (`ARCHITECTURE.md > Commands, events and replays`): every command passes `Sim::validate` before
+//! The command gate (`docs/architecture/commands-events-replays.md > Commands, events and replays`): every command passes `Sim::validate` before
 //! it is applied, and a rejected one changes nothing.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};

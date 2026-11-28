@@ -1,9 +1,9 @@
-//! Saves and replays (`ARCHITECTURE.md > Replays and golden hashes`): a game saved in the middle of a
+//! Saves and replays (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): a game saved in the middle of a
 //! deployment goes on exactly as the running one, and so does its replay.
 
 use super::*;
 
-/// Saves and replays (`ARCHITECTURE.md > Replays and golden hashes`): a game where Drone 2 deploys with a load, Drone
+/// Saves and replays (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): a game where Drone 2 deploys with a load, Drone
 /// 6 fails on arrival (its site, on player 2's Egress Node 3, never seen), and Drone 5, sent once Drone 2 deploys,
 /// deploys and is cancelled goes on alike after a save in the middle of Drone 2's deployment, tick by tick, and its
 /// replay file plays back to the same state.

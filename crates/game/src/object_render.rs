@@ -1,4 +1,4 @@
-//! Placeholder visuals for sim objects (`ARCHITECTURE.md > Client architecture > Visuals`).
+//! Placeholder visuals for sim objects (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals`).
 //!
 //! The sim is the source of truth. Each visual is a separate entity linked to its object by [`ObjectVisual`]. Visuals
 //! are created and despawned by diffing them against `Sim::objects()` (scenario spawns emit no events); one whose
@@ -296,7 +296,7 @@ pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
     }
 }
 
-/// The kind a live `object` is drawn as: the form it is in (`sc_sim::conversion::form`, `ARCHITECTURE.md > Object
+/// The kind a live `object` is drawn as: the form it is in (`sc_sim::conversion::form`, `docs/architecture/object-model-state.md > Object
 /// model > Type and form`), which is its type but for a Legionnaire whose conversion hasn't ended yet (design change
 /// 0198: its type switches at the press, its weapon when the conversion is over), so that a Sabre still finishing its
 /// swing in the Rifle group is drawn as the Sabre it still is. The Peacekeeper (Shielded) has the Peacekeeper's body,

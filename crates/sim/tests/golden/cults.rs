@@ -37,7 +37,7 @@ use ObjectKind::{
 /// rally point.
 const OPENING_END: Tick = 2640;
 /// [`versus_syndicate`]'s last tick, 2:55: the game's end, as player 2's Tunnel falls and it is defeated. A replay
-/// plays back in the client to where its game ended (`ARCHITECTURE.md > Replays and golden hashes`, "Playback"), so the
+/// plays back in the client to where its game ended (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`, "Playback"), so the
 /// golden game ends there too, with its last checkpoint. A change that moves the end fails [`versus_syndicate`]'s
 /// `expect`: set this to the tick it names.
 const VERSUS_END: Tick = 2800;

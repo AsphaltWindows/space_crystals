@@ -1,4 +1,4 @@
-//! What the selection looks like on the map (`ARCHITECTURE.md > Client architecture > Visuals`): a marker under
+//! What the selection looks like on the map (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals`): a marker under
 //! each object the local player has selected, and the box while a selection box is dragged
 //! (`systems/controls/selection.md > BoxSelection`).
 //!

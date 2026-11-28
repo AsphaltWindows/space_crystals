@@ -1,4 +1,4 @@
-//! The command gate (`ARCHITECTURE.md > Commands, events and replays`): the one check every command passes before
+//! The command gate (`docs/architecture/commands-events-replays.md > Commands, events and replays`): the one check every command passes before
 //! it is applied. A rejected command changes nothing and never panics the sim.
 //!
 //! This file holds what every command shares: the reasons for a rejection ([`Reject`]), what a passed command

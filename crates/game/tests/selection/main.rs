@@ -1,7 +1,7 @@
-//! Headless selection tests (`systems/controls/selection.md`, `ARCHITECTURE.md > Client architecture >
+//! Headless selection tests (`systems/controls/selection.md`, `docs/architecture/client-architecture-input-and-selection.md > Client architecture >
 //! Selection`). Every input arrives through `InjectedInput`, the virtual keyboard and mouse, and goes through the
 //! input layer's bindings like a player's would; each `App::update` is one tick and 1/16 s of real time
-//! (`ARCHITECTURE.md > Client architecture > Client tests`). The fog of war is off (`--no-fog`), so that player 1
+//! (`docs/architecture/client-architecture-placement-and-tests.md > Client architecture > Client tests`). The fog of war is off (`--no-fog`), so that player 1
 //! can select what it doesn't see: what the fog hides from the selection is tested in `fog.rs`.
 
 mod draw_order;

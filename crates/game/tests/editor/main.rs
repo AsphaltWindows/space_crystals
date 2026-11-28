@@ -1,7 +1,7 @@
 //! Headless map editor tests. They drive the editor through its action layer (`EditorActions`), and its input
 //! through the shared input layer's virtual keyboard and mouse (`InjectedInput`), never raw input (except a text
 //! field's own keys and the window's close button), and check the document, the sim that shows it and the view
-//! (`ARCHITECTURE.md > Map editor`).
+//! (`docs/architecture/map-editor.md > Map editor`).
 
 mod colonists;
 mod creation;

@@ -1,5 +1,5 @@
 //! Computer players in the client (`core/game_rules.md > Computer players (playtest tool)`: "started from the command
-//! line, taking any player's slot"; `ARCHITECTURE.md > Computer players`): `--ai 2`, `--ai 1,2:passive`.
+//! line, taking any player's slot"; `docs/architecture/computer-players.md > Computer players`): `--ai 2`, `--ai 1,2:passive`.
 //!
 //! - [`AiPlayers`]: one `sc_ai::Ai` for each player of `--ai`, made from the game as it starts.
 //! - **Thinking**: in `FixedUpdate`, before the step (and after QA's `--commands`), each computer player gives its

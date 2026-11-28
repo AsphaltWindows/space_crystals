@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`) with the air doors: Phantoms in
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`) with the air doors: Phantoms in
 //! training, inside, queued at the air exit door, rising out of it, flying in and descending into the air entry door,
 //! the doors' clocks running (`TunnelState::air_out`, `TunnelState::air_in`).
 

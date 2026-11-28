@@ -11,7 +11,7 @@
 //!   budget per tick (`movement::Turns`).
 //! - **Hits** (`damage`): an attack's effect lands at the end of its Firing phase, as a [`Hit`] on this tick's
 //!   list. The list is applied in one place once every unit has acted, so two hits in one tick both count, whatever
-//!   the order of their attackers (`ARCHITECTURE.md > Tick pipeline`).
+//!   the order of their attackers (`docs/architecture/tick-pipeline.md > Tick pipeline`).
 //! - **Shields** (`systems/combat.md > Shields`, `crate::shields`; plan decision T18): a hit on a Colonists object
 //!   takes its Shields first, at full value, and only the overflow goes on to the HP ([`resolve`]), as the list is
 //!   applied: the second hit of a tick meets the Shields the first one left.
@@ -173,7 +173,7 @@ pub fn mid_attack(o: &Object) -> bool {
 
 /// The AttackAttributes of the weapon `o` fights with now (`systems/combat.md > AttackAttributes`): its form's
 /// (`conversion::form`), which is its type's but while a Legionnaire's change of form is pending (design change 0198:
-/// its type is the form it works toward, its form the one whose weapon it has; `ARCHITECTURE.md > Object model > Type
+/// its type is the form it works toward, its form the one whose weapon it has; `docs/architecture/object-model-state.md > Object model > Type
 /// and form`), with (M5-N1a) its Augmentations' effects at its owner's levels in `research`
 /// (`augmentation::augmented`: an unarmed unit's Damage and FiringDuration), a copy. The one source of a unit's attack
 /// attributes for what it does in the world: phase 5e and the behaviours (`orders::world::Unit::attrs`), which read it

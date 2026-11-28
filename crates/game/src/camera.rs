@@ -1,4 +1,4 @@
-//! The world camera and the UI camera (`core/camera.md`, `ARCHITECTURE.md > Client architecture > Camera`).
+//! The world camera and the UI camera (`core/camera.md`, `docs/architecture/client-architecture-camera-and-hud.md > Client architecture > Camera`).
 //!
 //! The world camera is orthographic and shows exactly `CameraTuning::view_width_gu` (28 GU, `crate::tuning::camera`)
 //! horizontally. Its viewport is the area the active mode's UI leaves free ([`ViewportInsets`]), so the visible height

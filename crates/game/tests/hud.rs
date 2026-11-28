@@ -1,4 +1,4 @@
-//! The HUD of slice M2-G, headless (`ARCHITECTURE.md > Client architecture > Client tests`): the resource bar in the
+//! The HUD of slice M2-G, headless (`docs/architecture/client-architecture-placement-and-tests.md > Client architecture > Client tests`): the resource bar in the
 //! top bar (`factions/gdo/overview.md > DisplayHud`; design changes 0077, 0090 and 0143), its note while the fog of
 //! war is off (slice M5-S6) and the structures' InfoPanels (design changes 0099, 0105 and 0155), with the fog of war
 //! on. Each `App::update` is one tick; clicks and keys come through the virtual mouse and keyboard (`InjectedInput`).

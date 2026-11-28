@@ -238,7 +238,7 @@ fn the_dead_are_gone_before_the_shields_regenerate() {
     assert!(hits_on(&t, 1).iter().all(|&(at, ..)| at <= tick));
 }
 
-/// `Object::shields` is state: hashed (`ARCHITECTURE.md > Replays and golden hashes`) and saved. A state saved before
+/// `Object::shields` is state: hashed (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`) and saved. A state saved before
 /// Shields existed, without the field, loads with full Shields; a GDO unit has none.
 #[test]
 fn shields_are_hashed_saved_and_full_in_an_older_save() {

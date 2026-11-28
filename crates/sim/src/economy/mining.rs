@@ -14,7 +14,7 @@
 //!   (`factions/gdo/economy.md > PowerPenalty`; the ratio in [`crate::economy::RATIO_ONE`]s, plan decision T6), the
 //!   remainder carried over into the next cycle, so the lumps come less often at negative power and stay the same size.
 //!   "A new plate's first payment comes 48 frames after it is placed": like every system, mining starts in the tick
-//!   after the one that made the pair (`ARCHITECTURE.md > Tick pipeline > Spawn tick`), so a plate placed in tick `t`
+//!   after the one that made the pair (`docs/architecture/tick-pipeline.md > Tick pipeline > Spawn tick`), so a plate placed in tick `t`
 //!   first pays in tick `t + 48`.
 //! - **Loads** (design change 0099): 10 while the patch holds 10, then what is left (`factions/gdo/economy.md > Last
 //!   partial load`: 5 of a 1505 patch), then the residual 1 forever: the patch stays under its plate with 0 left

@@ -21,13 +21,13 @@
 //!   round its caster ("within **4 grid units** of the vehicle"), on its edge too, as the Shrine's; Suppress's an arc
 //!   ahead of its caster's facing (`crate::suppress::in_arc`). Both are where the last tick left the caster.
 //! - **The effects** ([`step`]): every tick the buff lasts, its own included, right after the energy pools
-//!   (`ARCHITECTURE.md > Tick pipeline`), so that the dead never heal: Health regeneration adds its HP a tick, 0.125
+//!   (`docs/architecture/tick-pipeline.md > Tick pipeline`), so that the dead never heal: Health regeneration adds its HP a tick, 0.125
 //!   (exact in an `f32`, as the Shields' 0.25), up to the unit's MaxHP with its Augmentations (`Object::max_hp_with`),
 //!   30 HP over its 240 ticks; Energy regeneration adds its energy to the unit's own regeneration, 4096 a tick
 //!   (`crate::energy::step`, [`energy_bonus`]), up to its MaxEnergy. Then each buff whose last tick this was ends.
 //!   Wherever the unit is: one inside a building keeps its buff, which goes on working there. **Placeholder (not in
 //!   the design: "keep it even if they leave the area" names no exception)**, as the energy's regeneration. An object
-//!   that a command brought into the game in the tick has its effects from the next one (`ARCHITECTURE.md > Tick
+//!   that a command brought into the game in the tick has its effects from the next one (`docs/architecture/tick-pipeline.md > Tick
 //!   pipeline`). (M5-N11) Inspire's and Suppress's work through what reads them, in each tick of the buff: the
 //!   unit's top speed (`Object::movement`, [`max_speed_bonus`]) and its weapon (`combat::weapon`, [`inspired`]), and
 //!   whether it may start an attack (`crate::suppress::holds_fire`).

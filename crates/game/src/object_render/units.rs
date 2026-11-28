@@ -1,4 +1,4 @@
-//! Units' placeholder visuals (until the art direction, Q0001, settles them; `ARCHITECTURE.md > Client architecture >
+//! Units' placeholder visuals (until the art direction, Q0001, settles them; `docs/architecture/client-architecture-visuals.md > Client architecture >
 //! Visuals`): a shape of its own per kind, its silhouette's size, in its owner's colour, with a tick showing its
 //! facing. A body turns with its facing only if it is round or (slice M5-V1) its Silhouette turns, as a vehicle's
 //! does ([`body_turns`]); the Colonists' units, the Peacekeepers

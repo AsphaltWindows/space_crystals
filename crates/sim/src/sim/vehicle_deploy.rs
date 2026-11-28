@@ -11,7 +11,7 @@ use crate::orders::OrderKind;
 use crate::vehicle_deploy;
 
 impl Sim {
-    /// The step right after the Modes step (`ARCHITECTURE.md > Tick pipeline`), for the units before `first_new`, in
+    /// The step right after the Modes step (`docs/architecture/tick-pipeline.md > Tick pipeline`), for the units before `first_new`, in
     /// id order: each one that deploys takes one frame of its deploy (`vehicle_deploy::step`), and each whose last frame
     /// that was completes its deploy ([`Sim::complete_vehicle_deploy`]). Before phase 5a, so that the unit acts as its
     /// new type from the tick's first phase, its held order first; a deploy that 5a starts takes its first frame at the

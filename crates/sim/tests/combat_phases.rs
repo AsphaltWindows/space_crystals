@@ -1,4 +1,4 @@
-//! Attack sequences (`systems/combat.md > AttackPhase`, `ARCHITECTURE.md > Combat`): each phase lasts exactly its
+//! Attack sequences (`systems/combat.md > AttackPhase`, `docs/architecture/combat.md > Combat`): each phase lasts exactly its
 //! duration in ticks, the unit faces its target before it fires, and only Aiming and Reloading can be interrupted.
 //!
 //! The target holds its position (`systems/controls/command_behaviors.md > HoldingPosition`), so it never moves; it may

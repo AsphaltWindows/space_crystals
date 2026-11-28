@@ -45,7 +45,7 @@ fn assert_unplaceable(
 /// The plan's acceptance, a valid Place: the structure is on the map in its orientation, centred on its footprint,
 /// with `Spawned` and `StructurePlaced`; the constructor is idle again; power and the build area follow at once
 /// (design changes 0089, 0092), the true grids block it in its tick, and so do its owner's planning grids at the end
-/// of it (`ARCHITECTURE.md > Navigation > Path knowledge`).
+/// of it (`docs/architecture/navigation.md > Navigation > Path knowledge`).
 #[test]
 fn a_placed_building_is_on_the_map_in_its_orientation() {
     // A scout, Peacekeeper 5, sees the edge of the area (x 21), where the Barracks goes.

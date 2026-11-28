@@ -27,7 +27,7 @@
 //!   wherever it stood ("The Beacon always appears on the footprint the ghost showed"), the same object
 //!   (`Sim::change_kind`; design change 0109: "the footprint is claimed immediately"), transforming from the Drone
 //!   (`crate::Transform`, with no `from_placement`) for [`DEPLOYMENT_FRAMES`], its first in this tick
-//!   (`ARCHITECTURE.md > Economy > Recipe timing`). Otherwise the order fails: the Drone stands, its next queued order
+//!   (`docs/architecture/economy.md > Economy > Recipe timing`). Otherwise the order fails: the Drone stands, its next queued order
 //!   starts in the next tick, if it has one, and `SimEvent::DeployFailed` says why.
 //! - **The transformation** is the Warp In's (`crate::transform`): its HP interpolates from the Drone's 20 to the
 //!   Beacon's 120, damage staying taken (design change 0110), and it completes one way

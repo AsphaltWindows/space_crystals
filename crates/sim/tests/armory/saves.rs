@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): the entries of a building's queue with
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): the entries of a building's queue with
 //! the units they reserve, the mark of a unit ready to leave, and a unit's augmentations are part of the state.
 
 use sc_sim::{Replay, Sim};

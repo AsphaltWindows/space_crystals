@@ -16,7 +16,7 @@
 //!    placement check allows now, unturned (`Sim::warp_in_check`). Nothing that transforms is free: a building under
 //!    Warp In and a Beacon under deployment take only their cancel (design change 0116). The builder is the player's
 //!    first object of the order's `by` kind, by id; a constructor or producer that came into the game in a tick
-//!    takes orders from the next (`ARCHITECTURE.md > Tick pipeline > Spawn tick`).
+//!    takes orders from the next (`docs/architecture/tick-pipeline.md > Tick pipeline > Spawn tick`).
 //!
 //! An order waits for the orders before it in its track; the tracks don't wait for each other, but the earlier ones
 //! get the money first. A track's orders may go to different builders: a line of one track is the design's "Plate,
@@ -77,7 +77,7 @@ impl Order {
 }
 
 /// An order a build order issued: the tick its command applies in, which is the first of its recipe's frames
-/// (`ARCHITECTURE.md > Economy > Recipe timing`), the builder, and what it paid.
+/// (`docs/architecture/economy.md > Economy > Recipe timing`), the builder, and what it paid.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Issued {
     pub tick: Tick,

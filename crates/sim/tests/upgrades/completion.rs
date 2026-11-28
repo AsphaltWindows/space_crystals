@@ -13,7 +13,7 @@ fn hp(t: &TestSim, tunnel: ObjectId) -> (Option<f32>, Option<f32>) {
 }
 
 /// Design change 0229's verification: "A Tunnel upgrade takes 30 s". Ordered in tick 2, [`T1`]'s upgrade does a frame
-/// a tick from then, as a recipe (`ARCHITECTURE.md > Economy > Recipe timing`): the Tunnel is at Tier 1 through tick
+/// a tick from then, as a recipe (`docs/architecture/economy.md > Economy > Recipe timing`): the Tunnel is at Tier 1 through tick
 /// 480 and at Tier 2 at the end of tick 481, the 480th; its MaxHP and HP rise together, 600/600 to 800/800
 /// (`factions/syndicate/tunnels.md > Tunnel > Tiers`), and its Tunnel Space by 9 (its region from 48 cells to 84, a
 /// quarter each). The same again to Tier 3: 1000/1000, and 32.
@@ -116,7 +116,7 @@ fn an_upgrade_now_covering_a_neutral_expansion_takes_it_back_as_it_completes() {
 }
 
 /// A game with upgrades under way, one cancelled and one completed, goes on alike after a save at every stage, tick by
-/// tick, and its replay plays back to the same state (`ARCHITECTURE.md > Replays and golden hashes`).
+/// tick, and its replay plays back to the same state (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`).
 #[test]
 fn a_game_saved_mid_upgrade_goes_on_alike_and_replays() {
     let mut t = started(base().spawn(TUNNEL, Some(P1), tile(24, 8)), 20);

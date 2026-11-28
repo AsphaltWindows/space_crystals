@@ -1,4 +1,4 @@
-//! What the local player can select and where it is drawn (`ARCHITECTURE.md > Client architecture > Visuals`): picking
+//! What the local player can select and where it is drawn (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals`): picking
 //! by click and by box (`systems/controls/selection.md > MapClickSelection`, `> BoxSelection`) in view space, against
 //! each object's box as it is drawn this frame, lifted by its terrain height ((M5-H1) and an air unit's by its flight,
 //! `crate::object_render::body_height`). The live objects the player sees count, and on Explored tiles the records
@@ -203,7 +203,7 @@ impl Selectables {
     }
 
     /// Every object of `sim` that the player whose `sight` this is may select ([`selectable_by`]), drawn where the
-    /// frame draws it: at `prev_pos.lerp(pos, alpha)` (`ARCHITECTURE.md > Client architecture > Visuals >
+    /// frame draws it: at `prev_pos.lerp(pos, alpha)` (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals >
     /// Interpolation`), as `tuning` lifts the air units; and the records shown in place of objects that it may select
     /// ([`remembered_selectable_by`]), where they show them. A click picks within `tuning`'s slop of them.
     pub fn tuned(sim: &Sim, sight: &Sight, alpha: f32, tuning: &ClientTuning) -> Self {

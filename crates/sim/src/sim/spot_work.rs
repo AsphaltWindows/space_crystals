@@ -2,7 +2,7 @@
 //! step (`Sim::step_deployments`), each unit that works at a footprint from a spot beside it gets its own spot along
 //! the footprint's wall (`placement::Wall`), and walks there round the footprint; a unit that ended its walk out of
 //! reach looks again now and then. Before 5b, so that the paths of this tick serve the walks it begins
-//! (`ARCHITECTURE.md > Tick pipeline`).
+//! (`docs/architecture/tick-pipeline.md > Tick pipeline`).
 
 use glam::Vec2;
 

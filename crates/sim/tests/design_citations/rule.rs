@@ -132,7 +132,8 @@ fn prose(text: &str, rust: bool) -> String {
     String::from_utf8(out).expect("whole comments and lines, the rest blanked: still UTF-8")
 }
 
-/// The `.md` files the module doc of a Rust file's `prose` (its leading `//!` lines) cites.
+/// The `.md` files the module doc of a Rust file's `prose` (its leading `//!` lines) cites, but the architecture docs
+/// (`docs/architecture/`), which are rules for the code and not a file whose sections a relative citation names.
 fn module_files(prose: &str, prefixes: &Prefixes) -> BTreeSet<String> {
     let end = prose
         .split_inclusive('\n')
@@ -142,7 +143,7 @@ fn module_files(prose: &str, prefixes: &Prefixes) -> BTreeSet<String> {
     let design = format!("{DESIGN}/");
     citations(&prose[..end], prefixes)
         .into_iter()
-        .filter(|cited| cited.path.ends_with(".md"))
+        .filter(|cited| cited.path.ends_with(".md") && !cited.path.starts_with("docs/architecture/"))
         .map(|cited| cited.path.strip_prefix(&design).unwrap_or(&cited.path).to_owned())
         .collect()
 }

@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`) with passengers aboard: held at
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`) with passengers aboard: held at
 //! `network::Place::Carrier`, their carrier on the map or held in the network itself.
 
 use sc_sim::{Replay, Sim};

@@ -27,7 +27,7 @@ pub type Hook = fn(&View<'_>, Profile) -> Box<dyn FactionAi>;
 
 /// One faction's computer player (module docs). It must never panic, whatever the game's state: an assumption that
 /// fails skips the action. It reads the game only through the View its turn gives it, and its every choice is
-/// deterministic: no hash containers, no clock, ties broken by `ObjectId` (`ARCHITECTURE.md > Computer players`).
+/// deterministic: no hash containers, no clock, ties broken by `ObjectId` (`docs/architecture/computer-players.md > Computer players`).
 pub trait FactionAi: fmt::Debug + Send + Sync {
     /// Its commands for the next tick: what it builds and trains, given into `turn` (`Turn::give`, `Turn::buy`). The
     /// army layer then moves the units that fight.

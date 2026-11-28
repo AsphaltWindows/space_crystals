@@ -7,7 +7,7 @@
 //! - `hp`: a unit's HP when its MaxHP changes;
 //! - `kinds`: a unit trained into infantry keeps its Augmentations;
 //! - `gate`: the debug command's refusals;
-//! - `raw_reads`: no code reads the stats past the accessors (`ARCHITECTURE.md > Object model > Augmented stats`).
+//! - `raw_reads`: no code reads the stats past the accessors (`docs/architecture/object-model-state.md > Object model > Augmented stats`).
 //!
 //! The table at every level, and a kind change into a vehicle, are the sim's unit tests' (`augmentation/tests.rs`,
 //! `sim/kinds/tests.rs`). Every test runs under the invariants of `TestSim`.

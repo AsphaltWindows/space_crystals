@@ -9,7 +9,7 @@
 //!   structure comes into the game on its footprint, which phase 5b claims, at the rule's maximum HP; the Agent leaves
 //!   the map for it (`Sim::take_off_map`, `network::Place::Site`, plan decision T30), and "keeps its load, in the site
 //!   and in the network" (design change 0234). The site is a new object, so its first frame is the next tick's
-//!   (`ARCHITECTURE.md > Tick pipeline > Spawn tick`): the maximum is 10% at the end of the arrival's tick and the
+//!   (`docs/architecture/tick-pipeline.md > Tick pipeline > Spawn tick`): the maximum is 10% at the end of the arrival's tick and the
 //!   whole after the site's frames.
 //! - **The frames** ([`Sim::step_sites`], in the economy phase beside the transformations): one a tick ("Agent must
 //!   be present for the duration", `factions/syndicate/tunnels.md > Construction Time`: one Agent builds at one

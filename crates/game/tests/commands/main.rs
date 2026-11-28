@@ -4,7 +4,7 @@
 //! `systems/controls/hud.md > PointerDisplayType`, `systems/controls/hud.md >
 //! CommandIndicators`; `systems/controls/commands.md > Unit Command`). Every input arrives through `InjectedInput`, the
 //! virtual keyboard and mouse, and goes through the input layer's bindings like a player's would; each `App::update` is
-//! one tick and 1/16 s of real time (`ARCHITECTURE.md > Client architecture > Client tests`). The orders given are read
+//! one tick and 1/16 s of real time (`docs/architecture/client-architecture-placement-and-tests.md > Client architecture > Client tests`). The orders given are read
 //! back from the recorded inputs, as the sim received them. The fog of war is off (`--no-fog`), so that everything is
 //! drawn and can be clicked; what the fog hides from the command flow is tested in `fog.rs`. The sim takes an order on
 //! an object only while the player sees it, so player 1 has scouts off screen, in sight of every target; and

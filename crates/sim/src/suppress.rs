@@ -8,7 +8,7 @@
 //!   hashed and saved only while a unit has one), which the cast (`Command::Cast`, in the commands phase) gives every
 //!   unit whose centre is in its arc ([`in_arc`]): "**Affects every unit in the arc, enemies and own alike**", "**Air
 //!   units in the arc are affected** too", "**Not buildings**". It lasts 64 ticks, the cast's own included, and the
-//!   Buffs step ends it after its last (`ARCHITECTURE.md > Tick pipeline`). A unit already suppressed has it restarted
+//!   Buffs step ends it after its last (`docs/architecture/tick-pipeline.md > Tick pipeline`). A unit already suppressed has it restarted
 //!   by a recast: **Placeholder (not in the design)**, as Inspire's "Recasting on units that are already inspired
 //!   restarts the duration". The vehicle isn't in its own arc, and has no weapon anyway.
 //! - **The arc** ([`in_arc`]): from the vehicle's centre along its facing, as the last tick left them, 45° to each side,

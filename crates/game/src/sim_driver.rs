@@ -1,4 +1,4 @@
-//! Owns the simulation and steps it (`ARCHITECTURE.md > Client architecture > Sim driver`).
+//! Owns the simulation and steps it (`docs/architecture/client-architecture-visuals.md > Client architecture > Sim driver`).
 //!
 //! One `FixedUpdate` run is one tick at [`TICKS_PER_SECOND`] (`core/scale.md > SimulationFrame`); nothing else
 //! steps the sim. Once the game is over (`Sim::outcome`), it isn't stepped again: "the game stops"
@@ -68,7 +68,7 @@ pub struct PendingCommands(pub Vec<PlayerCommand>);
 
 impl PendingCommands {
     /// The type object `id` has once these commands are applied, as the selection groups it from the press
-    /// (`ARCHITECTURE.md > Object model > Type and form`; design change 0198: a mode toggle switches the type "at the
+    /// (`docs/architecture/object-model-state.md > Object model > Type and form`; design change 0198: a mode toggle switches the type "at the
     /// press"): its type in `sim`, switched by each of `player`'s mode toggles among them that names it, in order, as
     /// the sim applies them (`sc_sim::Ability::switched_kind`). `None` when `sim` has no such object.
     pub fn kind_of(&self, sim: &Sim, player: PlayerId, id: ObjectId) -> Option<ObjectKind> {
@@ -235,7 +235,7 @@ fn step_sim(
     }
 }
 
-/// `ARCHITECTURE.md > Client architecture > Visuals > Interpolation`: `Time<Fixed>::overstep_fraction()`, read in
+/// `docs/architecture/client-architecture-visuals.md > Client architecture > Visuals > Interpolation`: `Time<Fixed>::overstep_fraction()`, read in
 /// `Update`, unless the sim stands still (paused, or held) or runs at [`Pace::Max`], which draws exact ticks.
 fn update_render_alpha(
     fixed: Res<Time<Fixed>>,

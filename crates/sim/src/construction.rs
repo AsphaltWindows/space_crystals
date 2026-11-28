@@ -31,7 +31,7 @@
 //!   power; the Extraction Facility, a consumer, at the power ratio (design change 0089, `factions/gdo/overview.md >
 //!   GDOResources > Power`). The ratio is rounded up, so a plate at 30/51 takes exactly 400 × 51/30 = 680 ticks.
 //!   The first frame is the tick of the command that starts the construction, which applies before the economy
-//!   phase (`ARCHITECTURE.md > Economy > Recipe timing`): ordered in tick `t`, a Generator (240 frames) is ready at
+//!   phase (`docs/architecture/economy.md > Economy > Recipe timing`): ordered in tick `t`, a Generator (240 frames) is ready at
 //!   the end of tick `t + 239`, and a Place can put it on the map from tick `t + 240`.
 //! - **Placing** (`factions/gdo/structures/deployment_center.md > AwaitingPlacement`, `factions/gdo/economy.md >
 //!   ExtractionFacility > AwaitingPlacement`): Place puts the ready building on the map in its own tick, where the
@@ -40,7 +40,7 @@
 //!   patch. A Place the check refuses at that moment leaves the building ready, and the sim reports why
 //!   (`SimEvent::PlacementRefused`). The new structure counts for its owner's power and build area at once, blocks
 //!   ground units from the same tick's movement on (phase 5b), joins its owner's planning grids at the end of the tick
-//!   (`paths::sync_known`), and works from the next tick on (`ARCHITECTURE.md > Tick pipeline > Spawn tick`).
+//!   (`paths::sync_known`), and works from the next tick on (`docs/architecture/tick-pipeline.md > Tick pipeline > Spawn tick`).
 //! - **Not built** (`artifacts/director/m2-plan.md` 1.2): tech prerequisites, as none of the buildings with a cost and
 //!   a time has one; ConstructionHP, as GDO buildings are placed whole.
 //!

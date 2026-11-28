@@ -1,4 +1,4 @@
-//! Command-line flags, parsed by hand. `ARCHITECTURE.md > QA mode` documents them for agents; [`usage`] is the help
+//! Command-line flags, parsed by hand. `docs/architecture/qa-mode.md > QA mode` documents them for agents; [`usage`] is the help
 //! text.
 
 mod ai;

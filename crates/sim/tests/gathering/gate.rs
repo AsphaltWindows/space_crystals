@@ -24,7 +24,7 @@ fn set_drop_off(player: PlayerId, units: &[u32], node: u32) -> PlayerCommand {
     command(player, Command::Ability { units, ability })
 }
 
-/// The gate (`ARCHITECTURE.md > Commands, events and replays`): every invalid Gather, Drop Off and Set Drop-off is
+/// The gate (`docs/architecture/commands-events-replays.md > Commands, events and replays`): every invalid Gather, Drop Off and Set Drop-off is
 /// rejected with its reason, and changes nothing.
 #[test]
 fn the_gate_rejects_invalid_worker_commands_and_they_change_nothing() {

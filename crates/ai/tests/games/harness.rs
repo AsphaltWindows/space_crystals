@@ -1,5 +1,5 @@
 //! An AI-against-AI game, headless ([`play`], or [`watch`] with an observer): each computer player thinks before each
-//! step, on the game as the last tick left it, as the client runs them (`ARCHITECTURE.md > Computer players`), and
+//! step, on the game as the last tick left it, as the client runs them (`docs/architecture/computer-players.md > Computer players`), and
 //! after every step the game is checked:
 //! - `sc_sim::testing`'s invariants ([`Invariants::check`], as the sim's pairings check them, or the rules' alone for
 //!   [`Checks::Rules`]), and no object names a removed one;

@@ -4,7 +4,7 @@
 
 use bevy::input::keyboard::KeyCode;
 
-/// Which bindings apply: the game's or the map editor's (`ARCHITECTURE.md > Client architecture > Input`). A game
+/// Which bindings apply: the game's or the map editor's (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`). A game
 /// and an editor play-test take the game's, the editor its own (`crate::ClientMode::input_context`). An action works
 /// in its own context only ([`InputAction::context`]), so a key may mean one thing in the game and another in the
 /// editor (V is a command slot in the game and the Select tool in the editor).
@@ -28,7 +28,7 @@ impl InputContext {
 }
 
 /// Everything the player can ask the client to do with a key, a mouse button, the wheel or a modifier
-/// (`ARCHITECTURE.md > Client architecture > Input`). Gameplay and editor code ask for these, never for raw keys. The
+/// (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`). Gameplay and editor code ask for these, never for raw keys. The
 /// default bindings are [`super::Bindings::default`].
 ///
 /// Most actions fire on a press. The modifier actions ([`InputAction::Queue`], [`InputAction::ToggleSelection`],
@@ -91,7 +91,7 @@ pub enum InputAction {
     /// Modifier: `systems/controls/hud.md > SelectionPanel > Interactions`: a click on a portrait centers
     /// the camera on that unit instead of selecting it.
     CenterOnObject,
-    /// Debug only (`ARCHITECTURE.md > Commands, events and replays`, `SimConfig::debug`): the local client acts as the
+    /// Debug only (`docs/architecture/commands-events-replays.md > Commands, events and replays`, `SimConfig::debug`): the local client acts as the
     /// next player, so one client can control both sides. Placeholder binding: the design has no debug keys.
     DebugSwitchPlayer,
     /// Debug only, like [`InputAction::DebugSwitchPlayer`]: turns the fog of war off and on (`crate::fog`), a view
@@ -122,7 +122,7 @@ pub enum InputAction {
     /// (`crate::hud::minimap::alerts`); "Later notifications of other kinds (none yet) will use the same key". The
     /// game's, in a game, a play-test and a replay's playback alike, where the pings are the shown player's.
     JumpToAlert,
-    /// The map editor's input (`ARCHITECTURE.md > Map editor`).
+    /// The map editor's input (`docs/architecture/map-editor.md > Map editor`).
     Editor(EditorInput),
 }
 
@@ -182,7 +182,7 @@ impl InputAction {
     }
 }
 
-/// What the map editor can be asked to do with a key, a mouse button or the wheel (`ARCHITECTURE.md > Map editor`;
+/// What the map editor can be asked to do with a key, a mouse button or the wheel (`docs/architecture/map-editor.md > Map editor`;
 /// its F1 help lists the default bindings). The editor turns them into its `EditorAction`s
 /// (`crate::editor::input`). Esc ([`InputAction::Cancel`]), the grid ([`InputAction::ToggleGrid`]) and the camera's
 /// pans and middle-mouse grab are the game's actions, shared with the editor.

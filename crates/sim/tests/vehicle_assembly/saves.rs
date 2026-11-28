@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`) with the Vehicle Assembly and its
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`) with the Vehicle Assembly and its
 //! Bikes: a site under construction, Bikes in training, inside the network, queued at the exit path and driving out.
 
 use sc_sim::{Replay, Sim};

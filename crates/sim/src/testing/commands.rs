@@ -14,7 +14,7 @@ use crate::scenario::SpawnAt;
 
 /// One command of every kind: every variant of [`Command`], [`OrderKind`], [`Target`], [`Ability`],
 /// [`ProductionCommand`], [`ConstructionCommand`], [`DebugCommand`], [`SpawnAt`] and [`AreaAbility`], queued and not,
-/// for tests that a replay file keeps everything a player did (`ARCHITECTURE.md > Replays and golden hashes`). The ids
+/// for tests that a replay file keeps everything a player did (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`). The ids
 /// needn't exist. The match below stops compiling when a variant is added, as a reminder to add it here.
 pub fn every_command() -> Vec<Command> {
     let units = vec![ObjectId(1), ObjectId(2)];

@@ -4,7 +4,7 @@
 #
 #     qa/walkthrough/m5/run.sh [out-dir]       (from the repository's root; out-dir defaults to target/walkthrough-m5)
 #
-# Each scene is a QA run of the game (ARCHITECTURE.md > QA mode) with its --commands and --input-script files from
+# Each scene is a QA run of the game (docs/architecture/qa-mode.md > QA mode) with its --commands and --input-script files from
 # this directory; every one is on dev_skirmish with player 1's view. Look at every PNG it writes. Every scene runs
 # --fast but a5, whose tuning file the wall clock times (about 12 seconds). (Slice M6-S6a: a1 and a2 ran in real time
 # too, since under --fast a tapped click right before a long gap in the script was read only once the sim had run on

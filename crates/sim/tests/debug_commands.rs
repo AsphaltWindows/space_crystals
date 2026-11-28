@@ -1,5 +1,5 @@
 //! `Command::Debug`: valid commands take effect, invalid ones are ignored without a panic
-//! (`ARCHITECTURE.md > Commands, events and replays`).
+//! (`docs/architecture/commands-events-replays.md > Commands, events and replays`).
 
 use sc_sim::scenario::DEFAULT_STARTING_AMOUNT;
 use sc_sim::testing::{ScenarioBuilder, TestSim};

@@ -1,4 +1,4 @@
-//! The guard on the accessors (slice M5-N1a; `ARCHITECTURE.md > Object model > Augmented stats`): a unit's MaxHP, its
+//! The guard on the accessors (slice M5-N1a; `docs/architecture/object-model-state.md > Object model > Augmented stats`): a unit's MaxHP, its
 //! speed and its weapon are read through those that apply its Augmentations (`Object::max_hp_with`,
 //! `Object::movement` or `movement_ref`, `Object::max_speed`, `combat::weapon` or `weapon_ref`), never past them.
 //! This test scans the sim's and the client's code for the reads past them, outside the definitions (`defs/`), the

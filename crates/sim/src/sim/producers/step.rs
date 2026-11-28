@@ -1,4 +1,4 @@
-//! The producers' step of the economy phase (plan decision T5; `ARCHITECTURE.md > Tick pipeline`), with the start
+//! The producers' step of the economy phase (plan decision T5; `docs/architecture/tick-pipeline.md > Tick pipeline`), with the start
 //! check of design change 0143 (`factions/gdo/overview.md > GDOResources > Unit Control`, "Reserved when production
 //! starts"; `factions/colonists/overview.md > Beacon Capacity > Reserved when production starts`): "When the unit
 //! reaches the front of the queue and production is about to start, it needs free [capacity] (available minus used)

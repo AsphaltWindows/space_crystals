@@ -276,7 +276,7 @@ fn a_save_before_or_after_the_first_vehicle_loads_and_plays_on_the_same() {
     }
 }
 
-/// A held unit has its grid for the spot it comes out at (`ARCHITECTURE.md > Object model > Units off the map: the held
+/// A held unit has its grid for the spot it comes out at (`docs/architecture/object-model-holding.md > Object model > Units off the map: the held
 /// store`): the game's one vehicle, a test def's wheeled Recruit, inside player 1's Armory, and a save taken while it is
 /// inside loads with its grid, though no unit on the map walks on it; Released, it comes out at the Armory's door the
 /// same in the loaded game as in the game it was taken from.

@@ -1,4 +1,4 @@
-//! The shared input layer's actions → [`EditorAction`]s (`ARCHITECTURE.md > Client architecture > Input`). The
+//! The shared input layer's actions → [`EditorAction`]s (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`). The
 //! editor reads only what the layer produces: the actions of the editor's input context ([`ActionState`]), the
 //! pointer ([`Pointer`]: the ground under the cursor, whether it is over the UI, the press on the map) and its clicks
 //! ([`MapClick`]); never raw keys, buttons, the wheel or the cursor. Tests and scripts inject input into the layer

@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): a Cathedral's queue with the Recruits
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): a Cathedral's queue with the Recruits
 //! it reserves, and the Disciples' energy, are part of the state.
 
 use sc_sim::{Replay, Sim};

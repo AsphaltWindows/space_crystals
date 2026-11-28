@@ -1,4 +1,4 @@
-//! Interpolation (`ARCHITECTURE.md > Client architecture > Visuals > Interpolation`): an object drawn between
+//! Interpolation (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals > Interpolation`): an object drawn between
 //! its tick positions, except after a teleport.
 
 use super::*;
@@ -15,7 +15,7 @@ fn advance(app: &mut App, fraction: f64) -> (f32, Vec2) {
     (alpha, Vec2::new(drawn.x, -drawn.y))
 }
 
-/// `ARCHITECTURE.md > Client architecture > Visuals > Interpolation`: between ticks, an object is drawn between its
+/// `docs/architecture/client-architecture-visuals.md > Client architecture > Visuals > Interpolation`: between ticks, an object is drawn between its
 /// `prev_pos` and `pos`, by the part of the next tick that has passed (`Time<Fixed>::overstep_fraction`); a teleport
 /// (`DebugCommand::SetPosition`) is drawn at its target at once, never on the way there.
 #[test]

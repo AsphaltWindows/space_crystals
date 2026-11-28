@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`) with the Shadebringer's tanks
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`) with the Shadebringer's tanks
 //! (`Object::tanks`), its trail (`Sim::patches`), the slow (`BuffKind::Sludge`) and the Vault's refill.
 
 use sc_sim::{Replay, Sim};

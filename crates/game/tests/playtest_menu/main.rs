@@ -1,5 +1,5 @@
 //! The playtest menu (slice M5-S7; design change 0414, `core/game_rules.md > Playtest menu (temporary)`), headless,
-//! one tick per update (`ARCHITECTURE.md > Client architecture > Client tests`), its buttons clicked through the
+//! one tick per update (`docs/architecture/client-architecture-placement-and-tests.md > Client architecture > Client tests`), its buttons clicked through the
 //! virtual mouse where the menu's layout puts them (`MenuLayout`): F10 opens it and pauses the game, F10 again or
 //! Resume continues, and Quit exits (here); Restart starts the game over as it was launched, as a fresh launch of it
 //! would, with every piece of the client's state, and the new game records to a file of its own (`restart`). The menu

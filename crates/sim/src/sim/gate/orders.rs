@@ -189,7 +189,7 @@ impl Sim {
     /// the edge sends the units to the edge (design change 0045: "Clicking outside the map issues no order beyond the
     /// edge"). Units that can't stand at the very edge go as near as they get
     /// (`systems/controls/command_behaviors.md > MovingToLocation > Unreachable target location`). A point that isn't
-    /// finite is [`Reject::OffMap`]: a replay can't hold it (`ARCHITECTURE.md > Commands, events and replays`).
+    /// finite is [`Reject::OffMap`]: a replay can't hold it (`docs/architecture/commands-events-replays.md > Commands, events and replays`).
     fn onto_map(&self, kind: OrderKind) -> Result<OrderKind, Reject> {
         let onto = |p: Vec2| {
             if p.is_finite() {

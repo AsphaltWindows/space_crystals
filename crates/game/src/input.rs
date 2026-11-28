@@ -1,4 +1,4 @@
-//! The shared input layer (`ARCHITECTURE.md > Client architecture > Input`): raw keyboard and mouse input becomes
+//! The shared input layer (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`): raw keyboard and mouse input becomes
 //! the input of the game and of the map editor in one place, in `PreUpdate`, before any game or editor system runs.
 //!
 //! - [`Bindings`] is the one rebindable table that maps keys, mouse buttons and the wheel, with modifiers, to
@@ -292,7 +292,7 @@ struct BindingTracking {
 }
 
 /// Turns this frame's buttons and wheel into actions through the bindings of the mode's input context
-/// (`ARCHITECTURE.md > Client architecture > Input`).
+/// (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`).
 fn read_actions(
     devices: Devices,
     bindings: Res<Bindings>,

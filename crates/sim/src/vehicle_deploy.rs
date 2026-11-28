@@ -43,7 +43,7 @@
 //!   is checked against the new type ([`can_take`], the gate's rule): one it can't carry out is dropped, with a
 //!   `SimEvent::OrderDropped`, which the client says as "the usual unavailable-command feedback". The unit acts as its
 //!   new type from that tick's first phase on, its held order first.
-//! - **Timing** (as `ARCHITECTURE.md > Economy > Recipe timing` counts frames): a deploy of N frames given in tick `t`
+//! - **Timing** (as `docs/architecture/economy.md > Economy > Recipe timing` counts frames): a deploy of N frames given in tick `t`
 //!   to a unit with nothing before it starts in phase 5a of `t`; the unit deploys in ticks `t` to `t + N - 1` as its old
 //!   type, and is its new type from tick `t + N` on, whose step completes the deploy.
 //! - **A site** (plan decision T87, slice M6-GP's Prospector: "the order's first half is `deploy.rs`'s Drone

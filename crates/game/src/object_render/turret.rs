@@ -130,7 +130,7 @@ pub(super) fn draw_fixed(mesh: &mut ColorMesh, color: Color) {
 }
 
 /// Turns each barrel to its turret's facing, interpolated between the last tick's and this one's
-/// (`ARCHITECTURE.md > Client architecture > Visuals > Interpolation`), as `super::place_object_visuals` does a
+/// (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals > Interpolation`), as `super::place_object_visuals` does a
 /// unit's facing tick: a structure's facing, or (M5-U1) a unit's turret's ([`TurretTrack`]), less its body's turn.
 pub(super) fn place_barrels(
     sim: Res<SimRes>,

@@ -1,4 +1,4 @@
-//! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): an Altar's augmentation orders with the
+//! Saves, replays and the hash (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): an Altar's augmentation orders with the
 //! units they reserve, and the Augmentations they give, are part of the state.
 
 use sc_sim::{Replay, Sim};

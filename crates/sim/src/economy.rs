@@ -20,7 +20,7 @@
 //!   (`drop_off.rs`, slices M4-D and M4-I), the Supplies from the Supply Delivery Stations (`stations.rs`).
 //! - **Defeat** (`defeat.rs`, slice M2-F2): the last step of the phase. A player who loses their last structure is
 //!   defeated, their units become neutral, and the defeat that leaves one side standing ends the game.
-//! - **The phase** ([`step`]) runs after phase 5e and before 5f (plan decision T5, `ARCHITECTURE.md > Tick
+//! - **The phase** ([`step`]) runs after phase 5e and before 5f (plan decision T5, `docs/architecture/tick-pipeline.md > Tick
 //!   pipeline`). The constructors' progress is part of it (`crate::construction`, slice M2-D1).
 //!
 //! Everything is integer: rates are fixed point, [`RATIO_ONE`] being 100% (plan decision T6).

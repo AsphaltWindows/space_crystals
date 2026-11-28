@@ -1,7 +1,7 @@
 //! Computer players (`core/game_rules.md > Computer players (playtest tool)`): "For now, computer players are a
 //! **playtest tool** ... started from the command line, taking any player's slot. Their behavior (profiles such as
 //! standard, rush and passive; build orders) is the Director's placeholder" (design change 0402, answering Q0147).
-//! Every behavior here is a placeholder of that kind, its numbers in `tuning` (`ARCHITECTURE.md > Computer players`).
+//! Every behavior here is a placeholder of that kind, its numbers in `tuning` (`docs/architecture/computer-players.md > Computer players`).
 //!
 //! An [`Ai`] plays one player. Once a tick, before the step, [`Ai::think`] looks at the game as the last tick left it
 //! and gives the player's commands for the next one, as `testing`'s scripted openings do: the same commands a player

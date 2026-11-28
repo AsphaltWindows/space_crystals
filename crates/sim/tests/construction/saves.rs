@@ -1,4 +1,4 @@
-//! Saves and replays (`ARCHITECTURE.md > Replays and golden hashes`): a game saved in the middle of its
+//! Saves and replays (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`): a game saved in the middle of its
 //! constructions goes on exactly as the running one, and so does its replay.
 
 use super::*;

@@ -16,7 +16,7 @@
 //!   at the unit's feet ([`stance`]).
 //!
 //! One mesh and one texture, over the box of tiles the clouds and the flashes cover ([`Area`]), never an entity per
-//! cloud or per tile (`ARCHITECTURE.md > Client architecture > Visuals`): the mesh follows the terrain's surface tile
+//! cloud or per tile (`docs/architecture/client-architecture-visuals.md > Client architecture > Visuals`): the mesh follows the terrain's surface tile
 //! by tile, as the fog layer's does (`crate::fog::fog_mesh`), and is rebuilt when the box changes; the texture,
 //! [`TEXELS_PER_TILE`] texels to a tile's edge, sampled linearly so the edges soften, is written when what it shows
 //! changes: the clouds, the flashes, the local player's Visible tiles. With no cloud and no flash the layer is hidden

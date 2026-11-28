@@ -1,4 +1,4 @@
-//! What is drawn in front where objects overlap, and so what a click there picks (`ARCHITECTURE.md > Client
+//! What is drawn in front where objects overlap, and so what a click there picks (`docs/architecture/client-architecture-visuals.md > Client
 //! architecture > Visuals > Draw order`): a unit is drawn above every structure, also while it crosses one's
 //! footprint, as a unit walking out of a portal's energy doorway does (slice M3-D2, design change 0145), and its
 //! selection ring between the two; a click on it picks the unit, not the portal under it, also once it is stuck there

@@ -1,4 +1,4 @@
-//! What the client records (`ARCHITECTURE.md > Commands, events and replays`) replays to the same state.
+//! What the client records (`docs/architecture/commands-events-replays.md > Commands, events and replays`) replays to the same state.
 
 use std::collections::BTreeMap;
 
@@ -39,7 +39,7 @@ fn scripted_commands(frame: u32) -> Vec<PlayerCommand> {
     }
 }
 
-/// `ARCHITECTURE.md > Commands, events and replays`: what the client records (`LoadedScenario` and
+/// `docs/architecture/commands-events-replays.md > Commands, events and replays`: what the client records (`LoadedScenario` and
 /// `RecordedInputs`) plays back in a bare `Sim` to the same state hash at every tick, whether debug commands are on
 /// (the default) or off (`--no-debug`). The player's input that is not a command never reaches the sim.
 #[test]

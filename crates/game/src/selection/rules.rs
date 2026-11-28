@@ -16,7 +16,7 @@ use super::pick::{Selectable, Selectables};
 use crate::command_ui::InterfaceState;
 use crate::input::{Bindings, ControlGroup, InputAction, Modifiers};
 
-/// How a click or a box is meant: the roles its modifiers hold in the bindings table (`ARCHITECTURE.md > Client
+/// How a click or a box is meant: the roles its modifiers hold in the bindings table (`docs/architecture/client-architecture-input-and-selection.md > Client
 /// architecture > Input`), so rebinding a role changes the clicks and the boxes too.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ClickRoles {

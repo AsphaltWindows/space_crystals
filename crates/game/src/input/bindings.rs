@@ -1,4 +1,4 @@
-//! The bindings table (`ARCHITECTURE.md > Client architecture > Input`): every binding of the game and of the map
+//! The bindings table (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`): every binding of the game and of the map
 //! editor in one resource, so that rebinding (`systems/controls/interface.md > Key Rebinding`) changes
 //! data, not gameplay code.
 //!

@@ -1,4 +1,4 @@
-//! The command flow's systems: the frame's input (`ARCHITECTURE.md > Client architecture > Input`) changes the local
+//! The command flow's systems: the frame's input (`docs/architecture/client-architecture-input-and-selection.md > Client architecture > Input`) changes the local
 //! player's ObjectInterfaceState and gives orders, by the rules of [`super::interface`] and [`super::resolution`].
 //!
 //! Orders go to the sim as `Command::Order` in `PendingCommands`, named for the local player's own units only, and

@@ -35,7 +35,7 @@
   and kept per unit (6.4). Its changes are marked **(Q)**. The code is `crates/sim/src/orders/destinations.rs`.
 - **Object goals and the behaviours are built** (design changes 0031–0034, 0036 and 0037, answering G7–G9; G6 is
   answered by 0033 and built by slice M5-V1): slice E gave `MoveGoal::Object` its meaning (3, 5.6, 6.5)
-  and built the behaviours that set goals (`ARCHITECTURE.md > Behaviours`). Its changes are marked **(E)**. The code
+  and built the behaviours that set goals (`docs/architecture/behaviours.md > Behaviours`). Its changes are marked **(E)**. The code
   is `crates/sim/src/orders/`, `shape.rs`, `paths.rs` (`chase_check`), `movement.rs` and `movement/stuck.rs`.
 - **Crowds and nav performance are hardened** (slice G1; no design rule changed): units seek lanes among the units
   they have to pass (6.3), an idle group parts for a group that walks through it instead of being shoved along
@@ -161,7 +161,7 @@ repath storm the prototype died of. This design keeps the named channels as stat
 
 ## 3. Sim data model
 
-Two capabilities, each `Option` on `Object` with its own module (`ARCHITECTURE.md > Object model`), both fully hashed
+Two capabilities, each `Option` on `Object` with its own module (`docs/architecture/object-model-types.md > Object model`), both fully hashed
 and serialized. Paths are **state, not cache**: a save loaded mid-game continues bit-identically.
 
 ```rust
@@ -415,7 +415,7 @@ collision; soft separation is a velocity bias inside SeparationRadius (not M1). 
 `blocks(mover, other) -> bool` is the single place for exceptions (crushing later).
 **(H2)** Two exceptions since slice M3-H2 (design change 0106), both read off the two bodies, no pair state: two
 Drones on a Gather job don't block each other; and two units whose boxes already overlap as the mover's turn
-begins ignore each other until they are apart, with no push-apart (`ARCHITECTURE.md > Movement and collision >
+begins ignore each other until they are apart, with no push-apart (`docs/architecture/movement-and-collision.md > Movement and collision >
 Collision exceptions`).
 **(M5-V4)** A third since slice M5-V4, read off the mover's body alone: while a crusher's move crushes, its
 crushable enemies don't block it, and it kills those it overlaps or sweeps (6.13).
