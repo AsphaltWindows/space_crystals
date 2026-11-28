@@ -77,11 +77,13 @@ fn in_attack_sequence(o: &Object) -> bool {
 /// - (M5-V2) Its base yields (`UnitBaseDef::yields`; design change 0353: "an idle vehicle doesn't yield (it can't
 ///   take a sidestep; it stands like a unit on Hold Position)"): not a WheeledVehicle, and (M5-V3) not a
 ///   TrackedVehicle (design change 0440). Own idle infantry yield to a moving vehicle "as to any unit": who asks
-///   doesn't matter.
+///   doesn't matter. (M6-ST1) Its type's own flag over its base's (`UnitDef::yields`): nor the Subterranean
+///   Transport above ground, a DrillUnit that stands as a TrackedVehicle (0440: "a DrillUnit in its above-ground mode
+///   stand").
 /// - (M6-GD) It doesn't hold still for its drone (`crate::tether::holds`: "The Drone Operator **cannot move** while it
 ///   has a drone active"): it stands like a unit on Hold Position.
 pub(super) fn can_yield(o: &Object, mover: &Mover, movement: &MovementAttrs) -> bool {
-    o.def().unit.as_ref().is_some_and(|unit| unit.base_def().yields)
+    o.def().unit.as_ref().is_some_and(|unit| unit.yields())
         && o.owner.is_some()
         && o.orders.as_ref().is_some_and(|orders| orders.is_idle())
         && mover.goal == MoveGoal::None

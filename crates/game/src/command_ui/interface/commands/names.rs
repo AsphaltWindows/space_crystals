@@ -38,7 +38,8 @@ impl PanelCommand {
     /// (slice M6-GR). A vehicle's R is "Deploy", its name, into a type that can't move, and "Undep.", a shortening of
     /// Undeploy, into one that can (`sc_sim::vehicle_deploy::immobile`; slice M6-GA). (M6-SB) A tank's toggle says what
     /// a press does, as the Riot Shield's "Raise" and "Lower": its name, "Sludge", switching it on, and a shortening of
-    /// "Sludge Off", "Sl.Off", switching it off; (slice M6-SC) a Cover's alike, "Cover" and "Cv.Off".
+    /// "Sludge Off", "Sl.Off", switching it off; (slice M6-SC) a Cover's alike, "Cover" and "Cv.Off". (M6-ST1) A
+    /// carrier's Unload All is its name's first word, "Unload" (6 letters, as "Shroud").
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -108,6 +109,7 @@ impl PanelCommand {
                 lays: PatchKind::Smoke,
                 on: false,
             } => "Cv.Off",
+            PanelCommand::UnloadAll => "Unload",
         }
     }
 
@@ -165,6 +167,7 @@ impl PanelCommand {
             PanelCommand::VehicleDeploy(_) => "Undeploy".into(),
             PanelCommand::Toggle { lays, on: true } => format!("{} On", toggle_name(lays)),
             PanelCommand::Toggle { lays, on: false } => format!("{} Off", toggle_name(lays)),
+            PanelCommand::UnloadAll => "Unload All".into(),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol

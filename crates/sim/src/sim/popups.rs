@@ -37,7 +37,7 @@ fn ground_box(o: &Object) -> Option<(Vec2, Vec2)> {
     let def = o.def();
     let unit = def.unit.as_ref()?;
     def.silhouette()?;
-    (unit.base_def().domain == Domain::Ground).then(|| (o.pos, Shape::of(o).bound_half()))
+    (unit.domain() == Domain::Ground).then(|| (o.pos, Shape::of(o).bound_half()))
 }
 
 impl Sim {

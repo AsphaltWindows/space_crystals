@@ -116,8 +116,9 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
             OrderKind::Assist(_) | OrderKind::Repair(_) => return None,
             // (M6-GH1) An aircraft's flight to its Airfield ends over it, wherever the Airfield's pads are.
             OrderKind::Rebase(_) | OrderKind::ReturnToBase => return None,
-            // (M6-GA) A vehicle deploy leaves the unit where the orders before it did, as a Hold.
-            OrderKind::VehicleDeploy { .. } => {}
+            // (M6-GA) A vehicle deploy leaves the unit where the orders before it did, as a Hold, and (M6-ST1) so does
+            // an unload.
+            OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => {}
         }
     }
     None
@@ -137,7 +138,7 @@ fn reachable(nav: &Nav, map_size: Vec2, o: &Object, dest: Vec2) -> Vec2 {
     let half = def.half_extents().unwrap_or(Vec2::ZERO);
     let dest = dest.max(half).min((map_size - half).max(half));
     let grid = (def.unit.as_ref().zip(def.silhouette()))
-        .and_then(|(unit, silhouette)| paths::unit_grid(nav, unit.base_def(), silhouette));
+        .and_then(|(unit, silhouette)| paths::unit_grid(nav, unit, silhouette));
     let Some(grid) = grid else {
         return dest;
     };

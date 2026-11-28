@@ -171,14 +171,15 @@ impl Sim {
     fn parking_spot(&self, unit: ObjectId, door: &Door) -> Option<Vec2> {
         let o = self.objects.get(&unit)?;
         let def = o.def();
-        let base = def.unit.as_ref().map(|u| u.base).filter(|&base| parks(base))?;
+        let unit_def = def.unit.as_ref().filter(|u| parks(u.base))?;
         let order = o.orders.as_ref()?.queue.back()?;
         let OrderKind::Move(Target::Point(point)) = order.kind else {
             return None;
         };
         let size = def.half_extents()?;
         let reach = size.length();
-        let domain = base.def().domain;
+        // (M6-ST1) Its type's Domain, its own over its base's (`UnitDef::domain`), as the others' below.
+        let domain = unit_def.domain();
         let tuning = &rules().tuning.production;
         let near = tuning.parking_radius_gu * SU_PER_GU + reach;
         let half = exit_half(o.kind, door);
@@ -213,9 +214,10 @@ impl Sim {
             .filter(|other| other.id != unit)
             .filter_map(|other| {
                 let def = other.def();
-                let base = def.unit.as_ref()?.base_def();
+                let other_unit = def.unit.as_ref()?;
                 let reach = def.half_extents()?.length();
-                let takes = base.domain == domain && !base.yields && other.pos.distance(point) < near + reach;
+                let stands = other_unit.domain() == domain && !other_unit.yields();
+                let takes = stands && other.pos.distance(point) < near + reach;
                 takes.then(|| Shape::of(other))
             })
             .collect()
@@ -236,14 +238,15 @@ impl Sim {
             .filter(|other| other.id != unit && other.owner == owner)
             .filter_map(|other| {
                 let def = other.def();
-                let base = def.unit.as_ref()?.base_def();
+                let other_unit = def.unit.as_ref()?;
                 let orders = other.orders.as_ref()?;
                 let order = (orders.current.as_ref().map(|active| &active.order)).or_else(|| orders.queue.front())?;
                 let OrderKind::Move(Target::Point(_)) = order.kind else {
                     return None;
                 };
                 let (at, reach) = (order.destination()?, def.half_extents()?.length());
-                let claims = base.domain == domain && !base.yields && at.distance(point) < near + reach;
+                let stands = other_unit.domain() == domain && !other_unit.yields();
+                let claims = stands && at.distance(point) < near + reach;
                 claims.then_some((at, reach))
             })
             .collect()

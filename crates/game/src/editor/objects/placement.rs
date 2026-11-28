@@ -134,7 +134,7 @@ fn units_overlap(a: &Spawn, b: &Spawn) -> bool {
         let SpawnAt::Point(pos) = s.at else {
             return None;
         };
-        let domain = def.unit.as_ref()?.base_def().domain;
+        let domain = def.unit.as_ref()?.domain();
         Some((pos, def.half_extents()?, domain))
     };
     match (unit_box(a), unit_box(b)) {

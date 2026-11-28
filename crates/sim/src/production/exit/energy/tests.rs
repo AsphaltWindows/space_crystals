@@ -325,5 +325,5 @@ fn ground_it_cant_stand_on_under_the_portal_blocks_its_unit() {
 /// The Drone's nav class (a hover vehicle's, which crosses Rugged terrain).
 fn drone_class() -> NavClass {
     let def = ObjectKind::Drone.def();
-    def.unit.as_ref().unwrap().base_def().nav_class().unwrap()
+    def.unit.as_ref().unwrap().nav_class().unwrap()
 }

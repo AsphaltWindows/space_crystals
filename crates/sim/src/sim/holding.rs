@@ -29,7 +29,10 @@
 //! - (M5-N7) **Takeoff** (`holding/takeoff.rs`): an aircraft a runway's building trains (`ExitRule::Runway`, the
 //!   Airstrip's) takes off the moment it is ready, whatever waits at the doorway: aircraft "are not covered by" the exit
 //!   doorway's rule (`core/entities.md > Structure Type > Exit Doorway`).
+//! - (M6-ST1) **Carriers** (`holding/carriers.rs`, `crate::carry`): units that hold units too, the Subterranean
+//!   Transport's passengers, with their room ([`Sim::room`]), Unload All, and their deaths with their carrier.
 
+mod carriers;
 mod evacuation;
 mod takeoff;
 
@@ -42,12 +45,12 @@ use super::{Sim, producers};
 use crate::command::HoldCommand;
 use crate::defs::{ExitRule, ObjectKind};
 use crate::events::SimEvent;
-use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
 use crate::network::{Held, Place};
 use crate::production::{Door, ExitDoor, Production, QueueEntry, Rally};
 use crate::sim::Reject;
 use crate::units::Tick;
+use crate::{carry, holding};
 
 impl Sim {
     /// The units inside `building` (`network::Place::Building`), longest inside first: by `Held::since`, ties by id.
@@ -78,9 +81,13 @@ impl Sim {
     /// How many more units `building` takes in now: its capacity (`HoldsDef::capacity`: "The Armory can hold up to 10
     /// Recruits in its internal pool at a time", `factions/cults/structures/armory.md > InternalRecruitCapacity - 10`)
     /// less every unit inside, those its orders reserved and the one in training included (design change 0347 point
-    /// 5: "Capacity counts reserved units: the queue can never exceed the capacity"). 0 for anything but a building
-    /// that holds units.
+    /// 5: "Capacity counts reserved units: the queue can never exceed the capacity"). (M6-ST1) For a carrier on the
+    /// map, its places free (`crate::carry`; `holding/carriers.rs`): its capacity less the places its passengers take.
+    /// 0 for anything else.
     pub fn room(&self, building: ObjectId) -> u32 {
+        if let Some(def) = self.objects.get(&building).and_then(carry::def_of) {
+            return def.capacity.saturating_sub(self.places_taken(building, def));
+        }
         let Some(holds) = self.objects.get(&building).and_then(holding::holds) else {
             return 0;
         };

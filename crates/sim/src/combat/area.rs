@@ -46,8 +46,9 @@ pub struct Blast {
 /// `systems/combat.md > AoEDamage`: whether area damage of TargetDomain `attack` hits an object of domain `target`
 /// (structures stand on the ground: `super::object_domain`). "Ground AoE hits Ground and surfaced Underground units, Air
 /// AoE hits Air units, Universal AoE hits all units regardless of domain", and "Underground objects are hit by area
-/// damage too (... Ground and Universal AoE)": a Ground blast hits every Underground unit, surfaced or not (no unit
-/// surfaces yet), where a single-target Ground attack targets only surfaced ones (`super::domain_allows`).
+/// damage too (... Ground and Universal AoE)": a Ground blast hits every Underground unit, surfaced or not (a surfaced
+/// one is a Ground unit by its type, M6-ST1's `UnitDef::domain`), where a single-target Ground attack targets only
+/// surfaced ones (`super::domain_allows`).
 pub fn hits_domain(attack: TargetDomain, target: Domain) -> bool {
     match (attack, target) {
         (TargetDomain::Universal, _)

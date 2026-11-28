@@ -42,6 +42,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             repair: None,
             airfield: false,
             refuses_illusions: false,
+            carrier: None,
         }),
         seen: true,
         on_map: true,

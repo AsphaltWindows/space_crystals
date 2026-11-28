@@ -753,6 +753,47 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   it stands, 20 to 40 µs a tick timed alone (a filter of the cells with a patch, tried, gained 2 % of the tick, within
   the runs' noise, and was left out). The network case of `tests/agents_perf.rs` the same: 0.080 and 0.094 ms a tick,
   0.110 and 0.129 shelled, against 0.083 and 0.094, 0.111 and 0.131.
+- **Carriers** (`carry.rs`, `sim/holding/carriers.rs`, `orders/unload.rs`; slice M6-ST1, plan decision T94;
+  `factions/syndicate/units/subterranean_transport.md`, design changes 0367's placeholders, 0419 and 0432): **one
+  capability, data on the def**, `UnitDef::carries: Option<CarrierDef { capacity, places }>`, its places and the bases
+  it takes with the places a unit of each takes (`Places`); the Subterranean Transport's two types share one, 4 places,
+  an infantry unit 1. M6-GS2's Supply Chopper (4 places, a vehicle 4, one kind at a time) and M6-CP's Pilgrim (16
+  places, loading only while landed) reuse it: a carrier loads while it is a ground object (`carry::loads`, through
+  `combat::object_domain`, whose landed arm makes a landed aircraft one). **The surfaced kind's Domain**:
+  `UnitDef::domain: Option<Domain>` overrides its base's, as do `crushes` and `yields`; every reader asks the
+  accessors (`UnitDef::domain()`, `crushes()`, `yields()`, `nav_class()`: targeting's `kind_domain`, the movement
+  layers and crushing, the scans, the releases and the parking, placement, the popups, the planning grids, the
+  sludge's slow, the overlap invariant), so the surfaced Transport is a Ground unit that crushes and turns as a tracked
+  vehicle (0417 to 0419), on the ground layer, a Ground attack's target and not an anti-air one's
+  (`Reject::CannotHit`), slowed by the sludge, and the burrowed one keeps its DrillUnit base's Underground. **Aboard**,
+  a passenger is held at `Place::Carrier(carrier)` (`Sim::passengers`: longest aboard first, by `Held::since` then
+  id), so the store's references, hash, saves and defeat hold for it, and it goes wherever its carrier goes, into the
+  Tunnel Network too: `Sim::network` lists `Place::Network` alone (the EjectMenu shows the carrier, not its
+  passengers), the network's regeneration and services serve that place alone (0432 point 2: no regeneration, no Null
+  Chamber turn, no Vault refill), and the Tunnel Space counts every held unit (`Sim::army_cap`). **Boarding**: the
+  Enter order on a carrier (`check_enter`'s carrier arm, `network::admits` asking `carry::admits`; the owner's units
+  of a base it takes), a walk after it as it drives (`orders::enter`'s carrier goal) and the entries' step
+  (`Sim::board`: within Proximity of its shape from any side, if `Sim::room` has the places; else the Enter ends,
+  `EnterFailed` with `full`). **Unload All** (`OrderKind::UnloadAll`, F, untargeted and queueable; `check_unload`:
+  `LacksAbility`, `NothingInside`, then the type's rule): the order's start stops the carrier, its behaviour never
+  completes, and the economy phase's `Sim::step_unloads` (*Tick pipeline*) ends it once the carrier is at rest and
+  puts every passenger out (`Sim::unload`): the `i`th of `n` at the first free spot of the rings round the carrier's
+  shape (`carry::ring_spots`: rectangles `Holding::unload_gap_su` (4 su) clear of the shape and of each other, spots
+  on the corners and along the sides, `Holding::unload_rings` (3) of them), walking round the nearest ring from its
+  share of it; four Guards come out on the first ring's corners. A passenger with no free spot stays aboard
+  (Placeholder). **Death**: the removal path takes a carrier's passengers along (`Sim::passengers_of`): on the map
+  each dies with a `SimEvent::Died` where the carrier was (`Sim::passengers_die`), held (stranded, a defeat) each is
+  removed with it (`Sim::remove_held`). **No firing out** (0432 point 1): a held unit fires nothing; only a building's
+  occupants fire from inside (`combat::occupants`). **Hashed and saved** as the store is: `Place::Carrier` is the
+  Place's tag 3, `OrderKind::UnloadAll` the order's tag 25, so no state from before moved; invariant U1
+  (*Movement and collision > Invariants*). The client: the Transport's panel (Q Move, R Burrow or Surface held for
+  slice M6-ST2, F Unload All, X Stop; `templates/syndicate/transport.rs`), the Vehicle Assembly's R live, and the
+  passenger pips over the carrier's bars, to its owner (`HpBar::passengers`). Tests: `tests/transport/`, the unit
+  tests in `carry/tests.rs` and `sim/holding/carriers/tests.rs` (a pocket of cliffs), the golden
+  `syndicate_transport`. Perf, interleaved against master's binary (10 rounds, load 3 to 5): `tests/movement_perf.rs`'s
+  500 units 0.637 ms a tick against 0.649, `tests/vehicles_perf.rs`'s 60 vehicles 0.127 against 0.127,
+  `tests/attack_move_perf.rs`'s 0.215 and 0.225 against 0.214 and 0.228, and the network case of
+  `tests/agents_perf.rs` 0.084 and 0.113 shelled against the same: within the runs' noise.
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
   a Beacon warping in a building, a Legionnaire converting its weapon, a Peacekeeper raising or lowering its Riot
   Shield) stays the same object, its id included.
@@ -1091,8 +1132,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      units (design change 0246). An Enter whose Tunnel is gone or no longer suits the unit, or whose walk ended short
      of the path (the normal Failure rule, 0247), ends (`SimEvent::EnterFailed`). Into a building that holds units
      (slice M5-F1, *Object model > Buildings that hold units*) the same, at its entry spot, if its pool has room then
-     (`SimEvent::EnteredBuilding`); with none the Enter ends there. Before 5b to 5f, so that no grid, collision, shot
-     or sight of the tick includes a unit that has gone in.
+     (`SimEvent::EnteredBuilding`); with none the Enter ends there. (M6-ST1) Onto a carrier on the map (*Object model >
+     Carriers*) the same, within Proximity of its shape from any side (`Orders::proximity_su`), if it has room then
+     (`Sim::board`, `SimEvent::Boarded`); with none the Enter ends there (`EnterFailed` with `full`). Before 5b to 5f,
+     so that no grid, collision, shot or sight of the tick includes a unit that has gone in.
    - Landings, `Sim::step_landings` (slice M6-GH2, `sim/landing.rs`, `landing.rs`; *Production > The Airfield*): part
      of 5a, right after the entries, Airfield by Airfield in id order. Each aircraft flying home to an Airfield (its
      Return to Base, or a Rebase) flies on to the slot it takes (`landing::claims`, derived every tick) and, come to
@@ -1249,6 +1292,13 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      ejected or released one as it is, `SimEvent::LeftBuilding`), toward the rally point: one a tick at most, and none
      while the last is still in the doorway. After the producers, so that an entry finished in the tick lets its unit
      out in it, and for the same reasons as theirs after 5d, before 5f.
+   - Unloads, `Sim::step_unloads` (slice M6-ST1, `sim/holding/carriers.rs`; *Object model > Carriers*): part of the
+     economy phase, right after the buildings that hold units. Each carrier from before the tick whose current order is
+     an Unload All, in id order, once it is at rest (its momentum braked off since the order stopped it), ends the
+     order and puts its passengers on the map round it (`Sim::unload`, `SimEvent::Unloaded`); its queued orders go on
+     from the next tick. Here and not in the behaviours, which bring no object onto the map; after 5d, so that the
+     carrier has come to rest in the tick and its passengers never move in the tick they appear; before 5f, which sees
+     them.
    - Defeat, `economy::defeat::step` (slice M2-F2, plan decision T8, see *Economy > Defeat and the end of the
      game*): the economy phase's last step, run by `step` after the producers, so that every way a structure left
      the game in the tick counts (the commands' removals, 5e's deaths). Before 5f, so that the units a defeat makes
@@ -2728,7 +2778,9 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   is down and short of ammo; no Airfield has more on it than its 4 slots; a held unit is on none; (M6-SB) N1
   (`tanks`): an object has tanks exactly when its type has one, a tank its type doesn't have is full and off, a toggle
   is on only with a charge left and its trail's newest patch on the ground where it says, a held unit's toggles are
-  off, and every patch on the ground is of a kind a type lays, a disc, and not yet gone;
+  off, and every patch on the ground is of a kind a type lays, a disc, and not yet gone; (M6-ST1) U1 (`carriers`): a
+  passenger is aboard a carrier in the game, on the map or held, not itself, of a type that carries, its own owner's,
+  and of a base its hold takes;
   (M5-V2) W1 (`momentum`): a FixedTurnRadiusMovement unit turns in a tick by at most the speed it can have in it (its
   momentum and one tick's acceleration) over its MinimumTurnRadius, never in place; (M5-V3) S1 (`momentum`): a
   SpeedTurnRadiusMovement unit turns in a tick by at most the tread law's rate at the slowest speed it can have in it
@@ -2740,7 +2792,7 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
   step, as the golden games do (`tests/golden/harness.rs`). The fuzz's games (`tests/robustness.rs`, the seed sweep's)
   check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1, F1, G1, M1, L1,
-  N1): V1 and K1, which
+  N1, U1): V1 and K1, which
   rebuild the vision and the planning grids, would take the sweep from 5 s to 26 s.
 
 ## Economy
@@ -4385,6 +4437,20 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   empty"), `patches_view/tests.rs` (the discs, the fog, the shrink), `crates/game/tests/commands/sludge.rs` (R on and
   off in a game, the trail drawn, the tank bar, the slow's mark) and the Vehicle Assembly's and the ExpandMenu's tests
   (W, and R).
+- **Transport tests** (slice M6-ST1) are `crates/sim/tests/transport/`, under the invariants (U1 among them):
+  `production` (the Vehicle Assembly's R behind a Forge, 200 in 400 frames, into the network; ejected, boarded),
+  `boarding` (four Guards board and a fifth idles beside it; boarding a Transport that drives away; no enemy, no
+  vehicle, none while burrowed), `unloading` (four out on the first ring's corners with no overlap, idle; at rest first;
+  Shift-queued after a move; refused empty and to a non-carrier), `combat` (no shots from a loaded Transport; a
+  Peacekeeper may attack it, a Twister may not; it collides with ground units, crushes enemy Recruits, own infantry
+  stop it), `death` (three aboard die with it, after it, where it was, their Tunnel Space free; stranded in the network,
+  removed with it), `network` (into a Tier 2 Tunnel loaded and out loaded, the EjectMenu listing it alone; a minute
+  inside heals and buffs it, not its passengers) and `saves` (a save and a replay with passengers aboard); with
+  `carry/tests.rs` (the rings at every facing), `sim/holding/carriers/tests.rs` (a pocket of cliffs: two out, two
+  aboard), `ruleset/tests.rs` (`carries` and `domain` are structure) and `tests/default_order.rs` (the right-click
+  boards it). In the client, `command_ui/interface/tests/transport.rs` (the panel, F greyed empty),
+  `tests/syndicate.rs` (the Vehicle Assembly's R behind a Forge) and `crates/game/tests/combat/main.rs` (the pips, to
+  the owner).
 - **Landing tests** (slice M6-GH2) are `crates/sim/tests/landing/`, under the invariants: `slots` (four out of ammo
   on the four slots, a landing in 16 ticks holding still, F and the right-click home from anywhere, one down left on
   its slot under an overflight), `rearm` (2 of 5 in 96 ticks, then landed until a Move; an order 5 s in leaves with
@@ -4620,7 +4686,10 @@ these.
   each it has left (`HpBar::ammo`, from `sc_sim::aircraft`; `AMMO_FILL`, a placeholder look), shown with the HP bar,
   (slice M6-SB) a unit's tanks as thin bars under those, as wide as its HP bar, sludge's murky yellow and smoke's grey,
   filled for what is left, lighter while its toggle is on (`HpBar::tanks`, from `sc_sim::patches`; `TANK_FILLS`, a
-  placeholder look), shown with the HP bar,
+  placeholder look), shown with the HP bar, (slice M6-ST1) a carrier's places as pips over its bars, above its shield
+  bar if any, one square per place of its capacity, filled pale for each its passengers take (`HpBar::passengers`,
+  from `sc_sim::carry::def_of` and `Sim::room`; `PASSENGER_FILL`, a placeholder look), shown with the HP bar, to its
+  owner alone with the fog on (Placeholder),
   (slice M5-N5) a mark of each buff a unit the local player sees has, a cross in a dark rim right of its HP bar's
   place, whether the bar shows or not, green for Health regeneration and violet for Energy regeneration, in
   `Object::buffs`' order, their `BuffKind`s' (`combat_effects/buffs.rs`, `buff_marks`; who sees a buff and its look are
@@ -5873,8 +5942,9 @@ unchecked.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
   `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs`,
-  `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs`, `mirage.rs`, `airfield.rs`, `syndicate_sludge.rs`
-  and `main.rs`, the recording and the comparison in `harness.rs`): thirty-three games, a 3v3 duel,
+  `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs`, `mirage.rs`, `airfield.rs`, `syndicate_sludge.rs`,
+  `syndicate_transport.rs` and `main.rs`, the recording and the comparison in `harness.rs`): thirty-four games, a 3v3
+  duel,
   a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5889,8 +5959,8 @@ unchecked.
   `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
   M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below), `syndicate_air` (slice
   M6-SD, below), `gdo_artillery` (slice M6-GA, below), `syndicate_null_chamber` (slice M6-SN, below),
-  `cults_mirage` (slice M6-CM, below), `gdo_air` (slice M6-GH2, below) and `syndicate_sludge` (slice M6-SB, below),
-  are blessed as replays
+  `cults_mirage` (slice M6-CM, below), `gdo_air` (slice M6-GH2, below), `syndicate_sludge` (slice M6-SB, below) and
+  `syndicate_transport` (slice M6-ST1, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -6048,7 +6118,15 @@ unchecked.
   across them are slowed, each 2.4 su a tick at most while it holds the slow, and arrive after a fifth that crosses
   none; A backs up over its own trail, slowed; B drives into the Tunnel laying, its Sludge switched off as it goes
   in, and A after it, slowed by B's trail; the Vault refills both tanks at once, 5 a second, until both are full
-  (`during`: every new patch at its layer's trail point, none on the ground past 10 s). The
+  (`during`: every new patch at its layer's trail point, none on the ground past 10 s). In `syndicate_transport`
+  (slice M6-ST1, to 1:34, on an open test map, debug commands for player 1's Tier 2 and its 200 Space Crystals,
+  auto-targeting off) a finished Vehicle Assembly trains a Subterranean Transport behind a finished Forge, inside the
+  network in tick 401; ejected, it takes four Guards aboard one by one, drives through a line of three of the GDO's
+  Peacekeepers on Hold, crushing each, and its Unload All, queued after the move, puts the four out round it in one
+  tick; two board it again, it drives into the Tunnel with them (`during`: the EjectMenu lists it alone) and is
+  ejected again, loaded, once its transit delay is over; six Peacekeepers kill it in tick 1338, and its two passengers
+  die with it, in its tick, where it was (`expect`: player 1's Tunnel Space in use 4, then 7 from the Train on, then
+  2, the two Guards left). The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

@@ -397,9 +397,8 @@ impl World<'_> {
     /// its grid blocks, reaches everything.
     pub(crate) fn reachable(&self, unit: &Unit, target: &Shape) -> bool {
         let def = unit.kind.def();
-        let grid = (def.unit.as_ref().zip(def.silhouette())).and_then(|(walker, silhouette)| {
-            paths::unit_grid(self.nav.planning(unit.owner), walker.base_def(), silhouette)
-        });
+        let grid = (def.unit.as_ref().zip(def.silhouette()))
+            .and_then(|(walker, silhouette)| paths::unit_grid(self.nav.planning(unit.owner), walker, silhouette));
         let Some(grid) = grid else {
             return true;
         };

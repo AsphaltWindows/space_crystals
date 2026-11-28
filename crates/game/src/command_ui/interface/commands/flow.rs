@@ -17,12 +17,11 @@ impl PanelCommand {
     /// (`factions/cults/units/prayer_mobile.md > Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target)",
     /// "**Suppress** (hotkey **F**, instant, no target)"), (M6-GD) a Drone Operator's Launch Drone, over itself, and
     /// Build Drone, (M6-GH1) an aircraft's Return to Base, (M6-GA) a vehicle's Deploy and Undeploy, where it stands,
-    /// (M6-CM) a Disciple's Mirage ("An **instant** spell"), (M6-SB) a tank's toggle, Raise and Lower Shield, Convert,
-    /// a producer's Train and
-    /// Cancel Production, a constructor's
-    /// Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the
-    /// EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct
-    /// menu entry too); or they change the selection (the Egress Node's F).
+    /// (M6-CM) a Disciple's Mirage ("An **instant** spell"), (M6-SB) a tank's toggle, (M6-ST1) a carrier's Unload All,
+    /// round it, Raise and Lower Shield, Convert, a producer's Train and Cancel Production, a constructor's Construct
+    /// and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the EjectMenu, the
+    /// ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct menu entry too);
+    /// or they change the selection (the Egress Node's F).
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move
@@ -79,7 +78,8 @@ impl PanelCommand {
             | PanelCommand::ReturnToBase
             | PanelCommand::VehicleDeploy(_)
             | PanelCommand::Mirage
-            | PanelCommand::Toggle { .. } => false,
+            | PanelCommand::Toggle { .. }
+            | PanelCommand::UnloadAll => false,
         }
     }
 
@@ -182,6 +182,8 @@ impl PanelCommand {
     /// at once: Shift changes nothing (**Placeholder (not in the design: Shift's meaning for an instant spell)**). (M6-SB)
     /// A tank's toggle is an ability (`sc_sim::Ability::Sludge`): "Toggles follow the mode-switch rule (keep orders, not
     /// queueable)" (`factions/syndicate/units/shadebringer.md > Placeholder stats`).
+    /// (M6-ST1) A carrier's Unload All is an order (`sc_sim::OrderKind::UnloadAll`, untargeted and queueable, as the
+    /// Launch): Shift-F after a Move unloads where the move ends.
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -200,7 +202,8 @@ impl PanelCommand {
             | PanelCommand::TargetLock
             | PanelCommand::Launch
             | PanelCommand::ReturnToBase
-            | PanelCommand::VehicleDeploy(_) => true,
+            | PanelCommand::VehicleDeploy(_)
+            | PanelCommand::UnloadAll => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)

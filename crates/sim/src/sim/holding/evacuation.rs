@@ -188,7 +188,7 @@ impl Sim {
         };
         let spot = Vec2::new(inside(0), inside(1));
         // Its grid by its size class, which its Silhouette gives, however it is turned.
-        let grid = paths::unit_grid(self.nav.nav(), unit.base_def(), silhouette);
+        let grid = paths::unit_grid(self.nav.nav(), unit, silhouette);
         grid.is_none_or(|grid| nav::box_on_terrain(grid, half, spot))
             .then_some(spot)
     }

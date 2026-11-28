@@ -106,7 +106,7 @@ fn by_low_x(sim: &Sim, domain: Domain, shape: impl Fn(&Object) -> Option<Shape>)
     let mut boxes: Vec<(f32, Shape, &Object)> = sim
         .objects()
         .filter_map(|o| {
-            let in_layer = o.def().unit.as_ref()?.base_def().domain == domain;
+            let in_layer = o.def().unit.as_ref()?.domain() == domain;
             let shape = shape(o).filter(|_| in_layer)?;
             Some((shape.bounds().0.x, shape, o))
         })
@@ -144,7 +144,7 @@ pub(super) fn overlapped_before(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) ->
 /// doorway of the building that went is one (I1's exception 3, [`may_overlap`]): idle, it may be moving off the evacuee
 /// now ("Units that overlap ignore each other until separated, and idle ones push apart"), as the evacuee may.
 pub(super) fn landed_on(sim: &Sim, before: &BTreeMap<ObjectId, Seen>, evacuated: &[ObjectId]) -> Vec<ObjectId> {
-    let layer = |o: &Object| Some(o.def().unit.as_ref()?.base_def().domain);
+    let layer = |o: &Object| Some(o.def().unit.as_ref()?.domain());
     let put: Vec<(Domain, Shape)> = (evacuated.iter())
         .filter_map(|&id| {
             let o = sim.object(id)?;

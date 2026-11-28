@@ -6,11 +6,11 @@ use std::collections::BTreeMap;
 use sc_sim::buffs::Buff;
 use sc_sim::defs::MovementAttrs;
 use sc_sim::economy::RATIO_ONE;
-use sc_sim::holding;
 use sc_sim::network::Place;
 use sc_sim::recruitment::{self, Lineages};
 use sc_sim::suppress;
 use sc_sim::{ArmyResource, AttackPhase, Faction, Object, ObjectId, ObjectKind, SU_PER_GU, Sim, SimEvent, Vec2};
+use sc_sim::{carry, holding};
 
 use super::{Tally, everything};
 
@@ -175,7 +175,8 @@ fn unit_control(sim: &Sim) {
     }
 }
 
-/// Held units (module docs): only in buildings that are on the map, hold units and are their owner's, or at sites.
+/// Held units (module docs): only in buildings that are on the map, hold units and are their owner's, at sites, or
+/// (M6-ST1) aboard their owner's carriers in the game, on the map or held (`sc_sim::carry`).
 fn held(sim: &Sim) {
     let tick = sim.tick();
     for held in sim.held() {
@@ -199,6 +200,16 @@ fn held(sim: &Sim) {
                     unit.id.0,
                     unit.kind,
                     site.map(|s| s.kind)
+                );
+            }
+            Place::Carrier(id) => {
+                let carrier = (sim.object(id)).or_else(|| sim.held_unit(id).map(|held| &held.object));
+                assert!(
+                    carrier.is_some_and(|c| carry::def_of(c).is_some() && c.owner == unit.owner),
+                    "tick {tick}: #{} ({:?}) is aboard {id:?}, which is {:?}",
+                    unit.id.0,
+                    unit.kind,
+                    carrier.map(|c| (c.kind, c.owner))
                 );
             }
             Place::Network => {}

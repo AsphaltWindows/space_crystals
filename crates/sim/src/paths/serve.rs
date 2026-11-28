@@ -134,7 +134,7 @@ pub(crate) fn serve(
         }
         let def = o.kind.def();
         let grid = def.unit.as_ref().zip(def.silhouette()).and_then(|(unit, silhouette)| {
-            let class = unit.base_def().nav_class()?;
+            let class = unit.nav_class()?;
             let (_, grid) = state.plan_grid(o.owner, class, nav::size_class(silhouette), o.pos)?;
             Some((grid, silhouette / 2.0))
         });
@@ -171,7 +171,7 @@ pub(crate) fn serve(
         let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) else {
             continue;
         };
-        let class = unit.base_def().nav_class();
+        let class = unit.nav_class();
         let size = nav::size_class(silhouette);
         // A unit still in the exit doorway of the building that released it stands on that building's tiles,
         // which no path starts from: its path starts where it comes out (`doorway_start`, design change 0080).

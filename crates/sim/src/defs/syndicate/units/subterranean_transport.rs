@@ -3,24 +3,28 @@
 //! `SubterraneanTransportBurrowed`, as the Laser Battery's two and the Peacekeeper's are: `> Burrowing and surfacing
 //! work like vehicle deploy`, "the unit changes mode only when the process completes").
 
-use crate::defs::units::{MovementAttrs, UnitBase, UnitDef};
+use crate::defs::units::{CarrierDef, Domain, MovementAttrs, Places, UnitBase, UnitDef};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/syndicate/units/subterranean_transport.md`, above ground: the "Syndicate **infantry transport** that
 /// travels **underground**", which "**drives out of the Tunnel in its above-ground mode**, behaving as a tracked
-/// vehicle". Its numbers only (slice M6-SK, plan decision T84, by T69's rule): nothing makes one yet. The Vehicle
-/// Assembly trains it behind a Forge with slice M6-ST1, which brings its passengers and the surfaced type's own domain,
-/// Ground (plan decision T94: until then both types have their DrillUnit base's, Underground), and with it its
-/// crushing above ground (design change 0419: its base `crushes` nothing until then); slice M6-ST2 brings Burrow and
-/// Surface. Its numbers are the design's "Placeholder stats".
+/// vehicle". Its numbers came with slice M6-SK (plan decision T84, by T69's rule); slice M6-ST1 makes it live: the
+/// Vehicle Assembly trains it behind a Forge, and it carries 4 infantry (`UnitDef::carries`, `crate::carry`). Its
+/// DrillUnit base is Underground, so this type has its own Domain, Ground (plan decision T94, `UnitDef::domain`), and
+/// with it a tracked vehicle's crushing (design change 0419, `UnitDef::crushes`) and standing (design change 0440,
+/// `UnitDef::yields`), the burrowed type keeping its base's. Slice M6-ST2 brings Burrow and Surface. Its numbers are
+/// the design's "Placeholder stats".
 pub(crate) const SUBTERRANEAN_TRANSPORT: ObjectDef = SUBTERRANEAN_TRANSPORT_DEF;
 
 /// `> Burrow (ability)`: the Transport "underground", where "it can travel **under buildings and obstacles such as
 /// cliffs**: across **all drillable terrain**" (its base's nav class, `NavClass::Underground`), the above-ground type's
 /// in all but its speed: "underground MaxSpeed 3.5". Its other handling underground isn't given: **Placeholder (not in
 /// the design: its Acceleration, Deceleration, TrackWidth and ReverseMaxSpeed underground)**, its above-ground type's.
-/// Nothing makes one yet: burrowing, 48 frames each way, comes with slice M6-ST2.
+/// (M6-ST1) Its Domain, crushing and yielding are its DrillUnit base's (plan decision T94: "the burrowed kind keeps
+/// Underground"; "underground it crushes nothing"), and it keeps its passengers aboard (its hold, `UnitDef::carries`),
+/// which board and leave above ground only (`crate::carry::loads`). Nothing makes one yet: burrowing, 48 frames each
+/// way, comes with slice M6-ST2.
 pub(crate) const SUBTERRANEAN_TRANSPORT_BURROWED: ObjectDef = ObjectDef {
     kind: ObjectKind::SubterraneanTransportBurrowed,
     name: "Subterranean Transport (Burrowed)",
@@ -32,6 +36,9 @@ pub(crate) const SUBTERRANEAN_TRANSPORT_BURROWED: ObjectDef = ObjectDef {
             max_speed: 3.5, // underground MaxSpeed 3.5
             reverse_max_speed: 2.25,
         },
+        domain: None,
+        crushes: None,
+        yields: None,
         ..SUBTERRANEAN_TRANSPORT_UNIT
     }),
     ..SUBTERRANEAN_TRANSPORT_DEF
@@ -82,6 +89,26 @@ const SUBTERRANEAN_TRANSPORT_UNIT: UnitDef = UnitDef {
     turret: None,                       // Not listed: it has no attack
     attack: None,                       // AttackAttributes - none (confirmed, Q0071)
     tunnel_space_cost: Some(3),         // TunnelSpaceCost 3
+    // (M6-ST1) Above ground "as a TrackedVehicle" (plan decision T94): a ground unit, which crushes (design change
+    // 0419) and stands (design change 0440) as one.
+    domain: Some(Domain::Ground),
+    crushes: Some(true),
+    yields: Some(false),
+    // "**Capacity 4** infantry (user, 2026-11-27: **4 heavy infantry, e.g. 4 Guards**; Syndicate infantry are Heavy
+    // Infantry)"; "It carries **infantry only**": one place each, Light or Heavy.
+    carries: Some(CarrierDef {
+        capacity: 4,
+        places: &[
+            Places {
+                base: UnitBase::LightInfantry,
+                places: 1,
+            },
+            Places {
+                base: UnitBase::HeavyInfantry,
+                places: 1,
+            },
+        ],
+    }),
     ..UnitDef::NONE
 };
 
@@ -90,7 +117,6 @@ mod tests {
     use glam::Vec2;
 
     use super::*;
-    use crate::defs::Domain;
 
     /// A 72×48 DrillUnit, MaxHP 300, PointArmor 3, FullArmor 3, SightRange 5, Groupable (not listed: a unit used all
     /// together), TunnelSpaceCost 3, with no turret and no attack; above ground the Laser Battery's tracked handling on
@@ -111,8 +137,25 @@ mod tests {
         assert_eq!((def.selectable, def.destructible, def.groupable), (true, true, true));
         let unit = def.unit.as_ref().unwrap();
         assert_eq!(unit.base, UnitBase::DrillUnit);
-        // The base's domain until slice M6-ST1 gives the surfaced type its own (plan decision T94).
-        assert_eq!(unit.base_def().domain, Domain::Underground);
+        // (M6-ST1) Its own domain over its base's (plan decision T94): a ground unit, which crushes and stands as a
+        // tracked vehicle (design changes 0419 and 0440).
+        assert_eq!(
+            (unit.base_def().domain, unit.domain()),
+            (Domain::Underground, Domain::Ground)
+        );
+        assert_eq!((unit.crushes(), unit.yields()), (true, false));
+        let hold = unit.carries.expect("a carrier");
+        assert_eq!(hold.capacity, 4, "Capacity 4 infantry");
+        let bases = [
+            UnitBase::LightInfantry,
+            UnitBase::HeavyInfantry,
+            UnitBase::TrackedVehicle,
+        ];
+        assert_eq!(
+            bases.map(|base| hold.places_of(base)),
+            [Some(1), Some(1), None],
+            "infantry only, one place each"
+        );
         let movement = MovementAttrs::SpeedTurnRadius {
             track_width: 36.0,
             acceleration: Some(0.4),
@@ -161,10 +204,15 @@ mod tests {
             reverse_max_speed: 2.25,
         };
         assert_eq!(burrowed.movement, underground);
-        assert_eq!(burrowed.base_def().domain, Domain::Underground);
+        // (M6-ST1) Its base's Domain, crushing and yielding (plan decision T94), its hold the surfaced type's.
+        assert_eq!(burrowed.domain(), Domain::Underground);
+        assert_eq!((burrowed.crushes(), burrowed.yields()), (false, true));
         assert_eq!(
             UnitDef {
                 movement: surfaced.movement,
+                domain: surfaced.domain,
+                crushes: surfaced.crushes,
+                yields: surfaced.yields,
                 ..burrowed.clone()
             },
             *surfaced

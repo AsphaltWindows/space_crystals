@@ -274,7 +274,7 @@ fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
             // tiles, by its bounding box in a doorway, as the movement step tests it.
             let shape = Shape::of(o);
             let half = shape.bound_half();
-            if let Some(class) = unit.base_def().nav_class() {
+            if let Some(class) = unit.nav_class() {
                 let grid = sim
                     .nav()
                     .grid(class, nav::size_class(silhouette))
@@ -299,7 +299,7 @@ fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
             }
             let moved = o.pos.distance(o.prev_pos);
             let base = unit.base_def();
-            let push = match (base.domain, unit.separation_radius, base.separation_strength) {
+            let push = match (unit.domain(), unit.separation_radius, base.separation_strength) {
                 (Domain::Air, Some(_), Some(strength)) => SEPARATION_PUSH_SU * strength,
                 _ => 0.0,
             };
@@ -449,7 +449,9 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::DroneFell { .. }
                 | SimEvent::StockBought { .. }
                 | SimEvent::OrderDropped { .. }
-                | SimEvent::Mirage { .. } => {}
+                | SimEvent::Mirage { .. }
+                | SimEvent::Boarded { .. }
+                | SimEvent::Unloaded { .. } => {}
             }
         }
         unit_steps += sim

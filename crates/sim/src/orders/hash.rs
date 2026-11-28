@@ -119,6 +119,8 @@ impl StateHash for OrderKind {
                 h.tag(21);
                 into.hash(h);
             }
+            // (M6-ST1) A new tag, hashed only while a unit carries the order: 25, the Director's.
+            OrderKind::UnloadAll => h.tag(25),
         }
     }
 }

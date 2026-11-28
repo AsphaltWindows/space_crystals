@@ -116,8 +116,9 @@ impl Sim {
             OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => vec![None; units.len()],
             // (M6-GH1) Each flies to its Airfield (`orders::air_base`).
             OrderKind::Rebase(_) | OrderKind::ReturnToBase => vec![None; units.len()],
-            // (M6-GA) Each deploys where it stands (`crate::vehicle_deploy`).
-            OrderKind::VehicleDeploy { .. } => vec![None; units.len()],
+            // (M6-GA) Each deploys where it stands (`crate::vehicle_deploy`); (M6-ST1) each unloads round itself
+            // (`crate::carry`).
+            OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => vec![None; units.len()],
         };
         if self.gives_shared_build(units, kind) {
             return self.give_shared_build(units, kind, queue, group);

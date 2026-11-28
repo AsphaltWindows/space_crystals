@@ -169,8 +169,9 @@ impl Sim {
         };
         let shape = Shape::silhouette(kind, pos, facing);
         let half = shape.bound_half();
-        let base = unit.base_def();
-        if let Some(class) = base.nav_class() {
+        // (M6-ST1) Its type's Domain and grid, its own over its base's (`UnitDef::domain`).
+        let domain = unit.domain();
+        if let Some(class) = unit.nav_class() {
             let size = nav::size_class(silhouette);
             let built;
             let grid = match self.nav.nav().grid(class, size) {
@@ -191,7 +192,7 @@ impl Sim {
         }
         // The grids catch up with this tick's spawns and removals only in phase 5b: footprints are checked
         // directly too, so a unit can't be put on a station spawned earlier in the tick.
-        if base.domain == Domain::Ground
+        if domain == Domain::Ground
             && self
                 .objects
                 .values()
@@ -199,11 +200,11 @@ impl Sim {
         {
             return Err(Reject::Blocked);
         }
-        if base.domain.hard_collision()
+        if domain.hard_collision()
             && let Some(other) = self
                 .objects
                 .values()
-                .find(|o| Some(o.id) != moving && in_layer(o, base.domain).is_some_and(|other| shape.overlaps(&other)))
+                .find(|o| Some(o.id) != moving && in_layer(o, domain).is_some_and(|other| shape.overlaps(&other)))
         {
             return Err(Reject::Occupied(other.id));
         }
@@ -242,5 +243,5 @@ impl Sim {
 fn in_layer(o: &Object, domain: Domain) -> Option<Shape> {
     let def = o.def();
     let unit = def.unit.as_ref()?;
-    (unit.base_def().domain == domain && def.silhouette().is_some()).then(|| Shape::of(o))
+    (unit.domain() == domain && def.silhouette().is_some()).then(|| Shape::of(o))
 }

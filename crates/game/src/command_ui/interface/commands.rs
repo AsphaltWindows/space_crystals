@@ -31,7 +31,8 @@ use super::{BuildMenu, Planned};
 /// (`factions/gdo/units/rocketman.md > Placeholder stats`, slice M5-K), and the Drone Operator's Launch Drone and Build
 /// Drone (`factions/gdo/units/drone_operator.md > Placeholder stats`, slice M6-GD), and the Hornet's Return to Base
 /// (`factions/gdo/units/hornet.md > AttackAttributes`, slice M6-GH1), and the Shadebringer's toggles
-/// (`factions/syndicate/units/shadebringer.md > Placeholder stats`, slice M6-SB).
+/// (`factions/syndicate/units/shadebringer.md > Placeholder stats`, slice M6-SB), and the Subterranean Transport's
+/// Unload All (`factions/syndicate/units/subterranean_transport.md > Placeholder stats`, slice M6-ST1).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -321,4 +322,11 @@ pub enum PanelCommand {
         lays: PatchKind,
         on: bool,
     },
+    /// (M6-ST1) A carrier's F (`factions/syndicate/units/subterranean_transport.md > Placeholder stats`:
+    /// "**Unloading**: **F: Unload All** (above ground only; they come out around it)"; `sc_sim::carry`): an Unload All
+    /// order, at once (`sc_sim::OrderKind::UnloadAll`), to every carrier of the ActiveGroup, each putting its
+    /// passengers on the map round it once it is at rest. Shift queues it, as any unit order (so Shift-F after a Move
+    /// unloads where the move ends). Greyed while the gate would refuse it: no one aboard
+    /// (`sc_sim::Reject::NothingInside`), or underground (`sc_sim::Reject::LacksAbility`, `sc_sim::carry::loads`).
+    UnloadAll,
 }

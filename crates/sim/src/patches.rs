@@ -28,8 +28,10 @@
 //!   on the ground at the end of that tick and of the 159 after it, and gone in the next one's step.
 //! - **The slow** ([`slow`], in phase 5d before the units move): "**Infantry and non-hover vehicles** that step into
 //!   sludge are **slowed by Y%** for **Z seconds**", Mechs and Drill Units on the surface too, "**Affects
-//!   everyone**". A unit of a base sludge slows (`SlowDef::bases`), on the ground (a Drill Unit's base is underground
-//!   until slice M6-ST1 surfaces it: "unaffected while underground"), whose centre is in a sludge patch where the last
+//!   everyone**". A unit of a base sludge slows (`SlowDef::bases`), on the ground by its type's Domain
+//!   (`UnitDef::domain()`: a Drill Unit's base is underground, and (M6-ST1) the Subterranean Transport above ground has
+//!   its own, Ground, its burrowed type its base's: "**Drill Units** are slowed while on the surface", "unaffected
+//!   while underground"), whose centre is in a sludge patch where the last
 //!   tick left it (design change 0425: "a unit is in sludge [...] when its **centre** is inside the trail"; on its
 //!   edge too, as the Shrine's area: **Placeholder (not in the design)**), holds the sludge's slow
 //!   (`BuffKind::Sludge`) for the slow's time after (`SlowDef::after`: "slowed by **Y = 40%** for **Z = 2 s** after
@@ -251,13 +253,13 @@ pub fn slows(kind: ObjectKind) -> bool {
         .is_some_and(|slow| slowed_by(slow, kind))
 }
 
-/// Whether the slow `slow` slows a unit of `kind` (module docs): one of a base it slows (`SlowDef::bases`), whose base
-/// is on the ground.
+/// Whether the slow `slow` slows a unit of `kind` (module docs): one of a base it slows (`SlowDef::bases`), on the
+/// ground by its type's Domain (`UnitDef::domain()`, M6-ST1: a Drill Unit on the surface).
 fn slowed_by(slow: &SlowDef, kind: ObjectKind) -> bool {
     let Some(unit) = kind.def().unit.as_ref() else {
         return false;
     };
-    slow.bases.contains(&unit.base) && unit.base_def().domain == Domain::Ground
+    slow.bases.contains(&unit.base) && unit.domain() == Domain::Ground
 }
 
 /// Whether `o` holds the sludge's slow.

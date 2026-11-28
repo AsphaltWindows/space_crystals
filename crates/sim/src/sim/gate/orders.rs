@@ -156,6 +156,9 @@ impl Sim {
             // (M6-GA) `factions/gdo/units/artillery_rig.md > Modes` (`crate::vehicle_deploy`): the units whose type
             // deploys into the type it names take it, the others ignore it ([`Sim::takers`]).
             OrderKind::VehicleDeploy { .. } => {}
+            // (M6-ST1) `factions/syndicate/units/subterranean_transport.md > Placeholder stats` (`crate::carry`): the
+            // carriers with a passenger aboard take it, the others ignore it.
+            OrderKind::UnloadAll => ordered = self.check_unload(ordered)?,
         }
         // (M6-GD) "The Drone Operator **cannot move** while it has a drone active" (`crate::tether`): a unit that holds
         // still for its drone ignores an order that would move it; if every unit does, the order is refused, with

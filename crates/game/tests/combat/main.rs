@@ -295,6 +295,50 @@ fn a_hornet_shows_its_missiles_left_as_pips_under_its_hp_bar() {
     assert_eq!(pips(&app), [Some((2, 5)), None, None], "and the Prospector, damaged");
 }
 
+/// (M6-ST1) A carrier's passengers show as pips over its HP bar, to its owner (plan §ST1: "the passenger pips";
+/// Placeholder, not in the design's art): a Subterranean Transport's places taken of its 4
+/// (`factions/syndicate/units/subterranean_transport.md > Placeholder stats`: "**Capacity 4** infantry"), none and then
+/// 2 once two Guards have boarded it. Its bars show as the HP bar does, while it is selected or damaged; player 2's
+/// Transport, which player 1 sees and selects, shows player 1 no pips, nor does a Guard.
+#[test]
+fn a_transport_shows_its_passengers_as_pips_over_its_hp_bar_to_its_owner() {
+    const TRANSPORT: ObjectId = ObjectId(1);
+    let mut app = headless_app();
+    submit(
+        &mut app,
+        P1,
+        Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    );
+    app.update();
+    spawn(&mut app, ObjectKind::SubterraneanTransport, P1, Vec2::new(300.0, 300.0));
+    spawn(&mut app, ObjectKind::Guard, P1, Vec2::new(300.0, 420.0));
+    spawn(&mut app, ObjectKind::Guard, P1, Vec2::new(380.0, 420.0));
+    spawn(&mut app, ObjectKind::SubterraneanTransport, P2, Vec2::new(520.0, 300.0));
+    app.update();
+    let selected = Selection::new([
+        (TRANSPORT, ObjectKind::SubterraneanTransport),
+        (ObjectId(2), ObjectKind::Guard),
+        (ObjectId(4), ObjectKind::SubterraneanTransport),
+    ]);
+    app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection = selected;
+    let pips = |app: &App| -> Vec<Option<(u32, u32)>> { bars(app).iter().map(|bar| bar.passengers).collect() };
+    assert_eq!(pips(&app), [Some((0, 4)), None, None]);
+    let board = Command::Order {
+        units: vec![ObjectId(2), ObjectId(3)],
+        kind: OrderKind::Enter(TRANSPORT),
+        queue: false,
+    };
+    submit(&mut app, P1, board);
+    let room = |app: &App| app.world().resource::<SimRes>().room(TRANSPORT);
+    let until = tick(&app) + 200;
+    while room(&app) > 2 {
+        assert!(tick(&app) < until, "two board");
+        let next = tick(&app) + 1;
+        run_until(&mut app, next);
+    }
+    assert_eq!(pips(&app), [Some((2, 4)), None], "the boarded Guard off the map");
+}
+
 /// A structure's bars lie along the top edge of its footprint, as wide as it (placeholder look; slice M3-K2's
 /// walkthrough found them unit-sized, inside the building). Player 1's Barracks, 3 × 2 tiles, selected, shows its HP
 /// bar 192 su wide, centred over it, just above its top edge, clear of its selection frame, which lies inside it.

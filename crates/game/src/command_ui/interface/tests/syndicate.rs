@@ -319,17 +319,20 @@ fn the_hideout_has_q_w_e_x_and_c() {
 
 /// `factions/syndicate/structures/vehicle_assembly.md > Placeholder stats` (slice M6-SV): "Panel as the Hideout:
 /// **Q** Assault Bike, **W** Shadebringer, **E** Laser Battery, **R** Subterranean Transport (greyed until their
-/// prerequisites are owned), **X** Cancel Production, **C** Set Rally Point". Q and W are its recipes, which train a
-/// Bike and (slice M6-SB) a Shadebringer, W greyed while the gate refuses it for want of its Vault ("**Shadebringer**
-/// (requires a Vault)": `Reject::Requires`); E and R hold the units it doesn't train yet (slices M6-SL and M6-ST1), not
-/// available ("Not available yet"), each labelled and named by its type; C awaits the rally point's target, and the
-/// panel's right-click sets it.
+/// prerequisites are owned), **X** Cancel Production, **C** Set Rally Point". Q, W and R are its recipes, which train a
+/// Bike, (slice M6-SB) a Shadebringer and (slice M6-ST1) a Transport, W greyed while the gate refuses it for want of
+/// its Vault ("**Shadebringer** (requires a Vault)": `Reject::Requires`), and R for want of its Forge
+/// (`factions/syndicate/units/subterranean_transport.md > TechPrerequisite`: "player owns at least one **Forge**"); E
+/// holds the unit it doesn't train yet (slice M6-SL), not available ("Not available yet"), labelled and named by its
+/// type; C awaits the rally point's target, and the panel's right-click sets it.
 #[test]
 fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
     use ButtonLook::{Common, Disabled, Unavailable};
     use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
+    const TRANSPORT: ObjectKind = ObjectKind::SubterraneanTransport;
     let assembly = Selection::new([(id(1), VEHICLE_ASSEMBLY)]);
-    let shown_panel = panel(&assembly, InterfaceState::DefaultState, &Conditions::default());
+    let no_forge = Conditions::default().refusing(Train(TRANSPORT), Reject::Requires(ObjectKind::Forge));
+    let shown_panel = panel(&assembly, InterfaceState::DefaultState, &no_forge);
     let c = PanelButton::Command;
     assert_eq!(
         shown(&shown_panel),
@@ -337,7 +340,7 @@ fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
             (slot(0, 0), c(Train(BIKE)), Common),
             (slot(0, 1), c(Train(SHADEBRINGER)), Common),
             (slot(0, 2), c(P(Planned::LaserBattery)), Unavailable),
-            (slot(0, 3), c(P(Planned::SubterraneanTransport)), Unavailable),
+            (slot(0, 3), c(Train(TRANSPORT)), Disabled),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Common),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common),
         ]
@@ -357,10 +360,10 @@ fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
             "Train Subterranean Transport"
         ]
     );
-    for slot in [slot(0, 2), slot(0, 3)] {
-        assert_eq!(why_text(&shown_panel, slot), Some("Not available yet"));
-        assert_eq!(press(&shown_panel, slot), SlotPress::Nothing);
-    }
+    assert_eq!(why_text(&shown_panel, slot(0, 2)), Some("Not available yet"));
+    assert_eq!(press(&shown_panel, slot(0, 2)), SlotPress::Nothing);
+    assert_eq!(why_text(&shown_panel, slot(0, 3)), Some("Requires a Forge"));
+    assert_eq!(press(&shown_panel, slot(0, 3)), SlotPress::Nothing);
     assert_eq!(
         press(&shown_panel, slot(0, 0)),
         SlotPress::Produce(Train(BIKE), ProductionCommand::Train(BIKE))
@@ -377,6 +380,16 @@ fn the_vehicle_assembly_has_q_w_e_r_x_and_c() {
     assert_eq!(
         press(&shown_panel, CommandSlot::RALLY_POINT),
         SlotPress::AwaitTarget(SetRallyPoint)
+    );
+    // A Forge owned: R trains Transports.
+    let with_forge = panel(&assembly, InterfaceState::DefaultState, &Conditions::default());
+    assert_eq!(
+        with_forge.get(slot(0, 3)).map(|s| (s.look, s.why)),
+        Some((Common, None))
+    );
+    assert_eq!(
+        press(&with_forge, slot(0, 3)),
+        SlotPress::Produce(Train(TRANSPORT), ProductionCommand::Train(TRANSPORT))
     );
     assert_eq!(
         InterfaceTemplate::of(VEHICLE_ASSEMBLY),

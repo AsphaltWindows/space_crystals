@@ -35,7 +35,7 @@ impl<'a> World<'a> {
     pub(crate) fn plan_grid(&self, unit: &Unit) -> Option<&NavGrid> {
         let def = unit.kind.def();
         let (unit_def, silhouette) = def.unit.as_ref().zip(def.silhouette())?;
-        let class = unit_def.base_def().nav_class()?;
+        let class = unit_def.nav_class()?;
         let (_, grid) = (self.nav).plan_grid(unit.owner, class, nav::size_class(silhouette), unit.pos)?;
         Some(grid)
     }
@@ -58,7 +58,7 @@ impl<'a> World<'a> {
     ) -> Result<Option<Vec<Vec2>>, ()> {
         let def = unit.kind.def();
         let (unit_def, silhouette) = def.unit.as_ref().zip(def.silhouette()).ok_or(())?;
-        let Some(class) = unit_def.base_def().nav_class() else {
+        let Some(class) = unit_def.nav_class() else {
             return Ok(Some(vec![unit.pos, target.pos]));
         };
         let half = silhouette / 2.0;

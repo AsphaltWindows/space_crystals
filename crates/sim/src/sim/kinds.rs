@@ -103,9 +103,10 @@ fn rebuilt<T>(old: Option<T>, fresh: Option<T>, keep: bool) -> Option<T> {
     }
 }
 
-/// The grid a unit of this type plans and collides on (`docs/movement.md > 5.2`): its base's class and its size class.
+/// The grid a unit of this type plans and collides on (`docs/movement.md > 5.2`): its type's class
+/// (`UnitDef::nav_class`: its base's, but for (M6-ST1) a type of a Domain of its own) and its size class.
 fn grid_key(def: &ObjectDef) -> Option<(Option<nav::NavClass>, u8)> {
-    let class = def.unit.as_ref()?.base_def().nav_class();
+    let class = def.unit.as_ref()?.nav_class();
     Some((class, nav::size_class(def.silhouette()?)))
 }
 

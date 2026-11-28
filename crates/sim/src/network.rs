@@ -64,8 +64,7 @@ pub fn rules() -> &'static TunnelDef {
 }
 
 /// Where a held unit is (plan decision T30). Match it exhaustively, and never assume a held unit's place is on the
-/// map: a transport's passengers (design changes 0221 and 0222, deferred) will be held at their carrier, which may
-/// itself be held.
+/// map: (M6-ST1) a carrier's passengers are held at their carrier ([`Place::Carrier`]), which may itself be held.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Place {
     /// In its owner's Tunnel Network.
@@ -82,6 +81,14 @@ pub enum Place {
     /// (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`; `sim/holding.rs`). Not in
     /// any network: it doesn't regenerate.
     Building(ObjectId),
+    /// (M6-ST1) Aboard this carrier (plan decision T94, `crate::carry`): a passenger of the Subterranean Transport
+    /// (`factions/syndicate/units/subterranean_transport.md`). It comes out around the carrier as it unloads (Unload
+    /// All), and dies with it (`factions/syndicate/units/subterranean_transport.md > Destroyed with passengers`: "**all
+    /// infantry inside die** with it"). The carrier is on the map, or held itself in its owner's Tunnel Network
+    /// (`factions/syndicate/units/subterranean_transport.md > Entering the Tunnel Network loaded`: "they travel along
+    /// inside it and stay aboard"), where its passengers still aren't in the network: "only the Transport
+    /// regenerates and takes a Null Chamber turn" (design change 0432 point 2).
+    Carrier(ObjectId),
 }
 
 /// A unit off the map (plan decision T30, module docs): the object, with its id, where it is and since when.
@@ -128,11 +135,12 @@ impl Held {
     /// One tick of `factions/syndicate/tunnels.md > Regeneration inside` (design change 0249): the network's share of
     /// its MaxHP a second ([`rules`]), up to its MaxHP (`crate::regeneration`, the rule of the Tunnel expansions' too),
     /// (M5-N1a) its Augmentations' included, at its owner's levels in `research`. Only "inside the Tunnel Network": a
-    /// unit held elsewhere regenerates nothing.
+    /// unit held elsewhere regenerates nothing, (M6-ST1) a carrier's passengers included, wherever their carrier is
+    /// (design change 0432 point 2: "only the Transport regenerates").
     pub(crate) fn regenerate(&mut self, research: Research) {
         match self.place {
             Place::Network => regeneration::regenerate(&mut self.object, rules().regen_per_second, research),
-            Place::Site(_) | Place::Building(_) => {}
+            Place::Site(_) | Place::Building(_) | Place::Carrier(_) => {}
         }
     }
 }
@@ -141,7 +149,8 @@ impl Held {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum NoTransit {
     /// The object takes no units in: it is neither a Tunnel nor a building that holds units, or isn't one that works
-    /// yet (under construction).
+    /// yet (under construction); (M6-ST1) nor a carrier that loads now (`carry::loads`: not the burrowed Subterranean
+    /// Transport).
     NotATunnel,
     /// The kind isn't a unit.
     NotAUnit,
@@ -149,12 +158,13 @@ pub enum NoTransit {
     /// (M6-SD) an air unit's below Tier 3 too, the doors being Tier 3's.
     Tier,
     /// (M5-F1) A building that holds units, whose type doesn't take units of the kind in (`HoldsDef::accepts`;
-    /// `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only").
+    /// `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only"); (M6-ST1) a carrier, whose
+    /// type carries no unit of the kind's base (`CarrierDef::places`: the Transport "carries **infantry only**").
     NotAccepted,
 }
 
-/// Whether `target` lets a unit of `kind` in: a building that holds units by its own rule (`holding::admits`, slice
-/// M5-F1), and a Tunnel into or out of the network by
+/// Whether `target` lets a unit of `kind` in: (M6-ST1) a carrier by its own rule (`carry::admits`, plan decision T94),
+/// a building that holds units by its own (`holding::admits`, slice M5-F1), and a Tunnel into or out of the network by
 /// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: it is a Tunnel in operation
 /// ([`is_exit`]) whose tier's Transit lists the unit's base: "Tier 1+: Infantry", "Tier 2+: Vehicles", "Tier 3+: Air
 /// units", (M6-SD) by its air doors. The tier is the one the Tunnel has (`TunnelState::tier`), which an upgrade under
@@ -162,6 +172,9 @@ pub enum NoTransit {
 /// accepts, and only lets out, units supported by the tier it had before the upgrade began"): a Tunnel upgrading to
 /// Tier 3 lets no aircraft through ("not one mid-upgrade to Tier 3", `factions/syndicate/units/specter.md`).
 pub fn admits(target: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
+    if crate::carry::def_of(target).is_some() {
+        return crate::carry::admits(target, kind);
+    }
     if crate::holding::holds(target).is_some() {
         return crate::holding::admits(target, kind);
     }
@@ -241,6 +254,11 @@ impl StateHash for Place {
             Place::Building(building) => {
                 h.tag(2);
                 building.hash(h);
+            }
+            // (M6-ST1) A tag of its own, the same way.
+            Place::Carrier(carrier) => {
+                h.tag(3);
+                carrier.hash(h);
             }
         }
     }

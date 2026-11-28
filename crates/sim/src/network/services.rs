@@ -155,11 +155,12 @@ fn slots<'a>(objects: impl IntoIterator<Item = &'a Object>) -> Vec<(PlayerId, u3
 }
 
 /// Whether `held` waits for its Null Chamber turn, or takes it (module docs): a manned unit in its owner's network
-/// whose turn isn't done.
+/// whose turn isn't done; (M6-ST1) not one aboard a carrier, which is in no network (`crate::carry`, design change
+/// 0432: "no Null Chamber turn").
 fn waits(held: &Held) -> bool {
     let inside = match held.place {
         Place::Network => true,
-        Place::Site(_) | Place::Building(_) => false,
+        Place::Site(_) | Place::Building(_) | Place::Carrier(_) => false,
     };
     inside && !held.service.charged() && manned(held.object.kind)
 }
@@ -231,11 +232,11 @@ fn vault_slots<'a>(objects: impl IntoIterator<Item = &'a Object>) -> Vec<(Player
 }
 
 /// (M6-SB) Whether `held` waits for its Vault turn, or takes it (module docs): a unit in its owner's network with a
-/// tank that isn't full.
+/// tank that isn't full; (M6-ST1) not one aboard a carrier, which is in no network (`crate::carry`).
 fn waits_for_vault(held: &Held) -> bool {
     let inside = match held.place {
         Place::Network => true,
-        Place::Site(_) | Place::Building(_) => false,
+        Place::Site(_) | Place::Building(_) | Place::Carrier(_) => false,
     };
     inside && held.object.tanks.is_some_and(|tanks| tanks.any_used())
 }

@@ -1,12 +1,13 @@
 //! The Subterranean Transport's two types (`factions/syndicate/units/subterranean_transport.md`, design change 0367;
-//! slice M6-SK): the Subterranean Transport, above ground, and the Subterranean Transport (Burrowed), underground. Both
-//! are a tracked hull ([`UnitShape::Tracked`]), a placeholder (Q0001), with "STR" on the one and "STB" on the other
-//! (its "ST" is the Scout's); unarmed. Neither has a panel yet: its own ("Panel: Q Move, X Stop, **R: Burrow /
-//! Surface**, **F: Unload All**") comes with slices M6-ST1 and M6-ST2, which have the Vehicle Assembly build it and
-//! give it its burrowing (plan decision T84). Until then each is the debug spawn's alone, and the Tunnel's EjectMenu
-//! shows the Subterranean Transport's tile, greyed with a count of 0 (the burrowed one never enters).
+//! slices M6-SK and M6-ST1): the Subterranean Transport, above ground, and the Subterranean Transport (Burrowed),
+//! underground. Both are a tracked hull ([`UnitShape::Tracked`]), a placeholder (Q0001), with "STR" on the one and
+//! "STB" on the other (its "ST" is the Scout's); unarmed. Their panel is the Transport's ("Panel: Q Move, X Stop,
+//! **R: Burrow / Surface**, **F: Unload All**", `crate::command_ui::interface::templates::syndicate::transport`), its R
+//! held until slice M6-ST2 gives it its burrowing; the Vehicle Assembly's R trains the surfaced one (slice M6-ST1), and
+//! the burrowed one is the debug spawn's alone until then. A loaded Transport shows its passengers as pips over its HP
+//! bar to its owner (`crate::combat_effects`).
 
-use crate::command_ui::interface::templates::PanelTemplate;
+use crate::command_ui::interface::templates::syndicate::transport;
 use crate::kinds::ClientKind;
 use crate::object_render::{Look, UnitShape};
 
@@ -18,11 +19,12 @@ pub const SURFACED: ClientKind = ClientKind {
         tagged: true,
     },
     shot: None,
-    template: PanelTemplate::NONE,
+    template: transport::SURFACED,
 };
 
-/// The Subterranean Transport (Burrowed): the surfaced one's, but for its label.
+/// The Subterranean Transport (Burrowed): the surfaced one's, but for its label and its R.
 pub const BURROWED: ClientKind = ClientKind {
     label: "STB",
+    template: transport::BURROWED,
     ..SURFACED
 };

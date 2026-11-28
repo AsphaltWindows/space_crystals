@@ -8,7 +8,8 @@ use super::PanelCommand;
 impl PanelCommand {
     /// The order of a unit command that needs no target: Hold Position's, Stop's, (M5-N4b) a Disciple's Shroud,
     /// channelled where it stands, (M6-GD) a Drone Operator's Launch Drone, over itself, (M6-GH1) an aircraft's
-    /// Return to Base, to its Airfield, and (M6-GA) a vehicle's Deploy or Undeploy, where it stands, into the type named.
+    /// Return to Base, to its Airfield, (M6-GA) a vehicle's Deploy or Undeploy, where it stands, into the type named,
+    /// and (M6-ST1) a carrier's Unload All, round it.
     pub fn immediate_order(self) -> Option<OrderKind> {
         match self {
             PanelCommand::HoldPosition => Some(OrderKind::Hold),
@@ -17,6 +18,7 @@ impl PanelCommand {
             PanelCommand::Launch => Some(OrderKind::Launch),
             PanelCommand::ReturnToBase => Some(OrderKind::ReturnToBase),
             PanelCommand::VehicleDeploy(into) => Some(OrderKind::VehicleDeploy { into }),
+            PanelCommand::UnloadAll => Some(OrderKind::UnloadAll),
             _ => None,
         }
     }

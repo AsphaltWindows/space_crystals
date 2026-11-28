@@ -34,7 +34,7 @@ impl Elevation {
             .def()
             .unit
             .as_ref()
-            .is_some_and(|unit| unit.base_def().domain == Domain::Air);
+            .is_some_and(|unit| unit.domain() == Domain::Air);
         if air {
             Elevation::Exempt
         } else {

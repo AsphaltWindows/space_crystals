@@ -98,7 +98,7 @@ impl Sim {
             }
             ExitDoor::Centre(_) if !released.is_empty() => return,
             ExitDoor::Centre(portal) => {
-                let grid = paths::unit_grid(self.nav.nav(), unit.base_def(), half * 2.0);
+                let grid = paths::unit_grid(self.nav.nav(), unit, half * 2.0);
                 let rng = &mut self.rng;
                 let rally = rally.map(|rally| rally.point());
                 let Some(release) = portal.release(unit, half, grid, &self.objects, rally, |n| rng.below(n)) else {
@@ -145,8 +145,9 @@ impl Sim {
     pub(in crate::sim) fn doorway_spot(&self, door: &Door, kind: ObjectKind, half: Vec2) -> Option<Vec2> {
         let def = kind.def();
         let (unit, silhouette) = (def.unit.as_ref()?, def.silhouette()?);
-        let base = unit.base_def();
-        let grid = paths::unit_grid(self.nav.nav(), base, silhouette);
+        let grid = paths::unit_grid(self.nav.nav(), unit, silhouette);
+        // (M6-ST1) Its type's Domain, its own over its base's (`UnitDef::domain`).
+        let domain = unit.domain();
         let clear = |p: Vec2| grid.is_none_or(|grid| door.box_clear(grid, half, p));
         let depth = door.outward().abs().dot(half);
         // The other units of its layer, with their half extents: (M5-V1) of their shapes' bounding boxes, a turned
@@ -154,8 +155,7 @@ impl Sim {
         let others = || {
             self.objects.values().filter_map(|o| {
                 let other = o.def();
-                let same_layer = base.domain.hard_collision()
-                    && other.unit.as_ref().is_some_and(|u| u.base_def().domain == base.domain);
+                let same_layer = domain.hard_collision() && other.unit.as_ref().is_some_and(|u| u.domain() == domain);
                 other.silhouette().filter(|_| same_layer)?;
                 Some((o.pos, Shape::of(o).bound_half()))
             })

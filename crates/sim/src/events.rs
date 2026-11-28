@@ -571,4 +571,16 @@ pub enum SimEvent {
         disciple: ObjectId,
         illusions: Vec<ObjectId>,
     },
+    /// (M6-ST1) `unit` boarded `carrier`, its owner's (`crate::carry`): it keeps its id, held off the map aboard it
+    /// (`network::Place::Carrier`), as in a building: no `Removed` follows.
+    Boarded {
+        unit: ObjectId,
+        carrier: ObjectId,
+    },
+    /// (M6-ST1) `unit` came out of `carrier` as the carrier unloaded (`crate::carry`, Unload All), back on the map
+    /// round it, the object it was.
+    Unloaded {
+        unit: ObjectId,
+        carrier: ObjectId,
+    },
 }

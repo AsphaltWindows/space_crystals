@@ -480,6 +480,24 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 |---|---|---|---|
 | A | Attack | Attack | click a target; Shift queues |
 
+#### Subterranean Transport (STR)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| R | Burrow | Burrow | greyed: "Not available yet" |
+| F | Unload | Unload All | Shift queues |
+| X | Stop | Stop | Shift queues |
+
+#### Subterranean Transport (Burrowed) (STB)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Move | Move | click a target; Shift queues |
+| R | Surf. | Surface | greyed: "Not available yet" |
+| F | Unload | Unload All | Shift queues |
+| X | Stop | Stop | Shift queues |
+
 #### Phantom (PHM)
 
 | Keys | Button | Command | Notes |
@@ -558,7 +576,7 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 | Q | AB | Train Assault Bike |  |
 | W | SBR | Train Shadebringer | Requires a Vault |
 | E | LB | Train Laser Battery | greyed: "Not available yet" |
-| R | STR | Train Subterranean Transport | greyed: "Not available yet" |
+| R | STR | Train Subterranean Transport | Requires a Forge |
 | X | Cancel | Cancel Production |  |
 | C | Rally | Set Rally Point | click a target |
 
@@ -580,7 +598,7 @@ No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal 
 
 **Before it is finished:** X Cancel Construction, C Set Rally Point.
 
-No commands: Subterranean Transport (STR), Subterranean Transport (Burrowed) (STB), Prism (PRM), Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT), Vault (VT), Forge (FE), Null Chamber (NC), Orbital Command (OC).
+No commands: Prism (PRM), Optics Lab (OL), Chemical Plant (CP), Laser Turret (LT), Vault (VT), Forge (FE), Null Chamber (NC), Orbital Command (OC).
 
 ## Cults
 

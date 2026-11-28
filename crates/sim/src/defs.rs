@@ -53,10 +53,11 @@ pub use structures::{
 pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
 pub use syndicate::{EJECT_MENU_ORDER, EXPAND_MENU, ExpandEntry, SyndicateRules};
 pub use units::{
-    AmmoDef, AttackAttrs, AttackType, Augmentable, BlastDomain, ContactStep, ConversionDef, Domain, DropOffChoice,
-    FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest, PatchKind, RepairDef,
-    RepairPayment, RepairTargets, Resource, ReverseSpeed, RiotShieldDef, SlowDef, StockDef, TankDef, TargetDomain,
-    TargetLockDef, TargetType, TetherDef, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, VehicleDeploy, WorkerDef,
+    AmmoDef, AttackAttrs, AttackType, Augmentable, BlastDomain, CarrierDef, ContactStep, ConversionDef, Domain,
+    DropOffChoice, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest, PatchKind,
+    Places, RepairDef, RepairPayment, RepairTargets, Resource, ReverseSpeed, RiotShieldDef, SlowDef, StockDef, TankDef,
+    TargetDomain, TargetLockDef, TargetType, TetherDef, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, VehicleDeploy,
+    WorkerDef,
 };
 
 /// The kind registry's macro: from the list of kinds below, each with its def, it makes [`ObjectKind`],

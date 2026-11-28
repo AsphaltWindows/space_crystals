@@ -96,6 +96,10 @@ impl Sim {
         gone.extend(illusions);
         gone.sort_unstable();
         gone.dedup();
+        // (M6-ST1) A carrier takes its passengers along, who die with it (`Sim::passengers_of`, `crate::carry`): their
+        // deaths told now, while it is there to say where, and they leave the game once everything else has gone.
+        let passengers = self.passengers_of(&gone);
+        self.passengers_die(&passengers);
         // The units inside the buildings that go (`sim/holding/evacuation.rs`): first, with a finished training taken
         // off its queue unrefunded (design change 0349 point 3), before the refunds below.
         let evacuations = self.evacuations(&gone);
@@ -129,6 +133,9 @@ impl Sim {
         self.lose_tunnels(&tunnels);
         // (M6-CM) "An illusion inside a Garrison when it ends simply vanishes" (`crate::mirage`).
         self.remove_held(&held_illusions);
+        // (M6-ST1) `factions/syndicate/units/subterranean_transport.md > Destroyed with passengers`: "If it is
+        // destroyed, **all infantry inside die** with it" (`crate::carry`).
+        self.remove_held(&passengers);
     }
 
     /// The reference cleanup of a removal, without its effects of a death (plan decision T30): every object, and

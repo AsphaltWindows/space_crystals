@@ -67,12 +67,14 @@ fn the_shadebringer_is_the_one_type_with_tanks() {
 
 /// "**Infantry and non-hover vehicles** that step into sludge are **slowed**", Mechs and Drill Units on the surface
 /// too; "Not affected: hover units (HoverVehicle, HoverCraft) and air units": by base and domain, of the kinds there
-/// are. A Drill Unit's base is underground until slice M6-ST1 surfaces it ("unaffected while underground").
+/// are on their bases' Domains. A Drill Unit's base is underground ("unaffected while underground"): the burrowed
+/// Subterranean Transport's; (M6-ST1) above ground, by its type's own Domain, the Transport is slowed ("**Drill Units**
+/// are slowed while on the surface").
 #[test]
 fn sludge_slows_the_ground_units_but_hover_units_and_aircraft() {
     let slowed = |base: UnitBase| {
         let kinds: Vec<ObjectKind> = (ObjectKind::ALL.iter().copied())
-            .filter(|kind| kind.def().unit.as_ref().is_some_and(|unit| unit.base == base))
+            .filter(|kind| (kind.def().unit.as_ref()).is_some_and(|unit| unit.base == base && unit.domain.is_none()))
             .collect();
         let each: Vec<bool> = kinds.iter().map(|&kind| slows(kind)).collect();
         assert!(each.windows(2).all(|pair| pair[0] == pair[1]), "{base:?}: {kinds:?}");
@@ -96,6 +98,8 @@ fn sludge_slows_the_ground_units_but_hover_units_and_aircraft() {
     );
     assert!(!slows(ObjectKind::Tunnel), "a building");
     assert!(slows(ObjectKind::Shadebringer), "not immune");
+    assert!(slows(ObjectKind::SubterraneanTransport), "a Drill Unit on the surface");
+    assert!(!slows(ObjectKind::SubterraneanTransportBurrowed), "underground");
 }
 
 /// A unit is in a patch when its centre is in the disc, or on its edge (module docs): at 24 su from a 48 su patch's

@@ -78,7 +78,8 @@ pub enum UnitBase {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnitBaseDef {
     pub base: UnitBase,
-    /// `> Domain`.
+    /// `> Domain`. (M6-ST1) A unit type may have its own (`UnitDef::domain`, plan decision T94), which every reader
+    /// asks (`UnitDef::domain()`).
     pub domain: Domain,
     /// `> CanHaveTurret` (design change 0154, renamed from HasTurret): units of this base **can** carry a turret.
     /// Whether one actually has one is its own TurretAttributes' ([`super::UnitDef::has_turret`]): the HoverVehicle
@@ -92,9 +93,9 @@ pub struct UnitBaseDef {
     pub crushable: bool,
     /// (M5-V4) `systems/units.md > UnitCollision > Crushing`: "Units whose UnitBase can crush (TrackedVehicle, Mech, and
     /// a **DrillUnit in its above-ground mode** [...]; never underground) crush enemy units whose UnitBase has Crushable =
-    /// true (Light Infantry)" (plan decision T86, `movement::crush`). False for the DrillUnit: it has no above-ground
-    /// mode yet, and underground it never crushes (design change 0419: slice M6-ST1 gives it the mode, and this rule
-    /// with it).
+    /// true (Light Infantry)" (plan decision T86, `movement::crush`). False for the DrillUnit, which underground never
+    /// crushes: (M6-ST1) its above-ground type crushes by its own flag (`UnitDef::crushes`, design change 0419), which
+    /// every reader asks (`UnitDef::crushes()`).
     #[serde(default)]
     pub crushes: bool,
     /// `> CanTurnInPlace`.
@@ -112,8 +113,8 @@ pub struct UnitBaseDef {
     /// base Q0119 asked about, which can't step sideways nor turn in place, and (M5-V3) for the TrackedVehicle: design
     /// change 0440, answering Q0172 point 1, "WheeledVehicle, TrackedVehicle and a DrillUnit in its above-ground mode
     /// stand (they don't yield and don't take the idle push-apart nudge)". A HoverVehicle steps any way (0323 gives it
-    /// the sideways contact step) and yields as before. The DrillUnit has no above-ground mode yet (slice M6-ST1 gives
-    /// it one, and its standing with it): underground it yields as before.
+    /// the sideways contact step) and yields as before. The DrillUnit yields underground as before; (M6-ST1) its
+    /// above-ground type stands by its own flag (`UnitDef::yields`), which every reader asks (`UnitDef::yields()`).
     pub yields: bool,
     /// (M5-H2) `systems/units.md > Air Collision`: how strongly the soft separation of air units pushes a unit of this
     /// base off another (`movement::air`), as the share it takes of the full push (half of what the pair lacks, at
@@ -193,14 +194,21 @@ impl crate::ruleset::Key for UnitBase {
 
 impl UnitBaseDef {
     /// The passability rules a unit of this base paths with (`docs/movement.md > 5.2`); `None` for air units,
-    /// which cross every tile of the map (question Q0011, gap G14).
+    /// which cross every tile of the map (question Q0011, gap G14). (M6-ST1) A unit type's own is
+    /// `UnitDef::nav_class`, by its own Domain (`UnitDef::domain`): every reader of a unit's grid asks that one.
     pub fn nav_class(&self) -> Option<NavClass> {
-        match self.domain {
-            Domain::Ground if self.rugged_terrain => Some(NavClass::GroundRugged),
-            Domain::Ground => Some(NavClass::Ground),
-            Domain::Underground => Some(NavClass::Underground),
-            Domain::Air => None,
-        }
+        nav_class(self.domain, self.rugged_terrain)
+    }
+}
+
+/// The passability rules of a unit of domain `domain` whose base crosses Rugged tiles if `rugged_terrain`
+/// ([`UnitBaseDef::nav_class`]).
+pub(super) fn nav_class(domain: Domain, rugged_terrain: bool) -> Option<NavClass> {
+    match domain {
+        Domain::Ground if rugged_terrain => Some(NavClass::GroundRugged),
+        Domain::Ground => Some(NavClass::Ground),
+        Domain::Underground => Some(NavClass::Underground),
+        Domain::Air => None,
     }
 }
 
@@ -288,14 +296,14 @@ const DRILL_UNIT: UnitBaseDef = UnitBaseDef {
     directional_armor: true,
     rugged_terrain: false,
     crushable: false,
-    crushes: false, // only above ground (0419), a mode slice M6-ST1 builds
+    crushes: false, // only above ground (0419): the surfaced type's own flag (`UnitDef::crushes`, M6-ST1)
     can_turn_in_place: true,
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
     // Design change 0338: "DrillUnits take 0323's 90° body-width step" (as the TrackedVehicle: the Subterranean
     // Transport is tracked when above ground).
     contact_step: ContactStep::Sideways,
-    yields: true,
+    yields: true, // underground; the surfaced type stands (0440, `UnitDef::yields`, M6-ST1)
     separation_strength: None,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
     brakes_by_drag: false,

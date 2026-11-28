@@ -69,7 +69,7 @@ pub(super) fn firing(
     let mut inside: Vec<(ObjectId, Tick, ObjectId)> = (held.values())
         .filter_map(|held| match held.place {
             Place::Building(building) if building < first_new => Some((building, held.since, held.object.id)),
-            Place::Building(_) | Place::Network | Place::Site(_) => None,
+            Place::Building(_) | Place::Network | Place::Site(_) | Place::Carrier(_) => None,
         })
         .filter(|&(building, ..)| objects.get(&building).and_then(fire_of).is_some())
         .collect();
@@ -234,7 +234,7 @@ pub(super) fn building_of<'o>(
 ) -> Option<&'o Object> {
     match held.get(&id)?.place {
         Place::Building(building) => objects.get(&building),
-        Place::Network | Place::Site(_) => None,
+        Place::Network | Place::Site(_) | Place::Carrier(_) => None,
     }
 }
 

@@ -12,7 +12,7 @@ use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Pa
 use super::world::{Unit, World};
 use super::{
     ActiveOrder, Order, OrderGroup, OrderKind, Orders, Target, air_base, assist, attack_ground, build, engage, enter,
-    gather, launch, repair, target_lock, travel, turret, vehicle_deploy,
+    gather, launch, repair, target_lock, travel, turret, unload, vehicle_deploy,
 };
 use crate::deploy;
 use crate::ids::ObjectId;
@@ -215,8 +215,9 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
                 return Behaviour::Plain;
             }
         }
-        // (M6-GA) A vehicle deploys where it stands (`super::vehicle_deploy`).
-        OrderKind::VehicleDeploy { .. } => {}
+        // (M6-GA) A vehicle deploys where it stands (`super::vehicle_deploy`), and (M6-ST1) a carrier unloads round
+        // where it comes to rest (`super::unload`).
+        OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -266,6 +267,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Rebase(_) | OrderKind::ReturnToBase => Behaviour::Plain,
         // (M6-GA) Its frames, none done (`super::vehicle_deploy`).
         OrderKind::VehicleDeploy { .. } => vehicle_deploy::begin(unit),
+        // (M6-ST1) Nothing to keep: the step right after this phase unloads the carrier at rest (`super::unload`).
+        OrderKind::UnloadAll => Behaviour::Plain,
     }
 }
 
@@ -341,6 +344,9 @@ fn run(
         // (M6-GA) Standing while it deploys, which the step right before this phase completes, ending the order
         // (`super::vehicle_deploy`).
         (OrderKind::VehicleDeploy { .. }, Behaviour::VehicleDeploy(_)) => vehicle_deploy::run(unit),
+        // (M6-ST1) Standing for the unload, which the step right after this phase makes once the carrier is at rest,
+        // ending the order (`super::unload`). Its state, the plain one, is any.
+        (OrderKind::UnloadAll, _) => unload::run(),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)

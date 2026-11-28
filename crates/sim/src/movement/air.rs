@@ -84,7 +84,7 @@ pub(super) fn separate(
         }
         let base = unit.base_def();
         if let (Domain::Air, Some(radius), Some(strength)) =
-            (base.domain, unit.separation_radius, base.separation_strength)
+            (unit.domain(), unit.separation_radius, base.separation_strength)
         {
             flyers.push(Flyer {
                 id: o.id,

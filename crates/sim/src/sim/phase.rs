@@ -312,6 +312,9 @@ impl Sim {
         // comes out (slice M5-F2, `sim/producers/pool.rs`). After the producers, so that an entry finished in this
         // tick lets its unit out in it, as a producer's finished unit, and for the same reasons: after 5d, before 5f.
         self.step_holding();
+        // (M6-ST1) The carriers on an Unload All that 5d brought to rest put their passengers on the map round them
+        // (`sim/holding/carriers.rs`, `crate::carry`), beside the buildings and for the same reasons.
+        self.step_unloads(first_new);
         // The defeat check ends the economy phase (plan decisions T5 and T8, slice M2-F2): after every way a
         // structure leaves the game; before 5f, so that the units a defeat makes neutral are no one's eyes in its
         // own tick.

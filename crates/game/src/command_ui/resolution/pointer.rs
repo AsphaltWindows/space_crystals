@@ -65,7 +65,7 @@ impl PointerDisplay {
     /// Return to Base onto its own (`factions/gdo/structures/airfield.md > Assignment`: "right-click the other
     /// Airfield"), shows Enter: **Placeholder (not in the design: `systems/controls/hud.md > Types` has no row for it;
     /// the aircraft flies there to land, as a unit goes into what it enters)**. No click gives Hold, Stop, (M5-N4b) a
-    /// Shroud, (M6-GD) a Launch or (M6-GA) a vehicle deploy.
+    /// Shroud, (M6-GD) a Launch, (M6-GA) a vehicle deploy or (M6-ST1) an Unload All.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
             // No click gives a Deploy (slice M3-J1 places it), nor a Build.
@@ -82,7 +82,7 @@ impl PointerDisplay {
             OrderKind::Patrol(_) => PointerDisplay::Patrol,
             OrderKind::AttackGround(_) => PointerDisplay::AttackGround,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch => PointerDisplay::Inactive,
-            OrderKind::VehicleDeploy { .. } => PointerDisplay::Inactive,
+            OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => PointerDisplay::Inactive,
         }
     }
 

@@ -201,6 +201,8 @@ mod target_priority;
 mod test_programs;
 #[path = "tracked/main.rs"]
 mod tracked;
+#[path = "transport/main.rs"]
+mod transport;
 #[path = "tunnel_network/main.rs"]
 mod tunnel_network;
 mod unit_moves;

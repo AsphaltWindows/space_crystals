@@ -27,6 +27,7 @@ pub use worker::{DropOffChoice, LoadDef, Nearest, RepairDef, RepairPayment, Repa
 use serde::{Deserialize, Serialize};
 
 use super::{MirageDef, ObjectKind, Recipe, ShroudDef, SpellDef};
+use crate::nav::NavClass;
 
 /// `systems/units.md > TurretAttributes`: only on units whose base can carry a turret (`UnitBaseDef::can_have_turret`),
 /// and a unit of such a base may still have none (design change 0154).
@@ -153,6 +154,56 @@ pub struct UnitDef {
     /// most one of each kind ([`TankDef::lays`]). Empty for every other type.
     #[serde(deserialize_with = "super::leak::slice")]
     pub tanks: &'static [TankDef],
+    /// (M6-ST1) Its own Domain, in place of its base's (plan decision T94; read through [`UnitDef::domain()`]): the
+    /// Subterranean Transport's above-ground type, a DrillUnit ("Domain - Underground", `systems/units.md > DrillUnit`)
+    /// that "**drives out of the Tunnel in its above-ground mode**, behaving as a tracked vehicle"
+    /// (`factions/syndicate/units/subterranean_transport.md > Above-ground mode`): Ground. `None` for every other type,
+    /// the Transport's burrowed one among them, which has its base's.
+    pub domain: Option<Domain>,
+    /// (M6-ST1) Whether its moves crush, in place of its base's `UnitBaseDef::crushes` (read through
+    /// [`UnitDef::crushes()`]): the Transport's above-ground type, which "**crushes** enemy Light Infantry like any
+    /// tracked vehicle" (`factions/syndicate/units/subterranean_transport.md > Above-ground mode`, design change 0419;
+    /// "underground it crushes nothing", its burrowed type its base's). `None` for every other type.
+    pub crushes: Option<bool>,
+    /// (M6-ST1) Whether it yields, in place of its base's `UnitBaseDef::yields` (read through
+    /// [`UnitDef::yields()`]): the Transport's above-ground type stands as a TrackedVehicle does (design change 0440,
+    /// answering Q0172 point 1: "WheeledVehicle, TrackedVehicle and a DrillUnit in its above-ground mode stand (they
+    /// don't yield and don't take the idle push-apart nudge)"). `None` for every other type, the burrowed Transport's
+    /// among them.
+    pub yields: Option<bool>,
+    /// (M6-ST1) Its hold, for a carrier (plan decision T94, `crate::carry`): the Subterranean Transport's, both of its
+    /// types ("they travel along inside it and stay aboard",
+    /// `factions/syndicate/units/subterranean_transport.md > Entering the Tunnel Network loaded`). `None` for every
+    /// other type.
+    pub carries: Option<CarrierDef>,
+}
+
+/// (M6-ST1) A carrier's hold (plan decision T94, `crate::carry`): how many places it has, and the bases of the units
+/// it takes with the places one takes. The Subterranean Transport "carries **infantry only**", "**Capacity 4**
+/// infantry (user, 2026-11-27: **4 heavy infantry, e.g. 4 Guards**; Syndicate infantry are Heavy Infantry)"
+/// (`factions/syndicate/units/subterranean_transport.md > Placeholder stats`): 4 places, an infantry unit of either
+/// base taking one.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CarrierDef {
+    /// How many places it has: as many units as fit in them are aboard at most.
+    pub capacity: u32,
+    /// The bases whose units board it, each with the places a unit of it takes. A unit of a base not listed doesn't.
+    #[serde(deserialize_with = "super::leak::slice")]
+    pub places: &'static [Places],
+}
+
+/// (M6-ST1) The places a unit of `base` takes aboard a carrier ([`CarrierDef::places`]).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Places {
+    pub base: UnitBase,
+    pub places: u32,
+}
+
+impl CarrierDef {
+    /// The places a unit of base `base` takes aboard, if it boards at all.
+    pub fn places_of(&self, base: UnitBase) -> Option<u32> {
+        (self.places.iter()).find_map(|places| (places.base == base).then_some(places.places))
+    }
 }
 
 /// (M6-GH1) An aircraft's ammo (plan decision T88, `crate::aircraft`): "Ammo per unit is on each aircraft"
@@ -230,6 +281,33 @@ pub struct Augmentable {
 impl UnitDef {
     pub fn base_def(&self) -> &'static UnitBaseDef {
         self.base.def()
+    }
+
+    /// (M6-ST1) Its Domain (`systems/units.md > UnitBase > Domain`): its own (its field `domain`, plan decision T94),
+    /// else its base's. Every reader of a type's domain asks this: targeting (`combat::kind_domain`), the collision
+    /// layers, the grids and the gate's spots; a landed aircraft is a Ground target by its object
+    /// (`combat::object_domain`), and stays on its type's air layer.
+    pub fn domain(&self) -> Domain {
+        self.domain.unwrap_or(self.base_def().domain)
+    }
+
+    /// (M6-ST1) Whether its moves crush (`systems/units.md > UnitCollision > Crushing`, `movement::crush`): its own
+    /// (its field `crushes`), else its base's (`UnitBaseDef::crushes`).
+    pub fn crushes(&self) -> bool {
+        self.crushes.unwrap_or(self.base_def().crushes)
+    }
+
+    /// (M6-ST1) Whether it yields (`systems/units.md > UnitCollision > Ground Collision > Friendly yielding`,
+    /// `movement::yielding`): its own (its field `yields`), else its base's (`UnitBaseDef::yields`).
+    pub fn yields(&self) -> bool {
+        self.yields.unwrap_or(self.base_def().yields)
+    }
+
+    /// (M6-ST1) The class of the grid it walks on (`UnitBaseDef::nav_class`), by its own Domain
+    /// ([`UnitDef::domain()`]): the Transport's above-ground type a ground vehicle's, its burrowed one its base's
+    /// drillable ground.
+    pub fn nav_class(&self) -> Option<NavClass> {
+        bases::nav_class(self.domain(), self.base_def().rugged_terrain)
     }
 
     /// Whether the unit has a turret: its TurretAttributes are set (design change 0154, `systems/units.md >

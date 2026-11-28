@@ -169,9 +169,9 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         OrderKind::AttackMove(_) | OrderKind::Patrol(_) => Some(AGGRESSIVE_COLOR),
         // (M5-N4b) A Shroud is channelled where the Disciple stands: no target; (M6-GD) a Launch puts the drone over
         // its operator; (M6-GH1) a Return to Base names none, its Airfield being the aircraft's base; (M6-GA) a vehicle
-        // deploys where it stands.
+        // deploys where it stands; (M6-ST1) a carrier unloads round itself.
         OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch | OrderKind::ReturnToBase => None,
-        OrderKind::VehicleDeploy { .. } => None,
+        OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => None,
     }
 }
 
@@ -214,7 +214,7 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
             color,
         }),
         OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch | OrderKind::ReturnToBase => None,
-        OrderKind::VehicleDeploy { .. } => None,
+        OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => None,
     }
 }
 

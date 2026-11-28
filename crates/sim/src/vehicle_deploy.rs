@@ -60,7 +60,7 @@ use crate::object::Object;
 use crate::orders::{Behaviour, OrderKind};
 use crate::progress::Progress;
 use crate::sim::Reject;
-use crate::{aircraft, tether};
+use crate::{aircraft, carry, tether};
 
 /// The deploy of a `kind` unit, its def's (`UnitDef::vehicle_deploy`): the type it becomes and the frames that takes.
 /// `None` for a type that doesn't deploy.
@@ -115,6 +115,8 @@ pub fn moves(kind: OrderKind) -> bool {
         OrderKind::Rebase(_) | OrderKind::ReturnToBase => true,
         OrderKind::Attack(_) | OrderKind::AttackGround(_) | OrderKind::Hold | OrderKind::Stop => false,
         OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch | OrderKind::VehicleDeploy { .. } => false,
+        // (M6-ST1) A carrier unloads where it comes to rest.
+        OrderKind::UnloadAll => false,
     }
 }
 
@@ -133,6 +135,8 @@ pub fn moves(kind: OrderKind) -> bool {
 /// - **An Attack Ground**: its weapon can target the ground (`combat::can_target_ground`), else
 ///   [`Reject::CannotTargetGround`]; with ammo, as an Attack.
 /// - **A Reverse**: it can back up (`UnitDef::can_reverse`), else [`Reject::CannotReverse`].
+/// - (M6-ST1) **An Unload All**: it is a carrier that unloads now (`carry::loads`: the Subterranean Transport above
+///   ground, "**F: Unload All** (above ground only; they come out around it)"), else [`Reject::LacksAbility`].
 /// - **An order that takes it somewhere** ([`moves`]): its type can move ([`immobile`]), else [`Reject::CannotMove`];
 ///   (M6-GD) and its drone isn't out (`tether::holds`), else [`Reject::DroneOut`].
 ///
@@ -175,6 +179,7 @@ pub fn can_take(o: &Object, kind: OrderKind, target: Option<Domain>, research: R
         OrderKind::Reverse(_) if !o.def().unit.as_ref().is_some_and(|unit| unit.can_reverse()) => {
             return Err(Reject::CannotReverse);
         }
+        OrderKind::UnloadAll if !carry::loads(o) => return Err(Reject::LacksAbility),
         _ => {}
     }
     if moves(kind) && immobile(o.kind) {

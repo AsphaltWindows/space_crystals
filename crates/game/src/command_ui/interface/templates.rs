@@ -138,6 +138,10 @@ pub enum InterfaceTemplate {
     /// [...] one slot, Q, no build menu": its DefaultState builds a Missile Turret, then places it
     /// ([`gdo::defense_system`]). No right-click.
     DefenseSystem,
+    /// (M6-ST1) `factions/syndicate/units/subterranean_transport.md > Placeholder stats`: "Panel: Q Move, X Stop, **R:
+    /// Burrow / Surface**, **F: Unload All**" ([`syndicate::transport`]). Its right-click is the sim's one rule, as
+    /// every unit's.
+    Transport,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -307,6 +311,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::OperatorDrone => gdo::operator_drone::GRID,
             InterfaceTemplate::RadarStation => gdo::radar_station::GRID,
             InterfaceTemplate::DefenseSystem => gdo::defense_system::GRID,
+            InterfaceTemplate::Transport => syndicate::transport::grid(kind),
         }
     }
 }

@@ -30,15 +30,15 @@
 //!   exception.
 //! - **Enemies** (`economy::defeat::allied`): another player's units. Neutral ones are nobody's enemy, and block.
 //!
-//! The DrillUnit has no above-ground mode yet (slice M6-ST1 builds it, and 0419's crushing with it): underground it
-//! never crushes, and its base's flag is false.
+//! (M6-ST1) Whether a type crushes is its own flag over its base's (`UnitDef::crushes`): the DrillUnit base's is false,
+//! since underground it never crushes, and the Subterranean Transport's above-ground type crushes by its own (design
+//! change 0419: "Above ground it **crushes** enemy Light Infantry like any tracked vehicle").
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 
 use super::space::{Body, KIND_CRUSHABLE, Layer};
-use crate::defs::UnitBaseDef;
 use crate::economy::defeat;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
@@ -70,11 +70,12 @@ pub(super) fn crushes(mover: &Body, other: &Body) -> bool {
     mover.crushes && other.crushable && enemies(mover.owner, other.owner)
 }
 
-/// Whether the move a unit of base `base` makes in its turn of this tick crushes (module docs; [`Body::crushes`]), as
-/// its turn begins, `mover` as it is: a crusher's always does, Moving, Reversing, Stopping (design change 0453) or a
-/// spin, but for one at rest that its attack holds (`held`), which makes no move.
-pub(super) fn drives(base: &UnitBaseDef, mover: &Mover, held: bool) -> bool {
-    base.crushes && !(held && mover.momentum == Vec2::ZERO)
+/// Whether the move a unit whose type crushes if `crushes` (`UnitDef::crushes`: (M6-ST1) its own flag, else its
+/// base's) makes in its turn of this tick crushes (module docs; [`Body::crushes`]), as its turn begins, `mover` as it
+/// is: a crusher's always does, Moving, Reversing, Stopping (design change 0453) or a spin, but for one at rest that
+/// its attack holds (`held`), which makes no move.
+pub(super) fn drives(crushes: bool, mover: &Mover, held: bool) -> bool {
+    crushes && !(held && mover.momentum == Vec2::ZERO)
 }
 
 /// The crushes of the crusher `me` (an index into `bodies`) in its turn of this tick, whose move crushed ([`drives`]),

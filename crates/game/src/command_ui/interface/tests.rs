@@ -19,6 +19,7 @@ mod shadebringer;
 mod shrine;
 mod syndicate;
 mod temple;
+mod transport;
 mod unfinished;
 
 use sc_sim::defs::AttackType;

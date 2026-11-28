@@ -191,7 +191,7 @@ pub(crate) fn step(
         // Only while its box still overlaps the footprint (a teleport may have taken it away).
         let door = mover.exit.and_then(|building| ExitDoor::of(objects.get(&building)?));
         scratch.doors.push(door.filter(|door| door.holds(o.pos, half)));
-        if let Some(layer) = layer_of(unit.base_def().domain) {
+        if let Some(layer) = layer_of(unit.domain()) {
             let kinds = scratch.bodies[index as usize].kinds();
             scratch.layers[layer].insert(index, o.pos, half, kinds);
         }
@@ -220,7 +220,9 @@ pub(crate) fn step(
         let held = rising || !combat::may_move(o) || !combat::may_turn(o);
         let mover = o.mover.as_mut().expect("units have movers");
         let base = unit.base_def();
-        let layer = layer_of(base.domain);
+        // (M6-ST1) Its type's Domain, its own over its base's (`UnitDef::domain`).
+        let domain = unit.domain();
+        let layer = layer_of(domain);
         let (from, facing) = (o.pos, o.facing);
         let door = scratch.doors[me];
         if door.is_none() {
@@ -228,10 +230,11 @@ pub(crate) fn step(
             mover.exit_heading = None;
         }
         // (M5-V4) Whether its move this tick crushes (`crush::drives`): its own body says so, for its turn alone.
-        let crushing = crush::drives(base, mover, held);
+        // (M6-ST1) By its type's flag, its own over its base's (`UnitDef::crushes`).
+        let crushing = crush::drives(unit.crushes(), mover, held);
         scratch.bodies[me].crushes = crushing;
         let mut world = World {
-            grid: paths::unit_grid(nav, base, half * 2.0),
+            grid: paths::unit_grid(nav, unit, half * 2.0),
             layer: layer.map(|l| &scratch.layers[l]),
             bodies: &scratch.bodies,
             me,
@@ -365,7 +368,7 @@ pub(crate) fn step(
         // an obstacle does (design change 0035): the blocked part of the move is dropped, and no momentum is left. Its
         // path ends where its box lies on the map (`paths::serve`), so it lands there and arrives. A Glider may fly past
         // the edge (`glider`).
-        if base.domain == Domain::Air && !unit.glides() {
+        if domain == Domain::Air && !unit.glides() {
             let on_map = map.clamp_box(o.pos, half);
             if on_map != o.pos {
                 o.pos = on_map;

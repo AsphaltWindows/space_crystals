@@ -59,7 +59,7 @@ fn assert_on_open_ground(sim: &Sim) {
         let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) else {
             continue;
         };
-        let class = unit.base_def().nav_class().expect("a ground unit");
+        let class = unit.nav_class().expect("a ground unit");
         let grid = sim.nav().grid(class, nav::size_class(silhouette)).expect("built");
         assert!(
             nav::box_clear(grid, silhouette / 2.0, o.pos),

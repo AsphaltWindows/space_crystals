@@ -32,6 +32,10 @@
 //!   type repairs, which it Repairs (below). (M6-CM) Not for an illusion at a building that refuses illusions
 //!   ([`Aimed::refuses_illusions`]: the Altar, `factions/cults/units/disciple.md > Spells > Mirage`: "Illusions can't
 //!   be augmented at the Altar themselves", `crate::mirage`), which it follows, an Enter there being certain to fail.
+//!   (M6-ST1) So does **an own carrier** that loads now and takes the unit's base in ([`Aimed::carrier`],
+//!   `crate::carry`; `factions/syndicate/units/subterranean_transport.md > Placeholder stats`: "**Loading**:
+//!   right-click the transport with infantry selected (Enter); it must be above ground"), by the same rule as a
+//!   building.
 //! - **An own building under construction** that the unit's type builds from outside gives Assist (slice M5-E;
 //!   `factions/cults/units/recruit.md > Right-Click Resolution`: "In-progress own building → Assist Construction";
 //!   `OrderKind::Assist`), after Enter: an Armory under construction takes no one in (design change 0347 point 4:
@@ -70,16 +74,15 @@
 
 use glam::Vec2;
 
-use crate::aircraft;
-use crate::combat;
 use crate::construction::site::assists;
-use crate::defs::{Domain, ObjectKind, TargetDomain, Transit};
+use crate::defs::{CarrierDef, Domain, ObjectKind, TargetDomain, Transit};
 use crate::economy::gathering::worker_def;
 use crate::ids::ObjectId;
 use crate::network;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::repair::repairs;
+use crate::{aircraft, carry, combat};
 
 /// What a unit can do, as its default command reads it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -169,7 +172,8 @@ pub struct Aimed {
     pub accepts: &'static [ObjectKind],
     /// (M5-S2b) It is such a building ([`Aimed::accepts`]) with no room left now: its capacity taken by everyone
     /// inside, reserved units included, as its pool counts it at the door (`Sim::room`; design change 0378, answering
-    /// Q0140: "fullness, counting reserved units, is checked at click time"). `false` for anything else.
+    /// Q0140: "fullness, counting reserved units, is checked at click time"). (M6-ST1) Or such a carrier
+    /// ([`Aimed::carrier`]) with no place free. `false` for anything else.
     pub full: bool,
     /// (M5-E) Its kind, if it is a site of the unit's owner's that its builders build from outside
     /// (`Object::is_built_from_outside`): a Cults building under construction, which the units that assist it take an
@@ -185,6 +189,10 @@ pub struct Aimed {
     /// (M6-CM) It is such a building ([`Aimed::accepts`]) that doesn't take illusions in (`mirage::refuses_illusions`:
     /// one that augments the units inside, the Altar). `false` for anything else.
     pub refuses_illusions: bool,
+    /// (M6-ST1) Its hold, if it is a carrier of the unit's owner's that loads now (`crate::carry`, `carry::loads`: the
+    /// Subterranean Transport above ground), which the units of a base it takes board (`carry::takes`). `None` for
+    /// anything else.
+    pub carrier: Option<&'static CarrierDef>,
 }
 
 /// What a unit's default command is resolved against.
@@ -219,7 +227,8 @@ pub enum Rule {
     /// A worker that carries a load on its owner's drop-off: Drop Off.
     DropOff,
     /// An own Tunnel whose tier lets the unit through, or an own building in operation that takes its kind in: Enter.
-    /// (M5-S2b) Not a full building that [`Rule::Repair`] would give the unit, damaged (design change 0378).
+    /// (M5-S2b) Not a full building that [`Rule::Repair`] would give the unit, damaged (design change 0378). (M6-ST1)
+    /// Or an own carrier that loads now and takes the unit's base in, by the same rule.
     Enter,
     /// An own site that the unit's type builds from outside: Assist.
     Assist,
@@ -263,7 +272,9 @@ impl Rule {
                 let repairs_instead = target.full && Rule::Repair.order(unit, target).is_some();
                 // (M6-CM) Nor is an illusion's at a building that refuses illusions (`crate::mirage`).
                 let refused = unit.illusion && target.refuses_illusions;
-                let pool = target.accepts.contains(&unit.kind) && !repairs_instead && !refused;
+                // (M6-ST1) A carrier is boarded as a building is entered (`crate::carry`).
+                let boards = target.carrier.is_some_and(|def| carry::takes(def, unit.kind));
+                let pool = (target.accepts.contains(&unit.kind) || boards) && !repairs_instead && !refused;
                 (network::passes(target.transit, unit.transit) || pool).then_some(OrderKind::Enter(id))
             }
             Rule::Assist => (target.site.is_some_and(|kind| assists(unit.kind, kind))).then_some(OrderKind::Assist(id)),

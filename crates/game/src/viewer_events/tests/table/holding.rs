@@ -1,5 +1,5 @@
-//! The rows of the buildings that hold units (slices M5-F1, M5-F2, M5-N1b and M5-N3) in the filter's table
-//! (`super::table`).
+//! The rows of the buildings that hold units (slices M5-F1, M5-F2, M5-N1b and M5-N3), and (M6-ST1) of the carriers, in
+//! the filter's table (`super::table`).
 
 use sc_sim::{AugmentOrder, Tech};
 
@@ -37,6 +37,22 @@ pub(super) fn rows() -> Vec<(SimEvent, [Seen; 4])> {
             SimEvent::Evacuated {
                 unit: UNIT,
                 building: GONE,
+            },
+            [W, W, N, W],
+        ),
+        // (M6-ST1) A carrier's, as the unit stands for one here: a passenger boarding it, to whoever is shown the
+        // carrier, as a unit going into a building; one unloaded, to whoever is shown the passenger, as one coming out.
+        (
+            SimEvent::Boarded {
+                unit: HELD,
+                carrier: UNIT,
+            },
+            [W, W, N, W],
+        ),
+        (
+            SimEvent::Unloaded {
+                unit: UNIT,
+                carrier: TUNNEL,
             },
             [W, W, N, W],
         ),

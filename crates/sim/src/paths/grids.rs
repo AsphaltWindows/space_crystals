@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use super::{Known, NavState};
-use crate::defs::{ObjectKind, UnitBaseDef};
+use crate::defs::{ObjectKind, UnitDef};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::nav::{self, Nav, NavClass, NavGrid, TileRect};
@@ -20,7 +20,7 @@ mod tests;
 /// walks on none: not a unit, or an air unit (question Q0011, gap G14).
 pub(crate) fn key_of(kind: ObjectKind) -> Option<(NavClass, u8)> {
     let def = kind.def();
-    let class = def.unit.as_ref()?.base_def().nav_class()?;
+    let class = def.unit.as_ref()?.nav_class()?;
     Some((class, nav::size_class(def.silhouette()?)))
 }
 
@@ -71,12 +71,13 @@ pub(crate) fn walking_keys<'a>(
     keys
 }
 
-/// The grid of `nav` that a unit of base `base` with silhouette `silhouette` walks on; `None` for one that walks on
-/// none (an air unit). Every unit in the game has its grid ([`NavState::cover`]), so a missing one is a bug, and a
-/// debug build doesn't let it pass: its readers (the movement step, a doorway's or an evacuation's spot, the
-/// destinations, the gathering) would take the unit's ground for open.
-pub(crate) fn unit_grid<'a>(nav: &'a Nav, base: &UnitBaseDef, silhouette: Vec2) -> Option<&'a NavGrid> {
-    grid_of(nav, base.nav_class()?, nav::size_class(silhouette))
+/// The grid of `nav` that a unit of type `unit` with silhouette `silhouette` walks on, by its class
+/// (`UnitDef::nav_class`: (M6-ST1) by its type's own Domain over its base's); `None` for one that walks on none (an air
+/// unit). Every unit in the game has its grid ([`NavState::cover`]), so a missing one is a bug, and a debug build
+/// doesn't let it pass: its readers (the movement step, a doorway's or an evacuation's spot, the destinations, the
+/// gathering) would take the unit's ground for open.
+pub(crate) fn unit_grid<'a>(nav: &'a Nav, unit: &UnitDef, silhouette: Vec2) -> Option<&'a NavGrid> {
+    grid_of(nav, unit.nav_class()?, nav::size_class(silhouette))
 }
 
 /// [`unit_grid`] by the grid's key: the grid of `nav` of a unit that walks on `(class, size)`.
@@ -140,13 +141,7 @@ pub(super) fn stamped(truth: &Nav, blockers: &[TileRect]) -> Nav {
 pub(super) fn walkers(objects: &BTreeMap<ObjectId, Object>) -> Vec<PlayerId> {
     let mut walkers: Vec<PlayerId> = objects
         .values()
-        .filter(|o| {
-            o.mover.is_some()
-                && o.def()
-                    .unit
-                    .as_ref()
-                    .is_some_and(|unit| unit.base_def().nav_class().is_some())
-        })
+        .filter(|o| o.mover.is_some() && o.def().unit.as_ref().is_some_and(|unit| unit.nav_class().is_some()))
         .filter_map(|o| o.owner)
         .collect();
     walkers.sort_unstable();

@@ -14,6 +14,7 @@
 pub mod aircraft;
 pub mod augmentation;
 pub mod buffs;
+pub mod carry;
 pub mod combat;
 pub mod command;
 pub mod construction;

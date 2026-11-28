@@ -510,3 +510,78 @@ fn tanks_and_a_vault_are_structure_and_their_numbers_live() {
         change("Hideout", "vault")
     );
 }
+
+/// (M6-ST1) A carrier's hold is structure, what it takes included (`crate::carry`: who boards, and the panel's F,
+/// follow it), and its numbers apply live (its capacity, a base's places); a type's own Domain, crushing and
+/// yielding over its base's are structure too (`UnitDef::domain`: its collision layer and its grids follow it).
+#[test]
+fn a_hold_and_a_domain_are_structure_and_the_hold_s_numbers_live() {
+    use crate::defs::{CarrierDef, Domain, Places, UnitBase};
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    let change = |entry, field| Some(RuleField { entry, field });
+    fn transport(rules: &mut Ruleset) -> &mut UnitDef {
+        rules
+            .defs
+            .get_mut(ObjectKind::SubterraneanTransport)
+            .unit
+            .as_mut()
+            .unwrap()
+    }
+    let hold = |capacity, base, places| CarrierDef {
+        capacity,
+        places: Vec::leak(vec![Places { base, places }]),
+    };
+    assert_eq!(changed(&|r| transport(r).carries.as_mut().unwrap().capacity = 6), None);
+    let heavy = |places| hold(4, UnitBase::HeavyInfantry, places);
+    let light = Places {
+        base: UnitBase::LightInfantry,
+        places: 2,
+    };
+    let both = |places| CarrierDef {
+        places: Vec::leak(vec![light, heavy(places).places[0]]),
+        ..heavy(places)
+    };
+    assert_eq!(
+        changed(&|r| transport(r).carries = Some(both(2))),
+        None,
+        "a base's places"
+    );
+    assert_eq!(
+        changed(&|r| transport(r).carries = None),
+        change("SubterraneanTransport", "carries")
+    );
+    assert_eq!(
+        changed(&|r| transport(r).carries = Some(heavy(1))),
+        change("SubterraneanTransport", "base"),
+        "a base it takes no more"
+    );
+    assert_eq!(
+        changed(&|r| unit(r).carries = Some(hold(4, UnitBase::HeavyInfantry, 1))),
+        change("Peacekeeper", "carries")
+    );
+    assert_eq!(
+        changed(&|r| transport(r).domain = None),
+        change("SubterraneanTransport", "domain")
+    );
+    assert_eq!(
+        changed(&|r| transport(r).domain = Some(Domain::Air)),
+        change("SubterraneanTransport", "domain")
+    );
+    assert_eq!(
+        changed(&|r| transport(r).crushes = Some(false)),
+        change("SubterraneanTransport", "crushes")
+    );
+    assert_eq!(
+        changed(&|r| transport(r).yields = None),
+        change("SubterraneanTransport", "yields")
+    );
+    assert_eq!(
+        changed(&|r| unit(r).domain = Some(Domain::Ground)),
+        change("Peacekeeper", "domain")
+    );
+}

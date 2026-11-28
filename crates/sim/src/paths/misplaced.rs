@@ -43,8 +43,9 @@ pub(crate) fn misplaced<'a>(
             continue;
         };
         let half = silhouette / 2.0;
-        let base = unit.base_def();
-        let on_impassable = base.nav_class().is_some_and(|class| {
+        // (M6-ST1) Its type's Domain and grid, its own over its base's (`UnitDef::domain`).
+        let domain = unit.domain();
+        let on_impassable = unit.nav_class().is_some_and(|class| {
             let size = nav::size_class(silhouette);
             let grid = grids
                 .entry((class, size))
@@ -53,17 +54,17 @@ pub(crate) fn misplaced<'a>(
         });
         // Surface footprints block ground units only (`nav::NavGrid::build`).
         let on_footprint =
-            base.domain == Domain::Ground && footprints.iter().any(|&rect| box_overlaps_rect(pos, half, rect));
+            domain == Domain::Ground && footprints.iter().any(|&rect| box_overlaps_rect(pos, half, rect));
         if on_impassable || on_footprint {
             problems.push((i, SpawnProblem::Blocked));
-        } else if base.domain.hard_collision()
+        } else if domain.hard_collision()
             && units
                 .iter()
-                .any(|&(at, other, domain)| domain == base.domain && boxes_overlap(pos, half, at, other))
+                .any(|&(at, other, layer)| layer == domain && boxes_overlap(pos, half, at, other))
         {
             problems.push((i, SpawnProblem::OverlapsUnit));
         }
-        units.push((pos, half, base.domain));
+        units.push((pos, half, domain));
     }
     problems
 }

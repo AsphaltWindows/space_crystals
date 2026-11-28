@@ -22,6 +22,13 @@
 //! the air units' soft separation while it waits its turn, `movement::air`, or given up by the stuck rule while they
 //! keep it off) flies back to it. **Placeholder (not in the design: an aircraft waiting its turn at the entry door)**.
 //!
+//! (M6-ST1) **A carrier** (`crate::carry`, the Subterranean Transport): the unit walks up to it, from any side, after
+//! it as it moves, until it is within Proximity of it (`Orders::proximity_su`, edge to edge, as a Move to an object
+//! ends, `systems/controls/command_behaviors.md > MovingToObject > Proximity`), where it boards. A walk that arrived as
+//! near as it gets goes after the carrier again if the carrier has moved since its path was planned
+//! (`Mover::planned_target`), as a chase does (`orders::engage`). **Placeholder (not in the design: boarding within
+//! Proximity, from any side)**.
+//!
 //! The behaviour only walks, and never completes the order itself: the step right after phase 5a does
 //! (`Sim::step_entries`), by taking the unit off the map once it has walked in, or by ending the order of a unit
 //! whose walk ended short of the path or whose target no longer suits it, with the events and the removal a
@@ -32,8 +39,9 @@ use glam::Vec2;
 use crate::ids::ObjectId;
 use crate::math;
 use crate::mover::{MoveGoal, MoveStatus};
-use crate::network;
+use crate::ruleset::rules;
 use crate::shape::Shape;
+use crate::{carry, network};
 
 use super::state::Enter;
 use super::world::{Unit, World};
@@ -43,9 +51,11 @@ use super::world::{Unit, World};
 /// one it has driving in, facing the wall: a vehicle's Silhouette turned with it (slice M5-V1, `Shape::silhouette`),
 /// so that a Bike's walk ends 28 su from a north- or south-facing side, its length against it, where it can stand; a
 /// square Silhouette's is its own. (M6-SD) An air unit heads for the centre of a Tunnel's air entry door
-/// ([`air_door`]).
+/// ([`air_door`]). (M6-ST1) A unit boarding a carrier heads for the carrier ([`carrier_goal`]).
 pub(super) fn begin(target: ObjectId, unit: &mut Unit, world: &World) -> Enter {
-    if let Some(door) = air_door(target, unit, world) {
+    if let Some(goal) = carrier_goal(target, world) {
+        unit.mover.go_to(goal, None, world.tick);
+    } else if let Some(door) = air_door(target, unit, world) {
         unit.mover.go_to(MoveGoal::Point(door), None, world.tick);
     } else if let Some(path) = world.entry_path(target)
         && unit.kind.def().silhouette().is_some()
@@ -59,9 +69,19 @@ pub(super) fn begin(target: ObjectId, unit: &mut Unit, world: &World) -> Enter {
 
 /// One tick of the walk. It is over once the move ended, whatever its outcome (`MoveStatus::Arrived`, `Failed`: the
 /// normal Failure rule, design change 0247). (M6-SD) An air unit's flight never is: at rest off the air entry door
-/// before its descent, it flies back (module docs). Never complete (module docs).
+/// before its descent, it flies back (module docs). (M6-ST1) A walk to a carrier that arrived goes after it again if
+/// the carrier has moved since its path was planned (module docs). Never complete (module docs).
 pub(super) fn run(target: ObjectId, state: &mut Enter, unit: &mut Unit, world: &World) -> bool {
     if unit.mover.status == MoveStatus::Moving {
+        return false;
+    }
+    if let Some(goal) = carrier_goal(target, world) {
+        match (unit.mover.status, world.get(target)) {
+            (MoveStatus::Arrived, Some(carrier)) if carrier.pos != unit.mover.planned_target => {
+                unit.mover.go_to(goal, None, world.tick);
+            }
+            _ => state.walked = true,
+        }
         return false;
     }
     match air_door(target, unit, world) {
@@ -73,6 +93,17 @@ pub(super) fn run(target: ObjectId, state: &mut Enter, unit: &mut Unit, world: &
         }
     }
     false
+}
+
+/// (M6-ST1) The goal of the walk of an Enter on `target`, if it is a carrier (`carry::def_of_kind`): the carrier
+/// itself, until the unit is within Proximity of it (module docs). Whether the carrier takes the unit is the step's to
+/// judge (`Sim::board`).
+fn carrier_goal(target: ObjectId, world: &World) -> Option<MoveGoal> {
+    carry::def_of_kind(world.get(target)?.kind)?;
+    Some(MoveGoal::Object {
+        id: target,
+        reach: rules().tuning.orders.proximity_su,
+    })
 }
 
 /// (M6-SD) Where at the air entry door `unit` flies to for an Enter on `target`: an air unit's, at a Tunnel

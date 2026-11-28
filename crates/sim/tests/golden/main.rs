@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): thirty-three small games, defined below and in
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): thirty-four small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
 //! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
@@ -35,8 +35,10 @@
 //! Guards' fire, a recast, and the Disciple's death taking its new set along), `airfield.rs` (an Airfield's four
 //! Hornets landed on its slots, raiding a block of Recruits with their bursts, flying home by themselves to land and
 //! rearm, and raiding again), `syndicate_sludge.rs` (two Shadebringers' trails slowing four Peacekeepers across them,
-//! one backing up over its own, and a Vault refilling both tanks at once in the network) and below (the Riot Shield
-//! game), and every test is below.
+//! one backing up over its own, and a Vault refilling both tanks at once in the network), `syndicate_transport.rs` (a
+//! Vehicle Assembly's Subterranean Transport boarding four Guards, crushing a line of Peacekeepers, unloading them in
+//! a ring, into the Tunnel and out loaded, and dying with its two passengers) and below (the Riot Shield game), and
+//! every test is below.
 
 mod air;
 mod airfield;
@@ -60,6 +62,7 @@ mod syndicate;
 mod syndicate_air;
 mod syndicate_null_chamber;
 mod syndicate_sludge;
+mod syndicate_transport;
 mod syndicate_vehicles;
 mod temple;
 mod units;
@@ -342,4 +345,9 @@ fn golden_gdo_air() {
 #[test]
 fn golden_syndicate_sludge() {
     golden("syndicate_sludge", syndicate_sludge::syndicate_sludge);
+}
+
+#[test]
+fn golden_syndicate_transport() {
+    golden("syndicate_transport", syndicate_transport::syndicate_transport);
 }

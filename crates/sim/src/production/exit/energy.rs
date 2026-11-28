@@ -345,7 +345,7 @@ impl EnergyDoorway {
         draw: impl FnOnce(u32) -> u32,
     ) -> Option<Release> {
         let centre = self.centre();
-        let domain = unit.base_def().domain;
+        let domain = unit.domain();
         // The units of its layer that any way out could meet: a sweep reaches at most √2 times the footprint's and
         // its own half extents beyond the centre, plus the unit length.
         let reach = Vec2::splat(SQRT_2 * (self.extent() + half).max_element() + 2.0 * half.max_element()) + half;
@@ -355,7 +355,7 @@ impl EnergyDoorway {
                 .filter_map(|o| {
                     let def = o.def();
                     let other = def.half_extents()?;
-                    let layer = def.unit.as_ref().is_some_and(|u| u.base_def().domain == domain);
+                    let layer = def.unit.as_ref().is_some_and(|u| u.domain() == domain);
                     let near = (o.pos - centre).abs().cmplt(reach + other).all();
                     (layer && near).then_some((o.pos, other))
                 })

@@ -54,6 +54,7 @@ pub fn every_command() -> Vec<Command> {
         OrderKind::VehicleDeploy {
             into: ObjectKind::ArtilleryRigDeployed,
         },
+        OrderKind::UnloadAll,
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -275,7 +276,8 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Launch
                 | OrderKind::Rebase(_)
                 | OrderKind::ReturnToBase
-                | OrderKind::VehicleDeploy { .. } => {}
+                | OrderKind::VehicleDeploy { .. }
+                | OrderKind::UnloadAll => {}
             },
             Command::Ability {
                 ability:

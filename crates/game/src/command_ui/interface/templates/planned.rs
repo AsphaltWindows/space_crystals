@@ -34,7 +34,9 @@
 //! units that later slices have it train, E and R (`super::gdo::factory`): slice M6-GA made the Artillery Rig live,
 //! and E holds the Prospector until slice M6-GP. The Field Engineer's two are in the game
 //! since M6-GK too, and stay greyed until slice M6-GB. The Twister's R and F hold its mines' two commands, Lay Mine and
-//! Buy Mine, until slice M6-GM (slice M6-GF, `crate::kinds::gdo::twister`).
+//! Buy Mine, until slice M6-GM (slice M6-GF, `crate::kinds::gdo::twister`). (M6-ST1) Slice M6-ST1 made the Vehicle
+//! Assembly's R live, the Subterranean Transport, whose own R holds Burrow on its surfaced type and Surface on its
+//! burrowed one until slice M6-ST2 (`super::syndicate::transport`).
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
@@ -64,12 +66,11 @@ pub enum Planned {
     /// The Bio Portal's E, "Psionic unit (TBD)" (`factions/colonists/structures/bio_portal.md > Bio Portal
     /// ObjectInterfaceState`).
     PsionicUnit,
-    /// (M6-SV) The Vehicle Assembly's E and R (`factions/syndicate/structures/vehicle_assembly.md > Placeholder stats`:
+    /// (M6-SV) The Vehicle Assembly's E (`factions/syndicate/structures/vehicle_assembly.md > Placeholder stats`:
     /// "**W** Shadebringer, **E** Laser Battery, **R** Subterranean Transport (greyed until their prerequisites are
-    /// owned)"), which it trains from slices M6-SL and M6-ST1 on, as it does its W from slice M6-SB on. Their types are
-    /// in the game (slice M6-SK), so each label is its type's ([`Planned::label`]).
+    /// owned)"), which it trains from slice M6-SL on, as it does its W from slice M6-SB on and its R from slice M6-ST1
+    /// on. Its type is in the game (slice M6-SK), so its label is its type's ([`Planned::label`]).
     LaserBattery,
-    SubterraneanTransport,
     /// (M6-SD) The Aerospace Assembly's W and E (`factions/syndicate/structures/aerospace_assembly.md > Placeholder
     /// stats`: "Panel: **Q** Phantom, **W** Specter, **E** Prism"), which it trains from slices M6-SA and M6-SP on.
     /// Their types are in the game (slice M6-SK), so each label is its type's ([`Planned::label`]).
@@ -111,11 +112,17 @@ pub enum Planned {
     /// "Hotkeys: **R** Sludge, **F** Cover"), slice M6-SC's, which gives the Shadebringer its smoke tank
     /// (`super::syndicate::shadebringer`).
     Cover,
+    /// (M6-ST1) The Subterranean Transport's R
+    /// (`factions/syndicate/units/subterranean_transport.md > Placeholder stats`: "Panel: Q Move, X Stop, **R: Burrow /
+    /// Surface**, **F: Unload All**"): Burrow on its surfaced type, Surface on its burrowed one, slice M6-ST2's
+    /// (`super::syndicate::transport`).
+    Burrow,
+    Surface,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 28] = [
+    pub const ALL: [Planned; 29] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -131,7 +138,6 @@ impl Planned {
         Planned::Lancer,
         Planned::PsionicUnit,
         Planned::LaserBattery,
-        Planned::SubterraneanTransport,
         Planned::Specter,
         Planned::Prism,
         Planned::OrbitalCommand,
@@ -144,6 +150,8 @@ impl Planned {
         Planned::BuyMine,
         Planned::Dragonfly,
         Planned::Cover,
+        Planned::Burrow,
+        Planned::Surface,
     ];
 
     /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
@@ -172,7 +180,6 @@ impl Planned {
             Planned::Lancer => "Lancer",
             Planned::PsionicUnit => "Psionic unit",
             Planned::LaserBattery => "Laser Battery",
-            Planned::SubterraneanTransport => "Subterranean Transport",
             Planned::Specter => "Specter",
             Planned::Prism => "Prism",
             Planned::OrbitalCommand => "Orbital Command",
@@ -185,6 +192,8 @@ impl Planned {
             Planned::BuyMine => "Buy Mine",
             Planned::Dragonfly => "Dragonfly",
             Planned::Cover => "Cover",
+            Planned::Burrow => "Burrow",
+            Planned::Surface => "Surface",
         }
     }
 
@@ -209,7 +218,9 @@ impl Planned {
     /// `PanelCommand::label`); not Buy Mine by the mine's tag, as Build Drone is by the drone's, "DRN": "ME" is the
     /// mine type's own, which no placeholder shares. (M6-SB) The Shadebringer's Cover by its name, "Cover", as its
     /// Sludge is "Sludge" (`PanelCommand::Toggle`). The Vault's "VT" and the Shadebringer's "SBR" went into the game
-    /// with their types (slice M6-SB).
+    /// with their types (slice M6-SB), and the Subterranean Transport's "STR" with its (slice M6-ST1). (M6-ST1) The
+    /// Transport's R by its name, "Burrow" (6 letters, as "Shroud"), and a shortening of Surface, "Surf.", as
+    /// Undeploy's is "Undep.".
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -227,7 +238,6 @@ impl Planned {
             Planned::Lancer => "LA",
             Planned::PsionicUnit => "PU",
             Planned::LaserBattery => "LB",
-            Planned::SubterraneanTransport => "STR",
             Planned::Specter => "SPR",
             Planned::Prism => "PRM",
             Planned::OrbitalCommand => "OC",
@@ -240,6 +250,8 @@ impl Planned {
             Planned::BuyMine => "Buy",
             Planned::Dragonfly => "DY",
             Planned::Cover => "Cover",
+            Planned::Burrow => "Burrow",
+            Planned::Surface => "Surf.",
         }
     }
 
@@ -252,7 +264,6 @@ impl Planned {
                 | Planned::Lancer
                 | Planned::PsionicUnit
                 | Planned::LaserBattery
-                | Planned::SubterraneanTransport
                 | Planned::Specter
                 | Planned::Prism
                 | Planned::Prospector
@@ -276,9 +287,13 @@ impl Planned {
     /// are constructed (`PanelCommand::Construct`). The Field Engineer's as the design names its abilities
     /// (`factions/gdo/units/field_engineer.md > Abilities`): "**Build Bunker**", "**Set up First Aid Tent**". (M6-GF) The
     /// Twister's mines' commands by their names, as the design names them: "**R: Lay Mine**", "**F: Buy Mine**"; (M6-SB)
-    /// the Shadebringer's Cover by its name, as its Sludge's toggle is ("**F** Cover").
+    /// the Shadebringer's Cover by its name, as its Sludge's toggle is ("**F** Cover"); (M6-ST1) and the Subterranean
+    /// Transport's R alike: "**R: Burrow / Surface**".
     pub fn command_name(self) -> String {
-        if matches!(self, Planned::LayMine | Planned::BuyMine | Planned::Cover) {
+        if matches!(
+            self,
+            Planned::LayMine | Planned::BuyMine | Planned::Cover | Planned::Burrow | Planned::Surface
+        ) {
             self.name().to_string()
         } else if self == Planned::FirstAidTent {
             format!("Set up {}", self.name())

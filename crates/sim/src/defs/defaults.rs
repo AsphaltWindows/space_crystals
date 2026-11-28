@@ -40,7 +40,7 @@ impl ObjectDef {
 impl UnitDef {
     /// The struct-update default of every unit type's attributes (module docs): no Rugged-terrain bonus, turret or
     /// attack, no Unit Control, Tunnel Space or Beacon Capacity cost, and none of the abilities of a few types (nor, M6-GA, a
-    /// vehicle deploy, nor, M6-SB, a tank).
+    /// vehicle deploy, nor, M6-SB, a tank); (M6-ST1) its base's Domain, crushing and yielding, and no hold.
     pub(crate) const NONE: UnitDef = UnitDef {
         base: UnitBase::LightInfantry,
         movement: MovementAttrs::TurnRate {
@@ -70,6 +70,10 @@ impl UnitDef {
         ammo: None,
         vehicle_deploy: None,
         tanks: &[],
+        domain: None,
+        crushes: None,
+        yields: None,
+        carries: None,
     };
 }
 

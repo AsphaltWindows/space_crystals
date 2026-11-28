@@ -29,8 +29,8 @@ pub fn object_box(o: &Object) -> (Vec2, Vec2) {
 /// target again. **During landing and take-off** [...] it is an **air target**", design change 0428 point 1). Every
 /// reader of an object's domain asks it: the scans and ValidTarget ([`can_attack_now`], `orders::world`), the blasts
 /// and the projectiles (`super::Targets`), the gate's `Reject::CannotHit` (`Sim::known_domain`) and the right-click
-/// (`orders::resolution`). Collision and separation go by the type's base as before: a landed aircraft stays on the air
-/// layer (`movement::air`).
+/// (`orders::resolution`). Collision and separation go by the type's domain (`UnitDef::domain`, M6-ST1): a landed
+/// aircraft stays on the air layer (`movement::air`).
 pub fn object_domain(o: &Object) -> Domain {
     if crate::landing::down(o) {
         return Domain::Ground;
@@ -38,14 +38,12 @@ pub fn object_domain(o: &Object) -> Domain {
     kind_domain(o.kind)
 }
 
-/// (M6-GH2) The domain an object of type `kind` is targeted in, as its type has it: a unit's base domain
-/// (`systems/units.md > UnitBase > Domain`); structures stand on the ground. An object's own is [`object_domain`]; a
-/// remembered one's is its recorded type's (`Sim::known_domain`).
+/// (M6-GH2) The domain an object of type `kind` is targeted in, as its type has it: a unit's domain
+/// (`systems/units.md > UnitBase > Domain`), (M6-ST1) its type's own over its base's (`UnitDef::domain`, plan decision
+/// T94: the Subterranean Transport's above-ground type, a DrillUnit, is Ground); structures stand on the ground. An
+/// object's own is [`object_domain`]; a remembered one's is its recorded type's (`Sim::known_domain`).
 pub fn kind_domain(kind: ObjectKind) -> Domain {
-    kind.def()
-        .unit
-        .as_ref()
-        .map_or(Domain::Ground, |unit| unit.base_def().domain)
+    kind.def().unit.as_ref().map_or(Domain::Ground, |unit| unit.domain())
 }
 
 /// (M6-S6a) Whether a weapon of TargetDomain `attack` (`None`: no weapon) can hit a target in the domain `target`
@@ -68,8 +66,9 @@ pub fn domain_allows(attack: TargetDomain, target: Domain) -> bool {
         (TargetDomain::Universal, _) | (TargetDomain::Ground, Domain::Ground) | (TargetDomain::Air, Domain::Air) => {
             true
         }
-        // TODO(underground units): a surfaced Underground unit (`systems/units.md > DrillUnit`, its above-ground mode)
-        // is a Ground target. No unit surfaces yet, so every Underground unit counts as submerged.
+        // (M6-ST1) A surfaced Underground unit (`systems/units.md > DrillUnit`, its above-ground mode) is a Ground
+        // target by its type's own Domain (`UnitDef::domain`, plan decision T94: the surfaced Subterranean Transport),
+        // so an Underground one is underground, and no single-target attack targets it.
         (TargetDomain::Ground, Domain::Underground) => false,
         (TargetDomain::Ground, Domain::Air) | (TargetDomain::Air, Domain::Ground | Domain::Underground) => false,
     }

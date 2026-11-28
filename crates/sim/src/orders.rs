@@ -20,7 +20,7 @@
 //! - [`repair`]: a repairer at a damaged own building, from its own spot beside it, or with a damaged own vehicle,
 //!   which it follows (slice M5-N8, `crate::repair`);
 //! - [`enter`]: a unit's walk into the entry path of the structure being entered, a Tunnel or a building that holds
-//!   units (`crate::network`, `crate::holding`);
+//!   units (`crate::network`, `crate::holding`), or (M6-ST1) up to the carrier it boards (`crate::carry`);
 //! - [`attack_ground`]: AttackingLocation, an Attack Ground's walk into range and its shots, until another order
 //!   (slice M4-O; design change 0293);
 //! - [`shroud`]: a Disciple channelling Shroud where it stands, its energy drained each tick (slice M5-N4b); the
@@ -32,7 +32,9 @@
 //! - [`air_base`]: an aircraft flying to its Airfield, a new one it was reassigned to or the one it returns to (slice
 //!   M6-GH1, `crate::aircraft`);
 //! - [`vehicle_deploy`]: a vehicle standing while it deploys into its pair's other type, which the step right before
-//!   the phase counts and completes (slice M6-GA, `crate::vehicle_deploy`).
+//!   the phase counts and completes (slice M6-GA, `crate::vehicle_deploy`);
+//! - [`unload`]: a carrier stopping to unload its passengers, which a step of the economy phase does once it is at
+//!   rest (slice M6-ST1, `crate::carry`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
@@ -59,6 +61,7 @@ pub mod state;
 mod target_lock;
 mod travel;
 mod turret;
+pub(crate) mod unload;
 pub(crate) mod vehicle_deploy;
 pub(crate) mod world;
 
@@ -211,6 +214,13 @@ pub enum OrderKind {
     /// order has no payload), so that a Deploy pressed twice doesn't undeploy, and the panel's Deploy and Undeploy are
     /// two commands.
     VehicleDeploy { into: ObjectKind },
+    /// (M6-ST1) `factions/syndicate/units/subterranean_transport.md > Placeholder stats`: "**Unloading**: **F: Unload
+    /// All** (above ground only; they come out around it)" (plan decision T94, `crate::carry`): an order, untargeted
+    /// and queueable, as the Launch is (plan decision T91), so that it waits behind a Move. The carrier stops, and the
+    /// economy phase's step puts its passengers on the map round it once it is at rest, ending the order
+    /// ([`unload`]). Only a carrier that loads now takes it (`carry::loads`: the Transport above ground), with a
+    /// passenger aboard (the gate).
+    UnloadAll,
 }
 
 impl OrderKind {
@@ -233,6 +243,8 @@ impl OrderKind {
             OrderKind::ReturnToBase => None,
             // (M6-GA) It names a type, not an object.
             OrderKind::VehicleDeploy { .. } => None,
+            // (M6-ST1) Its passengers are the carrier's (`crate::carry`).
+            OrderKind::UnloadAll => None,
         }
     }
 }
@@ -266,8 +278,8 @@ impl Order {
             OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => None,
             // (M6-GH1) The aircraft goes to its Airfield (`air_base`).
             OrderKind::Rebase(_) | OrderKind::ReturnToBase => None,
-            // (M6-GA) The unit deploys where it stands (`vehicle_deploy`).
-            OrderKind::VehicleDeploy { .. } => None,
+            // (M6-GA) The unit deploys where it stands (`vehicle_deploy`), and (M6-ST1) a carrier unloads (`unload`).
+            OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => None,
         }
     }
 

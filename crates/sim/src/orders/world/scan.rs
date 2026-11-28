@@ -121,7 +121,7 @@ impl World<'_> {
     ) -> Option<ObjectId> {
         let attrs = unit.attrs().filter(|_| self.auto_targeting)?;
         unit.owner?;
-        let my_domain = unit.unit_def()?.base_def().domain;
+        let my_domain = unit.unit_def()?.domain();
         // Everything a scan can reach lies within the unit's longest range, plus the modifier, of the unit's shape:
         // its centre lies within that and the two half shapes along each axis, in the cells this box touches.
         let longest = unit.kind.def().sight_range.max(attrs.range) + rules().tuning.vision.elevation_modifier;

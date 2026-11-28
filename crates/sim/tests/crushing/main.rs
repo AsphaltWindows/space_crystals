@@ -19,7 +19,7 @@
 //!   every player is their own side);
 //! - `soak`: Hands of Heaven among both players' Peacekeepers, Recruits and Guards under random orders.
 //!
-//! The surfaced Subterranean Transport's crushing (design change 0419) waits for its above-ground mode, slice M6-ST1.
+//! The surfaced Subterranean Transport's crushing (design change 0419, slice M6-ST1) is `tests/transport`'s (`combat`).
 
 mod braking;
 mod friendly;

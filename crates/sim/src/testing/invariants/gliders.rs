@@ -94,7 +94,7 @@ pub(super) fn glides(o: &Object) -> bool {
 fn separation(o: &Object) -> Option<(f32, f32)> {
     let unit = o.def().unit.as_ref()?;
     let base = unit.base_def();
-    if base.domain != Domain::Air || o.mover.is_none() {
+    if unit.domain() != Domain::Air || o.mover.is_none() {
         return None;
     }
     Some((

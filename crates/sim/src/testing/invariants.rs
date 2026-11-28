@@ -24,7 +24,9 @@
 //! landing invariant L1 (an aircraft on a slot is on an Airfield in the game, at most 4 there, rising no more, and
 //! rearms exactly while down and short of ammo: `landings`), (M6-SB) the tank invariant N1 (tanks on the types that
 //! have them, a toggle on only with a charge and its newest patch on the ground, off in the network, the patches on
-//! the ground in their time: `tanks`), and an ASCII picture of the map with its units for readable failures.
+//! the ground in their time: `tanks`), (M6-ST1) the carrier invariant U1 (a passenger is aboard a carrier of its
+//! owner's in the game that takes it: `carriers`), and an ASCII picture of the map with its units for readable
+//! failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step, as the golden games do (slice M5-M1); the fuzz's
@@ -33,6 +35,7 @@
 mod augmentations;
 mod banks;
 mod buffs;
+mod carriers;
 mod clouds;
 mod energy;
 mod gliders;
@@ -222,6 +225,7 @@ impl Invariants {
             .and_then(|()| illusions::illusions(sim))
             .and_then(|()| landings::landings(sim))
             .and_then(|()| tanks::tanks(sim))
+            .and_then(|()| carriers::carriers(sim))
     }
 
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
@@ -263,7 +267,7 @@ impl Invariants {
             // 0145) it never stands off the open arc: its centre lies in an open direction from the portal's,
             // within a rounding tolerance (`EnergyDoorway::margin`).
             // Every unit in the game has the grid it walks on (slice M5-Z2, `paths`): a missing one would let it pass.
-            let class = unit.base_def().nav_class();
+            let class = unit.nav_class();
             let grid = class.and_then(|class| sim.nav().grid(class, nav::size_class(silhouette)));
             if let (Some(class), None) = (class, grid) {
                 return fail("I2", format!("walks on {class:?} grids, but its grid isn't built"));
@@ -546,6 +550,7 @@ fn floats_finite(o: &Object) -> bool {
                     OrderKind::Enter(_) | OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => true,
                     OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => true,
                     OrderKind::Rebase(_) | OrderKind::ReturnToBase | OrderKind::VehicleDeploy { .. } => true,
+                    OrderKind::UnloadAll => true,
                 }
         })
     });

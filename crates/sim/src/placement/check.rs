@@ -246,9 +246,7 @@ pub fn check_layout(
 fn ground_half_extents(kind: ObjectKind) -> Option<Vec2> {
     let def = kind.def();
     let unit = def.unit.as_ref()?;
-    let half = def
-        .half_extents()
-        .filter(|_| unit.base_def().domain == Domain::Ground)?;
+    let half = def.half_extents().filter(|_| unit.domain() == Domain::Ground)?;
     Some(if def.silhouette_turns() {
         Vec2::splat(half.length())
     } else {

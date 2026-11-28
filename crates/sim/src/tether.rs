@@ -97,6 +97,8 @@ pub fn allows(kind: OrderKind) -> bool {
         // (M6-GH1) An aircraft's flight to its Airfield (no operator is one).
         OrderKind::Rebase(_) | OrderKind::ReturnToBase => false,
         OrderKind::VehicleDeploy { .. } => true,
+        // (M6-ST1) A carrier's unload, which stands too (no operator carries).
+        OrderKind::UnloadAll => true,
     }
 }
 

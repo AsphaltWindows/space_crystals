@@ -3,7 +3,7 @@
 //! 36 × 36 Guard. The game's tests are `crates/sim/tests/crushing/`.
 
 use super::*;
-use crate::defs::UnitBase;
+use crate::defs::{UnitBase, UnitBaseDef};
 use crate::ids::{ObjectId, PlayerId};
 use crate::movement::space::{Oriented, blocks};
 
@@ -145,6 +145,8 @@ fn a_crusher_s_move_crushes_at_any_speed() {
         reverses,
         ..Mover::default()
     };
+    // (M6-ST1) A base's flag, as its types without one of their own have it (`UnitDef::crushes`).
+    let drives = |base: &UnitBaseDef, mover: &Mover, held: bool| super::drives(base.crushes, mover, held);
     let at_rest = mover(Vec2::ZERO, false);
     let east = Vec2::new(3.0, 0.0);
     assert!(drives(tracked, &at_rest, false), "at rest: a start or a spin");

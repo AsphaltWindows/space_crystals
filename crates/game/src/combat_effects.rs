@@ -7,7 +7,8 @@
 //! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass) and (slice
 //! M5-N4a) an energy bar under it of an object that has an energy pool (a Disciple's, [`hp_bars`]), (slice M6-GH1) an
 //! aircraft's ammo pips under that (a Hornet's missiles left, [`HpBar::ammo`]), (slice M6-SB) a tank bar under them for
-//! each tank of a unit that has tanks (a Shadebringer's Sludge, [`HpBar::tanks`]), and a fading marker
+//! each tank of a unit that has tanks (a Shadebringer's Sludge, [`HpBar::tanks`]), (slice M6-ST1) a carrier's passenger
+//! pips over its bars, to its owner (a Subterranean Transport's, [`HpBar::passengers`]), and a fading marker
 //! where an object died (`SimEvent::Died`; (M5-V4) or was crushed, `SimEvent::Crushed`). Slice M4-O adds the
 //! projectiles in flight
 //! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52), each in its thrower's style (the
@@ -184,6 +185,12 @@ pub struct HpBar {
     /// (slice M6-SC) its Cover. Shown as bars under the others, each in its kind's colour, brighter while on (plan
     /// §SB: "the tank bars"). Placeholder (not in the design: Q0001's art direction).
     pub tanks: [Option<(f32, bool)>; 2],
+    /// (M6-ST1) A carrier's places taken and its capacity (`sc_sim::carry`, `Sim::room`): the Subterranean Transport's
+    /// passengers of its 4 ("**Capacity 4** infantry",
+    /// `factions/syndicate/units/subterranean_transport.md > Placeholder stats`), shown to its owner as pips over its
+    /// bars, one a place (plan §ST1: "the passenger pips"). Placeholder (not in the design: Q0001's art direction, and
+    /// that its owner alone sees them).
+    pub passengers: Option<(u32, u32)>,
 }
 
 /// The entity holding the effects mesh.
@@ -227,6 +234,8 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
 /// (`sc_sim::Sim::energy_shown`; design change 0452: "an illusion's energy bar and InfoPanel always show its
 /// **parent's current energy**, live"), as a Disciple's bar would. (M6-SB) A unit's tank bars alike, as the energy
 /// bar: shown with its HP bar, to every player who sees the unit, a tank short of full not counting as damage.
+/// (M6-ST1) A carrier's passenger pips alike, shown with its HP bar, but to its owner alone, and to everyone while the
+/// fog doesn't apply (Placeholder, not in the design: who sees who is aboard).
 ///
 /// (M5-X2) Their sizes and the air units' lift are `tuning`'s (`LookTuning::bar_height` and the next).
 pub fn hp_bars(
@@ -251,6 +260,7 @@ pub fn hp_bars(
             (damaged || selected(o.id)).then(|| HpBar {
                 ammo,
                 tanks: tank_bars(o),
+                passengers: passenger_pips(sim, sight, o),
                 ..hp_bar(sim.map(), o, alpha, bars, &tuning.look)
             })
         })
@@ -343,11 +353,20 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, bars: (f32, (Option<f32>, Option<f3
         energy: energy.map(|energy| energy.clamp(0.0, 1.0)),
         ammo: None,
         tanks: [None; 2],
+        passengers: None,
     }
 }
 
 /// (M6-SB) `o`'s tank bars ([`HpBar::tanks`]): each tank its type has (`sc_sim::patches::tank_def`), the share of it
 /// left (`sc_sim::patches::Tank::fraction`) and its toggle; none for a unit without tanks.
+/// (M6-ST1) The passenger pips of `o` as `sight` shows them ([`HpBar::passengers`]): a carrier's places taken and its
+/// capacity, to its owner, or to anyone while the fog doesn't apply; none for an object that carries no one.
+fn passenger_pips(sim: &Sim, sight: &Sight, o: &Object) -> Option<(u32, u32)> {
+    let def = sc_sim::carry::def_of(o)?;
+    let shown = !sight.is_fogged() || o.owner == Some(sight.player());
+    shown.then(|| (def.capacity.saturating_sub(sim.room(o.id)), def.capacity))
+}
+
 fn tank_bars(o: &Object) -> [Option<(f32, bool)>; 2] {
     let Some(tanks) = o.tanks else {
         return [None; 2];

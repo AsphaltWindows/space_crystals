@@ -473,6 +473,10 @@ impl<'a> Arrival<'a> {
             // (`factions/cults/units/disciple.md > Spells > Mirage`: "enemies can't tell them apart"): to the caster's
             // owner alone. Everyone else sees Disciples come, by their `SimEvent::Spawned`.
             SimEvent::Mirage { disciple, .. } => self.owner(disciple),
+            // (M6-ST1) A unit boards its carrier before whoever is shown the carrier, as it goes into a building, and
+            // comes out of it onto the map, as out of one (`sc_sim::carry`).
+            SimEvent::Boarded { carrier, .. } => self.object(carrier),
+            SimEvent::Unloaded { unit, .. } => self.object(unit),
         }
     }
 }

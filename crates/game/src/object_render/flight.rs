@@ -50,7 +50,7 @@ const SHADOW_UNDER_RINGS_Z: f32 = 0.005;
 /// Whether a `kind` unit flies: an air unit (`systems/units.md > Air Collision`, its base's Domain), the Sparrow's
 /// Glider among them.
 pub fn flies(kind: ObjectKind) -> bool {
-    (kind.def().unit.as_ref()).is_some_and(|unit| unit.base_def().domain == Domain::Air)
+    (kind.def().unit.as_ref()).is_some_and(|unit| unit.domain() == Domain::Air)
 }
 
 /// How far above the ground an object of `kind` is drawn, in terrain levels: `look`'s

@@ -208,6 +208,7 @@ fn the_rule_on_abilities_and_targets() {
         repair: None,
         airfield: false,
         refuses_illusions: false,
+        carrier: None,
     };
     let follow = OrderKind::Move(Target::Object(ObjectId(5)));
     let attack = OrderKind::Attack(ObjectId(5));
@@ -455,4 +456,42 @@ fn the_rule_on_abilities_and_targets() {
     assert_eq!(resolve(illusion, Aim::Object(garrison)), enter);
     assert_eq!(resolve(disciple, Aim::Object(altar)), enter);
     assert_eq!(resolve(illusion, Aim::Object(altar)), follow);
+    // (M6-ST1) An own carrier that loads now (`sc_sim::carry`) is boarded by the infantry, full or not ("**Loading**:
+    // right-click the transport with infantry selected (Enter)",
+    // `factions/syndicate/units/subterranean_transport.md > Placeholder stats`), and followed by anyone else: a
+    // vehicle, and itself.
+    let hold = ObjectKind::SubterraneanTransport
+        .def()
+        .unit
+        .as_ref()
+        .and_then(|unit| unit.carries.as_ref());
+    let transport = Aimed {
+        carrier: hold,
+        ..object(false, true, Domain::Ground, false, false)
+    };
+    let guard = armed(TargetDomain::Ground);
+    assert_eq!(resolve(guard, Aim::Object(transport)), enter);
+    assert_eq!(resolve(disciple, Aim::Object(transport)), enter, "Light Infantry");
+    let full = Aimed {
+        full: true,
+        ..transport
+    };
+    assert_eq!(resolve(guard, Aim::Object(full)), enter, "full: the arrival judges");
+    let bike = Abilities {
+        kind: ObjectKind::AssaultBike,
+        ..guard
+    };
+    assert_eq!(resolve(bike, Aim::Object(transport)), follow, "a vehicle");
+    let itself = Abilities {
+        kind: ObjectKind::SubterraneanTransport,
+        attack: None,
+        ..guard
+    };
+    assert_eq!(resolve(itself, Aim::Object(transport)), follow);
+    // Underground, or anyone else's: not a carrier to the unit (`Aimed::carrier`).
+    let shut = Aimed {
+        carrier: None,
+        ..transport
+    };
+    assert_eq!(resolve(guard, Aim::Object(shut)), follow);
 }

@@ -47,7 +47,7 @@ impl Sim {
     pub fn network(&self, player: PlayerId) -> impl Iterator<Item = &Held> + '_ {
         self.held.values().filter(move |held| match held.place {
             Place::Network => held.object.owner == Some(player),
-            Place::Site(_) | Place::Building(_) => false,
+            Place::Site(_) | Place::Building(_) | Place::Carrier(_) => false,
         })
     }
 
@@ -181,11 +181,14 @@ impl Sim {
     /// unit inside the Tunnel Network that can no longer exit through any remaining Tunnel [...] is destroyed"; slice
     /// M4-H calls it), each with a `SimEvent::Removed`, in id order; an eject queue that reserved one lets it go.
     /// (M6-CM) A Disciple's illusions go with it, those held too and those on the map after it, through the removal
-    /// path (`Sim::illusions_of`, `crate::mirage`).
+    /// path (`Sim::illusions_of`, `crate::mirage`). (M6-ST1) A carrier's passengers go with it (`crate::carry`), "above
+    /// ground or underground".
     pub(super) fn remove_held(&mut self, ids: &[ObjectId]) {
         let (illusions, held_illusions) = self.illusions_of(ids);
         let mut gone: Vec<ObjectId> = ids.to_vec();
         gone.extend(held_illusions);
+        // (M6-ST1) A held carrier's passengers go with it (`Sim::passengers_of`, `crate::carry`).
+        gone.extend(self.passengers_of(ids));
         gone.sort_unstable();
         gone.dedup();
         gone.retain(|id| self.held.remove(id).is_some());

@@ -19,10 +19,11 @@ use crate::selection::Selection;
 /// placement's refusal (`Reject::Unplaceable`, the gate's last check): the ghost judges each spot as it is placed.
 /// (M5-N5) A Shrine's cast asks `Sim::can_cast`, the gate's checks of a cast but its point's: where it is cast is the
 /// click's to judge (`crate::command_ui::resolution::target_resolution`). (M5-N4b) A Disciple's Shroud, (M6-GD) a
-/// Drone Operator's Launch Drone, (M6-GH1) an aircraft's Return to Base and (M6-GA) a vehicle's Deploy or Undeploy ask
-/// for their order, unqueued: R is greyed while every one of its units deploys already (`Reject::Deploying`). (M6-SB) A
-/// tank's toggle asks for its `Command::Ability`, the way it switches (`sc_sim::Ability::switching`). `None` for a
-/// command the panel sends no sim command for here (a menu, a target command).
+/// Drone Operator's Launch Drone, (M6-GH1) an aircraft's Return to Base, (M6-GA) a vehicle's Deploy or Undeploy and
+/// (M6-ST1) a carrier's Unload All ask for their order, unqueued: R is greyed while every one of its units deploys
+/// already (`Reject::Deploying`), F while no one is aboard (`Reject::NothingInside`). (M6-SB) A tank's toggle asks for
+/// its `Command::Ability`, the way it switches (`sc_sim::Ability::switching`). `None` for a command the panel sends no
+/// sim command for here (a menu, a target command).
 pub(super) fn refusal(sim: &Sim, player: PlayerId, selection: &Selection, command: PanelCommand) -> Option<Reject> {
     let objects = recipients(selection, command);
     if let PanelCommand::Expand(kind) = command {
@@ -61,7 +62,11 @@ pub(super) fn refusal(sim: &Sim, player: PlayerId, selection: &Selection, comman
         build_probe(objects, kind)
     } else if matches!(
         command,
-        PanelCommand::Shroud | PanelCommand::Launch | PanelCommand::ReturnToBase | PanelCommand::VehicleDeploy(_)
+        PanelCommand::Shroud
+            | PanelCommand::Launch
+            | PanelCommand::ReturnToBase
+            | PanelCommand::VehicleDeploy(_)
+            | PanelCommand::UnloadAll
     ) {
         Command::Order {
             units: objects,

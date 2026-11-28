@@ -11,7 +11,6 @@
 //! - [`Sim::default_order`]: a unit's default command against a target (`crate::orders::resolution`), the
 //!   right-click's and the rally point's, on the target as the unit's owner knows it ([`Sim::aimed`]).
 
-use crate::aircraft;
 use crate::combat::{self, object_domain};
 use crate::defs::{Domain, ObjectKind};
 use crate::economy::gathering::{gatherable, is_drop_off};
@@ -26,6 +25,7 @@ use crate::production::Rally;
 use crate::repair;
 use crate::sim::{Reject, Sim};
 use crate::targets::{self, Live, TargetView};
+use crate::{aircraft, carry};
 
 impl Sim {
     /// What `player` knows of object `id` now, by the vision the last tick left (`crate::targets::view`): Visible
@@ -53,6 +53,8 @@ impl Sim {
                 let accepts = holding::holds(o)
                     .filter(|_| o.owner == Some(player) && o.placement.is_some() && o.is_operational())
                     .map_or(&[][..], |holds| holds.accepts);
+                // (M6-ST1) An own carrier that loads now (`crate::carry`).
+                let carrier = carry::def_of(o).filter(|_| o.owner == Some(player) && carry::loads(o));
                 Some(Aimed {
                     id,
                     enemy: enemy(o.owner),
@@ -66,8 +68,9 @@ impl Sim {
                         .filter(|_| o.owner == Some(player) && network::is_exit(o))
                         .map_or(&[], |row| row.transit),
                     accepts,
-                    // (M5-S2b) With no room left now, everyone inside counted (design change 0378).
-                    full: !accepts.is_empty() && self.room(id) == 0,
+                    // (M5-S2b) With no room left now, everyone inside counted (design change 0378), (M6-ST1) or
+                    // every place aboard taken.
+                    full: (!accepts.is_empty() || carrier.is_some()) && self.room(id) == 0,
                     // (M5-E) An own site built from outside, which the units that assist it Assist.
                     site: (o.owner == Some(player) && o.is_built_from_outside()).then_some(o.kind),
                     // (M5-N8) A damaged own object, complete, which the units that repair its kind Repair.
@@ -76,6 +79,7 @@ impl Sim {
                     airfield: o.owner == Some(player) && aircraft::is_airfield(o),
                     // (M6-CM) Such a building that refuses illusions (`crate::mirage`: the Altar).
                     refuses_illusions: !accepts.is_empty() && crate::mirage::refuses_illusions(o.kind),
+                    carrier,
                 })
             }
             TargetView::Remembered { .. } => {
@@ -96,6 +100,7 @@ impl Sim {
                     repair: None,
                     airfield: false,
                     refuses_illusions: false,
+                    carrier: None,
                 })
             }
             TargetView::Gone => None,

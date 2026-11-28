@@ -124,7 +124,8 @@ pub enum Reject {
     NoSuchTier { id: ObjectId, tier: u8 },
     /// The target of an Enter order is neither a Tunnel in operation nor a building that holds units
     /// (`systems/controls/commands.md > Enter`: "the structure being entered"; `crate::network::is_exit`,
-    /// `crate::holding::holds`), or the target of a Tunnel command isn't a Tunnel in operation.
+    /// `crate::holding::holds`), or the target of a Tunnel command isn't a Tunnel in operation. (M6-ST1) Or the target
+    /// of an Enter is a carrier that doesn't load now (`crate::carry::loads`: the Subterranean Transport underground).
     NotATunnel(ObjectId),
     /// The Tunnel's tier lets none of the units an Enter names into the network, or not a unit of the kind an Eject
     /// names out of it (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`): (M6-SD) an air
@@ -173,7 +174,8 @@ pub enum Reject {
     /// entered**; a right-click on it Assists").
     UnderConstruction(ObjectId),
     /// (M5-F1) The building takes none of the units an Enter names (`systems/controls/commands.md > Enter`: "Cults —
-    /// Armory, Cathedral: Recruits only"; `HoldsDef::accepts`).
+    /// Armory, Cathedral: Recruits only"; `HoldsDef::accepts`). (M6-ST1) Or the carrier (`crate::carry`): the
+    /// Subterranean Transport "carries **infantry only**".
     NotAccepted(ObjectId),
     /// (M5-F1) None of the objects a holding command, or a Release (slice M5-F2), names holds units (or exists any
     /// more): `crate::holding`. (M5-N3) Or none of those that do takes it: a Release at buildings none of which trains
@@ -182,7 +184,7 @@ pub enum Reject {
     NoHolders,
     /// (M5-F1) An Eject All to buildings none of which has a unit in its pool
     /// (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "Only available if StoredRecruits is not
-    /// empty").
+    /// empty"). (M6-ST1) Or an Unload All to carriers none of which has a passenger aboard (`crate::carry`).
     NothingInside,
     /// (M5-E) The target of an Assist is no site of the player's that its builders build from outside
     /// (`factions/cults/economy.md > Assist Construction Command`: "Left Click on an in-progress building"; design

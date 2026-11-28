@@ -1,6 +1,7 @@
 //! Entering the Tunnel Network (`crate::network`, slice M4-C), or a building that holds units (`crate::holding`, slice
 //! M5-F1): the gate's rule for an Enter order, and the step right after phase 5a that takes units in. One rule for
-//! both, by the one entry path (`network::EntryPath`).
+//! both, by the one entry path (`network::EntryPath`). (M6-ST1) And boarding a carrier, from any side
+//! ([`Sim::board`], `crate::carry`).
 //!
 //! **Entering** ([`Sim::step_entries`], `factions/syndicate/tunnels.md > Tunnel Network > Walking in`): right after 5a,
 //! in id order, each unit whose Enter order's walk brought it into the entry path leaves the map. "There is no fixed
@@ -23,16 +24,16 @@ use glam::Vec2;
 
 use crate::economy::RATIO_ONE;
 use crate::events::SimEvent;
-use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
-use crate::mirage;
 use crate::network::{self, EntryPath, Paths, Place};
 use crate::orders::OrderKind;
 use crate::orders::state::{Behaviour, Enter};
 use crate::progress::Progress;
+use crate::ruleset::rules;
 use crate::shape::Shape;
 use crate::sim::{Reject, Sim};
 use crate::tunnel::TunnelState;
+use crate::{carry, holding, mirage};
 
 impl Sim {
     /// The gate for `OrderKind::Enter(target)` (`systems/controls/commands.md > Enter`: "Order the unit to enter an own
@@ -44,7 +45,10 @@ impl Sim {
     /// ignore it; none is [`Reject::NoTransit`] at a Tunnel and [`Reject::NotAccepted`] at a building. A building's
     /// room is judged as a unit gets there, not here (0347 point 2). Any unit of the target's owner may enter, whatever
     /// faction its type belongs to: only a debug game has others. (M6-CM) An illusion doesn't go into a building that
-    /// augments (`mirage::admitted`: "Illusions can't be augmented at the Altar themselves").
+    /// augments (`mirage::admitted`: "Illusions can't be augmented at the Altar themselves"). (M6-ST1) Or the target is
+    /// a carrier that loads now ([`Reject::NotATunnel`] otherwise: `carry::loads`, the Subterranean Transport above
+    /// ground, "it must be above ground"), which the units of a base it takes board, the carrier itself ignoring it;
+    /// none is [`Reject::NotAccepted`]. Its room is judged as a unit gets to it, as a building's is.
     pub(in crate::sim) fn check_enter(
         &self,
         player: PlayerId,
@@ -53,19 +57,21 @@ impl Sim {
     ) -> Result<Vec<ObjectId>, Reject> {
         let object = self.referenced(target, Some(player))?;
         let building = holding::holds(object).is_some();
+        let carrier = carry::def_of(object).is_some();
         if building && !object.is_operational() {
             return Err(Reject::UnderConstruction(target));
         }
-        if !building && !network::is_exit(object) {
+        if (carrier && !carry::loads(object)) || (!building && !carrier && !network::is_exit(object)) {
             return Err(Reject::NotATunnel(target));
         }
         let lets_in = |id: &ObjectId| {
-            (self.objects.get(id))
-                .is_some_and(|o| network::admits(object, o.kind).is_ok() && mirage::admitted(object, o))
+            (self.objects.get(id)).is_some_and(|o| {
+                o.id != target && network::admits(object, o.kind).is_ok() && mirage::admitted(object, o)
+            })
         };
         let admitted: Vec<ObjectId> = units.into_iter().filter(lets_in).collect();
         if admitted.is_empty() {
-            return Err(match building {
+            return Err(match building || carrier {
                 true => Reject::NotAccepted(target),
                 false => Reject::NoTransit {
                     tunnel: target,
@@ -79,7 +85,8 @@ impl Sim {
     /// The entries' step, right after phase 5a and before 5b (module docs; `ARCHITECTURE.md > Tick pipeline`): each
     /// unit from before this tick (`first_new`) whose current order is an Enter, in id order, goes in if it has walked
     /// into its target's entry path, and loses the order if it can't go on; (M6-SD) an air unit descends by its air
-    /// entry door ([`Sim::fly_in`]).
+    /// entry door ([`Sim::fly_in`]); (M6-ST1) a unit boards the carrier on the map that it is on its way to
+    /// ([`Sim::board`]).
     pub(in crate::sim) fn step_entries(&mut self, first_new: ObjectId) {
         let entering: Vec<(ObjectId, ObjectId, Enter, bool)> = self
             .objects
@@ -95,7 +102,9 @@ impl Sim {
             })
             .collect();
         for (unit, target, state, flies) in entering {
-            if flies {
+            if self.objects.get(&target).is_some_and(|o| carry::def_of(o).is_some()) {
+                self.board(unit, target, state.walked);
+            } else if flies {
                 self.fly_in(unit, target, state);
             } else {
                 self.arrive_at_entry(unit, target, state.walked);
@@ -213,8 +222,41 @@ impl Sim {
         }
     }
 
+    /// (M6-ST1) Unit `unit` is on an Enter order to `carrier`, a carrier on the map (`crate::carry`, plan decision
+    /// T94), its walk over or not (`walked`; `orders::enter`):
+    /// - **The carrier suits it** (it is its owner's, loads now and takes the unit's base, [`network::admits`]) **and
+    ///   the unit is within Proximity of it** (`Orders::proximity_su`, the gap between their shapes as they lie, edge
+    ///   to edge, from any side): it boards (`SimEvent::Boarded`), off the map at the carrier
+    ///   (`network::Place::Carrier`), if the carrier has room for it ([`Sim::room`]: as many places free as it takes,
+    ///   `carry::places`), on its way or at the end of its walk alike. With no room, the order ends as below, `full`,
+    ///   as at a full building (design change 0347 point 2: "a unit arriving when the building is full has its Enter
+    ///   **end** and idles beside the building"): **Placeholder (not in the design: a unit that gets to a full
+    ///   Transport)**.
+    /// - **The carrier doesn't suit it, or its walk ended short of it** (the normal Failure rule, design change 0247,
+    ///   as at an entry path): the Enter ends and the unit idles (`SimEvent::EnterFailed`).
+    /// - Otherwise it walks on, after the carrier.
+    pub(in crate::sim) fn board(&mut self, unit: ObjectId, carrier: ObjectId, walked: bool) {
+        let (Some(o), Some(c)) = (self.objects.get(&unit), self.objects.get(&carrier)) else {
+            return;
+        };
+        let suits =
+            c.owner.is_some() && c.owner == o.owner && network::admits(c, o.kind).is_ok() && mirage::admitted(c, o);
+        let places = carry::def_of(c).and_then(|def| carry::places(def, o.kind));
+        let near = Shape::of(o).gap(&Shape::of(c)) <= rules().tuning.orders.proximity_su;
+        match (suits, near) {
+            (true, true) if places.is_some_and(|places| places <= self.room(carrier)) => {
+                if self.take_off_map(unit, Place::Carrier(carrier), true) {
+                    self.events.push(SimEvent::Boarded { unit, carrier });
+                }
+            }
+            (true, true) => self.end_entry(unit, carrier, true),
+            (true, false) if !walked => {}
+            _ => self.end_entry(unit, carrier, false),
+        }
+    }
+
     /// `unit`'s Enter order on `target` ends where it stands, the unit idle (`SimEvent::EnterFailed`; `full`: for want
-    /// of room in a building's pool).
+    /// of room in a building's pool, (M6-ST1) or aboard a carrier).
     fn end_entry(&mut self, unit: ObjectId, target: ObjectId, full: bool) {
         let Some(o) = self.objects.get_mut(&unit) else {
             return;

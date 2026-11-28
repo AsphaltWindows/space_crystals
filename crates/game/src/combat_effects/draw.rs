@@ -39,6 +39,10 @@ const AMMO_FILL: Color = Color::srgb(1.0, 0.68, 0.15);
 /// is on, lightened by [`TANK_ON_LIGHTEN`].
 const TANK_FILLS: [Srgba; 2] = [Srgba::rgb(0.55, 0.50, 0.16), Srgba::rgb(0.62, 0.64, 0.68)];
 const TANK_ON_LIGHTEN: f32 = 0.45;
+/// (M6-ST1) A passenger pip's fill, a place taken aboard a carrier: Placeholder (not in the design: Q0001's art
+/// direction), a pale ivory, apart from the bars' colours and the ammo's amber; a free place's pip is its dark frame
+/// alone.
+const PASSENGER_FILL: Color = Color::srgb(0.93, 0.91, 0.80);
 /// Above the path overlay, in the overlays layer.
 const EFFECTS_Z: f32 = 1.0;
 
@@ -186,7 +190,9 @@ fn death_marker(mesh: &mut ColorMesh, map: &Map, death: &DeathMarker, fade: f32,
 /// above 30%, red below. The shield bar, if any, right above it, its fill in [`SHIELD_FILL`]; (M5-N4a) the energy
 /// bar, if any, right under it, its fill in [`ENERGY_FILL`]; (M6-GH1) an aircraft's ammo pips under them, one square
 /// a round, as high as a bar, centred under it, those of the rounds left filled in [`AMMO_FILL`] from the left;
-/// (M6-SB) a unit's tank bars under those, one a tank, in its kind's [`TANK_FILLS`], lighter while its toggle is on.
+/// (M6-SB) a unit's tank bars under those, one a tank, in its kind's [`TANK_FILLS`], lighter while its toggle is on;
+/// (M6-ST1) a carrier's passenger pips over them all, one square a place, as the ammo pips are, those of the places
+/// taken filled in [`PASSENGER_FILL`] from the left.
 fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
     let center = view_to_world(bar.center);
     let fill = match bar.fraction {
@@ -196,24 +202,23 @@ fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
     };
     let size = Vec2::new(bar.width, height);
     bar_shape(mesh, center, size, bar.fraction, fill, z);
+    let mut above = center;
     if let Some(shields) = bar.shields {
-        let above = center + Vec2::new(0.0, height + 1.0);
+        above += Vec2::new(0.0, height + 1.0);
         bar_shape(mesh, above, size, shields, SHIELD_FILL, z);
+    }
+    if let Some((taken, capacity)) = bar.passengers {
+        above += Vec2::new(0.0, height + 3.0);
+        pips_shape(mesh, above, (taken, capacity), height, PASSENGER_FILL, z);
     }
     let mut under = center;
     if let Some(energy) = bar.energy {
         under -= Vec2::new(0.0, height + 1.0);
         bar_shape(mesh, under, size, energy, ENERGY_FILL, z);
     }
-    if let Some((left, max)) = bar.ammo {
+    if let Some(ammo) = bar.ammo {
         under -= Vec2::new(0.0, height + 3.0);
-        let step = height + 3.0;
-        let first = under.x - step * (max as f32 - 1.0) / 2.0;
-        for round in 0..max {
-            let at = Vec2::new(first + step * round as f32, under.y);
-            let full = if round < left { 1.0 } else { 0.0 };
-            bar_shape(mesh, at, Vec2::splat(height), full, AMMO_FILL, z);
-        }
+        pips_shape(mesh, under, ammo, height, AMMO_FILL, z);
     }
     for (tank, fill) in bar.tanks.into_iter().zip(TANK_FILLS) {
         let Some((fraction, on)) = tank else {
@@ -222,6 +227,19 @@ fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
         under -= Vec2::new(0.0, height + 1.0);
         let fill = if on { lighten(fill, TANK_ON_LIGHTEN) } else { fill };
         bar_shape(mesh, under, size, fraction, fill.into(), z);
+    }
+}
+
+/// A row of pips centred on `center` (Bevy world space), `of.1` of them, each a square `height` su a side in a dark
+/// frame, 3 su apart, the first `of.0` filled in `fill` from the left: (M6-GH1) the ammo's, (M6-ST1) the passengers'.
+fn pips_shape(mesh: &mut ColorMesh, center: Vec2, of: (u32, u32), height: f32, fill: Color, z: f32) {
+    let (filled, count) = of;
+    let step = height + 3.0;
+    let first = center.x - step * (count as f32 - 1.0) / 2.0;
+    for pip in 0..count {
+        let at = Vec2::new(first + step * pip as f32, center.y);
+        let full = if pip < filled { 1.0 } else { 0.0 };
+        bar_shape(mesh, at, Vec2::splat(height), full, fill, z);
     }
 }
 
