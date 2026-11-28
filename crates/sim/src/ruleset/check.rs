@@ -26,7 +26,9 @@
 //!   placeholder layout (`landing::slots`), which lie inside its footprint (`AirfieldDef::slot_offset_su`).
 //!   (M6-SB) A tank holds at most [`LARGEST_TANK`] units of charge, counted in fixed point (`crate::patches`), and a
 //!   patch's slow takes less than the whole of a unit's speed (`SlowDef::by`), so that a unit in sludge still moves
-//!   out of it.
+//!   out of it. A Supply Chopper's landing and take-off on a spot take at most [`LONGEST_RECIPE`] ticks
+//!   (`SupplyChopperDef::landing_ticks`), counted in fixed point as an aircraft's (`crate::supply_run`), and a Supply
+//!   Tower's spot lies inside its footprint (`SupplyTowerDef::spot_offset_su`).
 
 use super::structure::{Skeleton, variant_name};
 use super::{RuleField, Ruleset};
@@ -180,6 +182,19 @@ fn def_bounds(kind: ObjectKind, def: &ObjectDef) -> Option<Invalid> {
         let (w, h) = def.tile_size().unwrap_or((1, 1));
         if airfield.slot_offset_su >= w.min(h) as f32 * SU_PER_GU / 2.0 {
             return invalid("slot_offset_su", "must keep the landing slots inside the footprint");
+        }
+    }
+    // So do a Supply Chopper's landing and take-off on a spot (`crate::supply_run`), and a Supply Tower's spot
+    // lies inside its footprint.
+    let chopper = def.unit.as_ref().and_then(|unit| unit.supply_chopper);
+    if chopper.is_some_and(|chopper| chopper.landing_ticks > LONGEST_RECIPE) {
+        return invalid("landing_ticks", "must be at most 65535 ticks");
+    }
+    if let Some(tower) = def.structure.as_ref().and_then(|structure| structure.supply_tower) {
+        let (w, h) = def.tile_size().unwrap_or((1, 1));
+        let [x, y] = tower.spot_offset_su;
+        if x >= w as f32 * SU_PER_GU / 2.0 || y >= h as f32 * SU_PER_GU / 2.0 {
+            return invalid("spot_offset_su", "must keep the landing spot inside the footprint");
         }
     }
     // (M6-SB) A tank's charge, in fixed point, and a slow that leaves a unit some speed (`crate::patches`).

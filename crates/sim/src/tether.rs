@@ -99,6 +99,8 @@ pub fn allows(kind: OrderKind) -> bool {
         OrderKind::VehicleDeploy { .. } => true,
         // (M6-ST1) A carrier's unload, which stands too (no operator carries).
         OrderKind::UnloadAll => true,
+        // A chopper's flight to a spot (no operator is one).
+        OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => false,
     }
 }
 

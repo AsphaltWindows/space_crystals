@@ -28,12 +28,13 @@ use crate::orders::OrderKind;
 use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::shape::Shape;
+use crate::supply_run::{self, ChopperState};
 use crate::targets::{self, Live, TargetView};
 use crate::units::{SU_PER_GU, Tick};
 use crate::vision::{Hiding, Vision};
 
 use gathering::Gathering;
-pub(crate) use gathering::{KnownPatch, KnownStation};
+pub(crate) use gathering::{KnownPatch, KnownStation, pick_up};
 pub(crate) use scan::{Candidate, Scan};
 
 /// An object as the behaviours see it this tick.
@@ -103,6 +104,9 @@ pub(crate) struct Unit<'a> {
     /// assigned to ([`Unit::base`]), which its flight home goes to (`super::air_base`), and (M6-GH2) its landing on a
     /// slot (`crate::landing`), which an order lifts it off ([`Unit::take_off`]).
     pub aircraft: Option<&'a mut AircraftState>,
+    /// Its state, if it is a Supply Chopper (`crate::supply_run`): its cargo, its attachment and its landing
+    /// on a spot, which an order lifts it off ([`Unit::take_off`]).
+    pub chopper: Option<&'a mut ChopperState>,
     /// A worker's load, patch and drop-off (`economy::gathering`).
     pub worker: Option<&'a mut Worker>,
     /// (M5-N4b) Its energy pool (`Object::energy`), which a channel drains (`super::shroud`).
@@ -152,6 +156,11 @@ impl<'a> Unit<'a> {
     /// flight home to the Airfield it is on (`crate::landing::take_off`), rising from as low as it has come
     /// (`Mover::rise`). Returns whether it took off.
     pub fn take_off(&mut self, kind: OrderKind) -> bool {
+        // A Supply Chopper on a spot takes off for any order but one for that spot's object
+        // (`crate::supply_run::take_off`).
+        if let Some(state) = self.chopper.as_deref_mut() {
+            return supply_run::take_off(kind, state, &mut self.mover.rise);
+        }
         let Some(state) = self.aircraft.as_deref_mut() else {
             return false;
         };

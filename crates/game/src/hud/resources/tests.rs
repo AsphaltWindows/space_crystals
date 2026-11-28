@@ -18,9 +18,9 @@ fn texts(sim: &Sim, player: PlayerId) -> Vec<String> {
 }
 
 /// `factions/gdo/overview.md > DisplayHud` on the starting base of `factions/gdo/economy.md > Starting Conditions`
-/// (design change 0090's first verification: "Power 21/30"; 0077: Supplies 0), then with a Barracks before any
-/// Generator (its second: "51/30", in red). The banks start at the Starting Conditions' 100 Space Crystals
-/// (slice M2-F1).
+/// (design change 0090's first verification: "Power 21/30"; Supplies 1),
+/// then with a Barracks before any Generator (its second: "51/30", in red). The banks start at the Starting
+/// Conditions' 100 Space Crystals (slice M2-F1).
 #[test]
 fn the_gdo_bar_reads_the_banks_power_and_unit_control() {
     let base = || {
@@ -38,7 +38,7 @@ fn the_gdo_bar_reads_the_banks_power_and_unit_control() {
     assert_eq!(figures, [SpaceCrystals, Supplies, Power, UnitControl]);
     assert_eq!(
         texts(&sim, P1),
-        ["Space Crystals 100", "Supplies 0", "Power 21/30", "Unit Control 0/200"]
+        ["Space Crystals 100", "Supplies 1", "Power 21/30", "Unit Control 0/200"]
     );
     let all_in = base().spawn(ObjectKind::Barracks, Some(P1), tile(10, 1)).spawn(
         ObjectKind::Peacekeeper,
@@ -48,7 +48,7 @@ fn the_gdo_bar_reads_the_banks_power_and_unit_control() {
     let sim = Sim::new(&all_in.build());
     assert_eq!(
         texts(&sim, P1),
-        ["Space Crystals 100", "Supplies 0", "Power 51/30!", "Unit Control 1/200"]
+        ["Space Crystals 100", "Supplies 1", "Power 51/30!", "Unit Control 1/200"]
     );
 }
 

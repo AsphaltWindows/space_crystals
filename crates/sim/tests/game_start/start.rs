@@ -11,9 +11,9 @@ fn banks(sim: &Sim) -> Vec<(u32, u32)> {
 
 /// Design change 0008 and the plan's acceptance of the game start: each player's objects are exactly where their
 /// faction's layout at their slot puts them, turned as it turns them, and none of another faction's layout comes; a
-/// GDO player has 100 Space Crystals, 0 Supplies (design change 0077) and power +9, 21 used out of 30; the layout's
-/// plates mine their patches from the start, and pay at the end of the first cycle. A Cults player starts with empty
-/// banks, their Starting Conditions' (slice M5-B).
+/// GDO player has 100 Space Crystals, 1 Supply (`factions/gdo/economy.md > Starting Conditions`) and power +9, 21 used
+/// out of 30; the layout's plates mine their patches from the start, and pay at the end of the first cycle. A Cults
+/// player starts with empty banks, their Starting Conditions' (slice M5-B).
 #[test]
 fn a_game_starts_with_each_players_starting_conditions() {
     let mut s = ScenarioBuilder::new(&flat(24, 12))
@@ -57,7 +57,7 @@ fn a_game_starts_with_each_players_starting_conditions() {
             (12, PLATE, Some(P2), point(22.5, 2.5), r0),
         ]
     );
-    assert_eq!(banks(&sim), [(100, 0), (100, 0)]);
+    assert_eq!(banks(&sim), [(100, 1), (100, 1)]);
     for player in [P1, P2] {
         let power = sim.power(player);
         assert_eq!((power.generated, power.consumed), (30, 21), "{player:?}");
@@ -67,9 +67,9 @@ fn a_game_starts_with_each_players_starting_conditions() {
     assert_eq!(links, [Some(1), Some(2), Some(3), Some(4)]);
     let mut t = TestSim::new(s.clone());
     t.run_until(47);
-    assert_eq!(banks(t.sim()), [(100, 0), (100, 0)]);
+    assert_eq!(banks(t.sim()), [(100, 1), (100, 1)]);
     t.run_until(48);
-    assert_eq!(banks(t.sim()), [(120, 0), (120, 0)], "10 from each plate");
+    assert_eq!(banks(t.sim()), [(120, 1), (120, 1)], "10 from each plate");
 
     // Player 1 plays the Cults: their layout at slot 1, its Recruit of its Hall's lineage though listed before it
     // (`cults_start.rs`), and their Starting Conditions' banks, nothing (`factions/cults/economy.md > Starting
@@ -88,7 +88,7 @@ fn a_game_starts_with_each_players_starting_conditions() {
             (6, HALL, point(11.0, 5.0), vec![]),
         ]
     );
-    assert_eq!(banks(&sim), [(0, 0), (100, 0)]);
+    assert_eq!(banks(&sim), [(0, 0), (100, 1)]);
 }
 
 /// `dev_skirmish`'s GDO bases (design change 0095; plan risk R13): each Deployment Center sees every patch of its

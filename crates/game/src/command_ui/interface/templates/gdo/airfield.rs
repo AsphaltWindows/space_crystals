@@ -2,7 +2,7 @@
 //! **W** Dragonfly (greyed without Propulsion Labs), **X** Cancel Production, **C** Set Rally Point"): the Production
 //! template (plan decision T23, `super::super::production_grid`), its right-click the rally point. Q is its recipe, the
 //! Hornet's, for 150 Space Crystals and 2 Supplies: greyed while the bank holds less (`sc_sim::Reject::InsufficientSupplies`,
-//! "Not enough Supplies"; the GDO has no Supply until slice M6-GS) and while the Airfield is full, its assignments and
+//! "Not enough Supplies"; the GDO starts with 1) and while the Airfield is full, its assignments and
 //! the aircraft in its queue at 4 (`factions/gdo/structures/airfield.md > Production limit`; `sc_sim::Reject::AirfieldFull`,
 //! "Airfield full"). (M6-GL) W is its second recipe, the Dragonfly's, for 175 Space Crystals and 4 Supplies, greyed so
 //! too, and while the player owns no Propulsion Labs, its Unit Prerequisite (`sc_sim::Reject::Requires`, "Requires a

@@ -21,6 +21,7 @@ mod leak;
 mod map;
 mod spells;
 mod structures;
+mod supply_run;
 mod syndicate;
 #[cfg(test)]
 pub(crate) mod test_defs;
@@ -50,6 +51,7 @@ pub use structures::{
     OccupantFire, PopUpDef, ProductionDef, Recipe, RecruitmentDef, ResearchDef, SiteDef, SitePrice, StructureDef,
     SymmetryType, TierDef, Transit, TunnelDef, UpgradeDef, VaultDef,
 };
+pub use supply_run::{SupplyChopperDef, SupplyTowerDef};
 pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
 pub use syndicate::{EJECT_MENU_ORDER, EXPAND_MENU, ExpandEntry, SyndicateRules};
 pub use units::{

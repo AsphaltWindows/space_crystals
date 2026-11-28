@@ -352,14 +352,24 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
                 );
             }
             // (M6-GH1) Over its pads: an Airfield's (`StructureDef::airfield`), whose every unit is an aircraft that
-            // rearms at it (`UnitDef::ammo`).
+            // rearms at it (`UnitDef::ammo`); or over its centre, a Supply Tower's
+            // (`StructureDef::supply_tower`), whose every unit is an air unit that lands on it
+            // (`UnitDef::supply_chopper`).
             ExitRule::Pad => {
-                assert!(structure.airfield.is_some(), "{name}: pads, and no Airfield");
+                let tower = structure.supply_tower.is_some();
+                assert!(
+                    structure.airfield.is_some() != tower,
+                    "{name}: pads, and no Airfield or Supply Tower"
+                );
                 for recipe in production.recipes {
                     let unit = recipe.kind.def().unit.as_ref();
+                    let lands = |unit: &UnitDef| match tower {
+                        true => unit.supply_chopper.is_some(),
+                        false => unit.ammo.is_some(),
+                    };
                     assert!(
-                        unit.is_some_and(|unit| unit.ammo.is_some() && unit.base_def().domain == Domain::Air),
-                        "{name}: {:?} is no aircraft that rearms at it",
+                        unit.is_some_and(|unit| lands(unit) && unit.base_def().domain == Domain::Air),
+                        "{name}: {:?} is no aircraft that lands on it",
                         recipe.kind
                     );
                 }

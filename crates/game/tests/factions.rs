@@ -36,7 +36,8 @@ const COLONISTS_BAR: [&str; 5] = [
     "Flux 0",
     "Beacon Capacity 4/10",
 ];
-const GDO_BAR: [&str; 4] = ["Space Crystals 100", "Supplies 0", "Power 21/30", "Unit Control 0/200"];
+/// The GDO's bar at the start (`factions/gdo/economy.md > Starting Conditions`).
+const GDO_BAR: [&str; 4] = ["Space Crystals 100", "Supplies 1", "Power 21/30", "Unit Control 0/200"];
 /// The Cults' bar from the first tick on: the six starting Recruits, and the Hall's seventh, in production from then and
 /// counted (design change 0342: "the Recruit in production counts toward LocalUnitControlUsage from the start of its
 /// production").

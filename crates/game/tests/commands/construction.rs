@@ -31,7 +31,7 @@ use sc_sim::{
 };
 use space_crystals::command_ui::cursor::PointerLook;
 use space_crystals::command_ui::feedback::TargetFeedback;
-use space_crystals::command_ui::{BuildMenu, ButtonLook, InterfaceState, PanelButton, PanelCommand, Placing, Planned};
+use space_crystals::command_ui::{BuildMenu, ButtonLook, InterfaceState, PanelButton, PanelCommand, Placing};
 use space_crystals::coords::drawn_position;
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::hud::info_panel::InfoText;
@@ -204,6 +204,7 @@ fn constructions(app: &App) -> Vec<(PlayerId, Vec<u32>, ConstructionCommand)> {
             | Command::Tunnel { .. }
             | Command::Holding { .. }
             | Command::Cast { .. }
+            | Command::Schedule { .. }
             | Command::Debug(_) => None,
         })
         .collect()
@@ -354,14 +355,13 @@ fn f() -> CommandSlot {
 }
 
 /// Three of the Basic menu's buildings, greyed in their slots in these games whatever the Deployment Center is doing:
-/// (M6-GK) R the Supply Tower, which it doesn't construct yet, and (M6-GR) A the Radar Station and F the Defense
-/// System, which it does once their TechPrerequisites stand: these games have no Generator of player 1's
-/// ("Requires a Generator") and no Radar Station ("Requires a Radar Station").
+/// R the Supply Tower, and (M6-GR) A the Radar Station and F the Defense System, which it constructs once
+/// their TechPrerequisites stand: these games have no Generator of player 1's ("Requires a Generator") and no Radar
+/// Station ("Requires a Radar Station").
 fn greyed_basic() -> [(CommandSlot, PanelButton, ButtonLook, &'static str); 3] {
-    let planned = |planned| PanelButton::Command(PanelCommand::Planned(planned));
     let construct = |kind| PanelButton::Command(PanelCommand::Construct(kind));
     [
-        (r(), planned(Planned::SupplyTower), ButtonLook::Unavailable, "SPT"),
+        (r(), construct(ObjectKind::SupplyTower), ButtonLook::Disabled, "SPT"),
         (a(), construct(ObjectKind::RadarStation), ButtonLook::Disabled, "RS"),
         (f(), construct(ObjectKind::DefenseSystem), ButtonLook::Disabled, "DS"),
     ]

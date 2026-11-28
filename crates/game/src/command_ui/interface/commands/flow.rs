@@ -12,7 +12,9 @@ impl PanelCommand {
     /// Agent's Drop Off, the Recruits' Assist Construction and the Recruits' and the Agent's Repair (slice M5-N8), and
     /// (M5-N5) a Shrine's casts, on a point ("Targeting: AwaitingTarget, left-click a point in vision"), and (M5-K) a
     /// Rocketman's Target Lock, on an enemy unit or structure (`factions/gdo/units/rocketman.md > Placeholder stats`:
-    /// "targeted: left-click an enemy unit or structure"). The others are issued at once: HoldPosition and Stop, a
+    /// "targeted: left-click an enemy unit or structure"), and a Supply Chopper's Pick Up Supplies, on a
+    /// station, and its Drop Off Supplies and Attach to Tower, on an own Supply Tower, and a Supply Tower's Schedule
+    /// Deliveries, on a station. The others are issued at once: HoldPosition and Stop, a
     /// Disciple's Shroud, (M5-N11) a Prayer-mobile's casts, round it and ahead of it
     /// (`factions/cults/units/prayer_mobile.md > Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target)",
     /// "**Suppress** (hotkey **F**, instant, no target)"), (M6-GD) a Drone Operator's Launch Drone, over itself, and
@@ -34,7 +36,11 @@ impl PanelCommand {
             | PanelCommand::DropOff
             | PanelCommand::Assist
             | PanelCommand::Repair
-            | PanelCommand::TargetLock => true,
+            | PanelCommand::TargetLock
+            | PanelCommand::PickUpSupplies
+            | PanelCommand::DropOffSupplies
+            | PanelCommand::AttachToTower
+            | PanelCommand::ScheduleDeliveries => true,
             PanelCommand::Cast(ability) => matches!(ability.def().area, AbilityArea::AtPoint | AbilityArea::AnyPoint),
             PanelCommand::HoldPosition
             | PanelCommand::Stop
@@ -181,7 +187,12 @@ impl PanelCommand {
     /// done (e.g. move here, then deploy)"). (M6-CM) A Disciple's Mirage is an ability (`sc_sim::Ability::Mirage`), cast
     /// at once: Shift changes nothing (**Placeholder (not in the design: Shift's meaning for an instant spell)**). (M6-SB)
     /// A tank's toggle is an ability (`sc_sim::Ability::Sludge`): "Toggles follow the mode-switch rule (keep orders, not
-    /// queueable)" (`factions/syndicate/units/shadebringer.md > Placeholder stats`).
+    /// queueable)" (`factions/syndicate/units/shadebringer.md > Placeholder stats`). A Supply Chopper's three
+    /// supply commands are orders (`sc_sim::OrderKind::PickUpSupplies` and the next two), which Shift queues
+    /// ("Shift-queues like any command", `factions/gdo/units/supply_chopper.md > Unit Transport`); a Supply Tower's
+    /// Schedule Deliveries is a command of a structure, which has no order queue (`sc_sim::Command::Schedule`): a
+    /// Shift-click sets it and ends the targeting like a plain click, as a rally point's (**Placeholder (not in the
+    /// design: Shift's meaning for a schedule)**).
     /// (M6-ST1) A carrier's Unload All is an order (`sc_sim::OrderKind::UnloadAll`, untargeted and queueable, as the
     /// Launch): Shift-F after a Move unloads where the move ends.
     pub fn queues(self) -> bool {
@@ -203,7 +214,10 @@ impl PanelCommand {
             | PanelCommand::Launch
             | PanelCommand::ReturnToBase
             | PanelCommand::VehicleDeploy(_)
-            | PanelCommand::UnloadAll => true,
+            | PanelCommand::UnloadAll
+            | PanelCommand::PickUpSupplies
+            | PanelCommand::DropOffSupplies
+            | PanelCommand::AttachToTower => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)
@@ -241,7 +255,8 @@ impl PanelCommand {
             | PanelCommand::Cast(_)
             | PanelCommand::Buy(_)
             | PanelCommand::Mirage
-            | PanelCommand::Toggle { .. } => false,
+            | PanelCommand::Toggle { .. }
+            | PanelCommand::ScheduleDeliveries => false,
         }
     }
 }

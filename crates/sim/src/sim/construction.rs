@@ -258,6 +258,8 @@ impl Sim {
                 }
                 let structure = self.insert_object(kind, Some(player), pos, Some(placement), None);
                 self.events.push(SimEvent::StructurePlaced { constructor, structure });
+                // A Supply Tower comes with its chopper (`sim/supply_run.rs`).
+                self.spawn_attached_chopper(structure);
             }
             Resolved::WarpIn {
                 beacon,

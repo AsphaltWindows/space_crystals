@@ -54,7 +54,7 @@ fn the_career_campus_requires_a_barracks() {
 /// queued or in production continue and complete normally; new ones cannot be queued until the player again owns a
 /// qualifying prerequisite structure". Two Field Engineers queued, the first in production, and then the only Career
 /// Campus destroyed: the Barracks is refused a third (E greyed again, "Requires a Career Campus"), and both queued
-/// ones come out, for 75 Space Crystals each.
+/// ones come out, for 75 Space Crystals each and 1 Supply (`factions/gdo/units/field_engineer.md > Placeholder stats`).
 #[test]
 fn field_engineers_queued_before_the_campus_is_lost_come_out() {
     let mut t = with_campus();
@@ -75,6 +75,7 @@ fn field_engineers_queued_before_the_campus_is_lost_come_out() {
         assert_eq!((o.kind, o.owner), (FIELD_ENGINEER, Some(P1)));
     }
     assert_eq!(crystals(t.sim()), BANK - 2 * FIELD_ENGINEER_COST);
+    assert_eq!(t.sim().player(P1).map(|p| p.supplies), Some(SUPPLIES - 2));
     let production = t.sim().object(id(BARRACKS)).and_then(|o| o.production.clone());
     assert_eq!(production.map(|p| p.queue.len()), Some(0), "no third");
 }

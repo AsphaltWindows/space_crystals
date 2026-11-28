@@ -98,6 +98,7 @@ fn with_no_patch_left_a_job_ends_or_delivers_its_load_first() {
             converting: false,
             tethered: false,
             aircraft: None,
+            chopper: None,
             worker: Some(&mut worker),
             energy: None,
             mirrors: None,

@@ -159,6 +159,11 @@ impl Sim {
             // (M6-ST1) `factions/syndicate/units/subterranean_transport.md > Placeholder stats` (`crate::carry`): the
             // carriers with a passenger aboard take it, the others ignore it.
             OrderKind::UnloadAll => ordered = self.check_unload(ordered)?,
+            // `factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper]`
+            // (`gate/supply_run.rs`): the Supply Choppers take them, the others ignore them.
+            OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => {
+                ordered = self.check_supply_run(player, ordered, kind)?;
+            }
         }
         // (M6-GD) "The Drone Operator **cannot move** while it has a drone active" (`crate::tether`): a unit that holds
         // still for its drone ignores an order that would move it; if every unit does, the order is refused, with

@@ -228,16 +228,26 @@ fn q_stays_available_at_the_unit_control_cap() {
 
 /// `> ObjectInterfaceState[Barracks]`: "E: Build Field Engineer [...] Only available if the player owns at least one
 /// Career Campus" (design change 0328; slice M5-N9). Without one, E is greyed, says "Requires a Career Campus" when
-/// pressed and sends nothing; with a Career Campus (a debug spawn) it queues a Field Engineer for 75 Space Crystals.
-/// The Career Campus lost, E is greyed again, and the Field Engineer stays queued (`core/tech_and_research.md > Tech
-/// Prerequisites > Unit Prerequisites`: "units already queued or in production continue and complete normally"; these
-/// Barracks have no power, so it never comes out here: the sim's `field_engineer` tests have it come out).
+/// pressed and sends nothing; with a Career Campus (a debug spawn) it queues a Field Engineer for 75 Space Crystals and
+/// its Supply, 1 (`factions/gdo/units/field_engineer.md > Placeholder stats`), which the bank holds. The Career Campus
+/// lost, E is greyed again, and the Field Engineer stays queued (`core/tech_and_research.md > Tech Prerequisites > Unit
+/// Prerequisites`: "units already queued or in production continue and complete normally"; these Barracks have no
+/// power, so it never comes out here: the sim's `field_engineer` tests have it come out).
 #[test]
 fn e_trains_a_field_engineer_once_a_career_campus_stands() {
     use ButtonLook::{Common, Disabled};
     const FIELD_ENGINEER: ObjectKind = ObjectKind::FieldEngineer;
     let e = slot(0, 2);
     let mut app = production_game(0, 1000);
+    let bank_with_a_supply = DebugCommand::SetResources {
+        player: P1,
+        crystals: 1000,
+        supplies: 1,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
+    };
+    submit(&mut app, P1, Command::Debug(bank_with_a_supply));
     click(&mut app, barracks_at(15), &[]);
     assert_eq!(look(&mut app, e), Some(Disabled), "no Career Campus");
     tap(&mut app, &[], KeyE);

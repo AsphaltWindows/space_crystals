@@ -62,6 +62,7 @@ pub mod sides;
 pub mod sim;
 pub mod spot_work;
 pub mod stock;
+pub mod supply_run;
 pub mod suppress;
 pub mod symmetry;
 pub mod targets;

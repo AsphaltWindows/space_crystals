@@ -80,12 +80,6 @@ pub enum Planned {
     /// in its order (`super::gdo::field_engineer::CONSTRUCT_MENU`).
     Bunker,
     FirstAidTent,
-    /// (M6-GK) The buildings of the Deployment Center's build menus that it doesn't construct yet
-    /// (`factions/gdo/structures/deployment_center.md > Constructs`), in its Constructs order: each in the game (plan
-    /// decision T84), its entry held until its slice (`sc_sim::defs::PLANNED_RECIPES`). The Radar Station and the
-    /// Defense System are constructed (slice M6-GR), and so are the Factory, Advanced Mechanics and the Industrial
-    /// Powerplant (slice M6-GF), the Airfield (slice M6-GH2) and Propulsion Labs (slice M6-GL).
-    SupplyTower,
     /// (M6-GF) The Factory's E (`factions/gdo/structures/factory.md > Placeholder stats`: "**E** Prospector"), which it
     /// trains from slice M6-GP on. Its type is in the game (slice M6-GK), so its label is its type's ([`Planned::label`]).
     /// Its R, the Artillery Rig, held its slot too, until slice M6-GA.
@@ -109,7 +103,7 @@ pub enum Planned {
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 25] = [
+    pub const ALL: [Planned; 24] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -128,7 +122,6 @@ impl Planned {
         Planned::Specter,
         Planned::Bunker,
         Planned::FirstAidTent,
-        Planned::SupplyTower,
         Planned::Prospector,
         Planned::LayMine,
         Planned::BuyMine,
@@ -158,7 +151,6 @@ impl Planned {
             Planned::Specter => "Specter",
             Planned::Bunker => "Bunker",
             Planned::FirstAidTent => "First Aid Tent",
-            Planned::SupplyTower => "Supply Tower",
             Planned::Prospector => "Prospector",
             Planned::LayMine => "Lay Mine",
             Planned::BuyMine => "Buy Mine",
@@ -182,11 +174,10 @@ impl Planned {
     /// Assembly's "AA", (M6-SN) the Null Chamber's "NC", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice M4-G). (M6-SV)
     /// The Vehicle Assembly's units not trained yet are labelled by their types, in the game already (slice M6-SK):
     /// "SBR", "LB" and "STR"; (M6-SD) the Aerospace Assembly's alike, "SPR" and "PRM". (M6-GK) The Deployment Center's
-    /// one, whose type is in the game, has its type's label (the Airfield's "AD" until slice M6-GH2, Propulsion Labs'
-    /// "PL" until slice M6-GL); (M6-GF) and so has the Factory's unit not trained
-    /// yet, "PR" (the Artillery Rig's "ARG" until slice M6-GA), as (M6-GH1) the Airfield's Dragonfly had, "DY", until
-    /// slice M6-GL. The Twister's mines' commands by their
-    /// names' first words, "Lay" and "Buy", as the Drone Operator's Launch Drone is "Launch" (slice M6-GD,
+    /// held ones had their types' labels (the Airfield's "AD" until slice M6-GH2, Propulsion Labs' "PL" until slice
+    /// M6-GL); (M6-GF) the Factory's unit not trained yet has its type's, "PR" (the Artillery Rig's "ARG" until slice
+    /// M6-GA), as (M6-GH1) the Airfield's Dragonfly had, "DY", until slice M6-GL. The Twister's mines' commands by
+    /// their names' first words, "Lay" and "Buy", as the Drone Operator's Launch Drone is "Launch" (slice M6-GD,
     /// `PanelCommand::label`); not Buy Mine by the mine's tag, as Build Drone is by the drone's, "DRN": "ME" is the
     /// mine type's own, which no placeholder shares. (M6-SB) The Shadebringer's Cover by its name, "Cover", as its
     /// Sludge is "Sludge" (`PanelCommand::Toggle`). The Vault's "VT" and the Shadebringer's "SBR" went into the game
@@ -213,7 +204,6 @@ impl Planned {
             Planned::Specter => "SPR",
             Planned::Bunker => "BKR",
             Planned::FirstAidTent => "FAT",
-            Planned::SupplyTower => "SPT",
             Planned::Prospector => "PR",
             Planned::LayMine => "Lay",
             Planned::BuyMine => "Buy",
@@ -237,9 +227,9 @@ impl Planned {
         )
     }
 
-    /// (M6-GK) Whether it is a building of the Deployment Center's build menus.
+    /// (M6-GK) Whether it is a building of the Deployment Center's build menus: none is, every one of them live.
     pub fn is_constructed(self) -> bool {
-        matches!(self, Planned::SupplyTower)
+        false
     }
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout" or "Warp In Alloy

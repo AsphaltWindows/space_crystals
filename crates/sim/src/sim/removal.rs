@@ -229,6 +229,9 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
     {
         aircraft.base = None;
     }
+    // A chopper whose tower has gone is unattached, and a tower whose station has gone has no schedule
+    // (`crate::supply_run`); one landed on a tower that goes goes with it (`Sim::landed_on`).
+    crate::supply_run::forget(o, &is_gone);
     if o.extractor.is_some_and(|extractor| is_gone(extractor.patch)) {
         o.extractor = None;
     }

@@ -89,7 +89,8 @@ fn layout_object(kind: ObjectKind, at: SpawnAt) -> LayoutObject {
 /// belonging to the starting Recruitment Hall"). At tick 0 the Hall claims its whole area: 100% effectiveness, its
 /// usage 6 of its 20, and the HUD's Unit Control 6/20 (`factions/cults/structures/recruitment_hall.md > Cults Unit
 /// Control HUD Display`). The camera starts on the Hall (`core/camera.md > Starting Position`: "Cults: starting
-/// Recruitment Hall"). The GDO beside them starts as ever.
+/// Recruitment Hall"). The GDO beside them starts as ever, and with its 1 Supply (`factions/gdo/economy.md > Starting
+/// Conditions`).
 #[test]
 fn a_cults_player_starts_with_their_starting_conditions() {
     let scenario = dev_skirmish_as([CULTS, GDO]);
@@ -117,11 +118,12 @@ fn a_cults_player_starts_with_their_starting_conditions() {
     );
     assert_eq!(sim.army_cap(P1), unit_control(6, 20));
     assert_eq!(scenario.primary_structure(P1), Some(point(10.0, 10.0)), "the Hall");
-    let hundred = Banks {
+    let gdo = Banks {
         crystals: 100,
+        supplies: 1,
         ..Banks::default()
     };
-    assert_eq!(sim.player(P2).unwrap().banks(), hundred);
+    assert_eq!(sim.player(P2).unwrap().banks(), gdo);
     assert_eq!(ids(&sim, P2, ObjectKind::DeploymentCenter).len(), 1);
 
     let scenario = dev_skirmish_as([GDO, CULTS]);

@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 
 use sc_sim::{Ability, OrderKind};
 
-use super::{MapTarget, Resolved, UnitCapabilities, object_right_click, repaired_by, target_resolution};
+use super::{MapTarget, Resolved, UnitCapabilities, object_right_click, repaired_by, target_resolution, tower_free};
 use crate::command_ui::interface::{InterfaceState, PanelCommand};
 
 /// `systems/controls/hud.md > PointerDisplayType > Types` that the game can show so far.
@@ -64,8 +64,10 @@ impl PointerDisplay {
     /// Repair (design change 0322). (M6-GH1) An aircraft's right-click on an own Airfield, a Rebase onto another or a
     /// Return to Base onto its own (`factions/gdo/structures/airfield.md > Assignment`: "right-click the other
     /// Airfield"), shows Enter: **Placeholder (not in the design: `systems/controls/hud.md > Types` has no row for it;
-    /// the aircraft flies there to land, as a unit goes into what it enters)**. No click gives Hold, Stop, (M5-N4b) a
-    /// Shroud, (M6-GD) a Launch, (M6-GA) a vehicle deploy or (M6-ST1) an Unload All.
+    /// the aircraft flies there to land, as a unit goes into what it enters)**; and so does a Supply Chopper's
+    /// Attach to Tower, the same placeholder, its Pick Up Supplies GatherResources and its Drop Off Supplies
+    /// ReturnResources, an Agent's on a station and at its Tunnel (placeholders: no row names them). No click gives
+    /// Hold, Stop, (M5-N4b) a Shroud, (M6-GD) a Launch, (M6-GA) a vehicle deploy or (M6-ST1) an Unload All.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
             // No click gives a Deploy (slice M3-J1 places it), nor a Build.
@@ -73,10 +75,11 @@ impl PointerDisplay {
             // (M5-V2) `systems/controls/hud.md`: "AwaitingTarget[Reverse] over ground: **Move**".
             OrderKind::Reverse(_) => PointerDisplay::Move,
             OrderKind::Enter(_) | OrderKind::Rebase(_) | OrderKind::ReturnToBase => PointerDisplay::Enter,
+            OrderKind::AttachToTower(_) => PointerDisplay::Enter,
             OrderKind::Assist(_) => PointerDisplay::Assist,
             OrderKind::Repair(_) => PointerDisplay::Repair,
-            OrderKind::Gather(_) => PointerDisplay::GatherResources,
-            OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
+            OrderKind::Gather(_) | OrderKind::PickUpSupplies(_) => PointerDisplay::GatherResources,
+            OrderKind::DropOff(_) | OrderKind::DropOffSupplies(_) => PointerDisplay::ReturnResources,
             // (M5-K) A Target Lock's click, R's (`systems/controls/hud.md` has no row for it): placeholder, Attack.
             OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::TargetLock(_) => PointerDisplay::Attack,
             OrderKind::Patrol(_) => PointerDisplay::Patrol,
@@ -91,7 +94,9 @@ impl PointerDisplay {
     /// Move (rally point)"; `systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`:
     /// "AwaitingTarget\[SetRallyPoint\] over ground or object: Move"). Set Drop-off over a drop-off shows
     /// ReturnResources: **placeholder**, the rules have no AwaitingTarget\[SetDropOffLocation\] row, and its target is
-    /// the drop-off point the loads will return to. (M5-N5) A cast shows Cast.
+    /// the drop-off point the loads will return to. (M5-N5) A cast shows Cast. A Schedule Deliveries shows
+    /// GatherResources (`systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`:
+    /// "AwaitingTarget\[ScheduleDeliveries\] over valid target: **GatherResources**").
     pub fn of(resolved: Resolved) -> Self {
         match resolved {
             Resolved::Order(kind) => Self::of_order(kind),
@@ -99,6 +104,7 @@ impl PointerDisplay {
             Resolved::Ability(Ability::SetDropOff(_)) => PointerDisplay::ReturnResources,
             Resolved::Ability(_) => PointerDisplay::Inactive,
             Resolved::Cast(..) => PointerDisplay::Cast,
+            Resolved::Schedule(_) => PointerDisplay::GatherResources,
         }
     }
 }
@@ -149,10 +155,15 @@ pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> Po
 /// over a target it can use, else Inactive ((M5-V2) Reverse's over the ground: "AwaitingTarget[Reverse] over ground:
 /// **Move**"; "over non-ground: **Inactive**"). (M5-N8)
 /// A Repair's over a damaged own object that one of the selected `units` repairs ([`repaired_by`]): over one that none
-/// of them repairs, an Agent's over a Storage, the gate would refuse the click.
+/// of them repairs, an Agent's over a Storage, the gate would refuse the click. A Supply Chopper's Drop Off
+/// Supplies' and Attach to Tower's over an own Supply Tower free for one of them ([`tower_free`]): over one another
+/// chopper is attached to, the gate would refuse the click (`sc_sim::Reject::TowerTaken`).
 fn awaiting_display(pending: PanelCommand, units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
     match (pending, target.target) {
         (PanelCommand::Repair, _) if !repaired_by(units, target) => PointerDisplay::Inactive,
+        (PanelCommand::DropOffSupplies | PanelCommand::AttachToTower, _) if !tower_free(units, target) => {
+            PointerDisplay::Inactive
+        }
         _ => target_resolution(pending, target).map_or(PointerDisplay::Inactive, PointerDisplay::of),
     }
 }

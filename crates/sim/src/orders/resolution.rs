@@ -55,6 +55,13 @@
 //!   Airfield**"), whether or not it has room, which the gate judges (`Reject::AirfieldFull`); its own Airfield a
 //!   Return to Base (`factions/gdo/structures/airfield.md > Returning and rearming`: "Right-clicking its own Airfield
 //!   does the same").
+//! - **A Supply Chopper** (`crate::supply_run`; `factions/gdo/units/supply_chopper.md >
+//!   ObjectInterfaceState[SupplyChopper]`): a Supply Delivery Station gives Pick Up Supplies ("Right-click
+//!   SupplyDeliveryStation: issues PickUpSupplies command"); an own Supply Tower in operation Drop Off Supplies while
+//!   it carries Supplies, Attach to Tower while it doesn't ("Right-click own SupplyTower (when carrying supplies):
+//!   issues DropOffSupplies command", "(when not carrying supplies): issues AttachToTower command"), but for a tower
+//!   another chopper is attached to, which takes none of them (the gate's `Reject::TowerTaken`): a Move to it, as for
+//!   "other friendly/neutral Object".
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
 //!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3; [`Abilities::attacks`], by
 //!   `combat::can_hit`, the gate's and the client's check too), and the object is destructible.
@@ -111,6 +118,18 @@ pub struct Abilities {
     /// (M6-CM) It is an illusion (`crate::mirage`), which a building that refuses illusions doesn't take in
     /// ([`Aimed::refuses_illusions`]). Only its owner, whose unit it is, resolves its default command.
     pub illusion: bool,
+    /// If it is a Supply Chopper (`crate::supply_run`), what it carries and the tower it is attached to.
+    /// `None` for every other unit.
+    pub chopper: Option<Chopper>,
+}
+
+/// A Supply Chopper's part of what it can do (`Abilities::chopper`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Chopper {
+    /// It carries Supplies (`supply_run::carried`).
+    pub carrying: bool,
+    /// The Supply Tower it is attached to (`supply_run::attached_to`).
+    pub attached: Option<ObjectId>,
 }
 
 impl Abilities {
@@ -139,6 +158,10 @@ impl Abilities {
             gathers_supplies: o.worker.is_some() && worker_def(o.kind).is_some_and(|def| def.supplies.is_some()),
             aircraft: o.aircraft.map(|state| state.base),
             illusion: crate::mirage::is_illusion(o),
+            chopper: o.chopper.as_ref().map(|state| Chopper {
+                carrying: state.supplies() > 0,
+                attached: state.attached,
+            }),
         })
     }
 }
@@ -193,6 +216,9 @@ pub struct Aimed {
     /// Subterranean Transport above ground), which the units of a base it takes board (`carry::takes`). `None` for
     /// anything else.
     pub carrier: Option<&'static CarrierDef>,
+    /// If it is a Supply Tower of the unit's owner's in operation (`supply_run::is_tower`), the chopper
+    /// attached to it, `Some(None)` for none. `None` for anything else.
+    pub supply_tower: Option<Option<ObjectId>>,
 }
 
 /// What a unit's default command is resolved against.
@@ -236,6 +262,9 @@ pub enum Rule {
     Repair,
     /// (M6-GH1) An own Airfield, for an aircraft that rearms at one: Return to Base on its own, Rebase on another.
     Rebase,
+    /// A Supply Delivery Station, for a Supply Chopper: Pick Up Supplies; an own Supply Tower with no other
+    /// chopper attached: Drop Off Supplies while it carries Supplies, Attach to Tower while it doesn't.
+    SupplyRun,
     /// An enemy the unit can attack, its type taking Attack orders: Attack.
     Attack,
 }
@@ -246,7 +275,8 @@ pub enum Rule {
 /// (`factions/cults/units/recruit.md > Right-Click Resolution`, design change 0325: "Damaged own building or vehicle
 /// (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins"), which (M5-S2b)
 /// a full building's Enter lets through to it ([`Rule::Enter`], design change 0378). (M6-GH1) The aircraft's Rebase,
-/// on an own Airfield, which no other rule gives anything.
+/// on an own Airfield, which no other rule gives anything; the Supply Chopper's supply run, on a station or an
+/// own Supply Tower, which no other rule gives a chopper anything.
 pub const RULES: &[Rule] = &[
     Rule::Gather,
     Rule::GatherSupplies,
@@ -255,6 +285,7 @@ pub const RULES: &[Rule] = &[
     Rule::Assist,
     Rule::Repair,
     Rule::Rebase,
+    Rule::SupplyRun,
     Rule::Attack,
 ];
 
@@ -286,6 +317,18 @@ impl Rule {
                 Some(_) if target.airfield => Some(OrderKind::Rebase(id)),
                 _ => None,
             },
+            Rule::SupplyRun => {
+                let chopper = unit.chopper?;
+                if target.station {
+                    return Some(OrderKind::PickUpSupplies(id));
+                }
+                let attached = target.supply_tower?;
+                let free = attached.is_none() || chopper.attached == Some(id);
+                free.then_some(match chopper.carrying {
+                    true => OrderKind::DropOffSupplies(id),
+                    false => OrderKind::AttachToTower(id),
+                })
+            }
             Rule::Attack => {
                 (target.enemy && target.destructible && unit.attacks(target.domain)).then_some(OrderKind::Attack(id))
             }

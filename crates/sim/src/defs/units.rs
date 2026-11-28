@@ -26,7 +26,7 @@ pub use worker::{DropOffChoice, LoadDef, Nearest, RepairDef, RepairPayment, Repa
 
 use serde::{Deserialize, Serialize};
 
-use super::{MirageDef, ObjectKind, Recipe, ShroudDef, SpellDef};
+use super::{MirageDef, ObjectKind, Recipe, ShroudDef, SpellDef, SupplyChopperDef};
 use crate::nav::NavClass;
 
 /// `systems/units.md > TurretAttributes`: only on units whose base can carry a turret (`UnitBaseDef::can_have_turret`),
@@ -154,6 +154,9 @@ pub struct UnitDef {
     /// most one of each kind ([`TankDef::lays`]). Empty for every other type.
     #[serde(deserialize_with = "super::leak::slice")]
     pub tanks: &'static [TankDef],
+    /// Its part in the supply loop, for a Supply Chopper (`crate::supply_run`): it carries Supplies, and lands
+    /// on Supply Towers and Supply Delivery Stations. `None` for every other type.
+    pub supply_chopper: Option<SupplyChopperDef>,
     /// (M6-ST1) Its own Domain, in place of its base's (plan decision T94; read through [`UnitDef::domain()`]): the
     /// Subterranean Transport's above-ground type, a DrillUnit ("Domain - Underground", `systems/units.md > DrillUnit`)
     /// that "**drives out of the Tunnel in its above-ground mode**, behaving as a tracked vehicle"

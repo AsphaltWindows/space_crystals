@@ -12,7 +12,7 @@ use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Pa
 use super::world::{Unit, World};
 use super::{
     ActiveOrder, Order, OrderGroup, OrderKind, Orders, Target, air_base, assist, attack_ground, build, engage, enter,
-    gather, launch, repair, target_lock, travel, turret, unload, vehicle_deploy,
+    gather, launch, repair, supply_run, target_lock, travel, turret, unload, vehicle_deploy,
 };
 use crate::deploy;
 use crate::ids::ObjectId;
@@ -97,6 +97,7 @@ pub(crate) fn update(
             converting,
             tethered,
             aircraft: o.aircraft.as_mut(),
+            chopper: o.chopper.as_mut(),
             worker: o.worker.as_mut(),
             energy: o.energy.as_mut(),
             mirrors: parent_channel.map(|channel| channel.is_some()),
@@ -224,6 +225,13 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         // (M6-GA) A vehicle deploys where it stands (`super::vehicle_deploy`), and (M6-ST1) a carrier unloads round
         // where it comes to rest (`super::unload`).
         OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => {}
+        // A chopper flies to its target's spot (`super::supply_run`); one on that spot already stays there.
+        OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => {
+            if let Some(at) = supply_run::destination(order.kind, unit, world) {
+                unit.mover.go_to(MoveGoal::Point(at), Some(path_group(order, at)), tick);
+                return Behaviour::Plain;
+            }
+        }
     }
     unit.mover.stop();
     match order.kind {
@@ -275,6 +283,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::VehicleDeploy { .. } => vehicle_deploy::begin(unit),
         // (M6-ST1) Nothing to keep: the step right after this phase unloads the carrier at rest (`super::unload`).
         OrderKind::UnloadAll => Behaviour::Plain,
+        // A chopper on its target's spot already (`super::supply_run`).
+        OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => Behaviour::Plain,
     }
 }
 
@@ -353,6 +363,11 @@ fn run(
         // (M6-ST1) Standing for the unload, which the step right after this phase makes once the carrier is at rest,
         // ending the order (`super::unload`). Its state, the plain one, is any.
         (OrderKind::UnloadAll, _) => unload::run(),
+        // The flight to its target's spot, and its wait there; the step right after this phase lands it, and
+        // the economy phase ends a pick-up or a drop-off (`super::supply_run`). Its state, the plain one, is any.
+        (OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_), _) => {
+            supply_run::run(order.kind, unit, world)
+        }
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)

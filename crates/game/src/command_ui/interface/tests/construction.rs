@@ -4,7 +4,7 @@
 use sc_sim::{ConstructionCommand, Constructor};
 
 use super::*;
-use crate::command_ui::feedback::{NOT_YET_TEXT, unavailable_text};
+use crate::command_ui::feedback::unavailable_text;
 
 const DC: ObjectKind = ObjectKind::DeploymentCenter;
 const EF: ObjectKind = ObjectKind::ExtractionFacility;
@@ -28,16 +28,15 @@ fn busy(kind: ObjectKind, constructor: Constructor) -> Conditions {
 /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104):
 /// DefaultState opens BuildMenu[Basic] (Q) and BuildMenu[Advanced] (W); the idle Basic menu constructs a Generator
 /// (Q), a Barracks (W), an Extraction Facility (E), an Arsenal (S, slice M5-K) or a Career Campus (D, slice M5-N9),
-/// and (slice M6-GR) a Radar Station (A) or a Defense System (F), and (slice M6-GK) holds the slot of its Supply Tower
-/// (R), greyed "Not available yet" with its label and name; Z is Back; X shows only while something is constructed or
-/// ready. The Advanced menu constructs (slice M6-GF) the Factory (Q), Advanced Mechanics (W) and the Industrial
-/// Powerplant (A), and (slice M6-GH2) the Airfield (E), greyed while the gate refuses it for want of an Advanced
-/// Mechanics ("Requires an Advanced Mechanics"), and holds the slot of Propulsion Labs (R), greyed.
+/// and (slice M6-GR) a Radar Station (A) or a Defense System (F), and a Supply Tower (R), greyed while the gate
+/// refuses it for want of a Radar Station ("Requires a Radar Station"); Z is Back; X shows only while something is
+/// constructed or ready. The Advanced menu constructs (slice M6-GF) the Factory (Q), Advanced Mechanics (W) and the
+/// Industrial Powerplant (A), and (slice M6-GH2) the Airfield (E), greyed while the gate refuses it for want of an
+/// Advanced Mechanics ("Requires an Advanced Mechanics"), and holds the slot of Propulsion Labs (R), greyed.
 #[test]
 fn the_deployment_center_opens_its_build_menus() {
-    use ButtonLook::{Back, Common, Disabled, Group, Unavailable};
+    use ButtonLook::{Back, Common, Disabled, Group};
     use PanelCommand::{BuildMenu as Menu, Construct};
-    let planned = |planned| PanelButton::Command(PanelCommand::Planned(planned));
     let dc = Selection::new([(id(1), DC)]);
     let idle = Conditions::default().with_constructor(Constructor::Idle);
     let default = panel(&dc, InterfaceState::DefaultState, &idle);
@@ -62,7 +61,7 @@ fn the_deployment_center_opens_its_build_menus() {
             (q, command(Construct(GENERATOR)), Common),
             (w, command(Construct(BARRACKS)), Common),
             (e, command(Construct(EF)), Common),
-            (slot(0, 3), planned(Planned::SupplyTower), Unavailable),
+            (slot(0, 3), command(Construct(ObjectKind::SupplyTower)), Common),
             (slot(1, 0), command(Construct(ObjectKind::RadarStation)), Common),
             (slot(1, 1), command(Construct(ObjectKind::Arsenal)), Common),
             (slot(1, 2), command(Construct(ObjectKind::CareerCampus)), Common),
@@ -76,8 +75,15 @@ fn the_deployment_center_opens_its_build_menus() {
         ["SPT", "RS", "AL", "CC", "DS"]
     );
     let s = slot(0, 3);
-    assert_eq!(menu.get(s).unwrap().why.map(unavailable_text), Some(NOT_YET_TEXT));
-    assert_eq!(press(&menu, s), SlotPress::Nothing);
+    let requires = Reject::Requires(ObjectKind::RadarStation);
+    let unready = idle.clone().refusing(Construct(ObjectKind::SupplyTower), requires);
+    let greyed = panel(&dc, basic, &unready);
+    assert_eq!(greyed.get(s).map(|s| s.look), Some(Disabled));
+    assert_eq!(
+        greyed.get(s).unwrap().why.map(unavailable_text),
+        Some("Requires a Radar Station")
+    );
+    assert_eq!(press(&greyed, s), SlotPress::Nothing);
     let names = [slot(0, 3), slot(1, 0), slot(1, 3)].map(|s| menu.get(s).unwrap().name());
     assert_eq!(
         names,

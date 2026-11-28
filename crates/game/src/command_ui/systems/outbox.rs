@@ -265,6 +265,29 @@ impl OrderOutbox<'_> {
         true
     }
 
+    /// `player`'s Supply Towers among `towers` schedule deliveries from `station` (`Command::Schedule`), at
+    /// once: a structure's command, which isn't queued. Nothing when none of them is the player's, or when the sim
+    /// would reject it (`Sim::validate`, the predicate the panel greys S by: none of them has a chopper attached,
+    /// `Reject::NoChopperAttached`; or what was clicked is no station the player knows, `Reject::NotAStation`).
+    pub(super) fn schedule(&mut self, player: PlayerId, towers: Vec<ObjectId>, station: ObjectId) -> bool {
+        let towers: Vec<ObjectId> = (towers.into_iter())
+            .filter(|&id| self.sim.object(id).is_some_and(|o| o.owner == Some(player)))
+            .collect();
+        if towers.is_empty() {
+            return false;
+        }
+        let sent = PlayerCommand {
+            player,
+            command: Command::Schedule { towers, station },
+        };
+        if let Err(reject) = self.sim.validate(&sent) {
+            debug!("schedule from {station:?} not given: {reject}");
+            return false;
+        }
+        self.pending.0.push(sent);
+        true
+    }
+
     /// `player`'s Drones that have a Deploy, in the sim or sent for its next tick ([`deploying`]).
     pub(super) fn deploying(&self, player: PlayerId) -> BTreeSet<ObjectId> {
         deploying(&self.sim, player, &self.pending.0)
@@ -308,5 +331,6 @@ fn finite(kind: OrderKind) -> bool {
         OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) | OrderKind::Shroud => true,
         OrderKind::TargetLock(_) | OrderKind::Launch | OrderKind::Rebase(_) | OrderKind::ReturnToBase => true,
         OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => true,
+        OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => true,
     }
 }

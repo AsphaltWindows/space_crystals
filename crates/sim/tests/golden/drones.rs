@@ -58,9 +58,9 @@ fn p1(command: Command) -> PlayerCommand {
 }
 
 /// Player 1 plays the GDO with a Barracks, a Career Campus and power for both, and gets by a debug command the
-/// operator's 100 Space Crystals and 1 Supply and the three drones' 150 and more (the GDO starts with no Supply until
-/// slice M6-GS). At tick 1 the Barracks trains a Drone Operator (R), which walks to its rally point [`SPOT`], and
-/// player 2's four Peacekeepers hold 7 grid units east of it. At the [`LAUNCHES`]:
+/// operator's 100 Space Crystals and 1 Supply and the three drones' 150 and more (set over the GDO's starting bank). At
+/// tick 1 the Barracks trains a Drone Operator (R), which walks to its rally point [`SPOT`], and player 2's four
+/// Peacekeepers hold 7 grid units east of it. At the [`LAUNCHES`]:
 /// 1. the first drone attack-moves east, finds the Peacekeepers and explodes on the first it reaches (150 over 48
 ///    su), hurting those round it; a Move given to the operator while it is out is refused (`Reject::DroneOut`);
 /// 2. the second, sent 10 grid units east over the Peacekeepers, falls past its leash, at 8 grid units edge to edge,

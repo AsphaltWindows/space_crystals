@@ -36,6 +36,8 @@ const DC: u32 = 1;
 const BARRACKS: u32 = 3;
 /// Player 1's bank in [`gdo`], Space Crystals.
 const BANK: u32 = 1000;
+/// And its Supplies: a Field Engineer costs 1 (`factions/gdo/units/field_engineer.md > Placeholder stats`).
+const SUPPLIES: u32 = 10;
 
 /// `factions/gdo/structures/barracks.md > Produces`: "Field Engineer: 75 Space Crystals, 160 frames (10 seconds)
 /// (placeholder)".
@@ -63,8 +65,9 @@ fn id(n: u32) -> ObjectId {
     ObjectId(n)
 }
 
-/// Both players play the GDO on a flat 40 × 30 map: player 1 with [`DC`], a Generator and [`BARRACKS`] and [`BANK`]
-/// Space Crystals, player 2 with a Deployment Center far off; `more` adds to the scenario after them. Tick 1 has run.
+/// Both players play the GDO on a flat 40 × 30 map: player 1 with [`DC`], a Generator and [`BARRACKS`], [`BANK`]
+/// Space Crystals and [`SUPPLIES`] Supplies, player 2 with a Deployment Center far off; `more` adds to the scenario
+/// after them. Tick 1 has run.
 fn gdo(more: impl FnOnce(ScenarioBuilder) -> ScenarioBuilder) -> TestSim {
     let scenario = ScenarioBuilder::new(&flat(40, 30))
         .spawn(ObjectKind::DeploymentCenter, Some(P1), tile(2, 2))
@@ -77,7 +80,7 @@ fn gdo(more: impl FnOnce(ScenarioBuilder) -> ScenarioBuilder) -> TestSim {
         DebugCommand::SetResources {
             player: P1,
             crystals: BANK,
-            supplies: 0,
+            supplies: SUPPLIES,
             alloys: 0,
             essence: 0,
             flux: 0,

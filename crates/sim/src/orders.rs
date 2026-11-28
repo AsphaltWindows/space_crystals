@@ -34,7 +34,9 @@
 //! - [`vehicle_deploy`]: a vehicle standing while it deploys into its pair's other type, which the step right before
 //!   the phase counts and completes (slice M6-GA, `crate::vehicle_deploy`);
 //! - [`unload`]: a carrier stopping to unload its passengers, which a step of the economy phase does once it is at
-//!   rest (slice M6-ST1, `crate::carry`).
+//!   rest (slice M6-ST1, `crate::carry`);
+//! - [`supply_run`]: a Supply Chopper flying to a station's or a tower's spot, which the step right after the phase
+//!   lands it on (`crate::supply_run`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
@@ -58,6 +60,7 @@ pub mod resolution;
 mod run;
 pub(crate) mod shroud;
 pub mod state;
+mod supply_run;
 mod target_lock;
 mod travel;
 mod turret;
@@ -221,6 +224,26 @@ pub enum OrderKind {
     /// ([`unload`]). Only a carrier that loads now takes it (`carry::loads`: the Transport above ground), with a
     /// passenger aboard (the gate).
     UnloadAll,
+    /// `factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper]`: "Right-click
+    /// SupplyDeliveryStation: issues PickUpSupplies command (fly to SDS, land, pick up all available supplies)"
+    /// (`crate::supply_run`). The chopper flies to the station's spot and lands on it once Supplies are there or due by
+    /// the time it is down; down, it takes all the Supplies no worker's pick-up has claimed, and lifts off
+    /// ([`supply_run`], `economy::supply_run`). Only a Supply Chopper takes it, on a station its owner knows (the
+    /// gate).
+    PickUpSupplies(ObjectId),
+    /// `factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper]`: "Right-click own
+    /// SupplyTower (when carrying supplies): issues DropOffSupplies command (fly to tower, land, drop off all carried
+    /// supplies, immediately lift off — unless this is the chopper's attached tower)". Only a chopper that carries
+    /// Supplies takes it, on an own Supply Tower in operation with no other chopper attached (the gate).
+    DropOffSupplies(ObjectId),
+    /// `factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper]`: "Right-click own
+    /// SupplyTower (when not carrying supplies): issues AttachToTower command (fly to tower, land, attach)". The
+    /// chopper is attached as the order starts, evicting any other chopper down on the tower
+    /// (`factions/gdo/economy.md > SupplyTower > Landing and Attachment`: "When a Supply Chopper attaches to a Supply
+    /// Tower, it immediately evicts any existing landed Supply Chopper that is not the attached chopper";
+    /// `Sim::step_supply_runs`), flies there and lands; the order ends once it is down. Only a Supply Chopper takes it,
+    /// on an own Supply Tower in operation with no other chopper attached (the gate).
+    AttachToTower(ObjectId),
 }
 
 impl OrderKind {
@@ -235,7 +258,10 @@ impl OrderKind {
             | OrderKind::Assist(id)
             | OrderKind::Repair(id)
             | OrderKind::TargetLock(id)
-            | OrderKind::Rebase(id) => Some(id),
+            | OrderKind::Rebase(id)
+            | OrderKind::PickUpSupplies(id)
+            | OrderKind::DropOffSupplies(id)
+            | OrderKind::AttachToTower(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } | OrderKind::Build { .. } => None,
             OrderKind::AttackGround(_) | OrderKind::Shroud | OrderKind::Reverse(_) | OrderKind::Launch => None,
@@ -280,6 +306,8 @@ impl Order {
             OrderKind::Rebase(_) | OrderKind::ReturnToBase => None,
             // (M6-GA) The unit deploys where it stands (`vehicle_deploy`), and (M6-ST1) a carrier unloads (`unload`).
             OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => None,
+            // The chopper goes to its target's spot (`supply_run`).
+            OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => None,
         }
     }
 

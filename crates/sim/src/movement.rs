@@ -82,6 +82,7 @@ use crate::shape::Shape;
 use crate::units::{SU_PER_GU, Tick, TilePos};
 
 use collide::World;
+pub(crate) use drag::flight_ticks;
 #[cfg(test)]
 use follow::step_unit;
 use follow::step_unit_on;

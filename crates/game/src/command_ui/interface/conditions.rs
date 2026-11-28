@@ -105,7 +105,14 @@
 //! otherwise, as the gate takes the press for each of them (`sc_sim::Ability::Sludge`: "the panel sends on unless every
 //! unit it goes to has it on already"). It asks for its `Command::Ability`: switched on, it is greyed while none of its
 //! recipients has any charge left (`Reject::TankEmpty`: "a toggle can be switched on with **any charge** left in its
-//! tank"); switched off, never. The commands each button would send are `probes.rs`'.
+//! tank"); switched off, never.
+//!
+//! A Supply Chopper's S, Drop Off Supplies, is greyed while none of its recipients carries Supplies
+//! (`factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper]`: "Only available if chopper is
+//! carrying supplies"), and a Supply Tower's S, Schedule Deliveries, while none of its recipients has a chopper
+//! attached (`factions/gdo/economy.md > SupplyTower > ObjectInterfaceState[SupplyTower]`: "Only available if tower has
+//! an attached chopper"): the gate's own tests (`Reject::NothingToDeliver`, `Reject::NoChopperAttached`;
+//! [`Modes::chopper`], [`Modes::has_chopper`]). The commands each button would send are `probes.rs`'.
 
 mod modes;
 mod probes;
@@ -529,15 +536,17 @@ impl Conditions {
 
     /// Why the game doesn't let `command` go to its recipients in `selection` now ([`Conditions::allows`]), if it
     /// doesn't: their types, their loads (a Drop Off none of whose recipients carries anything, the gate's
-    /// `Reject::NothingToDeliver`), (M6-GD) their drones (a command that would move them while every one of them holds
+    /// `Reject::NothingToDeliver`; a Drop Off Supplies none of whose choppers carries Supplies),
+    /// their choppers (a Schedule Deliveries none of whose Supply Towers has a chopper attached,
+    /// `Reject::NoChopperAttached`), (M6-GD) their drones (a command that would move them while every one of them holds
     /// still for its drone, the gate's `Reject::DroneOut`), (M6-GA) their types again (a Move, a Reverse or a Patrol
     /// while every one of them is of a type that can't move and doesn't deploy, the gate's `Reject::CannotMove`: a
-    /// deployed Rig), (M6-GH1) their ammo (an Attack or Attack Ground while none
-    /// of them has any left, the gate's `Reject::OutOfAmmo`), a pool building's free units (a kind button with none of its kind, which every
-    /// entry of its KindMenu would want: `Reject::NoRecruit`), an Altar's (a type or state tile with none, said as the
-    /// first state's, Unaugmented, for a type tile), a Temple's key in progress (`Reject::ResearchUnderWay`, which its
-    /// Research would get), a Place button's building while the constructor doesn't hold it ready (design changes
-    /// 0388 and 0392), or the gate's refusal.
+    /// deployed Rig), (M6-GH1) their ammo (an Attack or Attack Ground while none of them has any left, the gate's
+    /// `Reject::OutOfAmmo`), a pool building's free units (a kind button with none of its kind, which every entry of
+    /// its KindMenu would want: `Reject::NoRecruit`), an Altar's (a type or state tile with none, said as the first
+    /// state's, Unaugmented, for a type tile), a Temple's key in progress (`Reject::ResearchUnderWay`, which its
+    /// Research would get), a Place button's building while the constructor doesn't hold it ready (design changes 0388
+    /// and 0392), or the gate's refusal.
     pub fn unavailable(&self, selection: &Selection, command: PanelCommand) -> Option<WhyUnavailable> {
         match command {
             PanelCommand::Attack => {
@@ -559,6 +568,17 @@ impl Conditions {
                     .into_iter()
                     .any(|id| self.modes.carries(id));
                 (!loaded).then_some(WhyUnavailable::Refused(Reject::NothingToDeliver))
+            }
+            PanelCommand::DropOffSupplies => {
+                let carrying = |id| self.modes.chopper(id).is_some_and(|chopper| chopper.carrying);
+                let loaded = recipients(selection, command).into_iter().any(carrying);
+                (!loaded).then_some(WhyUnavailable::Refused(Reject::NothingToDeliver))
+            }
+            PanelCommand::ScheduleDeliveries => {
+                let attached = recipients(selection, command)
+                    .into_iter()
+                    .any(|id| self.modes.has_chopper(id));
+                (!attached).then_some(WhyUnavailable::Refused(Reject::NoChopperAttached))
             }
             PanelCommand::Move | PanelCommand::Reverse | PanelCommand::Patrol | PanelCommand::AttackGround => {
                 let recipients = recipients(selection, command);

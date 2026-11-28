@@ -1,12 +1,12 @@
 //! The Supply Chopper — `factions/gdo/units/supply_chopper.md` (design change 0366, slice M6-GK): "GDO supply
 //! transport air unit. An unarmed hovercraft that collects supplies from Supply Delivery Stations and delivers them to
-//! Supply Towers." Its numbers are the design's (plan decision T84). Its cargo (`> Cargo`: "Up to 4 infantry units",
-//! "A single vehicle", "Supplies"), its transport, its deliveries and its Supply Tower entry ([`RECIPE`], held) are
-//! slice M6-GS's; no player produces one before.
+//! Supply Towers." Its numbers are the design's (plan decision T84). The Supply Tower produces it
+//! ([`RECIPE`]); it carries Supplies, from the stations to the towers, and lands on both (`crate::supply_run`). Its
+//! unit transport (`factions/gdo/units/supply_chopper.md > Cargo`) isn't in the game.
 
 use crate::defs::structures::Recipe;
 use crate::defs::units::{MovementAttrs, UnitBase, UnitDef};
-use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
+use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind, SupplyChopperDef};
 use crate::math::PI;
 use crate::player::Faction;
 
@@ -47,13 +47,16 @@ pub(crate) const SUPPLY_CHOPPER: ObjectDef = ObjectDef {
         // **Placeholder (Q0181)**: SeparationRadius 68 su, its Silhouette's side and 8 su, as the Sparrow's and the
         // Dragonfly's 48 on their 40 (`systems/units.md > Air Collision`: "Must be larger than the unit's Silhouette").
         separation_radius: Some(68.0),
+        // `> Unit Transport`: "**Landing and taking off take 16 frames (1 s) each** (as at the Airfield)"
+        // (`crate::supply_run`, `crate::landing`).
+        supply_chopper: Some(SupplyChopperDef { landing_ticks: 16 }),
         ..UnitDef::NONE
     }),
     ..ObjectDef::NONE
 };
 
 /// `factions/gdo/economy.md > SupplyTower > Produces`: "Supply Chopper: 100 Space Crystals, 160 frames (10 seconds)".
-/// Held until slice M6-GS (`crate::defs::PLANNED_RECIPES`).
+/// In the Supply Tower's list (`crate::defs::gdo::structures::supply_tower`).
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::SupplyChopper,
     cost: 100,
@@ -69,7 +72,8 @@ mod tests {
 
     /// The stats: a HoverCraft in the air, 60×60, MaxHP 150, armour 1/1, SightRange 5, Unit Control 2 (a placeholder);
     /// DragMovement to a top speed of 10 su a frame, turning 10° a frame; unarmed, with no turret; a SeparationRadius
-    /// of 68 su, more than its Silhouette. Its Supply Tower entry, 100 Space Crystals and 160 frames, is held.
+    /// of 68 su, more than its Silhouette; it lands and takes off in 16 frames. Its Supply Tower entry is
+    /// 100 Space Crystals and 160 frames.
     #[test]
     fn the_supply_chopper_follows_the_design() {
         let unit = super::super::assert_stat_block(
@@ -97,5 +101,6 @@ mod tests {
             supplies: 0,
         };
         assert_eq!(RECIPE, recipe);
+        assert_eq!(unit.supply_chopper, Some(SupplyChopperDef { landing_ticks: 16 }));
     }
 }

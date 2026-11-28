@@ -2,9 +2,10 @@
 //! refunds, rally)"): the Raptor and the Twister at their cost and time, Unit Control 2 each
 //! (`factions/gdo/units/raptor.md`, `factions/gdo/units/twister.md > Placeholder stats`: "UnitControlCost 2"),
 //! reserved as its production starts (design change 0143), and the
-//! Twister's Supply (design change 0441: "+ 1 Supply"), which the GDO has none of until slice M6-GS (design change
-//! 0436): the tests give player 1 theirs with `DebugCommand::SetResources`. The Prospector and the Artillery Rig, its
-//! E and R, are held until slices M6-GP and M6-GA (`sc_sim::defs::PLANNED_RECIPES`): it trains neither.
+//! Twister's Supply (design change 0441: "+ 1 Supply"): the tests give player 1 theirs with
+//! `DebugCommand::SetResources`, over the GDO's starting 1 (`factions/gdo/economy.md > Starting Conditions`). The
+//! Prospector and the Artillery Rig, its E and R, are held until slices M6-GP and M6-GA
+//! (`sc_sim::defs::PLANNED_RECIPES`): it trains neither.
 
 use sc_sim::economy::ArmyResource;
 

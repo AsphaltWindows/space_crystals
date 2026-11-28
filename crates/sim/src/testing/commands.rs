@@ -55,6 +55,9 @@ pub fn every_command() -> Vec<Command> {
             into: ObjectKind::ArtilleryRigDeployed,
         },
         OrderKind::UnloadAll,
+        OrderKind::PickUpSupplies(ObjectId(11)),
+        OrderKind::DropOffSupplies(ObjectId(12)),
+        OrderKind::AttachToTower(ObjectId(12)),
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -253,6 +256,10 @@ pub fn every_command() -> Vec<Command> {
         ability,
         at: point,
     }));
+    commands.push(Command::Schedule {
+        towers: units.clone(),
+        station: ObjectId(11),
+    });
     for command in &commands {
         match command {
             Command::Order { kind, .. } => match kind {
@@ -277,7 +284,10 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Rebase(_)
                 | OrderKind::ReturnToBase
                 | OrderKind::VehicleDeploy { .. }
-                | OrderKind::UnloadAll => {}
+                | OrderKind::UnloadAll
+                | OrderKind::PickUpSupplies(_)
+                | OrderKind::DropOffSupplies(_)
+                | OrderKind::AttachToTower(_) => {}
             },
             Command::Ability {
                 ability:
@@ -329,6 +339,7 @@ pub fn every_command() -> Vec<Command> {
                     | AreaAbility::Scan,
                 ..
             } => {}
+            Command::Schedule { .. } => {}
             Command::Debug(
                 DebugCommand::Spawn {
                     at: SpawnAt::Point(_) | SpawnAt::Tile(_),

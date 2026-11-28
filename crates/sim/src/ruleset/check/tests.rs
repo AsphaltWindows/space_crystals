@@ -236,6 +236,44 @@ fn an_airfield_s_landing_and_slots_stay_within_their_bounds() {
     assert_eq!(checked(&rearm(LONGEST_RECIPE)), None);
 }
 
+/// A Supply Chopper's landing and a Supply Tower's spot: the landing as long as a recipe at most, in fixed
+/// point, and positive by the sign's rule; the spot inside the 3 × 3 footprint, less than 96 su from its centre each
+/// way, and not to the negative side of it by the sign's rule (the built-in offset is 0).
+#[test]
+fn a_chopper_s_landing_and_a_tower_s_spot_stay_within_their_bounds() {
+    fn chopper(rules: &mut Ruleset) -> &mut crate::defs::SupplyChopperDef {
+        let unit = rules.defs.get_mut(ObjectKind::SupplyChopper).unit.as_mut().unwrap();
+        unit.supply_chopper.as_mut().expect("a Supply Chopper")
+    }
+    fn tower(rules: &mut Ruleset) -> &mut crate::defs::SupplyTowerDef {
+        let structure = rules.defs.get_mut(ObjectKind::SupplyTower).structure.as_mut().unwrap();
+        structure.supply_tower.as_mut().expect("a Supply Tower")
+    }
+    let landing = |ticks| move |r: &mut Ruleset| chopper(r).landing_ticks = ticks;
+    assert_eq!(
+        checked(&landing(LONGEST_RECIPE + 1)),
+        Some(("SupplyChopper", "landing_ticks", "must be at most 65535 ticks"))
+    );
+    assert_eq!(checked(&landing(LONGEST_RECIPE)), None);
+    assert_eq!(
+        checked(&landing(0)),
+        Some(("SupplyChopper", "landing_ticks", "must be positive"))
+    );
+    let spot = |offset| move |r: &mut Ruleset| tower(r).spot_offset_su = offset;
+    let outside = Some((
+        "SupplyTower",
+        "spot_offset_su",
+        "must keep the landing spot inside the footprint",
+    ));
+    assert_eq!(checked(&spot([96.0, 0.0])), outside);
+    assert_eq!(checked(&spot([0.0, 96.0])), outside);
+    assert_eq!(checked(&spot([95.0, 95.0])), None);
+    assert_eq!(
+        checked(&spot([-1.0, 0.0])),
+        Some(("SupplyTower", "spot_offset_su", "must not be negative"))
+    );
+}
+
 /// (M6-SB) The Shadebringer's Sludge's tank: at most 65535 units of charge, its charge counted in fixed point, and its
 /// slow less than the whole speed, both positive by the sign's rule.
 #[test]

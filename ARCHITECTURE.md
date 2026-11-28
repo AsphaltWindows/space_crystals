@@ -200,7 +200,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Disciple whose Mirage made it, `mirage.rs`, hashed under tag 15 and saved only while set; see *Combat > Mirage*);
   (slice M6-SB) for a unit whose type has tanks, the Shadebringer, `tanks` (`Tanks`, `patches.rs`: what each tank has
   used, its toggle and its trail's newest patch, hashed under tag 24 and saved only while set; see *The Vault and the
-  Sludge* below).
+  Sludge* below); (slice M6-GS1) for a Supply Chopper, `chopper` (`ChopperState`, `supply_run.rs`: its cargo, one kind
+  at a time, the Supply Tower it is attached to and its `landing` on a Tower's or a station's spot, hashed under tag
+  27), and for a Supply Tower `schedule` (the station whose deliveries it runs, tag 28), each saved only while set; see
+  *Production > The Supply Tower* below.
   The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
@@ -1143,6 +1146,14 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      16 are done. After 5a, which starts the flights and lifts the aircraft off (an order's start ends its landing,
      `landing::take_off`); before 5b to 5f, so that the tick's movement flies each to its slot, and its combat sees
      each as it is left (an air target while landing, a ground one down: `combat::object_domain`).
+   - Supply runs (slice M6-GS1, `sim/supply_run.rs`; *Production > The Supply Tower*): the schedules,
+     `Sim::step_schedules`, right before 5a, so that a run they start is under way in the tick: per station and
+     player, the closest Tower whose attached chopper is ready (idle, down on it) sends it, a Pick Up Supplies there
+     and a Drop Off Supplies home, once the station's next delivery is due within the flight's estimate. The flights,
+     `Sim::step_supply_runs`, right after the landings: a chopper whose Attach to Tower runs is attached (any other
+     chopper landing or down there evicted); each landing under way takes a frame; each chopper flying to a spot flies
+     on to it and, come to rest over it, lands, one per spot (the Tower's attached chopper first), a scheduled one once
+     the delivery is due by its touch-down.
    - Attacks on a target too close, `Sim::step_too_close` (slice M3-L2, design change 0182): part of 5a, right after
      the deployments, in id order. Each unit that can't move, or can't back off further (design change 0204 point
      3), whose Attack order 5a found with its target inside its MinRange (`AttackOrder::too_close`) ends the order,
@@ -1226,7 +1237,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      dropped once done; *Combat > Scan and cooldowns*), (slice M6-GH2) the aircraft down on an Airfield's slot, which
      rearm a round every RearmTimePerAmmo by its owner's `PowerSummary::speed` (`landing::rearm`, design change 0423;
      the touchdown's tick the first), the plates' mining, the workers' timed work
-     (`gathering::step`, slice M3-H: mining takes its load from the patch, a drop-off pays the bank).
+     (`gathering::step`, slice M3-H: mining takes its load from the patch, a drop-off pays the bank), (slice M6-GS1)
+     the Supply Choppers down on a spot (`economy/supply_run.rs`: a pick-up takes all the station holds that no
+     pick-up has claimed, a drop-off pays it in, and a chopper down on its own Tower is repaired free by its owner's
+     `PowerSummary::speed`).
      `economy::step` returns the patches the workers emptied, and `step` takes them out through
      `Sim::remove_objects` and syncs the grids again, as after 5e's deaths.
    - Expansions' regeneration, `Sim::regenerate_expansions` (slice M5-N8, `sim/expansions.rs`; *Economy >
@@ -2791,7 +2805,9 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   made before it, no illusion, of its type, a type that casts Mirage; a parent has no more illusions than its Mirage
   makes; an illusion has no lineage; (M6-GH2) L1 (`landings`): an aircraft on a slot, landing or down, is on an
   Airfield in the game, within `Air::landing_reach_su` of one of its slots, rises no more, and rearms exactly while it
-  is down and short of ammo; no Airfield has more on it than its 4 slots; a held unit is on none; (M6-SB) N1
+  is down and short of ammo; no Airfield has more on it than its 4 slots; a held unit is on none; (M6-GS1) a Supply
+  Chopper on a spot is on a Supply Tower or a station in the game, within reach of its spot, alone there, and neither
+  rises nor rearms; (M6-SB) N1
   (`tanks`): an object has tanks exactly when its type has one, a tank its type doesn't have is full and off, a toggle
   is on only with a charge left and its trail's newest patch on the ground where it says, a held unit's toggles are
   off, and every patch on the ground is of a kind a type lays, a disc, and not yet gone; (M6-ST1) U1 (`carriers`): a
@@ -3409,6 +3425,31 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `crates/sim/tests/dragonfly/`, and the goldens `gdo_air` and `gdo_dragonflies`. The client draws an Airfield's pads
   (`Look::Pads`, `object_render/pads.rs`), a landing aircraft sinking to the ground and one down on it without its
   shadow (`object_render/flight.rs`).
+- **The Supply Tower** (slice M6-GS1; `supply_run.rs`, `sim/supply_run.rs`, `orders/supply_run.rs`,
+  `economy/supply_run.rs`, `sim/gate/supply_run.rs`, `defs/supply_run.rs`; `factions/gdo/economy.md > SupplyTower`,
+  `factions/gdo/units/supply_chopper.md`, design changes 0423, 0435 and 0436): the Deployment Center constructs it
+  behind a Radar Station (150 Space Crystals, 320 frames). Placed, it comes with one Supply Chopper
+  (`SupplyTowerDef::chopper`), down on it and attached, at no cost (`Sim::spawn_attached_chopper`); one a map or a
+  debug spawn places comes alone (a placeholder). It trains more (100 Space Crystals, 160 frames), out over its centre
+  in the air, and has a rally point. **A spot** to land on: a Tower's at `SupplyTowerDef::spot_offset_su` from its
+  centre, a station's its centre (`supply_run::spot_of`, a placeholder), one chopper on it at a time. The chopper's
+  three orders (`orders/supply_run.rs`) fly it there and land it in 16 frames (`SupplyChopperDef::landing_ticks`, GH2's
+  `Landing`, its `at` the Tower or the station): **Pick Up Supplies** takes, as it touches down, all the station holds
+  that no pick-up has claimed (M4-I's claims: Agents and choppers share a station), and lifts off (a placeholder);
+  **Drop Off Supplies** pays its load in at an own Tower (`SimEvent::ResourcesDelivered`) and lifts off unless the
+  Tower is its own; **Attach to Tower** attaches it as the order starts, evicting any other chopper landing or down
+  there, and lands it for good. Any command breaks the attachment (`Sim::detach`); no other chopper lands on a Tower
+  that has one attached (`Reject::TowerTaken`). The right-click (`orders::resolution`, `Rule::SupplyRun`): a station
+  gives Pick Up, an own Tower another chopper isn't attached to Drop Off while carrying and Attach otherwise. **Schedule
+  Deliveries** (`Command::Schedule`, the Tower's S) sets `Object::schedule`: the chopper attached and down departs once
+  the station's next delivery is due within 2L − 1 + F + 4 + F/16 ticks, F the flight's estimate by the drag model
+  along the straight line (`movement::flight_ticks`), L the landing's 16: it touches down in the delivery's first tick,
+  after a short hover over the station; if the delivery is due already ("too far or too frequent") it departs as soon
+  as it is home. One chopper flies to a station at a time, the closest Tower's first. Down on its own Tower a damaged
+  chopper is **repaired free**, at the repairers' rate (full in 80 frames, design change 0435), slowed by its owner's
+  Power (`PowerSummary::speed`, design change 0423: a reading). It is an air target but down (`landing::of`). The GDO
+  starts with 1 Supply (design change 0436). L1 checks the spots (*Movement and collision > Invariants*). Tests:
+  `crates/sim/tests/supply_tower/` (below) and the golden `gdo_supplies`.
 - **Research** (slice M5-N3, plan decisions T70 and T74 as design changes 0335 to 0338 amend them;
   `core/tech_and_research.md > Research`, `factions/cults/structures/temple.md`; `defs/cults/research.rs`,
   `defs/structures/research.rs`, `sim/producers/research.rs`): the technologies are data (`Tech`, its `TechDef`: name,
@@ -4495,6 +4536,16 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `landing` (`tests/landing`'s domains, destroyed and rearm cases for a Dragonfly) and `separation` (two end 48 su
   apart); with `movement/approach.rs`'s unit tests (the straight-in approach; three starts, far, beside and nearly on
   the spot, each at 24 headings) and G1's held case in `testing/invariants/gliders.rs`.
+- **Supply Tower tests** (slice M6-GS1) are `crates/sim/tests/supply_tower/`, under the invariants, auto-targeting
+  off: `placement` (the Tower behind a Radar Station, its free chopper down on it and attached, the choppers it trains
+  over its centre), `runs` (a pick-up takes all a station holds as it touches down, a drop-off pays it in, the
+  right-click gives each, the gate's refusals), `schedule` (a scheduled chopper down on its station in the delivery's
+  first tick after a hover of at most 24 ticks, the bank up by the delivery; one leaving as soon as it is home when the
+  deliveries are too frequent; two Towers on one station taking turns, the closer first), `attachment` (eviction, a
+  command breaking the attachment, the domains landing and down, the free repair in 80 ticks and 136 at 50/85 Power),
+  `sharing` (an Agent's claim kept from a chopper's pick-up) and `supplies` (design change 0436's Verification: 1
+  Supply to start, a Field Engineer once a Career Campus stands; a run's Supplies train a Drone Operator). L1's
+  chopper arm's negative test is in `testing/invariants/landings.rs`.
 - **Airfield tests** (slice M6-GH1) are `crates/sim/tests/airfield/`, under the invariants: `training` (the
   Hornet's 150 Space Crystals and 2 Supplies, refused with 1, refunded on a cancel; a new Hornet over its Airfield,
   assigned, hovering, or facing its rally point and flying there), `assignment` (the limit of 4 with the queue; a
@@ -4722,10 +4773,12 @@ these.
   each it has left (`HpBar::ammo`, from `sc_sim::aircraft`; `AMMO_FILL`, a placeholder look), shown with the HP bar,
   (slice M6-SB) a unit's tanks as thin bars under those, as wide as its HP bar, sludge's murky yellow and smoke's grey,
   filled for what is left, lighter while its toggle is on (`HpBar::tanks`, from `sc_sim::patches`; `TANK_FILLS`, a
-  placeholder look), shown with the HP bar, (slice M6-ST1) a carrier's places as pips over its bars, above its shield
-  bar if any, one square per place of its capacity, filled pale for each its passengers take (`HpBar::passengers`,
-  from `sc_sim::carry::def_of` and `Sim::room`; `PASSENGER_FILL`, a placeholder look), shown with the HP bar, to its
-  owner alone with the fog on (Placeholder),
+  placeholder look), shown with the HP bar, (slice M6-GS1) a Supply Chopper's carried Supplies as teal pips under those,
+  one square per Supply, at most `SUPPLY_PIPS` (8; `HpBar::supplies`, from `sc_sim::supply_run::carried`; `SUPPLY_FILL`,
+  a placeholder look), shown with the HP bar while it carries any, (slice M6-ST1) a carrier's places as pips over its
+  bars, above its shield bar if any, one square per place of its capacity, filled pale for each its passengers take
+  (`HpBar::passengers`, from `sc_sim::carry::def_of` and `Sim::room`; `PASSENGER_FILL`, a placeholder look), shown with
+  the HP bar, to its owner alone with the fog on (Placeholder),
   (slice M5-N5) a mark of each buff a unit the local player sees has, a cross in a dark rim right of its HP bar's
   place, whether the bar shows or not, green for Health regeneration and violet for Energy regeneration, in
   `Object::buffs`' order, their `BuffKind`s' (`combat_effects/buffs.rs`, `buff_marks`; who sees a buff and its look are
@@ -5588,6 +5641,30 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   the Enter pointer (a placeholder, `PointerDisplay::of_order`); a Rebase onto a full Airfield gives no order and
   says "Airfield full" (`Reject::AirfieldFull` through `CommandRefused`). Tests: `command_ui/interface/tests/
   airfield.rs`, `command_ui/resolution/tests/airfield.rs`.
+- **The Supply Tower's and the Supply Chopper's panels** (slice M6-GS1; `factions/gdo/economy.md > SupplyTower >
+  ObjectInterfaceState[SupplyTower]`, `factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper]`):
+  `templates/gdo/supply_tower.rs`, the Production template of its recipe, the Supply Chopper in Q ("SCR"), X and C,
+  and (`templates::grid`, a kind with a `SupplyTowerDef`) **S Schedule Deliveries** (`PanelCommand::ScheduleDeliveries`,
+  "Sched."), which awaits a station (`resolution::station_target`, under the GatherResources pointer) and sends one
+  `Command::Schedule { towers, station }` for every Tower of the ActiveGroup (`OrderOutbox::schedule`; Shift doesn't
+  queue it), greyed "No chopper attached" while none of them has one (`Modes::with_attached`,
+  `Reject::NoChopperAttached`). A selected Tower's schedule shows as a rally point does, the Gather marker round its
+  station and a line to it (`indicators/schedule.rs`). The Deployment Center's Basic menu constructs the Tower in R
+  ("SPT"; its `Planned` entry gone), greyed "Requires a Radar Station" without one. `templates/gdo/supply_chopper.rs`
+  (`InterfaceTemplate::SupplyChopper`; placeholder letters, from `systems/controls/interface.md > CommandPanel >
+  Standard Slot Assignments`) is Q Move, E Hold Position, R Pick Up Supplies ("PickUp"), S Drop Off Supplies ("Drop"),
+  D Attach to Tower ("Attach") and X Stop, F left free for slice M6-GS2's Unload All. R, S and D await their targets
+  (`resolution::station_target`, `tower_target`) and give `OrderKind::PickUpSupplies`, `DropOffSupplies` and
+  `AttachToTower`, which Shift queues; S is greyed "Not carrying resources" while no chopper of the ActiveGroup carries
+  Supplies (`Modes::chopper`, `Reject::NothingToDeliver`). A click on a Tower another chopper is attached to is an
+  invalid target (the gate's `Reject::TowerTaken`, "Another chopper is attached"), previewed Inactive
+  (`resolution::tower_free`). The chopper's right-click is the sim's rule (`Rule::SupplyRun`, on `Abilities::chopper`):
+  on a station a Pick Up, on an own Tower that is free (or its own) a Drop Off while it carries Supplies and else an
+  Attach, on a taken one a Move; their pointers GatherResources, ReturnResources and Enter (placeholders,
+  `PointerDisplay::of_order`), their markers the Gather marker, the Return Resources marker and the Move marker. Its
+  carried Supplies show as pips under its HP bar (*Combat effects*). The Barracks' E, the Field Engineer, is greyed "Not
+  enough Supplies" too without its Supply (design change 0435). Tests: `command_ui/interface/tests/supply_tower.rs`,
+  `command_ui/resolution/tests/supply_run.rs`, `crates/game/tests/commands/construction.rs`.
 - **The Prayer-mobile's panel** (slice M5-N11; `factions/cults/units/prayer_mobile.md > Placeholder stats`:
   "ObjectInterfaceState: BasicCombatUnitInterfaceState without attack commands, plus **R: Inspire** and **F:
   Suppress**"): the BasicCombatUnit grid with no D (`PanelTemplate::without_attacks`; its A the selection's, absent
@@ -5669,7 +5746,7 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   and the drone's square half extents rounded by the leash (`leash::ring`), each operator's once. The drone's
   explosion is drawn as a blast's ring on the ground (`combat_effects/blasts.rs`). The Barracks trains it in R,
   greyed "Requires a Career Campus" until one stands and "Not enough Supplies" while its owner has no Supply
-  (`Refusal::Supplies`; the GDO has none to start with until slice M6-GS's Supply Tower).
+  (`Refusal::Supplies`; the GDO starts with 1, design change 0436, and its Supply Tower brings more: slice M6-GS1).
 - **The Shadebringer's panel** (slice M6-SB; `factions/syndicate/units/shadebringer.md > ObjectInterfaceState`: "the two
   toggles", and its `Placeholder stats`: "Hotkeys: **R** Sludge, **F** Cover"): `templates/syndicate/shadebringer.rs` is
   the BasicCombatUnit's grid without attack commands, its W Reverse, and `templates::grid` puts a `PanelCommand::Toggle
@@ -5979,8 +6056,8 @@ unchecked.
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
   `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs`,
   `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs`, `mirage.rs`, `airfield.rs`, `syndicate_sludge.rs`,
-  `syndicate_transport.rs`, `dragonflies.rs` and `main.rs`, the recording and the comparison in `harness.rs`):
-  thirty-five games, a 3v3 duel,
+  `syndicate_transport.rs`, `dragonflies.rs`, `supplies.rs` and `main.rs`, the recording and the comparison in
+  `harness.rs`): thirty-six games, a 3v3 duel,
   a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5996,7 +6073,8 @@ unchecked.
   M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below), `syndicate_air` (slice
   M6-SD, below), `gdo_artillery` (slice M6-GA, below), `syndicate_null_chamber` (slice M6-SN, below),
   `cults_mirage` (slice M6-CM, below), `gdo_air` (slice M6-GH2, below), `syndicate_sludge` (slice M6-SB, below),
-  `syndicate_transport` (slice M6-ST1, below) and `gdo_dragonflies` (slice M6-GL, below), are blessed as replays
+  `syndicate_transport` (slice M6-ST1, below), `gdo_dragonflies` (slice M6-GL, below) and `gdo_supplies` (slice
+  M6-GS1, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -6169,7 +6247,13 @@ unchecked.
   head on at four of the Cults' Sparrows, which hit back: a missile each, three Sparrows down; out of ammo, each flies
   home by itself, lands and rearms in 64 frames (`during`: all four home, full and idle, before each lift-off). A sortie
   lifts them off to circle a point in the north-west; sent home (F), they land from there, every landing and take-off
-  counted (`expect`). The
+  counted (`expect`). In `gdo_supplies` (slice M6-GS1, to 2:20, on an open test map, debug commands on for player 1's
+  3000 Space Crystals, their starting Supply kept) the GDO's starting Supply trains a Field Engineer; the Deployment
+  Center constructs a Supply Tower, placed with its free chopper down on it (`during`), scheduled on a far station: the
+  chopper waits, touches down there in the tick after each of its two deliveries and drops the 4 off at home. The
+  chopper the Tower trains attaches to a Tower the map placed, scheduled on a near station a Syndicate Agent picks up at
+  too, and takes what the Agent hasn't claimed (2, then 3 of a delivery it waited over); a Drone Operator is trained
+  with a Supply the runs brought (`expect`: every landing, load and payment, the bank at 12 Supplies). The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

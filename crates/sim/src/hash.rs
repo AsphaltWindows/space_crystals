@@ -344,6 +344,8 @@ impl StateHash for Object {
             aircraft,
             illusion_of,
             tanks,
+            chopper,
+            schedule,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -454,6 +456,8 @@ impl StateHash for Object {
             h.tag(24);
             tanks.hash(h);
         }
+        // A chopper's and a Supply Tower's supply loop, under tags 27 and 28: only while set.
+        crate::supply_run::hash_object(chopper, schedule, h);
     }
 }
 

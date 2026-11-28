@@ -10,7 +10,7 @@ use sc_sim::{Map, Object, Sim, Tick};
 use super::{
     CommandIndicators, Flash, INDICATORS_Z, Indicator, IndicatorMesh, MarkerRing, OrderIssued, cast,
     drop_off_indicators, gathering, indicator, leash, order_color, own_selected, rally, rally_indicators,
-    selection_indicators, targets, waypoint,
+    schedule_indicators, selection_indicators, targets, waypoint,
 };
 use crate::ClientMode;
 use crate::coords::{DrawLayer, drawn_at_height, drawn_position, view_to_world};
@@ -135,7 +135,9 @@ pub(super) fn draw_indicators(
                 route(&mut mesh, sim, &sight, o, alpha.0, z);
             }
         }
-        let rallies = rally_indicators(sim, &sight, &states);
+        // The selected Supply Towers' scheduled stations, drawn as rally points are.
+        let mut rallies = rally_indicators(sim, &sight, &states);
+        rallies.extend(schedule_indicators(sim, &sight, &states));
         for rally in &rallies {
             rally::draw_line(&mut mesh, sim, &sight, rally, (alpha.0, &tuning), z);
         }

@@ -113,6 +113,8 @@ pub fn moves(kind: OrderKind) -> bool {
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => true,
         OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => true,
         OrderKind::Rebase(_) | OrderKind::ReturnToBase => true,
+        // A chopper's flight to a spot.
+        OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => true,
         OrderKind::Attack(_) | OrderKind::AttackGround(_) | OrderKind::Hold | OrderKind::Stop => false,
         OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch | OrderKind::VehicleDeploy { .. } => false,
         // (M6-ST1) A carrier unloads where it comes to rest.

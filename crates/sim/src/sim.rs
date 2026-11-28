@@ -478,6 +478,9 @@ impl Sim {
             illusion_of: None,
             // (M6-SB) Its type's tanks, full and off (`crate::patches`).
             tanks: crate::patches::fresh(kind),
+            // A chopper's empty, unattached and in the air (`crate::supply_run`).
+            chopper: crate::supply_run::fresh(kind),
+            schedule: None,
         };
         if let Some(rally) = crate::production::default_rally(&self.map, &object)
             && let Some(production) = &mut object.production
@@ -554,6 +557,7 @@ mod resources;
 mod rules;
 mod sites;
 mod spot_work;
+mod supply_run;
 #[cfg(test)]
 mod tests;
 mod too_close;

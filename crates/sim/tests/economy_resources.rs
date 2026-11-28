@@ -74,13 +74,13 @@ fn payouts(t: &mut TestSim, player: PlayerId, end: Tick) -> Vec<(Tick, u32)> {
     list
 }
 
-/// The banks start at the GDO Starting Conditions, 100 Space Crystals and 0 Supplies (`factions/gdo/economy.md >
-/// Starting Conditions`; Supplies: design change 0077), and `SetResources` sets any player's, whoever issues it.
+/// The banks start at the GDO Starting Conditions, 100 Space Crystals and 1 Supply (`factions/gdo/economy.md >
+/// Starting Conditions`), and `SetResources` sets any player's, whoever issues it.
 /// Income into a full bank saturates instead of panicking.
 #[test]
 fn the_banks_start_at_the_starting_conditions_and_set_resources_sets_them() {
     let mut t = base().start();
-    assert_eq!((banks(t.sim(), P1), banks(t.sim(), P2)), ((100, 0), (100, 0)));
+    assert_eq!((banks(t.sim(), P1), banks(t.sim(), P2)), ((100, 1), (100, 1)));
     t.debug_at(2, set_resources(P2, 100, 7))
         .debug_at(3, set_resources(P1, u32::MAX - 15, 1));
     t.run_until(3);

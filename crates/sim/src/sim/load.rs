@@ -155,6 +155,11 @@ impl TryFrom<SimState> for Sim {
             if o.tanks.is_none() {
                 o.tanks = crate::patches::fresh(o.kind);
             }
+            // A Supply Chopper saved before it had its state (`Object::chopper`) is empty, unattached and in
+            // the air.
+            if o.chopper.is_none() {
+                o.chopper = crate::supply_run::fresh(o.kind);
+            }
             if o.id.0 >= next_id {
                 return Err(format!("object id {} is not below next_id {next_id}", o.id.0));
             }
@@ -175,6 +180,9 @@ impl TryFrom<SimState> for Sim {
             }
             if unit.object.tanks.is_none() {
                 unit.object.tanks = crate::patches::fresh(unit.object.kind);
+            }
+            if unit.object.chopper.is_none() {
+                unit.object.chopper = crate::supply_run::fresh(unit.object.kind);
             }
             let id = unit.object.id;
             if id.0 >= next_id {

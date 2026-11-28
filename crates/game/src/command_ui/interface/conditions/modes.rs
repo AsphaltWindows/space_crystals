@@ -1,10 +1,14 @@
 //! The selected units' modes ([`Modes`]): which of them take no Attack, carry a load, aren't in operation yet, or
 //! (M6-GD) hold still for their drones, (M6-GH1) which are aircraft, with their bases, and which of those have no
-//! ammo left, (M6-GA) which deploy, into which type, and which can't move, and (M6-CM) which are illusions.
+//! ammo left, (M6-GA) which deploy, into which type, and which can't move, (M6-CM) which are illusions, and
+//! which are Supply Choppers, with their loads and towers, and which Supply Towers have a chopper attached.
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use sc_sim::{ObjectId, ObjectKind, ShieldMode, Sim, aircraft, combat, mirage, riot_shield, tether, vehicle_deploy};
+use sc_sim::orders::resolution::Chopper;
+use sc_sim::{
+    ObjectId, ObjectKind, ShieldMode, Sim, aircraft, combat, mirage, riot_shield, supply_run, tether, vehicle_deploy,
+};
 
 use crate::selection::Selection;
 
@@ -27,7 +31,12 @@ use crate::selection::Selection;
 /// is the first thing the unit tries once deployment finishes"), the gate's rule (`sc_sim::vehicle_deploy`), so it is
 /// judged as that type ([`Modes::becomes`]); and which of the others can't move (`sc_sim::vehicle_deploy::immobile`: a
 /// deployed Rig, "**cannot move**"), the gate refusing them every order that would move them (`sc_sim::Reject::
-/// CannotMove`).
+/// CannotMove`). Which are Supply Choppers, whether each carries Supplies and the Supply Tower it is attached
+/// to (`sc_sim::orders::resolution::Chopper`, which their right-click reads, and their Drop Off Supplies:
+/// `factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper]`, "Only available if chopper is carrying
+/// supplies"), and which of the selected Supply Towers have a chopper attached (`sc_sim::supply_run::attached_chopper`:
+/// `factions/gdo/economy.md > SupplyTower > ObjectInterfaceState[SupplyTower]`, "Only available if tower has an
+/// attached chopper"), the gate's own tests (`sc_sim::Reject::NothingToDeliver`, `sc_sim::Reject::NoChopperAttached`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
     /// The units whose type takes no Attack: a Peacekeeper (Shielded), or a unit without a weapon; (M6-GH1) and the
@@ -51,6 +60,10 @@ pub struct Modes {
     /// (M6-CM) The illusions (`sc_sim::mirage`), which a building that refuses illusions doesn't take in: the Altar. Read
     /// for a selection its player commands, whose own they are.
     illusions: BTreeSet<ObjectId>,
+    /// The Supply Choppers, each with its load and its tower (`sc_sim::supply_run`).
+    choppers: BTreeMap<ObjectId, Chopper>,
+    /// The Supply Towers in operation with a chopper attached, which take a Schedule Deliveries.
+    attached: BTreeSet<ObjectId>,
 }
 
 impl Modes {
@@ -83,6 +96,18 @@ impl Modes {
                 .collect(),
             illusions: (selection.ids())
                 .filter(|&id| sim.object(id).is_some_and(mirage::is_illusion))
+                .collect(),
+            choppers: (selection.ids())
+                .filter_map(|id| sim.object(id).filter(|o| o.chopper.is_some()))
+                .map(|o| {
+                    let carrying = supply_run::carried(o) > 0;
+                    let attached = supply_run::attached_to(o);
+                    (o.id, Chopper { carrying, attached })
+                })
+                .collect(),
+            attached: (selection.ids())
+                .filter(|&id| sim.object(id).is_some_and(supply_run::is_tower))
+                .filter(|&id| supply_run::attached_chopper(sim.objects(), id).is_some())
                 .collect(),
             tethered: (selection.ids())
                 .filter(|&id| sim.object(id).is_some_and(tether::holds))
@@ -182,6 +207,38 @@ impl Modes {
         self
     }
 
+    /// If `id` is a Supply Chopper, whether it carries Supplies and the tower it is attached to
+    /// (`sc_sim::orders::resolution::Abilities::chopper`, which its right-click reads).
+    pub fn chopper(&self, id: ObjectId) -> Option<Chopper> {
+        self.choppers.get(&id).copied()
+    }
+
+    /// The same, with `ids` Supply Choppers, carrying Supplies or not, attached to `tower`: for the unit
+    /// tests.
+    pub fn with_choppers(
+        mut self,
+        ids: impl IntoIterator<Item = ObjectId>,
+        carrying: bool,
+        tower: Option<ObjectId>,
+    ) -> Self {
+        for id in ids {
+            let attached = tower;
+            self.choppers.insert(id, Chopper { carrying, attached });
+        }
+        self
+    }
+
+    /// Whether `id` is a Supply Tower in operation with a chopper attached, which takes a Schedule Deliveries.
+    pub fn has_chopper(&self, id: ObjectId) -> bool {
+        self.attached.contains(&id)
+    }
+
+    /// The same, with `ids` Supply Towers with a chopper attached: for the unit tests.
+    pub fn with_attached(mut self, ids: impl IntoIterator<Item = ObjectId>) -> Self {
+        self.attached.extend(ids);
+        self
+    }
+
     /// Whether `id` is a worker that carries a load.
     pub fn carries(&self, id: ObjectId) -> bool {
         self.loaded.contains(&id)
@@ -245,6 +302,8 @@ impl FromIterator<(ObjectId, ShieldMode)> for Modes {
             deploying: BTreeMap::new(),
             immobile: BTreeSet::new(),
             illusions: BTreeSet::new(),
+            choppers: BTreeMap::new(),
+            attached: BTreeSet::new(),
         }
     }
 }

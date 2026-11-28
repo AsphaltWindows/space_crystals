@@ -119,6 +119,8 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
             // (M6-GA) A vehicle deploy leaves the unit where the orders before it did, as a Hold, and (M6-ST1) so does
             // an unload.
             OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => {}
+            // A chopper's flight ends on its target's spot, wherever that is.
+            OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => return None,
         }
     }
     None

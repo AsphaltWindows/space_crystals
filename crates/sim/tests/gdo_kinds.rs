@@ -4,10 +4,11 @@
 //! buildings produce and construct nothing; and no game start spawns one. (M6-GR) The Radar Station, the Defense System
 //! and the Missile Turret are live since slice M6-GR, and (M6-GF) the Factory, Advanced Mechanics, the Industrial
 //! Powerplant, the Raptor and the Twister since slice M6-GF, (M6-GH2) the Airfield in the Deployment Center since
-//! slice M6-GH2, and (M6-GL) Propulsion Labs and the Dragonfly since slice M6-GL ([`LIVE`]; their tests are
-//! `tests/radar/`, `tests/defense_system/`, `tests/factory/`, `tests/airfield/`, `tests/landing/` and
-//! `tests/dragonfly/`). The debug spawn, the map editor's, places every one, the new units
-//! take orders and move, and a deployed Artillery Rig given a Move stays where it is (plan decision T87).
+//! slice M6-GH2, (M6-GL) Propulsion Labs and the Dragonfly since slice M6-GL, and the Supply Tower and the Supply
+//! Chopper ([`LIVE`]; their tests are `tests/radar/`, `tests/defense_system/`, `tests/factory/`, `tests/airfield/`,
+//! `tests/landing/`, `tests/dragonfly/` and `tests/supply_tower/`). The debug spawn, the map editor's, places every
+//! one, the new units take orders and move, and a deployed Artillery Rig given a Move stays where it is (plan
+//! decision T87).
 
 use sc_sim::defs::PLANNED_RECIPES;
 use sc_sim::scenario::DEFAULT_SEED;
@@ -28,8 +29,9 @@ const FIELD_ENGINEER: u32 = 3;
 /// (M6-GR) Slice M6-GK's kinds that are live: the Deployment Center constructs the Radar Station and the Defense
 /// System, the Defense System the Missile Turret; (M6-GF) the Deployment Center the Factory, Advanced Mechanics and the
 /// Industrial Powerplant, the Factory the Raptor and the Twister; (M6-GH2) the Deployment Center the Airfield; (M6-GL)
-/// the Deployment Center Propulsion Labs, the Airfield the Dragonfly.
-const LIVE: [ObjectKind; 11] = [
+/// the Deployment Center Propulsion Labs, the Airfield the Dragonfly; the Deployment Center the Supply Tower, the
+/// Supply Tower the Supply Chopper.
+const LIVE: [ObjectKind; 13] = [
     ObjectKind::RadarStation,
     ObjectKind::DefenseSystem,
     ObjectKind::MissileTurret,
@@ -41,6 +43,8 @@ const LIVE: [ObjectKind; 11] = [
     ObjectKind::Airfield,
     ObjectKind::PropulsionLabs,
     ObjectKind::Dragonfly,
+    ObjectKind::SupplyTower,
+    ObjectKind::SupplyChopper,
 ];
 
 /// Slice M6-GK's kinds, in the registry's order: the Factory to the mine.
@@ -138,18 +142,18 @@ fn spawn(kind: ObjectKind, at: SpawnAt) -> DebugCommand {
 }
 
 /// `factions/gdo/structures/deployment_center.md > Constructs`, held (`sc_sim::defs::PLANNED_RECIPES`): the
-/// Deployment Center constructs none of the new buildings but the live ones ([`LIVE`]), its held one among them, with
-/// the bank to pay for each (`Reject::CannotConstruct`), and still constructs a Generator. (M6-GF) Of the live ones,
-/// the Factory, which [`base`]'s Barracks allows, and Advanced Mechanics, the Industrial Powerplant, (M6-GH2) the
-/// Airfield and (M6-GL) Propulsion Labs, each refused for its own TechPrerequisite there (a Factory, Advanced
-/// Mechanics, an Airfield: `Reject::Requires`).
+/// Deployment Center constructs none of the new buildings but the live ones ([`LIVE`]), every one of its own among
+/// them (it holds none), with the bank to pay for each (`Reject::CannotConstruct`), and still constructs a Generator.
+/// (M6-GF) Of the live ones, the Factory, which [`base`]'s Barracks allows, and Advanced Mechanics, the Industrial
+/// Powerplant, (M6-GH2) the Airfield, (M6-GL) Propulsion Labs and the Supply Tower, each refused for its own
+/// TechPrerequisite there (a Factory, Advanced Mechanics, an Airfield, a Radar Station: `Reject::Requires`).
 #[test]
 fn the_deployment_center_constructs_none_of_them_but_the_live_ones() {
     let t = base();
     let buildings = new_of(Category::Structure);
     assert_eq!(buildings.len(), 12);
     let held = (PLANNED_RECIPES.iter()).filter(|(maker, _)| *maker == ObjectKind::DeploymentCenter);
-    assert_eq!(held.clone().count(), 1);
+    assert_eq!(held.clone().count(), 0);
     assert!(held.clone().all(|(_, recipe)| buildings.contains(&recipe.kind)));
     for kind in buildings.into_iter().filter(|kind| !LIVE.contains(kind)) {
         assert_eq!(
@@ -173,6 +177,7 @@ fn the_deployment_center_constructs_none_of_them_but_the_live_ones() {
             Err(Reject::Requires(ObjectKind::AdvancedMechanics)),
         ),
         (ObjectKind::PropulsionLabs, Err(Reject::Requires(ObjectKind::Airfield))),
+        (ObjectKind::SupplyTower, Err(Reject::Requires(ObjectKind::RadarStation))),
     ];
     for (kind, answer) in factorys {
         assert_eq!(gate(&t, construct(DC, kind)), answer, "{kind:?}");
@@ -211,19 +216,15 @@ fn the_field_engineer_builds_none_of_them() {
     }
 }
 
-/// The new buildings that will produce, spawned: the Supply Tower produces nothing yet (`Reject::NoProducers`), not
-/// even its own unit, nor (M6-GF) the Factory its held Prospector and Artillery Rig (`Reject::CannotProduce`: it
-/// produces its Raptor and Twister, `tests/factory/`); (M6-GH1) the Airfield trains the Hornet (`tests/airfield/`) and
-/// (M6-GL) the Dragonfly (`tests/dragonfly/`), and holds none. (M6-GR) The Defense System constructs its Missile Turret
-/// (`tests/defense_system/`).
+/// The new buildings that will produce, spawned: (M6-GF) the Factory produces neither its held Prospector nor its held
+/// Artillery Rig (`Reject::CannotProduce`: it produces its Raptor and Twister, `tests/factory/`); (M6-GH1) the
+/// Airfield trains the Hornet (`tests/airfield/`) and (M6-GL) the Dragonfly (`tests/dragonfly/`), and holds none.
+/// (M6-GR) The Defense System constructs its Missile Turret (`tests/defense_system/`), and the Supply Tower trains its
+/// Supply Chopper (`tests/supply_tower/`).
 #[test]
 fn the_new_buildings_make_nothing_yet() {
     let mut t = base();
-    let makers = [
-        (ObjectKind::Factory, tile(14, 2)),
-        (ObjectKind::Airfield, tile(19, 2)),
-        (ObjectKind::SupplyTower, tile(24, 2)),
-    ];
+    let makers = [(ObjectKind::Factory, tile(14, 2)), (ObjectKind::Airfield, tile(19, 2))];
     let now = t.sim().tick() + 1;
     for (kind, at) in makers {
         t.debug_at(now, spawn(kind, at));
@@ -236,18 +237,13 @@ fn the_new_buildings_make_nothing_yet() {
         })
         .collect();
     assert_eq!(spawned, makers.map(|(kind, _)| kind));
-    let ids: Vec<u32> = (4..7).collect();
+    let ids: Vec<u32> = (4..6).collect();
     for &(maker, recipe) in PLANNED_RECIPES {
         let Some(n) = makers.iter().position(|&(kind, _)| kind == maker) else {
             continue;
         };
         let (id, kind) = (ids[n], recipe.kind);
-        match maker {
-            ObjectKind::Factory | ObjectKind::Airfield => {
-                assert_eq!(gate(&t, train(id, kind)), Err(Reject::CannotProduce(kind)), "{kind:?}")
-            }
-            _ => assert_eq!(gate(&t, train(id, kind)), Err(Reject::NoProducers), "{kind:?}"),
-        }
+        assert_eq!(gate(&t, train(id, kind)), Err(Reject::CannotProduce(kind)), "{kind:?}");
     }
 }
 

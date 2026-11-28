@@ -96,17 +96,17 @@ fn all_home(sim: &Sim, order: bool) {
 }
 
 /// Player 1 plays the GDO with a Deployment Center and an Airfield, and gets by a debug command a Hornet's 150 Space
-/// Crystals and 2 Supplies (the GDO starts with no Supply until slice M6-GS); player 2 the Cults, whose twelve Recruits
-/// stand on Hold 17 grid units east. In tick 1 the Airfield queues a Hornet, and the three in the air are rebased onto
-/// it (`OrderKind::Rebase`, a right-click on it): each flies to the first slot free in id order and lands there in 16
-/// frames. The trained one appears at [`OUT`] landed on the last, south-east, and with no rally point stays there
-/// (design change 0428 point 2). At the first of [`RAIDS`] the four lift off and AttackMove east: their missiles burst
-/// over the block (`TargetType::AoE`, 32 su, design change 0458), each hitting the Recruits within its circle, each by
-/// its share. As the game played when it was made, a burst hit up to six at once, and the first raid's 20 missiles
-/// killed six; out of ammo, each Hornet flies home by itself (the automatic return), lands on the first slot free in id
-/// order and rearms its five missiles in 160 frames, and stays landed. The second raid lifts them off again and kills
-/// the other six; the two out of ammo fly home by themselves, the two with a missile left fly on to [`ONTO`]. At
-/// [`HOME`] all four are sent home (F) and end landed, rearmed. No Hornet is hit.
+/// Crystals and 2 Supplies (set over the GDO's starting 1); player 2 the Cults, whose twelve
+/// Recruits stand on Hold 17 grid units east. In tick 1 the Airfield queues a Hornet, and the three in the air are
+/// rebased onto it (`OrderKind::Rebase`, a right-click on it): each flies to the first slot free in id order and lands
+/// there in 16 frames. The trained one appears at [`OUT`] landed on the last, south-east, and with no rally point stays
+/// there (design change 0428 point 2). At the first of [`RAIDS`] the four lift off and AttackMove east: their missiles
+/// burst over the block (`TargetType::AoE`, 32 su, design change 0458), each hitting the Recruits within its circle,
+/// each by its share. As the game played when it was made, a burst hit up to six at once, and the first raid's 20
+/// missiles killed six; out of ammo, each Hornet flies home by itself (the automatic return), lands on the first slot
+/// free in id order and rearms its five missiles in 160 frames, and stays landed. The second raid lifts them off again
+/// and kills the other six; the two out of ammo fly home by themselves, the two with a missile left fly on to [`ONTO`].
+/// At [`HOME`] all four are sent home (F) and end landed, rearmed. No Hornet is hit.
 pub(crate) fn gdo_air() -> Game {
     let mut builder = ScenarioBuilder::new(&open(40, 20))
         .faction(P1, Faction::Gdo)

@@ -157,6 +157,10 @@ fn a_beacon_under_deployment_takes_only_cancel() {
                 ability,
                 at,
             },
+            Command::Schedule { station, .. } => Command::Schedule {
+                towers: to_it.clone(),
+                station,
+            },
             Command::Debug(_) => continue,
         };
         if gate(&t, P1, command.clone()).is_ok() {

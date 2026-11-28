@@ -137,6 +137,8 @@ fn target(kind: crate::defs::ObjectKind, shields: f32) -> Object {
         aircraft: None,
         illusion_of: None,
         tanks: None,
+        chopper: None,
+        schedule: None,
     }
 }
 

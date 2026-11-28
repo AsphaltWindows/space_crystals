@@ -45,6 +45,8 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         aircraft: None,
         illusion_of: None,
         tanks: None,
+        chopper: None,
+        schedule: None,
     }
 }
 

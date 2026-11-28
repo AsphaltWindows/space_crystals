@@ -31,8 +31,10 @@ use super::{BuildMenu, Planned};
 /// (`factions/gdo/units/rocketman.md > Placeholder stats`, slice M5-K), and the Drone Operator's Launch Drone and Build
 /// Drone (`factions/gdo/units/drone_operator.md > Placeholder stats`, slice M6-GD), and the Hornet's Return to Base
 /// (`factions/gdo/units/hornet.md > AttackAttributes`, slice M6-GH1), and the Shadebringer's toggles
-/// (`factions/syndicate/units/shadebringer.md > Placeholder stats`, slice M6-SB), and the Subterranean Transport's
-/// Unload All (`factions/syndicate/units/subterranean_transport.md > Placeholder stats`, slice M6-ST1).
+/// (`factions/syndicate/units/shadebringer.md > Placeholder stats`, slice M6-SB), the Subterranean Transport's Unload
+/// All (`factions/syndicate/units/subterranean_transport.md > Placeholder stats`, slice M6-ST1), and the Supply
+/// Chopper's supply run and the Supply Tower's Schedule Deliveries (`factions/gdo/units/supply_chopper.md >
+/// ObjectInterfaceState[SupplyChopper]`, `factions/gdo/economy.md > SupplyTower > ObjectInterfaceState[SupplyTower]`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -329,4 +331,29 @@ pub enum PanelCommand {
     /// unloads where the move ends). Greyed while the gate would refuse it: no one aboard
     /// (`sc_sim::Reject::NothingInside`), or underground (`sc_sim::Reject::LacksAbility`, `sc_sim::carry::loads`).
     UnloadAll,
+    /// A Supply Chopper's Pick Up Supplies (`factions/gdo/units/supply_chopper.md >
+    /// ObjectInterfaceState[SupplyChopper]`): awaits a Supply Delivery Station, where a left-click gives the recipients
+    /// a Pick Up Supplies order (`sc_sim::OrderKind::PickUpSupplies`; `factions/gdo/units/supply_chopper.md >
+    /// AwaitingTarget[PickUpSupplies] resolution`; anything else is an invalid target), to every chopper of the
+    /// ActiveGroup, the chopper being Groupable. Shift queues it, as any unit order. Its "not carrying units" always
+    /// holds: a chopper carries Supplies alone (`sc_sim::supply_run::Cargo`).
+    PickUpSupplies,
+    /// A Supply Chopper's Drop Off Supplies: awaits an own Supply Tower
+    /// (`factions/gdo/units/supply_chopper.md > AwaitingTarget[DropOffSupplies] resolution`: "Left-click own
+    /// SupplyTower with no attached chopper"), where a left-click gives the recipients a Drop Off Supplies order
+    /// (`sc_sim::OrderKind::DropOffSupplies`), which the gate gives those that carry Supplies. "Only available if
+    /// chopper is carrying supplies": greyed while none of them does (`sc_sim::Reject::NothingToDeliver`). Shift queues
+    /// it.
+    DropOffSupplies,
+    /// A Supply Chopper's Attach to Tower: awaits an own Supply Tower (`factions/gdo/units/supply_chopper.md >
+    /// AwaitingTarget[AttachToTower] resolution`: "Left-click own SupplyTower with no attached chopper"), where a
+    /// left-click gives the recipients an Attach to Tower order (`sc_sim::OrderKind::AttachToTower`). Shift queues it.
+    AttachToTower,
+    /// A Supply Tower's S, Schedule Deliveries (`factions/gdo/economy.md > SupplyTower >
+    /// ObjectInterfaceState[SupplyTower]`): awaits a Supply Delivery Station, where a left-click sets the schedule of
+    /// the recipients (`sc_sim::Command::Schedule`; `factions/gdo/economy.md > SupplyTower >
+    /// AwaitingTarget[ScheduleDeliveries] resolution`), every Tower of the ActiveGroup, the Tower being Groupable,
+    /// those with a chopper attached taking it. Greyed while none of them has one
+    /// (`sc_sim::Reject::NoChopperAttached`). A command of a structure, which Shift doesn't queue.
+    ScheduleDeliveries,
 }

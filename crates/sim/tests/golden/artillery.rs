@@ -65,7 +65,7 @@ fn p1_order(kind: OrderKind, queue: bool) -> PlayerCommand {
 }
 
 /// Player 1 plays the GDO with a Deployment Center, a Factory, Advanced Mechanics and a Generator, and gets by a debug
-/// command the Rig's 250 Space Crystals and 5 Supplies (the GDO starts with no Supply until slice M6-GS); player 2
+/// command the Rig's 250 Space Crystals and 5 Supplies (set over the GDO's starting 1); player 2
 /// plays the Cults. At tick 1 the Factory queues the Rig, which comes out at [`OUT`] and drives to the rally point. At
 /// [`DRIVE`] it drives to [`DEPLOY_AT`] and deploys there (Shift); at [`HOLD_ATTACK`] and [`SHIFT_MOVE`], while it
 /// deploys, it is given an Attack on the first Militant and a Shift-Move. Deployed, the Shift-Move is dropped

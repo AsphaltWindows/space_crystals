@@ -5,12 +5,13 @@
 //! resolved ([`Checked`]), the dispatch by command ([`Sim::check`]) and the lookups of the objects a command names.
 //! Each family of commands has its own checks (plan decision T28): orders and abilities in `gate/orders.rs`, debug
 //! commands in `gate/debug.rs`, production in `sim/producers.rs`, construction in `sim/construction.rs`, the Tunnels'
-//! in `sim/network.rs`, the buildings that hold units' (slice M5-F1) in `sim/holding.rs` and the casts (slice M5-N5) in
-//! `sim/casts.rs`.
+//! in `sim/network.rs`, the buildings that hold units' (slice M5-F1) in `sim/holding.rs`, the casts (slice M5-N5) in
+//! `sim/casts.rs`, and the supply loop's orders and schedules in `gate/supply_run.rs`.
 
 mod debug;
 mod orders;
 mod reject;
+mod supply_run;
 mod targets;
 
 pub use reject::Reject;
@@ -117,6 +118,12 @@ pub(super) enum Checked {
     /// (M5-X1b) The rules of the `DebugCommand::SetRules`, which have the game's structure, finite numbers and a
     /// generation (`sim/rules.rs`).
     SetRules,
+    /// `towers`: the player's Supply Towers in operation with a chopper attached, in id order; `station`: a
+    /// Supply Delivery Station the player knows (`gate/supply_run.rs`).
+    Schedule {
+        towers: Vec<ObjectId>,
+        station: ObjectId,
+    },
 }
 
 impl Sim {
@@ -168,6 +175,7 @@ impl Sim {
             Command::Tunnel { tunnel, command } => self.check_tunnel(cmd.player, *tunnel, *command),
             Command::Holding { objects, command } => self.check_holding(cmd.player, objects, *command),
             Command::Cast { casters, ability, at } => self.check_cast(cmd.player, casters, *ability, *at),
+            Command::Schedule { towers, station } => self.check_schedule(cmd.player, towers, *station),
             Command::Debug(debug) => {
                 if !self.config.debug {
                     return Err(Reject::DebugDisabled);

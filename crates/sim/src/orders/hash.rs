@@ -121,6 +121,19 @@ impl StateHash for OrderKind {
             }
             // (M6-ST1) A new tag, hashed only while a unit carries the order: 25, the Director's.
             OrderKind::UnloadAll => h.tag(25),
+            // New tags, hashed only while a unit carries the order.
+            OrderKind::PickUpSupplies(station) => {
+                h.tag(33);
+                station.hash(h);
+            }
+            OrderKind::DropOffSupplies(tower) => {
+                h.tag(34);
+                tower.hash(h);
+            }
+            OrderKind::AttachToTower(tower) => {
+                h.tag(35);
+                tower.hash(h);
+            }
         }
     }
 }

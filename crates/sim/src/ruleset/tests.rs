@@ -313,6 +313,64 @@ fn ammo_and_an_airfield_are_structure_and_their_numbers_live() {
     );
 }
 
+/// The supply loop (`crate::supply_run`): a Supply Chopper's landing frames and a Supply Tower's spot apply
+/// live; being a Supply Chopper (`UnitDef::supply_chopper`) and a Supply Tower (`StructureDef::supply_tower`) is
+/// structure, for their own types as for others, and so is the type of chopper a tower comes with
+/// (`SupplyTowerDef::chopper`).
+#[test]
+fn a_supply_loop_is_structure_and_its_numbers_live() {
+    use crate::defs::{StructureDef, SupplyChopperDef, SupplyTowerDef};
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    let change = |entry, field| Some(RuleField { entry, field });
+    fn chopper(rules: &mut Ruleset) -> &mut UnitDef {
+        rules.defs.get_mut(ObjectKind::SupplyChopper).unit.as_mut().unwrap()
+    }
+    fn tower(rules: &mut Ruleset, kind: ObjectKind) -> &mut StructureDef {
+        rules.defs.get_mut(kind).structure.as_mut().unwrap()
+    }
+    assert_eq!(
+        changed(&|r| {
+            chopper(r).supply_chopper.as_mut().unwrap().landing_ticks = 8;
+            tower(r, ObjectKind::SupplyTower)
+                .supply_tower
+                .as_mut()
+                .unwrap()
+                .spot_offset_su = [16.0, 8.0];
+        }),
+        None
+    );
+    assert_eq!(
+        changed(&|r| chopper(r).supply_chopper = None),
+        change("SupplyChopper", "supply_chopper")
+    );
+    let numbers = SupplyChopperDef { landing_ticks: 16 };
+    assert_eq!(
+        changed(&|r| unit(r).supply_chopper = Some(numbers)),
+        change("Peacekeeper", "supply_chopper")
+    );
+    assert_eq!(
+        changed(&|r| tower(r, ObjectKind::SupplyTower).supply_tower = None),
+        change("SupplyTower", "supply_tower")
+    );
+    let spot = SupplyTowerDef {
+        chopper: ObjectKind::SupplyChopper,
+        spot_offset_su: [0.0, 0.0],
+    };
+    assert_eq!(
+        changed(&|r| tower(r, ObjectKind::Barracks).supply_tower = Some(spot)),
+        change("Barracks", "supply_tower")
+    );
+    assert_eq!(
+        changed(&|r| tower(r, ObjectKind::SupplyTower).supply_tower.as_mut().unwrap().chopper = ObjectKind::Hornet),
+        change("SupplyTower", "chopper")
+    );
+}
+
 /// (M6-SN) The Null Chamber's service (`StructureDef::chamber`, `network::services`): its numbers apply live (the
 /// slots, the turn, and the buff's duration, sight and reduction); having one is structure, the Null Chamber's as
 /// another type's.

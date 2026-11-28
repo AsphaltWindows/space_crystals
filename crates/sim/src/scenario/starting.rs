@@ -49,8 +49,7 @@ pub struct StartingConditions {
 
 /// `factions/gdo/economy.md > Starting Conditions`: "One pre-built Deployment Center", "One pre-built Extraction
 /// Facility", "Two Extraction Plates already placed on Space Crystals patches"; "Starting resources: 100 Space
-/// Crystals", "Starting Supplies: 0" (a placeholder until GDO Supply costs are designed, design change 0077). The
-/// starting power, +9, follows from the objects (`crate::economy::power`).
+/// Crystals", "Starting Supplies: 1". The starting power, +9, follows from the objects (`crate::economy::power`).
 static GDO: StartingConditions = StartingConditions {
     objects: &[
         (ObjectKind::DeploymentCenter, 1),
@@ -58,7 +57,7 @@ static GDO: StartingConditions = StartingConditions {
         (ObjectKind::ExtractionPlate, 2),
     ],
     crystals: 100,
-    supplies: 0,
+    supplies: 1,
     // `core/camera.md > Starting Position`: "GDO: Deployment Center".
     primary: ObjectKind::DeploymentCenter,
 };
@@ -277,7 +276,7 @@ mod tests {
             gdo.objects,
             [(DeploymentCenter, 1), (ExtractionFacility, 1), (ExtractionPlate, 2)]
         );
-        assert_eq!((gdo.crystals, gdo.supplies, gdo.primary), (100, 0, DeploymentCenter));
+        assert_eq!((gdo.crystals, gdo.supplies, gdo.primary), (100, 1, DeploymentCenter));
         assert_eq!(
             [ExtractionPlate, ObjectKind::Barracks, ObjectKind::Peacekeeper].map(|k| gdo.count(k)),
             [2, 0, 0]

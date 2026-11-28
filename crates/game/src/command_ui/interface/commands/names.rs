@@ -39,7 +39,10 @@ impl PanelCommand {
     /// Undeploy, into one that can (`sc_sim::vehicle_deploy::immobile`; slice M6-GA). (M6-SB) A tank's toggle says what
     /// a press does, as the Riot Shield's "Raise" and "Lower": its name, "Sludge", switching it on, and a shortening of
     /// "Sludge Off", "Sl.Off", switching it off; (slice M6-SC) a Cover's alike, "Cover" and "Cv.Off". (M6-ST1) A
-    /// carrier's Unload All is its name's first word, "Unload" (6 letters, as "Shroud").
+    /// carrier's Unload All is its name's first word, "Unload" (6 letters, as "Shroud"). A Supply Chopper's Pick Up
+    /// Supplies is "PickUp", its name's first two words, its Drop Off Supplies "Drop", as the Agent's Drop Off, its
+    /// Attach to Tower "Attach", its name's first word, and a Supply Tower's Schedule Deliveries "Sched.", a
+    /// shortening of it.
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -110,6 +113,10 @@ impl PanelCommand {
                 on: false,
             } => "Cv.Off",
             PanelCommand::UnloadAll => "Unload",
+            PanelCommand::PickUpSupplies => "PickUp",
+            PanelCommand::DropOffSupplies => "Drop",
+            PanelCommand::AttachToTower => "Attach",
+            PanelCommand::ScheduleDeliveries => "Sched.",
         }
     }
 
@@ -168,6 +175,10 @@ impl PanelCommand {
             PanelCommand::Toggle { lays, on: true } => format!("{} On", toggle_name(lays)),
             PanelCommand::Toggle { lays, on: false } => format!("{} Off", toggle_name(lays)),
             PanelCommand::UnloadAll => "Unload All".into(),
+            PanelCommand::PickUpSupplies => "Pick Up Supplies".into(),
+            PanelCommand::DropOffSupplies => "Drop Off Supplies".into(),
+            PanelCommand::AttachToTower => "Attach to Tower".into(),
+            PanelCommand::ScheduleDeliveries => "Schedule Deliveries".into(),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol

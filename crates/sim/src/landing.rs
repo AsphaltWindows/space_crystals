@@ -92,22 +92,23 @@ pub struct Landing {
     pub rearm: Option<Progress>,
 }
 
-/// `o`'s landing, if it is an aircraft landing on an Airfield or down on one.
+/// `o`'s landing, if it is an aircraft landing on an Airfield or down on one, or a Supply Chopper landing on
+/// a Supply Tower's or a Supply Delivery Station's spot or down on it (`crate::supply_run`): its landing and its
+/// domain follow the same rules (`factions/gdo/units/supply_chopper.md > Unit Transport`: "as at the Airfield").
 pub fn of(o: &Object) -> Option<Landing> {
-    o.aircraft?.landing
+    (o.aircraft.and_then(|state| state.landing)).or_else(|| o.chopper.as_ref().and_then(|state| state.landing))
 }
 
-/// The Airfield `o` lands on or is down on, if any.
+/// The Airfield `o` lands on or is down on, if any, or the tower or the station a chopper lands on.
 pub fn at(o: &Object) -> Option<ObjectId> {
     of(o).map(|landing| landing.at)
 }
 
-/// Whether `o` is down on an Airfield's slot: its landing's frames all done. Only then is it a ground target (module
-/// docs, `combat::object_domain`).
+/// Whether `o` is down on an Airfield's slot, or a chopper on its spot: its landing's frames all done. Only
+/// then is it a ground target (module docs, `combat::object_domain`).
 #[inline]
 pub fn down(o: &Object) -> bool {
-    o.aircraft
-        .is_some_and(|state| state.landing.is_some_and(|landing| landing.descent.done()))
+    of(o).is_some_and(|landing| landing.descent.done())
 }
 
 /// How far up `o` is while it is on a slot, from 1, in the air as its landing begins, to 0, down, by the whole frames

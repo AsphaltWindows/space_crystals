@@ -7,6 +7,10 @@
 //! economy phase starts its first in the tick it comes down, and ends its last as it is full: `landing::rearm`); and a
 //! unit held off the map is on no slot. Its base may be another Airfield: a Rebase queued behind its flight home
 //! reassigns it as it is given (`Sim::rebase`), and it takes off once that flight is over.
+//!
+//! A Supply Chopper's landing (`crate::supply_run`, `ChopperState::landing`) is on a Supply Tower's or a
+//! Supply Delivery Station's spot in the game, within the same reach of it, one chopper on a spot at a time (the spot's
+//! holder alone lands: `Sim::step_supply_runs`); it rises no more, as an aircraft's, and rearms nothing.
 
 use std::collections::BTreeMap;
 
@@ -16,6 +20,7 @@ use crate::ids::ObjectId;
 use crate::landing::{self, LANDING_SLOTS};
 use crate::ruleset::rules;
 use crate::sim::Sim;
+use crate::supply_run;
 
 /// L1 (module docs).
 pub(super) fn landings(sim: &Sim) -> Result<(), Violation> {
@@ -33,6 +38,23 @@ pub(super) fn landings(sim: &Sim) -> Result<(), Violation> {
             })
         };
         let at = landing.at.0;
+        if o.chopper.is_some() {
+            let Some(spot) = sim.object(landing.at).and_then(supply_run::spot) else {
+                return fail(format!("is on #{at}, no Supply Tower or station in the game"));
+            };
+            if spot.distance(o.pos) > reach {
+                return fail(format!("is on #{at}, off its spot"));
+            }
+            let count = on.entry(landing.at).or_default();
+            *count += 1;
+            if *count > 1 {
+                return fail(format!("is one of more than one on #{at}'s spot"));
+            }
+            if o.mover.as_ref().is_some_and(|mover| mover.rise.is_some()) || landing.rearm.is_some() {
+                return fail(format!("rises or rearms, on the spot of #{at}"));
+            }
+            continue;
+        }
         let Some(airfield) = sim
             .object(landing.at)
             .filter(|airfield| aircraft::airfield_def(airfield).is_some())
@@ -150,5 +172,47 @@ mod tests {
         object(&mut json, 3)["aircraft"]["ammo"] = 2.into();
         object(&mut json, 3)["aircraft"]["landing"]["rearm"] = round.clone();
         assert_eq!(check(json), Ok(()), "down, short and rearming");
+    }
+
+    /// The chopper's arm: player 1's Supply Tower (1) on tiles (1, 1) to (3, 3), and its Supply Chopper (2)
+    /// attached to it and down on its spot, at its centre, keep L1; a state edited to have the chopper on what is no
+    /// tower or station, rising on the spot, or off it breaks it.
+    #[test]
+    fn a_chopper_off_its_spot_or_rising_on_it_breaks_l1() {
+        let builder = ScenarioBuilder::new(&"..........\n".repeat(8))
+            .spawn(ObjectKind::SupplyTower, Some(P1), SpawnAt::Tile(TilePos::new(1, 1)))
+            .spawn(
+                ObjectKind::SupplyChopper,
+                Some(P1),
+                SpawnAt::Point(Vec2::new(160.0, 160.0)),
+            );
+        let sim = Sim::new(&builder.build());
+        let mut saved = serde_json::to_value(&sim).expect("a state serializes");
+        let chopper = object(&mut saved, 2);
+        chopper["chopper"]["attached"] = 1.into();
+        chopper["chopper"]["landing"] = json!({ "at": 1, "descent": { "progress": 16 * RATIO_ONE, "total": 16 } });
+        assert_eq!(check(saved.clone()), Ok(()), "down on its spot");
+        let broken = |edit: &dyn Fn(&mut serde_json::Value), problem: &str| {
+            let mut json = saved.clone();
+            edit(&mut json);
+            let violation = check(json).unwrap_err();
+            assert_eq!(violation.invariant, "L1", "{violation:?}");
+            assert!(violation.message.contains(problem), "{problem}: {violation:?}");
+        };
+        broken(
+            &|json| object(json, 2)["chopper"]["landing"]["at"] = 2.into(),
+            "no Supply Tower",
+        );
+        broken(
+            &|json| object(json, 2)["mover"]["rise"] = json!({ "progress": 0, "total": 16 }),
+            "rises",
+        );
+        broken(
+            &|json| {
+                let chopper = object(json, 2);
+                (chopper["pos"], chopper["prev_pos"]) = (json!([200.0, 160.0]), json!([200.0, 160.0]));
+            },
+            "off its spot",
+        );
     }
 }

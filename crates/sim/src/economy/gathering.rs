@@ -159,8 +159,9 @@ fn job(orders: &mut Orders) -> Option<(OrderKind, &mut crate::orders::state::Gat
     }
 }
 
-/// Pays `amount` of `resource` into `player`'s bank. Income saturates (`Player::credit_crystals`).
-fn credit(player: &mut Player, resource: Resource, amount: u32) {
+/// Pays `amount` of `resource` into `player`'s bank. Income saturates (`Player::credit_crystals`). A Supply
+/// Chopper's drop-off pays by it too (`super::supply_run`).
+pub(super) fn credit(player: &mut Player, resource: Resource, amount: u32) {
     match resource {
         Resource::Crystals => player.credit_crystals(amount),
         Resource::Supplies => player.supplies = player.supplies.saturating_add(amount),

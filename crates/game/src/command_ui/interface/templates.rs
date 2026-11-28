@@ -17,9 +17,9 @@
 //! researches each line's next level and lets its staff out (slice M5-N3), and their Shrine casts its two area
 //! abilities and lets its participants out (slice M5-N5). The GDO's Drone Operator launches its drone and builds the
 //! next, and its drone is flown with Move, Attack and Stop (slice M6-GD); its Radar Station scans, and its Defense
-//! System builds Missile Turrets as the Extraction Facility its plate (slice M6-GR). An entry not in the game yet holds
-//! its slot,
-//! unavailable ([`Planned`]).
+//! System builds Missile Turrets as the Extraction Facility its plate (slice M6-GR). The GDO's Supply Tower trains
+//! Supply Choppers and schedules deliveries, and the chopper runs Supplies. An entry not in the game yet
+//! holds its slot, unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod cults;
@@ -33,7 +33,7 @@ pub mod syndicate;
 
 use sc_sim::defs::SpellDef;
 use sc_sim::{AreaAbility, ObjectKind};
-use sc_sim::{aircraft, conversion, mirage, tether, vehicle_deploy};
+use sc_sim::{aircraft, conversion, mirage, supply_run, tether, vehicle_deploy};
 
 pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
@@ -142,6 +142,10 @@ pub enum InterfaceTemplate {
     /// Burrow / Surface**, **F: Unload All**" ([`syndicate::transport`]). Its right-click is the sim's one rule, as
     /// every unit's.
     Transport,
+    /// `factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper]`: Move, Hold Position, Stop
+    /// and its supply run's three commands, Pick Up Supplies, Drop Off Supplies and Attach to Tower
+    /// ([`gdo::supply_chopper`]). Its right-click is the sim's one rule, as every unit's.
+    SupplyChopper,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -312,6 +316,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::RadarStation => gdo::radar_station::GRID,
             InterfaceTemplate::DefenseSystem => gdo::defense_system::GRID,
             InterfaceTemplate::Transport => syndicate::transport::grid(kind),
+            InterfaceTemplate::SupplyChopper => gdo::supply_chopper::GRID,
         }
     }
 }
@@ -353,7 +358,9 @@ pub use sc_sim::combat::can_target_ground;
 /// Undeploy in R ([`PanelCommand::VehicleDeploy`], [`gdo::artillery_rig`]); (M6-CM) a unit that casts Mirage, the
 /// Disciple, Mirage in F ([`PanelCommand::Mirage`], `sc_sim::mirage::def_of`); (M6-SB) a unit with tanks
 /// (`sc_sim::defs::UnitDef::tanks`), the Shadebringer, each tank's toggle in its slot, switching it on, which its key
-/// turns about ([`PanelCommand::Toggle`], [`syndicate::shadebringer::slot`]). These are the commands the type offers
+/// turns about ([`PanelCommand::Toggle`], [`syndicate::shadebringer::slot`]); a Supply Tower
+/// (`sc_sim::supply_run::tower_def`), Schedule Deliveries in S ([`PanelCommand::ScheduleDeliveries`],
+/// [`gdo::supply_tower`]). These are the commands the type offers
 /// ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a constructor's panel follows its state
 /// ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
@@ -403,6 +410,9 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
             on: true,
         };
         grid[syndicate::shadebringer::slot(tank.lays)] = Some(toggle);
+    }
+    if supply_run::tower_def(kind).is_some() {
+        grid[gdo::supply_tower::SCHEDULE_SLOT] = Some(PanelCommand::ScheduleDeliveries);
     }
     grid
 }

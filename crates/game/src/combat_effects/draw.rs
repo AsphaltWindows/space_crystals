@@ -39,6 +39,9 @@ const AMMO_FILL: Color = Color::srgb(1.0, 0.68, 0.15);
 /// is on, lightened by [`TANK_ON_LIGHTEN`].
 const TANK_FILLS: [Srgba; 2] = [Srgba::rgb(0.55, 0.50, 0.16), Srgba::rgb(0.62, 0.64, 0.68)];
 const TANK_ON_LIGHTEN: f32 = 0.45;
+/// A carried Supply's pip's fill: Placeholder (not in the design: Q0001's art direction), a teal, apart from
+/// the bars' colours and the ammo's amber.
+const SUPPLY_FILL: Color = Color::srgb(0.25, 0.85, 0.75);
 /// (M6-ST1) A passenger pip's fill, a place taken aboard a carrier: Placeholder (not in the design: Q0001's art
 /// direction), a pale ivory, apart from the bars' colours and the ammo's amber; a free place's pip is its dark frame
 /// alone.
@@ -191,6 +194,7 @@ fn death_marker(mesh: &mut ColorMesh, map: &Map, death: &DeathMarker, fade: f32,
 /// bar, if any, right under it, its fill in [`ENERGY_FILL`]; (M6-GH1) an aircraft's ammo pips under them, one square
 /// a round, as high as a bar, centred under it, those of the rounds left filled in [`AMMO_FILL`] from the left;
 /// (M6-SB) a unit's tank bars under those, one a tank, in its kind's [`TANK_FILLS`], lighter while its toggle is on;
+/// a Supply Chopper's Supplies under those, one pip a Supply up to `SUPPLY_PIPS`, filled in [`SUPPLY_FILL`];
 /// (M6-ST1) a carrier's passenger pips over them all, one square a place, as the ammo pips are, those of the places
 /// taken filled in [`PASSENGER_FILL`] from the left.
 fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
@@ -227,6 +231,15 @@ fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
         under -= Vec2::new(0.0, height + 1.0);
         let fill = if on { lighten(fill, TANK_ON_LIGHTEN) } else { fill };
         bar_shape(mesh, under, size, fraction, fill.into(), z);
+    }
+    if let Some(carried) = bar.supplies {
+        under -= Vec2::new(0.0, height + 3.0);
+        let (step, shown) = (height + 3.0, carried.min(super::SUPPLY_PIPS));
+        let first = under.x - step * (shown as f32 - 1.0) / 2.0;
+        for pip in 0..shown {
+            let at = Vec2::new(first + step * pip as f32, under.y);
+            bar_shape(mesh, at, Vec2::splat(height), 1.0, SUPPLY_FILL, z);
+        }
     }
 }
 

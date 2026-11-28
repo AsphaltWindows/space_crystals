@@ -4,7 +4,7 @@
 //! (`super::super::state_grid`), and so does its DefaultState's E: Place ([`PLACE_SLOT`], design change 0388). It
 //! produces no units and has no right-click.
 
-use super::super::{BuildMenu, InterfaceTemplate, PanelCommand, PanelTemplate, Planned};
+use super::super::{BuildMenu, InterfaceTemplate, PanelCommand, PanelTemplate};
 
 /// The Deployment Center's panel template.
 pub const TEMPLATE: PanelTemplate = PanelTemplate::of(InterfaceTemplate::DeploymentCenter);
@@ -34,18 +34,17 @@ pub const PLACE_SLOT: usize = 2;
 /// design change 0328) it constructs, the last two greyed while the player owns no Barracks (their TechPrerequisite:
 /// the gate's `Reject::Requires`, "Requires a Barracks"), and (M6-GR) the Radar Station, greyed while the player owns
 /// no Generator, and the Defense System, greyed while they own no Radar Station or no Arsenal ("Requires a Radar
-/// Station", "Requires an Arsenal"). (M6-GK) The Supply Tower is in the game (plan decision T84), but no player
-/// constructs one yet: it holds its slot, greyed ([`Planned`]), until slice M6-GS makes its entry live. Z is Back and X
-/// the constructor's Cancel (`super::super::state_grid`).
+/// Station", "Requires an Arsenal"), and the Supply Tower, greyed while they own no Radar Station ("Requires a
+/// Radar Station"; `factions/gdo/economy.md > SupplyTower > TechPrerequisite`). Z is Back and X the constructor's
+/// Cancel (`super::super::state_grid`).
 #[rustfmt::skip]
 const BASIC_MENU: [Option<PanelCommand>; 12] = {
     use sc_sim::ObjectKind::{
-        Arsenal, Barracks, CareerCampus, DefenseSystem, ExtractionFacility, Generator, RadarStation,
+        Arsenal, Barracks, CareerCampus, DefenseSystem, ExtractionFacility, Generator, RadarStation, SupplyTower,
     };
-    use Planned::SupplyTower;
-    use PanelCommand::{Construct as C, Planned as P};
+    use PanelCommand::Construct as C;
     [
-        Some(C(Generator)),    Some(C(Barracks)), Some(C(ExtractionFacility)), Some(P(SupplyTower)),
+        Some(C(Generator)),    Some(C(Barracks)), Some(C(ExtractionFacility)), Some(C(SupplyTower)),
         Some(C(RadarStation)), Some(C(Arsenal)),  Some(C(CareerCampus)),       Some(C(DefenseSystem)),
         None,                  None,              None,                         None,
     ]

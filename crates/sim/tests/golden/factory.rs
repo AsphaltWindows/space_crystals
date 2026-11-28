@@ -66,15 +66,15 @@ fn p1(command: Command) -> PlayerCommand {
 }
 
 /// Player 1 plays the GDO with a Deployment Center and a Factory, whose Power -30 the Deployment Center's +30 covers,
-/// and gets by a debug command the four vehicles' 450 Space Crystals and the Twisters' 2 Supplies (the GDO starts with
-/// no Supply until slice M6-GS). Player 2 plays the Cults: four Recruits stand 18 grid units east of the Factory, and
-/// two Sparrows hold over them. At tick 1 the Factory queues its four vehicles ([`KINDS`]): each comes out at its tick
-/// of [`OUT`], half inside the middle of side B and facing east, and drives to the default rally point; the first
+/// and gets by a debug command the four vehicles' 450 Space Crystals and the Twisters' 2 Supplies (set over the GDO's
+/// starting 1). Player 2 plays the Cults: four Recruits stand 18 grid units east of the Factory,
+/// and two Sparrows hold over them. At tick 1 the Factory queues its four vehicles ([`KINDS`]): each comes out at its
+/// tick of [`OUT`], half inside the middle of side B and facing east, and drives to the default rally point; the first
 /// stops on it, and each of the others, the point taken, parks at the free spot nearest it (design change 0451). At
 /// [`ATTACK`] the four attack-move east: the Raptors' missiles kill the Recruits, the Twisters' machine guns, which hit
 /// air alone, the Sparrows, and all six of player 2's units fall, the last at 1:33 (tick 1496; tick 1499 before design
-/// change 0454: a Raptor whose Recruit runs in inside the circles it turns on drives straight on to come round onto
-/// it, `orders::aim`).
+/// change 0454: a Raptor whose Recruit runs in inside the circles it turns on drives straight on to come round onto it,
+/// `orders::aim`).
 pub(crate) fn gdo_vehicles() -> Game {
     let builder = ScenarioBuilder::new(&open(40, 20))
         .faction(P1, Faction::Gdo)

@@ -77,6 +77,14 @@ pub enum Command {
         ability: AreaAbility,
         at: Vec2,
     },
+    /// `factions/gdo/economy.md > SupplyTower > AwaitingTarget[ScheduleDeliveries] resolution`: "Left-click
+    /// SupplyDeliveryStation: sets ScheduledSDS to the clicked station, attached chopper begins automated delivery
+    /// loop": the player's Supply Towers among `towers` that have a chopper attached schedule their deliveries from
+    /// `station` (`Object::schedule`, `Sim::step_schedules`). Every one of the selection receives it, as a production
+    /// command does. Ids that no longer exist, repeated ids and the player's objects that are no such tower are
+    /// dropped; the command is rejected if none remains, one belongs to someone else, or the player knows no station
+    /// by that id.
+    Schedule { towers: Vec<ObjectId>, station: ObjectId },
     /// Development / QA only — never offered to players in a real match.
     Debug(DebugCommand),
 }

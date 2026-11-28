@@ -218,7 +218,8 @@ pub(super) fn click_targets(
 
 /// Gives what the targeting click `click` resolves to ([`target_resolution`]) to its command's recipients: an order
 /// to each unit as [`target_orders`] has it, queued if it was a Shift-click, the rally point to all the producers, the
-/// ability to all the units, or (M5-N5) the cast to the Shrine. Whether anything was given: nothing for a target the
+/// ability to all the units, (M5-N5) the cast to the Shrine, or the schedule to the Supply Towers. Whether
+/// anything was given: nothing for a target the
 /// command can't use, (M6-S6a) nor for an Attack none of the recipients can carry out on its target (design change
 /// 0461), nor when the sim would take none of it.
 fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: PressedTarget) -> bool {
@@ -237,6 +238,7 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
         }
         Some(Resolved::Ability(ability)) => outbox.use_ability(control.player(), recipients, ability),
         Some(Resolved::Cast(ability, at)) => outbox.cast(control.player(), recipients, ability, at),
+        Some(Resolved::Schedule(station)) => outbox.schedule(control.player(), recipients, station),
     }
 }
 
@@ -341,8 +343,8 @@ fn right_click(
             Some(Resolved::Order(kind)) => orders.push((id, kind)),
             // Every producer rallies on the same target: what was clicked.
             Some(Resolved::Rally(on)) => rally.get_or_insert_with(|| (on, Vec::new())).1.push(id),
-            // No right-click uses an ability, nor casts.
-            Some(Resolved::Ability(_) | Resolved::Cast(..)) | None => {}
+            // No right-click uses an ability, nor casts, nor schedules deliveries.
+            Some(Resolved::Ability(_) | Resolved::Cast(..) | Resolved::Schedule(_)) | None => {}
         }
     }
     let given = outbox.give_each(player, orders, queue);

@@ -198,8 +198,9 @@ fn job(o: &Object) -> Option<(ObjectId, GatherPhase)> {
 
 /// The station at which `o` picks up a Supply, if it is a worker of a type that gathers them, picking one up there
 /// now (`GatherPhase::Mining` on a Gather at a station): its pick-up claims one of the station's Supplies until it
-/// ends (design change 0256 point 2). Only the types that gather Supplies are looked at.
-fn pick_up(objects: &BTreeMap<ObjectId, Object>, o: &Object) -> Option<ObjectId> {
+/// ends (design change 0256 point 2). Only the types that gather Supplies are looked at. A Supply Chopper's
+/// pick-up takes the Supplies these claims leave (`economy::supply_run`).
+pub(crate) fn pick_up(objects: &BTreeMap<ObjectId, Object>, o: &Object) -> Option<ObjectId> {
     o.worker.as_ref()?;
     worker_def(o.kind)?.supplies?;
     let active = o.orders.as_ref()?.current.as_ref()?;

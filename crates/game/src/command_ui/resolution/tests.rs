@@ -6,6 +6,7 @@ mod recruit;
 mod repair;
 mod rocketman;
 mod shrine;
+mod supply_run;
 mod temple;
 
 use sc_sim::defs::TargetDomain;
@@ -43,6 +44,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             airfield: false,
             refuses_illusions: false,
             carrier: None,
+            supply_tower: None,
         }),
         seen: true,
         on_map: true,
@@ -100,6 +102,7 @@ const fn combat_unit(attack: Option<TargetDomain>, may_attack: bool) -> UnitCapa
             transit: Transit::Infantry,
             aircraft: None,
             illusion: false,
+            chopper: None,
         }),
     }
 }
@@ -125,6 +128,7 @@ const DRONE: UnitCapabilities = UnitCapabilities {
         transit: Transit::Vehicles,
         aircraft: None,
         illusion: false,
+        chopper: None,
     }),
 };
 const LOADED_DRONE: UnitCapabilities = UnitCapabilities {
@@ -139,6 +143,7 @@ const LOADED_DRONE: UnitCapabilities = UnitCapabilities {
         transit: Transit::Vehicles,
         aircraft: None,
         illusion: false,
+        chopper: None,
     }),
 };
 /// An object without commands: a building.

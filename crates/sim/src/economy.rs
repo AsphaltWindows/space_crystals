@@ -32,6 +32,7 @@ pub mod gathering;
 pub(crate) mod mining;
 pub(crate) mod power;
 pub mod stations;
+pub(crate) mod supply_run;
 
 use std::collections::BTreeMap;
 
@@ -57,7 +58,9 @@ use crate::player::Player;
 /// 3. the plates mine (`mining::step`), the plates created this tick from the next one on;
 /// 4. the workers' timed work (`gathering::step`, slice M3-H, plan decision T17): mining takes its load from the
 ///    patch, a pick-up its Supply from the station (slice M4-I), and a drop-off pays the bank. After the plates, so
-///    that every bank change of the tick is made here, in one order;
+///    that every bank change of the tick is made here, in one order; then the Supply Choppers down on a
+///    spot pick up, drop off and are repaired (`supply_run::step`), after the workers, who claimed their Supplies
+///    first;
 /// 5. the defeat check, after the producers (`defeat::step`, called by `Sim::step`, which keeps the game's outcome).
 ///
 /// Returns the Space Crystals patches that the workers emptied: they leave the map (`core/map.md >
@@ -73,7 +76,9 @@ pub(crate) fn step(
     crate::cooldown::step(objects, &power);
     crate::landing::rearm(objects, &power);
     mining::step(objects, players, &power, first_new, events);
-    gathering::step(objects, players, first_new, events)
+    let depleted = gathering::step(objects, players, first_new, events);
+    supply_run::step(objects, players, &power, first_new, events);
+    depleted
 }
 
 /// What cancelling gives back of a Space Crystals cost (plan decision T7: one helper for every refund).

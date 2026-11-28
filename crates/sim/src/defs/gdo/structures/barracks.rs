@@ -55,12 +55,13 @@ pub(crate) const BARRACKS: ObjectDef = ObjectDef {
                 drone_operator::RECIPE,
                 Recipe {
                     // "Field Engineer: 75 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns
-                    // at least one Career Campus." (design change 0328)
+                    // at least one Career Campus." (design change 0328), and its Supply
+                    // (`factions/gdo/units/field_engineer.md > Placeholder stats`).
                     kind: ObjectKind::FieldEngineer,
                     cost: 75,
                     frames: 160,
                     requires: &[ObjectKind::CareerCampus],
-                    supplies: 0,
+                    supplies: 1,
                 },
             ],
             recruitment: None,

@@ -302,6 +302,23 @@ pub enum Reject {
     /// switches off and can't be switched back on until the tank has some charge again"): what greys a Shadebringer's
     /// R once its Sludge's tank is empty.
     TankEmpty,
+    /// The target of a Pick Up Supplies or of a Schedule Deliveries is no Supply Delivery Station, as the
+    /// player knows it (`crate::supply_run`; `factions/gdo/units/supply_chopper.md > AwaitingTarget[PickUpSupplies]
+    /// resolution`: "Left-click SupplyDeliveryStation").
+    NotAStation(ObjectId),
+    /// The target of a Drop Off Supplies or an Attach to Tower is no Supply Tower of the player's in operation
+    /// (`crate::supply_run::is_tower`; `factions/gdo/units/supply_chopper.md > AwaitingTarget[AttachToTower]
+    /// resolution`: "Left-click own SupplyTower").
+    NotASupplyTower(ObjectId),
+    /// The Supply Tower has a chopper attached that isn't among the units of the order
+    /// (`factions/gdo/units/supply_chopper.md > AwaitingTarget[DropOffSupplies] resolution`: "Left-click own
+    /// SupplyTower with no attached chopper"; `factions/gdo/economy.md > SupplyTower > Landing and Attachment`: "When a
+    /// Supply Tower has an attached Supply Chopper, no other Supply Chopper may land on it").
+    TowerTaken(ObjectId),
+    /// None of the Supply Towers of a Schedule Deliveries has a chopper attached
+    /// (`factions/gdo/economy.md > SupplyTower > ObjectInterfaceState[SupplyTower]`: "Only available if tower has an
+    /// attached chopper").
+    NoChopperAttached,
 }
 
 impl fmt::Display for Reject {
@@ -398,6 +415,10 @@ impl fmt::Display for Reject {
             Reject::Deploying => write!(f, "every unit deploys already"),
             Reject::IllusionsCantCast => write!(f, "illusions can't cast"),
             Reject::TankEmpty => write!(f, "every tank is empty"),
+            Reject::NotAStation(id) => write!(f, "object {} is no Supply Delivery Station", id.0),
+            Reject::NotASupplyTower(id) => write!(f, "object {} is no Supply Tower of the player's in operation", id.0),
+            Reject::TowerTaken(id) => write!(f, "Supply Tower {} has another chopper attached", id.0),
+            Reject::NoChopperAttached => write!(f, "none of the Supply Towers has a chopper attached"),
         }
     }
 }

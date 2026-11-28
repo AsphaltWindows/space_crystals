@@ -228,8 +228,10 @@ mod tests {
     }
 
     /// A game starts each player at their faction's Starting Conditions, the refined resources at 0 (plan decision
-    /// T21): the Syndicate with 100 Space Crystals and 1 Supply (slice M4-B); the Cults with nothing, "**0 Space
-    /// Crystals**" (`factions/cults/economy.md > Starting Conditions`, slice M5-B). `set_banks` sets all five.
+    /// T21): the Syndicate with 100 Space Crystals and 1 Supply (slice M4-B), and the GDO alike
+    /// (`factions/gdo/economy.md > Starting Conditions`); the Cults
+    /// with nothing, "**0 Space Crystals**" (`factions/cults/economy.md > Starting Conditions`, slice M5-B).
+    /// `set_banks` sets all five.
     #[test]
     fn players_start_with_their_factions_banks() {
         let start = |faction| Player::starting(PlayerId(1), "P".into(), faction).banks();
@@ -237,7 +239,7 @@ mod tests {
             crystals: 100,
             ..Banks::default()
         };
-        assert_eq!(start(Faction::Gdo), hundred);
+        assert_eq!(start(Faction::Gdo), Banks { supplies: 1, ..hundred });
         assert_eq!(start(Faction::Colonists), hundred);
         assert_eq!(start(Faction::Syndicate), Banks { supplies: 1, ..hundred });
         assert_eq!(start(Faction::Cults), Banks::default());

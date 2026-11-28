@@ -102,7 +102,7 @@ fn crystals(player: PlayerId, crystals: u32) -> DebugCommand {
 /// Egress Node, the Robo Portal and the four Drones where `dev_skirmish`'s layout puts them, in either slot (the second
 /// slot's layout is the first's 180° image); Beacon Capacity 4/10 (the two buildings provide 5 each, the Drones cost
 /// 1 each), and the camera starts on the Robo Portal (`core/camera.md > Starting Position`). The GDO beside them
-/// starts as ever, at 0/200 Unit Control.
+/// starts as ever, at 0/200 Unit Control, and with its 1 Supply (`factions/gdo/economy.md > Starting Conditions`).
 #[test]
 fn a_colonists_player_starts_with_their_starting_conditions() {
     let hundred = Banks {
@@ -131,7 +131,7 @@ fn a_colonists_player_starts_with_their_starting_conditions() {
     };
     assert_eq!(
         (sim.player(P2).unwrap().banks(), sim.army_cap(P2)),
-        (hundred, Some(gdo_cap))
+        (Banks { supplies: 1, ..hundred }, Some(gdo_cap))
     );
     assert_eq!(
         scenario.primary_structure(P2),

@@ -19,7 +19,12 @@ impl Sim {
             Err(reject) => return self.report_refusal(cmd, reject),
         };
         match checked {
-            Checked::Order { units, kind, queue } => self.give_order(&units, kind, queue),
+            Checked::Order { units, kind, queue } => {
+                // `factions/gdo/economy.md > SupplyTower > Landing and Attachment`: "Any command given to an
+                // attached Supply Chopper breaks its attachment to the tower" (`sim/supply_run.rs`).
+                self.detach(&units);
+                self.give_order(&units, kind, queue);
+            }
             Checked::Ability { units, ability } => self.use_ability(&units, ability),
             Checked::Spawn {
                 kind,
@@ -68,6 +73,8 @@ impl Sim {
                     augmentation::set(o, augmentation, research);
                 }
             }
+            // The towers' Scheduled Supply Delivery Station (`sim/supply_run.rs`).
+            Checked::Schedule { towers, station } => self.schedule(&towers, station),
             // (M5-X1b) The next tick starts on the command's rules (`sim/rules.rs`).
             Checked::SetRules => {
                 if let Command::Debug(DebugCommand::SetRules(rules)) = &cmd.command {
@@ -119,6 +126,10 @@ impl Sim {
             // (M6-GA) Each deploys where it stands (`crate::vehicle_deploy`); (M6-ST1) each unloads round itself
             // (`crate::carry`).
             OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => vec![None; units.len()],
+            // Each chopper flies to its target's spot (`orders::supply_run`).
+            OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => {
+                vec![None; units.len()]
+            }
         };
         if self.gives_shared_build(units, kind) {
             return self.give_shared_build(units, kind, queue, group);

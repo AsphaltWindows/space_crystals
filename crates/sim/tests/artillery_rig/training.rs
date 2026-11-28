@@ -1,7 +1,7 @@
 //! The Factory's R (`factions/gdo/structures/factory.md > Produces`: "Artillery Rig: 250 Space Crystals, 480 frames
 //! (30 seconds) (placeholder). Requires: player owns at least one Advanced Mechanics"; design change 0435: "Cost:
-//! Factory, 250 Space Crystals **+ 5 Supplies**"). The GDO starts with no Supply until slice M6-GS, so the tests grant
-//! them by a debug command.
+//! Factory, 250 Space Crystals **+ 5 Supplies**"). The GDO starts with 1 Supply (`factions/gdo/economy.md > Starting
+//! Conditions`), so the tests grant them by a debug command.
 
 use super::*;
 

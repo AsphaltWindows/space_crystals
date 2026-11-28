@@ -2,6 +2,7 @@
 
 use super::{
     advanced_mechanics, airfield, defense_system, factory, industrial_powerplant, propulsion_labs, radar_station,
+    supply_tower,
 };
 use crate::defs::structures::{Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
@@ -37,10 +38,8 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         // (`StructureDef::requires`), and (M6-GR) the Radar Station and the Defense System, each with its own (a
         // Generator; a Radar Station and an Arsenal), and (M6-GF) the Factory, Advanced Mechanics and the Industrial
         // Powerplant, each its def module's entry, behind its own (a Barracks, a Factory, Advanced Mechanics), and
-        // (M6-GH2) the Airfield, behind its own (Advanced Mechanics), and (M6-GL) Propulsion Labs, behind its own (an
-        // Airfield), all in the design's order. The design's other (the Supply Tower) comes with its slice, its
-        // Requires clause (`core/tech_and_research.md > Tech Prerequisites`) with it, held until then
-        // (`crate::defs::PLANNED_RECIPES`).
+        // (M6-GH2) the Airfield, behind its own (Advanced Mechanics), (M6-GL) Propulsion Labs, behind its own (an
+        // Airfield), and the Supply Tower, behind its own (a Radar Station), all in the design's order.
         constructs: &[
             Recipe {
                 kind: ObjectKind::Generator,
@@ -63,6 +62,9 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
                 requires: &[],
                 supplies: 0,
             },
+            // "Supply Tower: 150 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player owns
+            // at least one Radar Station."
+            supply_tower::RECIPE,
             Recipe {
                 kind: ObjectKind::Arsenal,
                 cost: 150,     // Arsenal: 150 Space Crystals,
@@ -111,8 +113,8 @@ mod tests {
     /// design's order, the Arsenal and the Career Campus requiring a Barracks (each its own TechPrerequisite, which
     /// `tech::recipe_requires` adds to its entry's), (M6-GR) the Radar Station a Generator, the Defense System a Radar
     /// Station and an Arsenal, (M6-GF) the Factory a Barracks, Advanced Mechanics a Factory and the Industrial
-    /// Powerplant Advanced Mechanics, (M6-GH2) the Airfield Advanced Mechanics, and (M6-GL) Propulsion Labs an
-    /// Airfield. It, the Extraction Facility
+    /// Powerplant Advanced Mechanics, (M6-GH2) the Airfield Advanced Mechanics, (M6-GL) Propulsion Labs an
+    /// Airfield, and the Supply Tower a Radar Station. It, the Extraction Facility
     /// (`factions/gdo/economy.md > ExtractionFacility > Constructs`) and (M6-GR) the Defense System are the three
     /// constructors.
     #[test]
@@ -141,6 +143,7 @@ mod tests {
                 recipe(ObjectKind::Generator, 100, 240),
                 recipe(ObjectKind::Barracks, 200, 160),
                 recipe(ObjectKind::ExtractionFacility, 200, 320),
+                recipe(ObjectKind::SupplyTower, 150, 320),
                 recipe(ObjectKind::Arsenal, 150, 320),
                 recipe(ObjectKind::CareerCampus, 150, 320),
                 recipe(ObjectKind::Factory, 250, 480),
@@ -153,15 +156,16 @@ mod tests {
             ]
         );
         let requires = |i: usize| crate::tech::recipe_requires(&structure.constructs[i]).collect::<Vec<_>>();
-        for needs_barracks in 3..6 {
+        assert_eq!(requires(3), [ObjectKind::RadarStation]);
+        for needs_barracks in 4..7 {
             assert_eq!(requires(needs_barracks), [ObjectKind::Barracks]);
         }
-        assert_eq!(requires(6), [ObjectKind::Generator]);
-        assert_eq!(requires(7), [ObjectKind::Factory]);
-        assert_eq!(requires(8), [ObjectKind::AdvancedMechanics]);
-        assert_eq!(requires(9), [ObjectKind::Airfield]);
-        assert_eq!(requires(10), [ObjectKind::AdvancedMechanics]);
-        assert_eq!(requires(11), [ObjectKind::RadarStation, ObjectKind::Arsenal]);
+        assert_eq!(requires(7), [ObjectKind::Generator]);
+        assert_eq!(requires(8), [ObjectKind::Factory]);
+        assert_eq!(requires(9), [ObjectKind::AdvancedMechanics]);
+        assert_eq!(requires(10), [ObjectKind::Airfield]);
+        assert_eq!(requires(11), [ObjectKind::AdvancedMechanics]);
+        assert_eq!(requires(12), [ObjectKind::RadarStation, ObjectKind::Arsenal]);
         for &kind in ObjectKind::ALL {
             let constructs = kind.def().structure.as_ref().is_some_and(|s| !s.constructs.is_empty());
             let constructor = matches!(

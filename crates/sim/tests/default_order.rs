@@ -5,7 +5,7 @@
 
 use sc_sim::combat::domain_allows;
 use sc_sim::defs::{Domain, TargetDomain, Transit};
-use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
+use sc_sim::orders::resolution::{Abilities, Aim, Aimed, Chopper, resolve};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     Ability, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerId, SpawnAt, Target, TilePos, Vec2,
@@ -181,6 +181,7 @@ fn the_rule_on_abilities_and_targets() {
         illusion: false,
         transit: Transit::Infantry,
         aircraft: None,
+        chopper: None,
     };
     let drone = |carrying| Abilities {
         kind: ObjectKind::Drone,
@@ -192,6 +193,7 @@ fn the_rule_on_abilities_and_targets() {
         illusion: false,
         transit: Transit::Vehicles,
         aircraft: None,
+        chopper: None,
     };
     let object = |enemy, destructible, domain, gatherable, drop_off| Aimed {
         id: ObjectId(5),
@@ -209,6 +211,7 @@ fn the_rule_on_abilities_and_targets() {
         airfield: false,
         refuses_illusions: false,
         carrier: None,
+        supply_tower: None,
     };
     let follow = OrderKind::Move(Target::Object(ObjectId(5)));
     let attack = OrderKind::Attack(ObjectId(5));
@@ -494,4 +497,51 @@ fn the_rule_on_abilities_and_targets() {
         ..transport
     };
     assert_eq!(resolve(guard, Aim::Object(shut)), follow);
+    // A Supply Chopper (`factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper]`): Pick
+    // Up Supplies on a station, loaded or not; on an own Supply Tower in operation, Drop Off Supplies while it carries
+    // Supplies and Attach to Tower while it doesn't, on a tower with no chopper attached or attached to it; a Move to a
+    // tower another chopper is attached to, and to anything else. No other unit takes any of them.
+    let chopper = |carrying, attached| Abilities {
+        kind: ObjectKind::SupplyChopper,
+        worker: false,
+        transit: Transit::Air,
+        chopper: Some(Chopper { carrying, attached }),
+        ..drone(false)
+    };
+    let tower = |attached| Aimed {
+        supply_tower: Some(attached),
+        ..object(false, true, Domain::Ground, false, false)
+    };
+    // A tower with chopper 7 attached; a chopper attached to tower 8.
+    let (taken, elsewhere) = (Some(ObjectId(7)), Some(ObjectId(8)));
+    for carrying in [false, true] {
+        let pick_up = OrderKind::PickUpSupplies(ObjectId(5));
+        assert_eq!(resolve(chopper(carrying, None), Aim::Object(station)), pick_up);
+        let home = match carrying {
+            true => OrderKind::DropOffSupplies(ObjectId(5)),
+            false => OrderKind::AttachToTower(ObjectId(5)),
+        };
+        assert_eq!(resolve(chopper(carrying, None), Aim::Object(tower(None))), home);
+        let mine = Abilities {
+            chopper: Some(Chopper {
+                carrying,
+                attached: Some(ObjectId(5)),
+            }),
+            ..chopper(carrying, None)
+        };
+        assert_eq!(resolve(mine, Aim::Object(tower(taken))), home, "its own tower");
+        assert_eq!(
+            resolve(chopper(carrying, elsewhere), Aim::Object(tower(taken))),
+            follow,
+            "taken"
+        );
+        assert_eq!(
+            resolve(chopper(carrying, elsewhere), Aim::Object(tower(None))),
+            home,
+            "another, free"
+        );
+        let own = object(false, true, Domain::Ground, false, false);
+        assert_eq!(resolve(chopper(carrying, None), Aim::Object(own)), follow);
+        assert_eq!(resolve(drone(carrying), Aim::Object(tower(None))), follow);
+    }
 }

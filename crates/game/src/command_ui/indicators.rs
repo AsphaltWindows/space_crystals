@@ -19,6 +19,8 @@
 //!   reach around the point under the pointer, at the back of the mesh.
 //! - **The leash rings** ([`leash`], slice M6-GD): round the operator of each selected drone, and of each selected
 //!   operator whose drone is out, the edge of the ground its drone may fly over, at the back of the mesh too.
+//! - **Schedules** ([`schedule`]): each selected Supply Tower's scheduled station, the Gather marker on it with a line
+//!   from the Tower, as a rally point shows: **Placeholder (not in the design: whether and how a schedule shows)**.
 //!
 //! Colours follow `> Color language`: green for Move, red for Attack and AttackGround, orange for AttackMove and
 //! Patrol; the gathering
@@ -36,6 +38,7 @@ mod draw;
 pub mod gathering;
 pub mod leash;
 pub mod rally;
+pub mod schedule;
 mod targets;
 
 use std::collections::BTreeSet;
@@ -52,6 +55,7 @@ use crate::selection::ControlStates;
 pub use draw::marker_ring;
 pub use gathering::{GATHER_COLOR, GatheringMarker, RETURN_COLOR, SET_DROP_OFF_COLOR, drop_off_indicators};
 pub use rally::{RallyIndicator, rally_indicators};
+pub use schedule::schedule_indicators;
 
 use draw::{OBJECT_GAP, collect_flashes, draw_indicators, ring, spawn_indicator_mesh};
 
@@ -160,9 +164,12 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         // (M6-GH1) No row for a Rebase either, an aircraft's flight to the Airfield it is assigned to: the same
         // placeholder.
         OrderKind::Rebase(_) => Some(MOVE_COLOR),
-        // Design change 0201: the gathering markers' own colours.
-        OrderKind::Gather(_) => Some(GATHER_COLOR),
-        OrderKind::DropOff(_) => Some(RETURN_COLOR),
+        // Design change 0201: the gathering markers' own colours. No row for a Supply Chopper's Pick Up
+        // Supplies and Drop Off Supplies: placeholders, a Gather's and a Drop Off's, an Agent's on a station and at its
+        // Tunnel; nor for its Attach to Tower: an Enter's.
+        OrderKind::Gather(_) | OrderKind::PickUpSupplies(_) => Some(GATHER_COLOR),
+        OrderKind::DropOff(_) | OrderKind::DropOffSupplies(_) => Some(RETURN_COLOR),
+        OrderKind::AttachToTower(_) => Some(MOVE_COLOR),
         // `> Indicator assignments`: "AttackGround | Location | Red" (slice M4-O). (M5-K) No row for a Target Lock:
         // placeholder, the Attack's.
         OrderKind::Attack(_) | OrderKind::AttackGround(_) | OrderKind::TargetLock(_) => Some(ATTACK_COLOR),
@@ -178,8 +185,9 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
 /// The indicator of an order (`> Indicator assignments`): a Location for Move, AttackMove, Patrol and AttackGround (a
 /// Move to an object at the object as the player knows it, [`targets`]), an Object for Attack, around the object as the player
 /// knows it, and the Gather marker and the Return Resources marker for Gather and Drop Off, around theirs (design
-/// change 0201: "replacing the Move marker"); none for orders without a target, or whose target the player knows
-/// nothing of.
+/// change 0201: "replacing the Move marker"), and a Supply Chopper's Pick Up Supplies and Drop Off Supplies
+/// alike, its Attach to Tower an Object marker (placeholders: [`order_color`]); none for orders without a target, or
+/// whose target the player knows nothing of.
 pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator> {
     let color = order_color(kind)?;
     let known = |id| sight.target_view(sim, id).is_known();
@@ -196,12 +204,14 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
         OrderKind::Attack(id) | OrderKind::Enter(id) | OrderKind::Assist(id) | OrderKind::Repair(id) => {
             known(id).then_some(Indicator::Object { id, color })
         }
-        OrderKind::TargetLock(id) | OrderKind::Rebase(id) => known(id).then_some(Indicator::Object { id, color }),
-        OrderKind::Gather(id) => known(id).then_some(Indicator::Gathering {
+        OrderKind::TargetLock(id) | OrderKind::Rebase(id) | OrderKind::AttachToTower(id) => {
+            known(id).then_some(Indicator::Object { id, color })
+        }
+        OrderKind::Gather(id) | OrderKind::PickUpSupplies(id) => known(id).then_some(Indicator::Gathering {
             id,
             marker: GatheringMarker::Gather,
         }),
-        OrderKind::DropOff(id) => known(id).then_some(Indicator::Gathering {
+        OrderKind::DropOff(id) | OrderKind::DropOffSupplies(id) => known(id).then_some(Indicator::Gathering {
             id,
             marker: GatheringMarker::ReturnResources,
         }),

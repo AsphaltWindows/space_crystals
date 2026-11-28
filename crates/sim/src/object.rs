@@ -27,6 +27,7 @@ use crate::progress::Progress;
 use crate::riot_shield::RiotShield;
 use crate::scenario::BuildingOrientation;
 use crate::stock::Stock;
+use crate::supply_run::ChopperState;
 use crate::tether::Tether;
 use crate::transform::Transform;
 use crate::tunnel::TunnelState;
@@ -228,6 +229,18 @@ pub struct Object {
     /// off: `sim/load.rs`) and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tanks: Option<Tanks>,
+    /// A Supply Chopper's cargo, attachment and landing (`crate::supply_run`), for a unit whose type has a
+    /// `UnitDef::supply_chopper`. `None` for every other object. Optional in files and left out of them while `None`,
+    /// and hashed only while set, so that states saved before it existed load (a chopper's empty, unattached and in the
+    /// air: `sim/load.rs`) and those without one hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chopper: Option<ChopperState>,
+    /// A Supply Tower's Scheduled Supply Delivery Station (`factions/gdo/economy.md > SupplyTower >
+    /// SupplyTowerInstanceState`: "ScheduledSDS"; `Sim::step_schedules`), set by a `Command::Schedule`. `None` for
+    /// every other object, and for a tower with no schedule. Optional in files and left out of them while `None`, and
+    /// hashed only while set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schedule: Option<ObjectId>,
 }
 
 impl Object {

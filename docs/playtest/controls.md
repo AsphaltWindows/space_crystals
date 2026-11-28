@@ -304,9 +304,10 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Keys | Button | Command | Notes |
 |---|---|---|---|
 | Q | Move | Move | click a target; Shift queues |
-| W | Rev. | Reverse | click a target; Shift queues; greyed: "Not available for this unit" |
 | E | Hold | Hold Position | Shift queues |
-| S | Patrol | Patrol | click a target; Shift queues |
+| R | PickUp | Pick Up Supplies | click a target; Shift queues |
+| S | Drop | Drop Off Supplies | click a target; Shift queues; greyed: "Not carrying resources" |
+| D | Attach | Attach to Tower | click a target; Shift queues |
 | X | Stop | Stop | Shift queues |
 
 ### Buildings
@@ -319,7 +320,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q → Q | GN | Build Generator |  |
 | Q → W | BR | Build Barracks |  |
 | Q → E | EF | Build Extraction Facility |  |
-| Q → R | SPT | Build Supply Tower | greyed: "Not available yet" |
+| Q → R | SPT | Build Supply Tower | Requires a Radar Station |
 | Q → A | RS | Build Radar Station | Requires a Generator |
 | Q → S | AL | Build Arsenal | Requires a Barracks |
 | Q → D | CC | Build Career Campus | Requires a Barracks |
@@ -398,7 +399,18 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 
 **Once the building is ready:** Q Place the building, X Cancel Ready Turret.
 
-No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL), Advanced Mechanics (AM), Propulsion Labs (PL), Industrial Powerplant (IP), Missile Turret (MTT), Outpost (OT), Bunker (BKR), First Aid Tent (FAT), Supply Tower (SPT), Mine (ME).
+#### Supply Tower (SPT)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | SCR | Train Supply Chopper |  |
+| S | Sched. | Schedule Deliveries | click a target; greyed: "No chopper attached" |
+| X | Cancel | Cancel Production |  |
+| C | Rally | Set Rally Point | click a target |
+
+**Right-click** sets its rally point, on the ground or on an object; on the building itself, it clears it.
+
+No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL), Advanced Mechanics (AM), Propulsion Labs (PL), Industrial Powerplant (IP), Missile Turret (MTT), Outpost (OT), Bunker (BKR), First Aid Tent (FAT), Mine (ME).
 
 ## Syndicate
 

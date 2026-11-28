@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::defs::{AreaAbility, Armor, AttackAttrs, ObjectKind, Resource, UnitBase};
+use crate::defs::{AreaAbility, Armor, AttackAttrs, ObjectKind, Resource, SupplyTowerDef, UnitBase};
 use crate::sides::SideLetter;
 use crate::units::Tick;
 
@@ -131,6 +131,9 @@ pub struct StructureDef {
     /// (M6-SB) Its service of its owner's Tunnel Network, for a Vault (plan decision T98, `network::services`): the
     /// units it re-arms or recharges at a time. `None` for every other structure.
     pub vault: Option<VaultDef>,
+    /// Its part in the supply loop, for a Supply Tower (`crate::supply_run`): the chopper it comes with and
+    /// the spot choppers land on. `None` for every other structure.
+    pub supply_tower: Option<SupplyTowerDef>,
 }
 
 /// (M6-SB) A Vault's service of the Tunnel Network (`StructureDef::vault`, plan decision T98, `network::services`):

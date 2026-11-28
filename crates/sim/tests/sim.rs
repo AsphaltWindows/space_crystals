@@ -192,6 +192,8 @@ mod sludge;
 mod starting_exploration;
 mod structures;
 mod structures_vision;
+#[path = "supply_tower/main.rs"]
+mod supply_tower;
 mod symmetry;
 mod syndicate;
 mod syndicate_kinds;

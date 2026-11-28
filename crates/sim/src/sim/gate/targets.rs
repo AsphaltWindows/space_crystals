@@ -24,6 +24,7 @@ use crate::orders::{OrderKind, Target};
 use crate::production::Rally;
 use crate::repair;
 use crate::sim::{Reject, Sim};
+use crate::supply_run;
 use crate::targets::{self, Live, TargetView};
 use crate::{aircraft, carry};
 
@@ -80,6 +81,9 @@ impl Sim {
                     // (M6-CM) Such a building that refuses illusions (`crate::mirage`: the Altar).
                     refuses_illusions: !accepts.is_empty() && crate::mirage::refuses_illusions(o.kind),
                     carrier,
+                    // An own Supply Tower in operation, with the chopper attached to it (`crate::supply_run`).
+                    supply_tower: (o.owner == Some(player) && supply_run::is_tower(o))
+                        .then(|| supply_run::attached_chopper(self.objects.values(), id)),
                 })
             }
             TargetView::Remembered { .. } => {
@@ -101,6 +105,7 @@ impl Sim {
                     airfield: false,
                     refuses_illusions: false,
                     carrier: None,
+                    supply_tower: None,
                 })
             }
             TargetView::Gone => None,

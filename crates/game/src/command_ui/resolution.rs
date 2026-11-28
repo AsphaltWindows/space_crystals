@@ -56,8 +56,10 @@ use super::interface::{InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
 
 mod pointer;
+mod supply_run;
 
 pub use pointer::{PointerDisplay, pointer_display, right_click_display};
+pub use supply_run::{station_target, tower_free, tower_target};
 
 /// `systems/controls/interface.md > CursorTarget`: what is under the cursor when it clicks.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -215,6 +217,7 @@ impl UnitCapabilities {
                     transit: Transit::of(unit.base),
                     aircraft: modes.aircraft(id),
                     illusion: modes.illusion(id),
+                    chopper: modes.chopper(id),
                 }),
         }
     }
@@ -255,6 +258,8 @@ pub enum Resolved {
     Ability(Ability),
     /// (M5-N5) A Shrine's cast of the ability at the point (`Command::Cast`). No right-click gives one.
     Cast(AreaAbility, Vec2),
+    /// A Supply Tower's Schedule Deliveries from the station (`Command::Schedule`). No right-click gives one.
+    Schedule(ObjectId),
 }
 
 /// `systems/controls/interface.md > RightClickResolution` for one selected object: a unit's order
@@ -292,8 +297,10 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
         // (`factions/syndicate/units/agent.md > Right-Click Resolution`, slice M4-J1) and the Recruit's
         // (`factions/cults/units/recruit.md > Right-Click Resolution`, slice M5-J1), and the Field Engineer's
         // (`factions/gdo/units/field_engineer.md > Placeholder stats`: "Right-click a damaged own building or vehicle:
-        // Repair", slice M5-N9), and (M6-GD) the operator's drone's, and (M6-ST1) the Subterranean Transport's. Without
-        // a template, an object that transforms, which resolves nothing (`unit_right_click`: it has no abilities then).
+        // Repair", slice M5-N9), (M6-GD) the operator's drone's, (M6-ST1) the Subterranean Transport's, and the Supply
+        // Chopper's (`factions/gdo/units/supply_chopper.md > ObjectInterfaceState[SupplyChopper] > Right-click
+        // resolution`). Without a template, an object that transforms, which resolves nothing (`unit_right_click`: it
+        // has no abilities then).
         Some(
             InterfaceTemplate::BasicCombatUnit
             | InterfaceTemplate::Drone
@@ -301,7 +308,8 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
             | InterfaceTemplate::Recruit
             | InterfaceTemplate::FieldEngineer
             | InterfaceTemplate::OperatorDrone
-            | InterfaceTemplate::Transport,
+            | InterfaceTemplate::Transport
+            | InterfaceTemplate::SupplyChopper,
         )
         | None => unit_right_click(object, target).map(Resolved::Order),
     }
@@ -434,7 +442,9 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 /// (`factions/gdo/units/rocketman.md > Placeholder stats`: "targeted: left-click an enemy unit or structure") that the
 /// player sees now ([`MapTarget::visible`]): **reading**, a lock "succeeds only if the target stays within LockRange
 /// and visible for the whole duration", and one on a structure the player only remembers would break at once
-/// (`sc_sim::combat::target_lock`), so the click on it is an invalid target.
+/// (`sc_sim::combat::target_lock`), so the click on it is an invalid target. A Supply Chopper's Pick Up
+/// Supplies takes a Supply Delivery Station ([`station_target`]), its Drop Off Supplies and Attach to Tower an own
+/// Supply Tower ([`tower_target`]).
 pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {
@@ -455,6 +465,9 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
         (PanelCommand::TargetLock, EnemyObject(id)) => {
             (target.destructible() && target.visible).then_some(OrderKind::TargetLock(id))
         }
+        (PanelCommand::PickUpSupplies, _) => station_target(target).map(OrderKind::PickUpSupplies),
+        (PanelCommand::DropOffSupplies, _) => tower_target(target).map(OrderKind::DropOffSupplies),
+        (PanelCommand::AttachToTower, _) => tower_target(target).map(OrderKind::AttachToTower),
         _ => None,
     }
 }
@@ -470,7 +483,9 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
 /// unit casts on the ground under it: **Placeholder (not in the design: "a point" read as the ground under the
 /// cursor, whatever stands there)**. (M6-GR) A Radar Station's Scan takes any point on the map, seen or not
 /// (`factions/gdo/structures/radar_station.md > Placeholder stats`: "left-click any point on the map"; the gate's
-/// `sc_sim::AbilityArea::AnyPoint`): a point off it is an invalid target.
+/// `sc_sim::AbilityArea::AnyPoint`): a point off it is an invalid target. A Supply Tower's Schedule Deliveries
+/// takes a Supply Delivery Station ([`station_target`]): "Left-click SupplyDeliveryStation: sets ScheduledSDS to the
+/// clicked station".
 pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Resolved> {
     match pending {
         PanelCommand::SetRallyPoint => Some(Resolved::Rally(rally_target(target))),
@@ -482,6 +497,7 @@ pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Re
             };
             valid.then_some(Resolved::Cast(ability, target.ground))
         }
+        PanelCommand::ScheduleDeliveries => station_target(target).map(Resolved::Schedule),
         _ => target_order(pending, target).map(Resolved::Order),
     }
 }

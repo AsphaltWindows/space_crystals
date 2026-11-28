@@ -551,6 +551,7 @@ fn floats_finite(o: &Object) -> bool {
                     OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => true,
                     OrderKind::Rebase(_) | OrderKind::ReturnToBase | OrderKind::VehicleDeploy { .. } => true,
                     OrderKind::UnloadAll => true,
+                    OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => true,
                 }
         })
     });

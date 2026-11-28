@@ -17,6 +17,7 @@ mod recruit;
 mod rocketman;
 mod shadebringer;
 mod shrine;
+mod supply_tower;
 mod syndicate;
 mod temple;
 mod transport;

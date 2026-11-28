@@ -280,6 +280,50 @@ impl Drag {
     }
 }
 
+/// The ticks after which a flight's estimate ([`flight_ticks`]) gives up: a cap on the computation, far past any map's
+/// flight (a HoverCraft crosses the largest map in a few hundred ticks).
+const FLIGHT_CAP_TICKS: u32 = 1 << 16;
+
+/// An estimate of the ticks a unit of DragMovement `movement` takes from rest at `from`, facing `facing`
+/// (radians), to rest on `to`, in the open, braking by its drag alone if `drag_only` ([`Terms::drag_only`]): the
+/// model's own steps along the straight line, each the speed the unit approaches its goal at ([`Drag::approach`]) as
+/// its thrust and turn reach it ([`Drag::along`], which turns the unit towards its goal first), its drag doubled where
+/// `rugged` says the tile under its centre is Rugged, as the movement's (`super::step`). It leaves out what steers a
+/// unit off the line (its path, the air units' separation). A Supply Tower's schedule times its chopper's departure by
+/// it (`Sim::step_schedules`). `None` for every other movement model.
+pub(crate) fn flight_ticks(
+    movement: &MovementAttrs,
+    drag_only: bool,
+    (from, to): (Vec2, Vec2),
+    facing: f32,
+    rugged: impl Fn(Vec2) -> bool,
+) -> Option<u32> {
+    let MovementAttrs::Drag { turn_rate, .. } = *movement else {
+        return None;
+    };
+    let dist = from.distance(to);
+    if dist <= 0.0 {
+        return Some(0);
+    }
+    let dir = (to - from) / dist;
+    let (mut facing, mut momentum, mut flown, mut ticks) = (facing, Vec2::ZERO, 0.0_f32, 0);
+    while flown < dist && ticks < FLIGHT_CAP_TICKS {
+        let terms = Terms {
+            rugged: rugged(from + dir * flown),
+            drag_only,
+        };
+        let model = Drag::with(movement, 1.0, terms)?;
+        let left = dist - flown;
+        let (speed, _) = model.along(dir, model.approach(left).min(left), &mut facing, turn_rate, momentum);
+        // The last step lands on the goal (the approach's rule), whatever the rounding leaves of it.
+        let speed = if speed >= left - 1e-3 { left } else { speed };
+        flown += speed;
+        momentum = dir * speed;
+        ticks += 1;
+    }
+    Some(ticks)
+}
+
 /// The highest speed, at most `top`, at which a unit may make this tick's step towards a goal `dist` space units
 /// along its path and still stop on it: after a step of `s`, braking every tick (`v ← v × keep − brake`, moving
 /// by the new `v`) must bring it to rest within `dist − s`. Space units per tick.

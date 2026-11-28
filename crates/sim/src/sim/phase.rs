@@ -116,6 +116,9 @@ impl Sim {
         // the Modes step, as T44 has it; before 5a, so that a unit that has deployed acts as its new type from here on,
         // its held order first.
         self.step_vehicle_deploys(first_new);
+        // The scheduled choppers that leave now get their orders (`sim/supply_run.rs`): before 5a, so that
+        // they lift off in it, as for a command's order.
+        self.step_schedules(first_new);
         // Phases 5a–5f, `docs/movement.md > 4`.
         // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
         // The behaviours read the positions and the vision the last tick left (5f).
@@ -148,6 +151,9 @@ impl Sim {
         // frame (`sim/landing.rs`, `crate::landing`): after 5a, which starts the flights and lifts the aircraft off;
         // before 5b to 5f, so that the tick's movement flies each to its slot and its combat sees each as it is left.
         self.step_landings(first_new);
+        // The choppers attach, land a frame, and fly on to their spots and land there (`sim/supply_run.rs`),
+        // as the aircraft at their Airfields just above, for the same reasons.
+        self.step_supply_runs(first_new);
         // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.
         self.step_too_close(first_new);
         // (M6-GD) The Launches 5a started launch their drones (`sim/drones.rs`, `crate::tether`): before 5b, so that a
