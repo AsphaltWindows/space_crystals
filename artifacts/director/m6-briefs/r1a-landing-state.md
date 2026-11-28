@@ -1,6 +1,6 @@
 # Task R1a: One landing state and one landing part in the def (the data half of the landing refactor, before GS2)
 
-Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, a refactor, and your budget is 120 tool calls.** Phase R1b, after you, makes the step one; you make the data one.
+Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, a refactor, and your budget is 120 tool calls, a hard limit.** Phase R1b, after you, makes the step one; you make the data one.
 
 ## Why
 The design defines landing once, in `systems/mechanics/aircraft_landing.md`. The code builds it twice, each time around its first user:
@@ -25,7 +25,7 @@ The rest of M6 lands through the same rules: the Chopper on open ground (GS2), t
   - `> Landing archetypes`: its `Vertical` and `Field landing` sections. `Runway` is phase R3's.
   - `> Rearming archetypes > Assigned base`, as built.
 - `factions/gdo/units/supply_chopper.md`: its landing lines (`grep -n -i 'land' ...`).
-- `factions/gdo/structures/airfield.md > Landing slots`.
+- `factions/gdo/structures/airfield.md > Aircraft Support` (its landing slots).
 
 ## The architecture
 The core, then the landing and Airfield paragraphs of `docs/architecture/production.md`, and those of `docs/architecture/movement-and-collision.md`. Find them with `grep -n -i 'landing\|airfield\|approach' <file>`.

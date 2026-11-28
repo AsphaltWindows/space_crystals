@@ -25,7 +25,7 @@ The rest of M6 lands through the same rules: the Chopper on open ground (GS2), t
   - `> Landing archetypes`: its `Vertical` and `Field landing` sections. `Runway` is phase R3's.
   - `> Rearming archetypes > Assigned base`, as built.
 - `factions/gdo/units/supply_chopper.md`: its landing lines (`grep -n -i 'land' ...`).
-- `factions/gdo/structures/airfield.md > Landing slots`.
+- `factions/gdo/structures/airfield.md > Aircraft Support` (its landing slots).
 
 ## The architecture
 The core, then the landing and Airfield paragraphs of `docs/architecture/production.md`, and those of `docs/architecture/movement-and-collision.md`. Find them with `grep -n -i 'landing\|airfield\|approach' <file>`.
