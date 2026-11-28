@@ -483,6 +483,7 @@ impl Sim {
             // A chopper's empty, unattached and in the air (`crate::supply_run`).
             chopper: crate::supply_run::fresh(kind),
             schedule: None,
+            landing: None,
         };
         if let Some(rally) = crate::production::default_rally(&self.map, &object)
             && let Some(production) = &mut object.production

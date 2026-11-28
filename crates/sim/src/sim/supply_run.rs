@@ -14,7 +14,7 @@ use crate::economy::RATIO_ONE;
 use crate::economy::stations::is_station;
 use crate::economy::supply_run::claimed_at;
 use crate::ids::{ObjectId, PlayerId};
-use crate::landing::{self, Landing};
+use crate::landing::{self, Landing, Spot};
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::object::Object;
 use crate::orders::OrderKind;
@@ -49,16 +49,18 @@ impl Sim {
         let (Some(def), Some(owner), Some(at)) = (supply_run::tower_def(o.kind), o.owner, spot(o)) else {
             return;
         };
-        let Some(chopper) = chopper_def(def.chopper) else {
+        let (Some(_), Some(lands)) = (chopper_def(def.chopper), landing::def_of(def.chopper)) else {
             return;
         };
         if o.placement.is_none() || self.next_id == u32::MAX {
             return;
         }
         let id = self.insert_object(def.chopper, Some(owner), at, None, None);
-        if let Some(state) = self.objects.get_mut(&id).and_then(|o| o.chopper.as_mut()) {
+        if let Some(o) = self.objects.get_mut(&id)
+            && let Some(state) = o.chopper.as_mut()
+        {
             state.attached = Some(tower);
-            state.landing = Some(landing::down_on(tower, chopper.landing_ticks));
+            o.landing = Some(landing::down_on(tower, lands.landing_ticks));
         }
         self.cover_kind(def.chopper);
     }
@@ -168,13 +170,19 @@ impl Sim {
     pub(super) fn lead_ticks(&self, chopper: ObjectId, station: ObjectId) -> Option<u32> {
         let o = self.objects.get(&chopper)?;
         let unit = o.def().unit.as_ref()?;
-        let ticks = chopper_def(o.kind)?.landing_ticks;
+        chopper_def(o.kind)?;
+        let lands = landing::def_of(o.kind)?;
         let to = spot(self.objects.get(&station)?)?;
         let rugged = |p: Vec2| (self.map.tile_preset(TilePos::containing(p))).is_some_and(|preset| preset.rugged);
         let drag_only = unit.base_def().brakes_by_drag;
         let movement = o.movement(Research::new(&self.players))?;
         let flight = crate::movement::flight_ticks(&movement, drag_only, (o.pos, to), o.facing, rugged)?;
-        Some((2 * ticks).saturating_sub(1) + flight + SCHEDULE_MARGIN_TICKS + flight / 16)
+        Some(
+            (lands.takeoff_ticks + lands.landing_ticks).saturating_sub(1)
+                + flight
+                + SCHEDULE_MARGIN_TICKS
+                + flight / 16,
+        )
     }
 
     /// The supply loop's step, right after the aircraft's landings (`Sim::step_landings`), for the choppers before
@@ -208,8 +216,8 @@ impl Sim {
         }
         for &id in &choppers {
             let landing = (self.objects.get_mut(&id))
-                .and_then(|o| o.chopper.as_mut())
-                .and_then(|state| state.landing.as_mut());
+                .filter(|o| o.chopper.is_some())
+                .and_then(|o| o.landing.as_mut());
             if let Some(landing) = landing
                 && !landing.descent.done()
             {
@@ -261,9 +269,9 @@ impl Sim {
             .collect();
         for other in evicted {
             if let Some(o) = self.objects.get_mut(&other)
-                && let (Some(state), Some(mover)) = (o.chopper.as_mut(), o.mover.as_mut())
+                && let (true, Some(mover)) = (o.chopper.is_some(), o.mover.as_mut())
             {
-                supply_run::lift(state, &mut mover.rise);
+                landing::lift_off(o.kind, &mut o.landing, &mut mover.rise);
             }
         }
     }
@@ -321,11 +329,11 @@ impl Sim {
             let Some(o) = self.objects.get_mut(&id) else {
                 continue;
             };
-            let Some(ticks) = chopper_def(o.kind).map(|def| def.landing_ticks) else {
+            let Some(ticks) = landing::def_of(o.kind).map(|def| def.landing_ticks) else {
                 continue;
             };
             let close = o.pos.distance_squared(to) <= reach * reach;
-            let (Some(mover), Some(state)) = (o.mover.as_mut(), o.chopper.as_mut()) else {
+            let (Some(mover), true) = (o.mover.as_mut(), o.chopper.is_some()) else {
                 continue;
             };
             // Its move over: an arrival holds it still from its next tick on (`movement::drag`'s braking approach).
@@ -333,8 +341,8 @@ impl Sim {
             let waits = due.is_some_and(|due| due > ticks);
             if holder == Some(id) && at_rest && close && !waits {
                 mover.stop();
-                state.landing = Some(Landing {
-                    at,
+                o.landing = Some(Landing {
+                    at: Spot::Structure(at),
                     descent: Progress::new(ticks),
                     rearm: None,
                 });

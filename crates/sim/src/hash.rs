@@ -347,6 +347,7 @@ impl StateHash for Object {
             thrust,
             chopper,
             schedule,
+            landing,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -445,6 +446,12 @@ impl StateHash for Object {
         if let Some(aircraft) = aircraft {
             h.tag(14);
             aircraft.hash(h);
+            // (M6-GH2) Its landing (`Object::landing`, `crate::landing`), after its state, under a sub-tag of its own:
+            // only while it is set.
+            if let Some(landing) = landing {
+                h.tag(1);
+                landing.hash(h);
+            }
         }
         // (M6-CM) The same for an illusion's parent (`crate::mirage`), under a tag of its own: only an illusion has one.
         if let Some(parent) = illusion_of {
@@ -463,8 +470,16 @@ impl StateHash for Object {
             h.tag(17);
             thrust.hash(h);
         }
-        // A chopper's and a Supply Tower's supply loop, under tags 27 and 28: only while set.
-        crate::supply_run::hash_object(chopper, schedule, h);
+        // A chopper's and a Supply Tower's supply loop, under tags 27 and 28: only while set. A chopper's landing hashes
+        // with its state, but for an aircraft's, which hashes with the aircraft's.
+        let chopper_landing = landing.filter(|_| aircraft.is_none());
+        crate::supply_run::hash_object(chopper, chopper_landing, schedule, h);
+        // The landing of a unit with neither an aircraft's nor a chopper's state, under a tag of its own: only while
+        // it is set.
+        if let (None, None, Some(landing)) = (aircraft, chopper, landing) {
+            h.tag(36);
+            landing.hash(h);
+        }
     }
 }
 

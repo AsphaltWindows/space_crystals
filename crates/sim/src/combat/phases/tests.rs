@@ -69,6 +69,7 @@ fn object(id: ObjectId, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) ->
         tanks: None,
         thrust: None,
         chopper: None,
+        landing: None,
         schedule: None,
     }
 }

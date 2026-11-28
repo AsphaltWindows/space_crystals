@@ -36,6 +36,11 @@ fn state(objects: &mut BTreeMap<ObjectId, Object>, n: u32) -> &mut aircraft::Air
         .expect("an aircraft")
 }
 
+/// Object `n`'s landing (`Object::landing`).
+fn landing_of(objects: &mut BTreeMap<ObjectId, Object>, n: u32) -> &mut Option<Landing> {
+    &mut objects.get_mut(&ObjectId(n)).expect("an object").landing
+}
+
 /// The Airfield's slots, the centres of its footprint's quarters, 48 su off its centre along both axes, in the order
 /// they are claimed: north-west, north-east, south-west, south-east. A capacity of 3 has the first three; an object
 /// that is no Airfield has none.
@@ -133,7 +138,7 @@ fn the_aircraft_on_an_airfield_keep_their_slots_and_those_flying_home_take_the_f
 fn users_are_the_aircraft_on_a_slot_rising_or_flying_home() {
     let mut objects = objects();
     assert_eq!(users(objects.values()), []);
-    state(&mut objects, 2).landing = Some(down_on(AIRFIELD, 16));
+    *landing_of(&mut objects, 2) = Some(down_on(AIRFIELD, 16));
     state(&mut objects, 3).base = Some(AIRFIELD);
     let give = |o: &mut Object, kind: OrderKind| {
         let orders = o.orders.as_mut().expect("orders");
@@ -187,19 +192,19 @@ fn down_once_every_frame_of_the_landing_is_done() {
         (lift(&objects[&ObjectId(2)]), down(&objects[&ObjectId(2)])),
         (None, false)
     );
-    state(&mut objects, 2).landing = Some(Landing {
-        at: AIRFIELD,
+    *landing_of(&mut objects, 2) = Some(Landing {
+        at: Spot::Structure(AIRFIELD),
         descent: Progress::new(16),
         rearm: None,
     });
     let hornet = |objects: &BTreeMap<ObjectId, Object>| (lift(&objects[&ObjectId(2)]), down(&objects[&ObjectId(2)]));
     assert_eq!(hornet(&objects), (Some(1.0), false));
     for _ in 0..4 {
-        let landing = state(&mut objects, 2).landing.as_mut().unwrap();
+        let landing = landing_of(&mut objects, 2).as_mut().unwrap();
         landing.descent.step(RATIO_ONE);
     }
     assert_eq!(hornet(&objects), (Some(0.75), false));
-    state(&mut objects, 2).landing = Some(down_on(AIRFIELD, 16));
+    *landing_of(&mut objects, 2) = Some(down_on(AIRFIELD, 16));
     assert_eq!(hornet(&objects), (Some(0.0), true));
     assert_eq!(at(&objects[&ObjectId(2)]), Some(AIRFIELD));
 }
@@ -208,13 +213,13 @@ fn down_once_every_frame_of_the_landing_is_done() {
 /// down from part of a landing, and none from a landing not yet begun, still in the air.
 #[test]
 fn a_take_off_rises_from_as_low_as_it_came() {
-    assert_eq!(rise_from(down_on(AIRFIELD, 16).descent), Some(Progress::new(16)));
+    assert_eq!(rise_from(down_on(AIRFIELD, 16).descent, 16), Some(Progress::new(16)));
     let mut descent = Progress::new(16);
-    assert_eq!(rise_from(descent), None, "not a frame down");
+    assert_eq!(rise_from(descent, 16), None, "not a frame down");
     for _ in 0..4 {
         descent.step(RATIO_ONE);
     }
-    let rise = rise_from(descent).expect("4 frames down");
+    let rise = rise_from(descent, 16).expect("4 frames down");
     assert_eq!((rise.ticks_done(), rise.total), (12, 16), "4 frames to rise");
 }
 
@@ -223,16 +228,11 @@ fn a_take_off_rises_from_as_low_as_it_came() {
 /// or a Rebase onto that Airfield, don't. An aircraft in the air takes off from nowhere.
 #[test]
 fn any_order_but_its_flight_home_lifts_it_off() {
-    let landed = aircraft::AircraftState {
-        ammo: 2,
-        base: Some(AIRFIELD),
-        landing: Some(down_on(AIRFIELD, 16)),
-    };
+    let (hornet, base) = (ObjectKind::Hornet, Some(AIRFIELD));
     let lifts = |kind: OrderKind| {
-        let (mut state, mut rise) = (landed, None);
-        let took_off = take_off(kind, &mut state, &mut rise);
-        assert_eq!(took_off, state.landing.is_none(), "{kind:?}");
-        assert_eq!(state.ammo, 2, "with the ammo it has: {kind:?}");
+        let (mut landing, mut rise) = (Some(down_on(AIRFIELD, 16)), None);
+        let took_off = take_off(kind, hornet, base, &mut landing, &mut rise);
+        assert_eq!(took_off, landing.is_none(), "{kind:?}");
         (took_off, rise)
     };
     let full_rise = Some(Progress::new(16));
@@ -242,14 +242,29 @@ fn any_order_but_its_flight_home_lifts_it_off() {
     assert_eq!(lifts(OrderKind::Rebase(ObjectId(9))), (true, full_rise));
     assert_eq!(lifts(OrderKind::ReturnToBase), (false, None));
     assert_eq!(lifts(OrderKind::Rebase(AIRFIELD)), (false, None));
-    let (mut flying, mut rise) = (
-        aircraft::AircraftState {
-            landing: None,
-            ..landed
-        },
-        None,
-    );
-    assert!(!take_off(OrderKind::Stop, &mut flying, &mut rise) && rise.is_none());
+    let (mut flying, mut rise) = (None, None);
+    assert!(!take_off(OrderKind::Stop, hornet, base, &mut flying, &mut rise) && rise.is_none());
+}
+
+/// One take-off for every aircraft (`take_off`): a Supply Chopper on a spot takes off for any order but one for that
+/// spot's object, its landing cleared and its rise begun in its own take-off time (`LandingDef::takeoff_ticks`); an
+/// order that lands it on another object lifts it off too.
+#[test]
+fn a_chopper_takes_off_by_the_same_rule() {
+    let (chopper, tower) = (ObjectKind::SupplyChopper, ObjectId(7));
+    let takeoff = def_of(chopper).expect("its own times").takeoff_ticks;
+    let lifts = |kind: OrderKind| {
+        let (mut landing, mut rise) = (Some(down_on(tower, 16)), None);
+        let took_off = take_off(kind, chopper, None, &mut landing, &mut rise);
+        assert_eq!(took_off, landing.is_none(), "{kind:?}");
+        (took_off, rise)
+    };
+    let full_rise = Some(Progress::new(takeoff));
+    assert_eq!(lifts(OrderKind::Move(Target::Point(Vec2::ZERO))), (true, full_rise));
+    assert_eq!(lifts(OrderKind::PickUpSupplies(ObjectId(9))), (true, full_rise));
+    assert_eq!(lifts(OrderKind::ReturnToBase), (true, full_rise), "it has no base");
+    assert_eq!(lifts(OrderKind::DropOffSupplies(tower)), (false, None));
+    assert_eq!(lifts(OrderKind::AttachToTower(tower)), (false, None));
 }
 
 /// "Rearming an aircraft takes RearmTimePerAmmo × missing ammo" (`systems/mechanics/aircraft_landing.md > Assigned
@@ -270,7 +285,7 @@ fn a_round_every_rearm_time_at_its_airfields_speed() {
             rearm(objects, power);
             frames += 1;
             assert!(frames <= 400, "rearmed");
-            let landing = state(objects, 2).landing.expect("landed");
+            let landing = landing_of(objects, 2).expect("landed");
             assert_eq!(
                 landing.rearm.is_some(),
                 state(objects, 2).ammo < 5,
@@ -285,18 +300,18 @@ fn a_round_every_rearm_time_at_its_airfields_speed() {
 
     let state2 = state(&mut objects, 2);
     state2.ammo = 2;
-    state2.landing = Some(Landing {
-        at: AIRFIELD,
+    *landing_of(&mut objects, 2) = Some(Landing {
+        at: Spot::Structure(AIRFIELD),
         descent: Progress::new(16),
         rearm: None,
     });
     rearm(&mut objects, &full);
     assert_eq!(
-        state(&mut objects, 2).landing.and_then(|landing| landing.rearm),
+        landing_of(&mut objects, 2).and_then(|landing| landing.rearm),
         None,
         "not down yet"
     );
-    state(&mut objects, 2).landing = Some(down_on(AIRFIELD, 16));
+    *landing_of(&mut objects, 2) = Some(down_on(AIRFIELD, 16));
     assert_eq!(until_full(&mut objects, &full), 96, "3 missing, 96 frames");
     rearm(&mut objects, &full);
     assert_eq!(state(&mut objects, 2).ammo, 5, "full, it stays so");

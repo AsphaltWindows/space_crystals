@@ -193,6 +193,24 @@ pub struct UnitDef {
     /// Its thrusts (`crate::thrust`, `OrderKind::Thrust`; `factions/syndicate/units/prism.md > Movement`). `None` for
     /// every type but the Prism.
     pub thrust: Option<ThrustDef>,
+    /// Its own landing and take-off times, for an aircraft that lands on a spot in them (`crate::landing`): the Supply
+    /// Chopper's. `None` for every other type, the Airfield's aircraft among them, which land on its slots in the
+    /// Airfield's times (`AirfieldDef::landing_ticks`).
+    pub landing: Option<LandingDef>,
+}
+
+/// An aircraft's own landing and take-off times (`crate::landing`; `systems/mechanics/aircraft_landing.md > Vertical`:
+/// its parameters are the landing time and the take-off time, in frames). Where the design gives them as its base
+/// structure's parameters instead, they are the base's: an Airfield's slots' (`AirfieldDef::landing_ticks`,
+/// `factions/gdo/structures/airfield.md > Aircraft Support`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LandingDef {
+    /// The frames it takes to land on a spot: landing until all are done, then down (`landing::Landing::descent`).
+    /// Positive, and short enough for its progress to fit (`Ruleset::check`).
+    pub landing_ticks: u32,
+    /// The frames it takes to take off from a spot, rising (`Mover::rise`, `landing::rise_from`). Positive, and short
+    /// enough for its progress to fit (`Ruleset::check`).
+    pub takeoff_ticks: u32,
 }
 
 /// A unit's thrusts (`crate::thrust`; `factions/syndicate/units/prism.md > Placeholder stats`).

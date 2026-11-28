@@ -76,6 +76,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         tanks: None,
         thrust: None,
         chopper: None,
+        landing: None,
         schedule: None,
     };
     sim.objects.insert(id, unit);

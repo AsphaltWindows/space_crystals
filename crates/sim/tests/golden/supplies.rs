@@ -113,7 +113,9 @@ fn bank(sim: &Sim) -> (u32, u32) {
 fn home(sim: &Sim, n: ObjectId, tower: ObjectId) {
     let tick = sim.tick();
     let o = sim.object(n).unwrap_or_else(|| panic!("tick {tick}: {n:?} gone"));
-    let on = landing::of(o).map(|landing| (landing.at, landing.descent.done()));
+    let on = landing::of(o)
+        .zip(landing::at(o))
+        .map(|(landing, at)| (at, landing.descent.done()));
     assert_eq!(on, Some((tower, true)), "tick {tick}: {n:?} down on {tower:?}");
     assert_eq!(supply_run::attached_to(o), Some(tower), "tick {tick}: {n:?}");
 }
@@ -227,7 +229,9 @@ pub(crate) fn gdo_supplies() -> Game {
                     if load > seen.load.insert(chopper, load).unwrap_or(0) {
                         seen.loads.push((tick, chopper, load));
                     }
-                    let on = landing::of(o).map(|landing| (landing.at, landing.descent.done()));
+                    let on = landing::of(o)
+                        .zip(landing::at(o))
+                        .map(|(landing, at)| (at, landing.descent.done()));
                     let before = seen.on.insert(chopper, on);
                     match (before, on) {
                         (Some(None), Some((at, _))) => seen.landings.push((tick, chopper, at)),

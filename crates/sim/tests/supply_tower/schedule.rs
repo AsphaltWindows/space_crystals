@@ -43,7 +43,7 @@ fn a_scheduled_run_is_down_on_its_station_as_the_delivery_comes() {
             t.status(chopper) != sc_sim::MoveStatus::Moving && object(t, chopper).pos.distance(spot(t, S)) <= ON_SPOT
         });
         let began = step_until(&mut t, 600, "it lands on the station", |t| {
-            landing_of(t, chopper).is_some_and(|landing| landing.at == id(S))
+            landing_of(t, chopper).is_some_and(|landing| landing.at == sc_sim::landing::Spot::Structure(id(S)))
         });
         let delivered = step_until(&mut t, 600, "the delivery", |t| held(t, S) > 0);
         t.step();

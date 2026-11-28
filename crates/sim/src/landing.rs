@@ -16,7 +16,7 @@
 //!   the Airfield's centre while none is free), and once it has come to rest over it (T88: "a HoverCraft brakes to a
 //!   stop over its pad"; `tuning::air::Air::landing_reach_su`) it lands there, in its Airfield's
 //!   `AirfieldDef::landing_ticks` ("Landing and take-off: **16 frames (1 s)** each (placeholder)"), and is down. Its
-//!   [`Landing`] is its state (`AircraftState::landing`), from the first frame of its landing to its take-off. It holds
+//!   [`Landing`] is its state (`Object::landing`), from the first frame of its landing to its take-off. It holds
 //!   still meanwhile, its move over, and is out of the air units' separation, neither pushed nor pushing
 //!   (`movement::air`; `systems/mechanics/aircraft_landing.md > Landed aircraft (every archetype)`: "flying aircraft
 //!   don't push landed ones, nor the reverse"), so that it stays on its slot while others fly in beside it or over
@@ -62,7 +62,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::aircraft::{self, AircraftState};
-use crate::defs::AirfieldDef;
+use crate::defs::{AirfieldDef, LandingDef, ObjectKind};
 use crate::economy::{PowerSummary, RATIO_ONE};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
@@ -70,6 +70,7 @@ use crate::object::Object;
 use crate::orders::OrderKind;
 use crate::progress::Progress;
 use crate::shape::Shape;
+use crate::supply_run;
 
 /// The slots of the placeholder layout (module docs): an Airfield has as many as its capacity, at most these
 /// (`Ruleset::check`).
@@ -84,13 +85,34 @@ const QUARTERS: [Vec2; LANDING_SLOTS] = [
     Vec2::new(1.0, 1.0),
 ];
 
-/// An aircraft's landing at an Airfield (module docs), from the first frame of its landing to its take-off. Saved with
-/// its `AircraftState`, and hashed with it, only while it is set.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Where an aircraft lands ([`Landing::at`]; `systems/mechanics/aircraft_landing.md > Vertical`: it lands on a
+/// **spot**).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Spot {
+    /// A spot on a structure: one of an Airfield's slots (which one is derived each tick, never stored: [`claims`]),
+    /// a Supply Tower's spot or a Supply Delivery Station's centre (`supply_run::spot`).
+    Structure(ObjectId),
+}
+
+impl Spot {
+    /// The structure the spot is on, if it is on one: the structure the aircraft on it is destroyed with
+    /// (`Sim::landed_on`; `systems/mechanics/aircraft_landing.md > Landed aircraft (every archetype)`).
+    pub fn structure(self) -> Option<ObjectId> {
+        match self {
+            Spot::Structure(id) => Some(id),
+        }
+    }
+}
+
+/// An aircraft's landing on a spot (module docs; `Object::landing`), from the first frame of its landing to its
+/// take-off, which ends it ([`lift_off`]): landing until its descent is done, then down. Saved with its object, and
+/// hashed with its aircraft's or its chopper's state, only while it is set (`hash.rs`).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Landing {
-    /// The Airfield it lands on, or is down on.
-    pub at: ObjectId,
-    /// The frames of its landing done (`AirfieldDef::landing_ticks`): it is down once all are ([`down`]).
+    /// Where it lands, or is down: an Airfield's slot, a tower's or a station's spot.
+    pub at: Spot,
+    /// The frames of its landing done (`AirfieldDef::landing_ticks` on an Airfield's slot, its own
+    /// `LandingDef::landing_ticks` elsewhere): it is down once all are ([`down`]).
     pub descent: Progress,
     /// The round it rearms, while it is down and short of ammo: its frames done of its type's
     /// `AmmoDef::rearm_ticks_per_ammo`, at its Airfield's speed ([`rearm`]), from the frame it comes down. Left out of
@@ -103,12 +125,12 @@ pub struct Landing {
 /// a Supply Tower's or a Supply Delivery Station's spot or down on it (`crate::supply_run`): its landing and its
 /// domain follow the same rules (`factions/gdo/units/supply_chopper.md > Unit Transport`: "as at the Airfield").
 pub fn of(o: &Object) -> Option<Landing> {
-    (o.aircraft.and_then(|state| state.landing)).or_else(|| o.chopper.as_ref().and_then(|state| state.landing))
+    o.landing
 }
 
 /// The Airfield `o` lands on or is down on, if any, or the tower or the station a chopper lands on.
 pub fn at(o: &Object) -> Option<ObjectId> {
-    of(o).map(|landing| landing.at)
+    of(o).and_then(|landing| landing.at.structure())
 }
 
 /// Whether `o` is down on an Airfield's slot, or a chopper on its spot: its landing's frames all done. Only
@@ -129,7 +151,7 @@ pub fn lift(o: &Object) -> Option<f32> {
 /// which appears down on its slot (module docs).
 pub fn down_on(at: ObjectId, ticks: u32) -> Landing {
     Landing {
-        at,
+        at: Spot::Structure(at),
         descent: Progress {
             elapsed: ticks.saturating_mul(RATIO_ONE),
             total: ticks,
@@ -138,16 +160,30 @@ pub fn down_on(at: ObjectId, ticks: u32) -> Landing {
     }
 }
 
-/// The rise of an aircraft that takes off in the middle of `descent`, its landing (module docs): as many frames as it
-/// has come down, its share done of `descent`'s total as high as it still is, so that it goes on up from there. A whole
-/// landing's is a whole rise; none for one that hasn't come down a frame yet, in the air still.
-pub fn rise_from(descent: Progress) -> Option<Progress> {
-    let total = descent.total;
-    let done = descent.ticks_done();
-    (done > 0).then(|| Progress {
-        elapsed: (total - done).saturating_mul(RATIO_ONE),
-        total,
+/// The rise of an aircraft that takes off in the middle of `descent`, its landing, in a take-off of `takeoff_ticks`
+/// frames (module docs): as high as it still is, its share of the take-off left as its share done of `descent`'s
+/// total (rounded up), so that it goes on up from there; as many frames as it has come down, where the two times are
+/// the same. A whole landing's is a whole take-off; none for one that hasn't come down a frame yet, in the air still.
+pub fn rise_from(descent: Progress, takeoff_ticks: u32) -> Option<Progress> {
+    let done = u64::from(descent.ticks_done());
+    let left = (done * u64::from(takeoff_ticks)).div_ceil(u64::from(descent.total.max(1)));
+    let left = u32::try_from(left).map_or(takeoff_ticks, |left| left.min(takeoff_ticks));
+    (left > 0).then(|| Progress {
+        elapsed: (takeoff_ticks - left).saturating_mul(RATIO_ONE),
+        total: takeoff_ticks,
     })
+}
+
+/// The frames of the take-off of an aircraft of `kind` from `landing` ([`rise_from`]): its own take-off time
+/// (`LandingDef::takeoff_ticks`), or, for one with none, which lands where its base gives the times (an Airfield's
+/// slots: "Landing and take-off: 16 frames (1 s) each", `AirfieldDef::landing_ticks`), as many as its landing's.
+fn takeoff_ticks(kind: ObjectKind, landing: Landing) -> u32 {
+    def_of(kind).map_or(landing.descent.total, |def| def.takeoff_ticks)
+}
+
+/// The landing and take-off times of `kind`'s type, if they are its own (`UnitDef::landing`): the Supply Chopper's.
+pub fn def_of(kind: ObjectKind) -> Option<LandingDef> {
+    kind.def().unit.as_ref()?.landing
 }
 
 /// The slots of Airfield `airfield` (module docs), in the order they are claimed: as many as its capacity, the
@@ -193,7 +229,7 @@ pub(crate) fn users<'a>(objects: impl IntoIterator<Item = &'a Object>) -> Vec<Us
     (objects.into_iter())
         .filter_map(|o| {
             let state = o.aircraft?;
-            let on = state.landing.map(|landing| landing.at);
+            let on = at(o);
             let rising = o.mover.as_ref().is_some_and(|mover| mover.rise.is_some());
             let home = state.base.filter(|_| flies_home(o));
             (on.is_some() || rising || home.is_some()).then_some(User {
@@ -272,12 +308,7 @@ pub(crate) fn rearm(objects: &mut BTreeMap<ObjectId, Object>, power: &BTreeMap<P
         let Some(def) = aircraft::def_of(o.kind) else {
             continue;
         };
-        let Some(AircraftState {
-            ammo,
-            landing: Some(landing),
-            ..
-        }) = o.aircraft.as_mut()
-        else {
+        let (Some(AircraftState { ammo, .. }), Some(landing)) = (o.aircraft.as_mut(), o.landing.as_mut()) else {
             continue;
         };
         if *ammo >= def.max {
@@ -296,25 +327,55 @@ pub(crate) fn rearm(objects: &mut BTreeMap<ObjectId, Object>, power: &BTreeMap<P
     }
 }
 
-/// An order of `kind` starts for an aircraft in `state`, whose mover's rise is `rise` (`orders::world::Unit::take_off`,
-/// module docs): if it is on a slot and the order isn't its flight home to that Airfield (a Return to Base to its base
-/// there, a Rebase onto it), it takes off: its landing ends, the round it rearms with it, and it rises from as low as
-/// it has come ([`rise_from`]). Returns whether it took off.
-pub(crate) fn take_off(kind: OrderKind, state: &mut AircraftState, rise: &mut Option<Progress>) -> bool {
-    let Some(landing) = state.landing else {
+/// An order of `kind` starts for a unit of type `unit` assigned to `base`, whose landing is `landing` and whose mover's
+/// rise is `rise` (`orders::world::Unit::take_off`, module docs): if it is on a spot and the order doesn't land it on
+/// that spot's structure ([`lands_on`]: an aircraft's flight home to the Airfield it is on, a chopper's order for the
+/// tower or the station it is on), it takes off ([`lift_off`]). Returns whether it took off.
+pub(crate) fn take_off(
+    kind: OrderKind,
+    unit: ObjectKind,
+    base: Option<ObjectId>,
+    landing: &mut Option<Landing>,
+    rise: &mut Option<Progress>,
+) -> bool {
+    let Some(on) = *landing else {
         return false;
     };
-    let home = match kind {
-        OrderKind::Rebase(airfield) => Some(airfield),
-        OrderKind::ReturnToBase => state.base,
-        _ => None,
-    };
-    if home == Some(landing.at) {
+    if on.at.structure().is_some_and(|at| lands_on(kind, base) == Some(at)) {
         return false;
     }
-    state.landing = None;
-    *rise = rise_from(landing.descent);
+    lift_off(unit, landing, rise);
     true
+}
+
+/// The structure an order of `kind` lands its unit on, for a unit assigned to `base`: a Rebase's Airfield, a Return
+/// to Base's base (`orders::air_base`), and a Supply Chopper's Pick Up, Drop Off or Attach to Tower's object
+/// (`supply_run::lands_for`). `None` for every other order.
+pub fn lands_on(kind: OrderKind, base: Option<ObjectId>) -> Option<ObjectId> {
+    match kind {
+        OrderKind::Rebase(airfield) => Some(airfield),
+        OrderKind::ReturnToBase => base,
+        _ => supply_run::lands_for(kind),
+    }
+}
+
+/// An aircraft of `kind` whose landing is `landing` and whose mover's rise is `rise` takes off, if it is on a spot:
+/// by an order ([`take_off`]), a chopper after a pick-up or a drop-off (`economy::supply_run`) or evicted
+/// (`Sim::step_supply_runs`). Its landing ends, the round it rearms with it, and it rises from as low as it has come
+/// ([`rise_from`]), in its take-off's frames.
+pub(crate) fn lift_off(kind: ObjectKind, landing: &mut Option<Landing>, rise: &mut Option<Progress>) {
+    if let Some(on) = landing.take() {
+        *rise = rise_from(on.descent, takeoff_ticks(kind, on));
+    }
+}
+
+impl StateHash for Spot {
+    fn hash(&self, h: &mut StateHasher) {
+        // A spot on a structure hashes as the structure's id alone.
+        match self {
+            Spot::Structure(id) => id.hash(h),
+        }
+    }
 }
 
 impl StateHash for Landing {

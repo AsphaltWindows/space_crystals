@@ -98,6 +98,7 @@ pub(crate) fn update(
             tethered,
             aircraft: o.aircraft.as_mut(),
             chopper: o.chopper.as_mut(),
+            landing: o.landing,
             thrust: o.thrust.as_mut(),
             worker: o.worker.as_mut(),
             energy: o.energy.as_mut(),
@@ -106,6 +107,7 @@ pub(crate) fn update(
         reach.begin_unit();
         update_unit(orders, &mut unit, world, &mut claims, reach);
         turret::run(&mut unit, world);
+        o.landing = unit.landing;
         channelling.extend(shroud::member(o));
     }
     channelling

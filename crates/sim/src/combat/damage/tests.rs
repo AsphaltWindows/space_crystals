@@ -139,6 +139,7 @@ fn target(kind: crate::defs::ObjectKind, shields: f32) -> Object {
         tanks: None,
         thrust: None,
         chopper: None,
+        landing: None,
         schedule: None,
     }
 }

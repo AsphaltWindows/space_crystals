@@ -5,7 +5,7 @@
 //! unit transport (`factions/gdo/units/supply_chopper.md > Cargo`) isn't in the game.
 
 use crate::defs::structures::Recipe;
-use crate::defs::units::{MovementAttrs, UnitBase, UnitDef};
+use crate::defs::units::{LandingDef, MovementAttrs, UnitBase, UnitDef};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind, SupplyChopperDef};
 use crate::math::PI;
 use crate::player::Faction;
@@ -49,7 +49,11 @@ pub(crate) const SUPPLY_CHOPPER: ObjectDef = ObjectDef {
         separation_radius: Some(68.0),
         // `> Unit Transport`: "**Landing and taking off take 16 frames (1 s) each** (as at the Airfield)"
         // (`crate::supply_run`, `crate::landing`).
-        supply_chopper: Some(SupplyChopperDef { landing_ticks: 16 }),
+        landing: Some(LandingDef {
+            landing_ticks: 16,
+            takeoff_ticks: 16,
+        }),
+        supply_chopper: Some(SupplyChopperDef {}),
         ..UnitDef::NONE
     }),
     ..ObjectDef::NONE
@@ -101,6 +105,11 @@ mod tests {
             supplies: 0,
         };
         assert_eq!(RECIPE, recipe);
-        assert_eq!(unit.supply_chopper, Some(SupplyChopperDef { landing_ticks: 16 }));
+        assert_eq!(unit.supply_chopper, Some(SupplyChopperDef {}));
+        let lands = LandingDef {
+            landing_ticks: 16,
+            takeoff_ticks: 16,
+        };
+        assert_eq!(unit.landing, Some(lands));
     }
 }

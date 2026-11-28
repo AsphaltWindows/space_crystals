@@ -182,7 +182,8 @@ fn landing_of(t: &TestSim, n: u32) -> Option<Landing> {
 
 /// Whether chopper `n` is down on object `at`'s spot.
 fn down_on(t: &TestSim, n: u32, at: u32) -> bool {
-    landing_of(t, n).is_some_and(|landing| landing.at == id(at) && landing.descent.done())
+    landing_of(t, n)
+        .is_some_and(|landing| landing.at == sc_sim::landing::Spot::Structure(id(at)) && landing.descent.done())
 }
 
 /// The Supplies chopper `n` carries.

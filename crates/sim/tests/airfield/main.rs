@@ -22,7 +22,14 @@ mod assignment;
 mod braking;
 mod training;
 
-use sc_sim::aircraft::AircraftState;
+/// An aircraft's state as these tests read it: its `sc_sim::aircraft::AircraftState`'s ammo and base, and its
+/// object's landing (`Object::landing`).
+#[derive(Copy, Clone, Debug, PartialEq)]
+struct AircraftState {
+    ammo: u32,
+    base: Option<ObjectId>,
+    landing: Option<sc_sim::landing::Landing>,
+}
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Reject, Sim,
@@ -175,7 +182,13 @@ fn object(sim: &Sim, n: u32) -> &sc_sim::Object {
 
 /// Aircraft `n`'s ammo and base.
 fn aircraft(sim: &Sim, n: u32) -> AircraftState {
-    object(sim, n).aircraft.expect("an aircraft")
+    let o = object(sim, n);
+    let state = o.aircraft.expect("an aircraft");
+    AircraftState {
+        ammo: state.ammo,
+        base: state.base,
+        landing: o.landing,
+    }
 }
 
 /// Aircraft `n`'s base, by number.

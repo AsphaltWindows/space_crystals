@@ -21,12 +21,6 @@ pub struct SupplyTowerDef {
 
 /// A Supply Chopper's part in the supply loop (`UnitDef::supply_chopper`, `crate::supply_run`;
 /// `factions/gdo/units/supply_chopper.md`): it carries Supplies, and lands on Supply Towers and Supply Delivery
-/// Stations.
+/// Stations, in its own landing and take-off times (`UnitDef::landing`, `crate::landing`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SupplyChopperDef {
-    /// The frames it takes to land on a spot, and to take off from it (`factions/gdo/units/supply_chopper.md > Unit
-    /// Transport`: "**Landing and taking off take 16 frames (1 s) each** (as at the Airfield): it is an **air target**
-    /// while landing and taking off, and a **ground target** while landed"; `crate::landing`). Positive, and short
-    /// enough for its progress to fit (`Ruleset::check`).
-    pub landing_ticks: u32,
-}
+pub struct SupplyChopperDef {}

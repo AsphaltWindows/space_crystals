@@ -28,7 +28,7 @@ use crate::orders::OrderKind;
 use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::shape::Shape;
-use crate::supply_run::{self, ChopperState};
+use crate::supply_run::ChopperState;
 use crate::targets::{self, Live, TargetView};
 use crate::thrust::Thrust;
 use crate::units::{SU_PER_GU, Tick};
@@ -102,12 +102,13 @@ pub(crate) struct Unit<'a> {
     /// (M6-GD) Whether it holds still for its drone (`tether::holds`: an operator with its drone out).
     pub tethered: bool,
     /// (M6-GH1) Its state, if it is an aircraft that rearms at an Airfield (`crate::aircraft`): the Airfield it is
-    /// assigned to ([`Unit::base`]), which its flight home goes to (`super::air_base`), and (M6-GH2) its landing on a
-    /// slot (`crate::landing`), which an order lifts it off ([`Unit::take_off`]).
+    /// assigned to ([`Unit::base`]), which its flight home goes to (`super::air_base`).
     pub aircraft: Option<&'a mut AircraftState>,
-    /// Its state, if it is a Supply Chopper (`crate::supply_run`): its cargo, its attachment and its landing
-    /// on a spot, which an order lifts it off ([`Unit::take_off`]).
+    /// Its state, if it is a Supply Chopper (`crate::supply_run`): its cargo and its attachment.
     pub chopper: Option<&'a mut ChopperState>,
+    /// (M6-GH2) Its landing on a spot, landing or down (`Object::landing`, `crate::landing`), which an order lifts it
+    /// off ([`Unit::take_off`]): a copy, written back to its object once its orders have run (`orders::run::update`).
+    pub landing: Option<Landing>,
     /// Its thrusts, if its type has them (`crate::thrust`): the charge a Thrust spends and the burst it starts.
     pub thrust: Option<&'a mut Thrust>,
     /// A worker's load, patch and drop-off (`economy::gathering`).
@@ -145,29 +146,24 @@ impl<'a> Unit<'a> {
         self.aircraft.as_ref().and_then(|state| state.base)
     }
 
-    /// (M6-GH2) Its landing, if it is an aircraft on an Airfield's slot, landing or down (`crate::landing`).
+    /// (M6-GH2) Its landing, if it is an aircraft on a spot, such as an Airfield's slot, landing or down
+    /// (`crate::landing`).
     pub fn landing(&self) -> Option<Landing> {
-        self.aircraft.as_ref().and_then(|state| state.landing)
+        self.landing
     }
 
-    /// (M6-GH2) Whether it is an aircraft on an Airfield's slot, landing or down (`crate::landing`).
+    /// (M6-GH2) Whether it is an aircraft on a spot, such as an Airfield's slot, landing or down (`crate::landing`).
     pub fn on_slot(&self) -> bool {
-        self.landing().is_some()
+        self.landing.is_some()
     }
 
-    /// (M6-GH2) An order of `kind` starts (`orders::start`): an aircraft on a slot takes off for any order but its
-    /// flight home to the Airfield it is on (`crate::landing::take_off`), rising from as low as it has come
-    /// (`Mover::rise`). Returns whether it took off.
+    /// (M6-GH2) An order of `kind` starts (`orders::start`): an aircraft on a spot takes off for any order but one
+    /// that lands it there, an aircraft's flight home to the Airfield it is on or a chopper's order for that spot's
+    /// object (`crate::landing::take_off`), rising from as low as it has come (`Mover::rise`). Returns whether it took
+    /// off.
     pub fn take_off(&mut self, kind: OrderKind) -> bool {
-        // A Supply Chopper on a spot takes off for any order but one for that spot's object
-        // (`crate::supply_run::take_off`).
-        if let Some(state) = self.chopper.as_deref_mut() {
-            return supply_run::take_off(kind, state, &mut self.mover.rise);
-        }
-        let Some(state) = self.aircraft.as_deref_mut() else {
-            return false;
-        };
-        landing::take_off(kind, state, &mut self.mover.rise)
+        let base = self.base();
+        landing::take_off(kind, self.kind, base, &mut self.landing, &mut self.mover.rise)
     }
 
     pub fn shape(&self) -> Shape {

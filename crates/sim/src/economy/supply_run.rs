@@ -87,8 +87,8 @@ fn end_order(o: &mut Object, lift: bool) {
     if let Some(orders) = &mut o.orders {
         orders.current = None;
     }
-    if let (true, Some(chopper), Some(mover)) = (lift, o.chopper.as_mut(), o.mover.as_mut()) {
-        supply_run::lift(chopper, &mut mover.rise);
+    if let (true, true, Some(mover)) = (lift, o.chopper.is_some(), o.mover.as_mut()) {
+        crate::landing::lift_off(o.kind, &mut o.landing, &mut mover.rise);
     }
 }
 

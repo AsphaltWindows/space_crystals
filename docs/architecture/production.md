@@ -249,14 +249,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   on it, landing or down, and those rising over it keep the free slot nearest them, in id order; then those flying
   home to it, in id order, take the lowest free one. A Return to Base or a Rebase flies the aircraft to its slot,
   where, come to rest (`Air::landing_reach_su`), it **lands** in 16 frames (`AirfieldDef::landing_ticks`), holding
-  still, out of the air units' separation (*Movement and collision*); its `AircraftState::landing` is its state from
+  still, out of the air units' separation (*Movement and collision*); its landing (`Object::landing`, a `landing::Landing` on a `landing::Spot`, for any aircraft) is its state from
   that frame to its
   take-off. Its **domain** is Ground only while it is down (`combat::object_domain`, every reader of a domain asking
   it: the scans, ValidTarget, the blasts, the gate's `CannotHit`, the right-click, the client's too); landing and
   taking off, Air. Down, it **rearms** in the economy phase, a round every RearmTimePerAmmo at its owner's Power's
   speed (`landing::rearm`), whatever its order: its flight home ends once it is down (`orders::air_base::run`), so
   that an order Shift-queued behind it starts then and lifts it off with the ammo rearmed so far; with none it **stays
-  landed**, idle, and rearms. **Any other order lifts it off** as it starts (`landing::take_off`, from
+  landed**, idle, and rearms. **Any other order lifts it off** as it starts (`landing::take_off`, every aircraft's one take-off, from
   `orders::world::Unit::take_off`): its landing ends, with the ammo rearmed so far (the round under way lost), and it
   rises for as many frames as it landed in (`Mover::rise`, slice M6-SD's), an air target; an order given while it
   lands rises from as low as it came (`landing::rise_from`, a placeholder). On a slot it holds fire
@@ -279,7 +279,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   debug spawn places comes alone (a placeholder). It trains more (100 Space Crystals, 160 frames), out over its centre
   in the air, and has a rally point. **A spot** to land on: a Tower's at `SupplyTowerDef::spot_offset_su` from its
   centre, a station's its centre (`supply_run::spot_of`, a placeholder), one chopper on it at a time. The chopper's
-  three orders (`orders/supply_run.rs`) fly it there and land it in 16 frames (`SupplyChopperDef::landing_ticks`, GH2's
+  three orders (`orders/supply_run.rs`) fly it there and land it in 16 frames (the chopper's own `UnitDef::landing`, a `LandingDef`; GH2's
   `Landing`, its `at` the Tower or the station): **Pick Up Supplies** takes, as it touches down, all the station holds
   that no pick-up has claimed (M4-I's claims: Agents and choppers share a station), and lifts off (a placeholder);
   **Drop Off Supplies** pays its load in at an own Tower (`SimEvent::ResourcesDelivered`) and lifts off unless the

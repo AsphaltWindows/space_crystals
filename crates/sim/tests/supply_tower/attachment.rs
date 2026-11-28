@@ -52,7 +52,8 @@ fn an_attaching_chopper_evicts_the_one_landing_on_its_tower() {
     next(&mut t, drop_off(&[second], tower));
     step_until(&mut t, 600, "landing on the Tower", |t| landing_of(t, second).is_some());
     t.run(LANDING / 2);
-    assert!(landing_of(&t, second).is_some_and(|landing| landing.at == id(tower) && !landing.descent.done()));
+    let on_the_tower = sc_sim::landing::Spot::Structure(id(tower));
+    assert!(landing_of(&t, second).is_some_and(|landing| landing.at == on_the_tower && !landing.descent.done()));
     next(&mut t, attach(&[first], tower));
     assert_eq!(attached(&t, first), Some(tower), "attached at once");
     assert_eq!(landing_of(&t, second), None, "evicted");

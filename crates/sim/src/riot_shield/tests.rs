@@ -56,6 +56,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         tanks: None,
         thrust: None,
         chopper: None,
+        landing: None,
         schedule: None,
     }
 }

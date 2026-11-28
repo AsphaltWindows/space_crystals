@@ -15,14 +15,15 @@ use glam::Vec2;
 
 use super::OrderKind;
 use super::world::{Known, Unit, World};
+use crate::landing::Spot;
 use crate::supply_run;
 
 /// Where the flight goes (module docs): the spot of the object the order lands the chopper on, as its owner knows it.
 /// Nowhere for a chopper on that spot already, landing or down, which stays there, and for a unit that is no chopper.
 pub(super) fn destination(kind: OrderKind, unit: &Unit, world: &World) -> Option<Vec2> {
     let at = supply_run::lands_for(kind)?;
-    let chopper = unit.chopper.as_deref()?;
-    if chopper.landing.is_some_and(|landing| landing.at == at) {
+    unit.chopper.as_deref()?;
+    if unit.landing.is_some_and(|landing| landing.at == Spot::Structure(at)) {
         return None;
     }
     match world.known(unit.owner, at) {
@@ -38,12 +39,10 @@ pub(super) fn run(kind: OrderKind, unit: &mut Unit, world: &World) -> bool {
         unit.mover.stop();
         return true;
     };
-    let down_on = chopper
-        .landing
-        .is_some_and(|landing| landing.at == at && landing.descent.done());
+    let down_on = (unit.landing).is_some_and(|landing| landing.at == Spot::Structure(at) && landing.descent.done());
     let empty = chopper.cargo.is_none();
     if matches!(world.known(unit.owner, at), Known::Gone) {
-        if chopper.landing.is_none() {
+        if unit.landing.is_none() {
             unit.mover.stop();
         }
         return true;

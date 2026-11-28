@@ -144,7 +144,10 @@ fn a_right_click_on_another_own_airfield_reassigns_it_and_it_lands_there() {
     assert_eq!(base(t.sim(), hornet), Some(other), "reassigned");
     assert_eq!(landing_of(t.sim(), hornet), None, "it takes off");
     until_down(&mut t, hornet, 400);
-    assert_eq!(landing_of(t.sim(), hornet).map(|landing| landing.at), Some(id(other)));
+    assert_eq!(
+        landing_of(t.sim(), hornet).map(|landing| landing.at),
+        Some(sc_sim::landing::Spot::Structure(id(other)))
+    );
     let first_slot = Vec2::new(864.0 - 48.0, 864.0 - 48.0);
     assert!(
         t.pos(hornet).distance(first_slot) <= ON_SLOT,

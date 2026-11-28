@@ -13,7 +13,7 @@
 //!   (`Sim::step_supply_runs`).
 //! - **The orders** (`orders::supply_run`): Pick Up Supplies, Drop Off Supplies and Attach to Tower, each a flight to
 //!   its target's spot and a landing there; the economy phase picks up, drops off and repairs (`economy::supply_run`).
-//! - **Landing and taking off** take the chopper's `SupplyChopperDef::landing_ticks` each
+//! - **Landing and taking off** take the chopper's own times (`UnitDef::landing`, `LandingDef`) each
 //!   (`factions/gdo/units/supply_chopper.md > Unit Transport`), as an aircraft's do (`crate::landing`): an air target
 //!   while landing and taking off, a ground target while down. Any order but its own on the spot lifts it off
 //!   ([`take_off`]).
@@ -27,10 +27,9 @@ use crate::defs::{ObjectKind, SupplyChopperDef, SupplyTowerDef};
 use crate::economy::stations::is_station;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
-use crate::landing::{Landing, rise_from};
+use crate::landing::Landing;
 use crate::object::{Object, ResourceState};
 use crate::orders::OrderKind;
-use crate::progress::Progress;
 
 /// What a Supply Chopper carries (`factions/gdo/units/supply_chopper.md > Cargo`): one kind at a time, each a variant
 /// of its own, of which Supplies alone are in the game.
@@ -54,11 +53,6 @@ pub struct ChopperState {
     /// gives it (`Sim::apply_command`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attached: Option<ObjectId>,
-    /// Its landing on a tower's or a station's spot ([`spot`]), from the first frame of its landing to its take-off,
-    /// as an aircraft's on an Airfield's slot (`crate::landing`): `Landing::at` names the tower or the station, and
-    /// its `rearm` is always `None`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub landing: Option<Landing>,
 }
 
 impl ChopperState {
@@ -134,29 +128,6 @@ pub fn lands_for(kind: OrderKind) -> Option<ObjectId> {
     }
 }
 
-/// An order of `kind` starts for a chopper in `state`, whose mover's rise is `rise` (`orders::world::Unit::take_off`):
-/// if it is on a spot and the order isn't one for that spot's object ([`lands_for`]), it takes off: its landing ends,
-/// and it rises from as low as it has come (`landing::rise_from`), as an aircraft does (`crate::landing::take_off`).
-/// Returns whether it took off.
-pub(crate) fn take_off(kind: OrderKind, state: &mut ChopperState, rise: &mut Option<Progress>) -> bool {
-    let Some(landing) = state.landing else {
-        return false;
-    };
-    if lands_for(kind) == Some(landing.at) {
-        return false;
-    }
-    lift(state, rise);
-    true
-}
-
-/// A chopper in `state` takes off from its spot, if it is on one: by an order ([`take_off`]), after a pick-up or a
-/// drop-off (`economy::supply_run`), or evicted (`Sim::step_supply_runs`).
-pub(crate) fn lift(state: &mut ChopperState, rise: &mut Option<Progress>) {
-    if let Some(landing) = state.landing.take() {
-        *rise = rise_from(landing.descent);
-    }
-}
-
 /// The ticks from now until a pick-up on station `station` may take Supplies, of which `claimed` are claimed by the
 /// workers picking them up there now (`orders::world::pick_up`; `factions/syndicate/units/agent.md > Supplies`): none
 /// while it holds
@@ -197,11 +168,18 @@ pub(crate) fn forget(o: &mut Object, is_gone: &impl Fn(ObjectId) -> bool) {
 
 /// The hash of an object's supply loop state (`Object::chopper`, `Object::schedule`), each under a tag of its
 /// own, only while it is set, so that the games without one hash as they did: a chopper's under tag 27, a Supply
-/// Tower's Scheduled Supply Delivery Station under tag 28.
-pub(crate) fn hash_object(chopper: &Option<ChopperState>, schedule: &Option<ObjectId>, h: &mut StateHasher) {
+/// Tower's Scheduled Supply Delivery Station under tag 28. A chopper's landing (`Object::landing`) hashes in its
+/// state's place, after its cargo and its attachment, set or not.
+pub(crate) fn hash_object(
+    chopper: &Option<ChopperState>,
+    landing: Option<Landing>,
+    schedule: &Option<ObjectId>,
+    h: &mut StateHasher,
+) {
     if let Some(chopper) = chopper {
         h.tag(27);
         chopper.hash(h);
+        landing.hash(h);
     }
     if let Some(station) = schedule {
         h.tag(28);
@@ -222,13 +200,8 @@ impl StateHash for Cargo {
 
 impl StateHash for ChopperState {
     fn hash(&self, h: &mut StateHasher) {
-        let ChopperState {
-            cargo,
-            attached,
-            landing,
-        } = self;
+        let ChopperState { cargo, attached } = self;
         cargo.hash(h);
         attached.hash(h);
-        landing.hash(h);
     }
 }

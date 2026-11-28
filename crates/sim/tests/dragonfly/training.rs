@@ -166,12 +166,14 @@ fn a_new_dragonfly_appears_landed_and_takes_off_straight_up_for_its_rally_point(
         "on the first slot"
     );
     assert_eq!(
-        o.aircraft,
-        Some(AircraftState {
-            ammo: AMMO,
-            base: Some(id(A)),
-            landing: Some(sc_sim::landing::down_on(id(A), LANDING)),
-        }),
+        (o.aircraft, o.landing),
+        (
+            Some(AircraftState {
+                ammo: AMMO,
+                base: Some(id(A)),
+            }),
+            Some(sc_sim::landing::down_on(id(A), LANDING)),
+        ),
         "landed, full"
     );
     for _ in 0..40 {

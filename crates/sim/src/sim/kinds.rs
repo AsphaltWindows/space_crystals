@@ -243,6 +243,8 @@ impl Sim {
             // (`crate::supply_run`).
             chopper: _,
             schedule: _,
+            // Kept: no type of the design that lands changes kind (`crate::landing`).
+            landing: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

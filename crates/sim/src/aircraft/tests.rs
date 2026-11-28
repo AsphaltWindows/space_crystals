@@ -39,11 +39,7 @@ fn game() -> Sim {
 fn an_aircraft_starts_full_and_unassigned() {
     let sim = game();
     let hornet = sim.object(ObjectId(2)).expect("spawned");
-    let full = AircraftState {
-        ammo: 5,
-        base: None,
-        landing: None,
-    };
+    let full = AircraftState { ammo: 5, base: None };
     assert_eq!(hornet.aircraft, Some(full));
     assert!(armed(hornet) && may_fire(hornet) && base_of(hornet).is_none());
     let peacekeeper = sim.object(ObjectId(4)).expect("spawned");
@@ -100,11 +96,7 @@ fn its_ammo_and_its_base_are_hashed() {
         state.hash(&mut h);
         h.finish()
     };
-    let full = AircraftState {
-        ammo: 5,
-        base: None,
-        landing: None,
-    };
+    let full = AircraftState { ammo: 5, base: None };
     assert_ne!(hash(full), hash(AircraftState { ammo: 4, ..full }));
     assert_ne!(
         hash(full),
@@ -117,23 +109,22 @@ fn its_ammo_and_its_base_are_hashed() {
     full.ammo.hash(&mut before);
     full.base.hash(&mut before);
     assert_eq!(hash(full), before.finish(), "in the air, the bytes of slice M6-GH1");
-    let landing = crate::landing::down_on(ObjectId(1), 16);
-    let landed = AircraftState {
-        landing: Some(landing),
-        ..full
+    // Its landing is its object's (`Object::landing`), hashed with its state: landed, and rearming, it hashes apart.
+    let hornet = game().object(ObjectId(2)).expect("spawned").clone();
+    let object_hash = |landing| {
+        let mut o = hornet.clone();
+        o.landing = landing;
+        let mut h = StateHasher::new();
+        o.hash(&mut h);
+        h.finish()
     };
-    assert_ne!(hash(full), hash(landed));
+    let landing = crate::landing::down_on(ObjectId(1), 16);
     let rearming = crate::landing::Landing {
         rearm: Some(crate::progress::Progress::new(32)),
         ..landing
     };
-    assert_ne!(
-        hash(landed),
-        hash(AircraftState {
-            landing: Some(rearming),
-            ..full
-        })
-    );
+    assert_ne!(object_hash(None), object_hash(Some(landing)));
+    assert_ne!(object_hash(Some(landing)), object_hash(Some(rearming)));
 }
 
 /// (M6-GH2) On a slot, landing or down, an aircraft with ammo holds fire (`may_fire`), though it is armed: it takes
@@ -142,16 +133,12 @@ fn its_ammo_and_its_base_are_hashed() {
 fn on_a_slot_it_holds_fire() {
     let sim = game();
     let mut hornet = sim.object(ObjectId(2)).expect("spawned").clone();
-    if let Some(state) = hornet.aircraft.as_mut() {
-        state.landing = Some(crate::landing::Landing {
-            at: ObjectId(1),
-            descent: crate::progress::Progress::new(16),
-            rearm: None,
-        });
-    }
+    hornet.landing = Some(crate::landing::Landing {
+        at: crate::landing::Spot::Structure(ObjectId(1)),
+        descent: crate::progress::Progress::new(16),
+        rearm: None,
+    });
     assert!(armed(&hornet) && !may_fire(&hornet));
-    if let Some(state) = hornet.aircraft.as_mut() {
-        state.landing = None;
-    }
+    hornet.landing = None;
     assert!(may_fire(&hornet));
 }

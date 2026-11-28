@@ -13,7 +13,7 @@ use crate::aircraft;
 use crate::economy::RATIO_ONE;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
-use crate::landing::{self, Landing, User};
+use crate::landing::{self, Landing, Spot, User};
 use crate::math;
 use crate::mover::{Approach, MoveGoal, MoveStatus, Mover};
 use crate::production::QueueEntry;
@@ -59,8 +59,8 @@ impl Sim {
     /// One frame of aircraft `id`'s landing, if it isn't down yet (module docs).
     fn land_a_frame(&mut self, id: ObjectId) {
         let landing = (self.objects.get_mut(&id))
-            .and_then(|o| o.aircraft.as_mut())
-            .and_then(|state| state.landing.as_mut());
+            .filter(|o| o.aircraft.is_some())
+            .and_then(|o| o.landing.as_mut());
         if let Some(landing) = landing
             && !landing.descent.done()
         {
@@ -86,7 +86,7 @@ impl Sim {
                 continue;
             };
             let glides = o.def().unit.as_ref().is_some_and(|unit| unit.glides());
-            let (Some(mover), Some(state)) = (o.mover.as_mut(), o.aircraft.as_mut()) else {
+            let (Some(mover), true) = (o.mover.as_mut(), o.aircraft.is_some()) else {
                 continue;
             };
             let to = slot.unwrap_or(centre);
@@ -102,8 +102,8 @@ impl Sim {
             if slot.is_some() && at_rest && near {
                 // Its frames are positive (the sign's rule, `Ruleset::check`): it is down from a later step on.
                 mover.stop();
-                state.landing = Some(Landing {
-                    at: home,
+                o.landing = Some(Landing {
+                    at: Spot::Structure(home),
                     descent: Progress::new(ticks),
                     rearm: None,
                 });
@@ -170,7 +170,7 @@ impl Sim {
             o.prev_facing = o.facing;
             if let (Some(state), Some(support)) = (o.aircraft.as_mut(), support) {
                 state.base = Some(producer);
-                state.landing = Some(landing::down_on(producer, support.landing_ticks));
+                o.landing = Some(landing::down_on(producer, support.landing_ticks));
             }
         }
         self.events.push(SimEvent::UnitProduced { producer, unit: id });

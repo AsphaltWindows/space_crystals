@@ -227,7 +227,7 @@ pub(crate) fn gdo_dragonflies() -> Game {
                         continue;
                     }
                     let o = dragonfly(sim, n);
-                    let on_slot = o.aircraft.as_ref().is_some_and(|state| state.landing.is_some());
+                    let on_slot = o.aircraft.is_some() && o.landing.is_some();
                     match (seen.on_slot.insert(n, on_slot), on_slot) {
                         (Some(false), true) => seen.landings.push((tick, n)),
                         (Some(true), false) => seen.take_offs.push((tick, n)),

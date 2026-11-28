@@ -335,7 +335,7 @@ fn a_supply_loop_is_structure_and_its_numbers_live() {
     }
     assert_eq!(
         changed(&|r| {
-            chopper(r).supply_chopper.as_mut().unwrap().landing_ticks = 8;
+            chopper(r).landing.as_mut().unwrap().landing_ticks = 8;
             tower(r, ObjectKind::SupplyTower)
                 .supply_tower
                 .as_mut()
@@ -348,7 +348,7 @@ fn a_supply_loop_is_structure_and_its_numbers_live() {
         changed(&|r| chopper(r).supply_chopper = None),
         change("SupplyChopper", "supply_chopper")
     );
-    let numbers = SupplyChopperDef { landing_ticks: 16 };
+    let numbers = SupplyChopperDef {};
     assert_eq!(
         changed(&|r| unit(r).supply_chopper = Some(numbers)),
         change("Peacekeeper", "supply_chopper")

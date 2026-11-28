@@ -17,6 +17,7 @@ use crate::conversion::Conversion;
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
 use crate::economy::{Extractor, Worker};
 use crate::ids::{ObjectId, PlayerId};
+use crate::landing::Landing;
 use crate::map::Map;
 use crate::mover::Mover;
 use crate::orders::Orders;
@@ -248,6 +249,13 @@ pub struct Object {
     /// hashed only while set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub schedule: Option<ObjectId>,
+    /// Its landing on a spot, for an aircraft from the first frame of its landing to its take-off (`crate::landing`;
+    /// `systems/mechanics/aircraft_landing.md > Landing archetypes`): an Airfield's aircraft on one of its slots, a
+    /// Supply Chopper on a Supply Tower's or a Supply Delivery Station's spot. `None` in the air, and for every other
+    /// object. Optional in files and left out of them while `None`, and hashed only while set, with the state of an
+    /// aircraft or a chopper (`hash.rs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub landing: Option<Landing>,
 }
 
 impl Object {

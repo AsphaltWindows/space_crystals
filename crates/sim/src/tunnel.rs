@@ -230,6 +230,7 @@ mod tests {
             tanks: None,
             thrust: None,
             chopper: None,
+            landing: None,
             schedule: None,
         }
     }

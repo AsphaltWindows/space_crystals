@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use super::Violation;
 use crate::aircraft;
 use crate::ids::ObjectId;
-use crate::landing::{self, LANDING_SLOTS};
+use crate::landing::{self, LANDING_SLOTS, Spot};
 use crate::ruleset::rules;
 use crate::sim::Sim;
 use crate::supply_run;
@@ -37,15 +37,16 @@ pub(super) fn landings(sim: &Sim) -> Result<(), Violation> {
                 at: o.pos,
             })
         };
-        let at = landing.at.0;
+        let Spot::Structure(structure) = landing.at;
+        let at = structure.0;
         if o.chopper.is_some() {
-            let Some(spot) = sim.object(landing.at).and_then(supply_run::spot) else {
+            let Some(spot) = sim.object(structure).and_then(supply_run::spot) else {
                 return fail(format!("is on #{at}, no Supply Tower or station in the game"));
             };
             if spot.distance(o.pos) > reach {
                 return fail(format!("is on #{at}, off its spot"));
             }
-            let count = on.entry(landing.at).or_default();
+            let count = on.entry(structure).or_default();
             *count += 1;
             if *count > 1 {
                 return fail(format!("is one of more than one on #{at}'s spot"));
@@ -56,7 +57,7 @@ pub(super) fn landings(sim: &Sim) -> Result<(), Violation> {
             continue;
         }
         let Some(airfield) = sim
-            .object(landing.at)
+            .object(structure)
             .filter(|airfield| aircraft::airfield_def(airfield).is_some())
         else {
             return fail(format!("is on a slot of #{at}, no Airfield in the game"));
@@ -64,7 +65,7 @@ pub(super) fn landings(sim: &Sim) -> Result<(), Violation> {
         if !landing::slots(airfield).any(|slot| slot.distance(o.pos) <= reach) {
             return fail(format!("is on #{at}, off its slots"));
         }
-        let count = on.entry(landing.at).or_default();
+        let count = on.entry(structure).or_default();
         *count += 1;
         if *count > LANDING_SLOTS {
             return fail(format!("is one of more than {LANDING_SLOTS} on #{at}"));
@@ -120,7 +121,7 @@ mod tests {
         let mut json = serde_json::to_value(&sim).expect("a state serializes");
         let hornet = object(&mut json, 3);
         hornet["aircraft"]["base"] = 1.into();
-        hornet["aircraft"]["landing"] = json!({ "at": 1, "descent": { "progress": 16 * RATIO_ONE, "total": 16 } });
+        hornet["landing"] = json!({ "at": { "Structure": 1 }, "descent": { "progress": 16 * RATIO_ONE, "total": 16 } });
         json
     }
 
@@ -150,12 +151,12 @@ mod tests {
         };
         let round = json!({ "progress": 0, "total": 32 });
         broken(
-            &|json| object(json, 3)["aircraft"]["landing"]["rearm"] = round.clone(),
+            &|json| object(json, 3)["landing"]["rearm"] = round.clone(),
             "rearms Some",
         );
         broken(&|json| object(json, 3)["aircraft"]["ammo"] = 2.into(), "rearms None");
         broken(
-            &|json| object(json, 3)["aircraft"]["landing"]["at"] = 2.into(),
+            &|json| object(json, 3)["landing"]["at"] = json!({ "Structure": 2 }),
             "no Airfield",
         );
         broken(&|json| object(json, 3)["mover"]["rise"] = round.clone(), "rises");
@@ -170,7 +171,7 @@ mod tests {
         assert_eq!(check(nudged), Ok(()), "within its slot's reach");
         let mut json = saved();
         object(&mut json, 3)["aircraft"]["ammo"] = 2.into();
-        object(&mut json, 3)["aircraft"]["landing"]["rearm"] = round.clone();
+        object(&mut json, 3)["landing"]["rearm"] = round.clone();
         assert_eq!(check(json), Ok(()), "down, short and rearming");
     }
 
@@ -190,7 +191,8 @@ mod tests {
         let mut saved = serde_json::to_value(&sim).expect("a state serializes");
         let chopper = object(&mut saved, 2);
         chopper["chopper"]["attached"] = 1.into();
-        chopper["chopper"]["landing"] = json!({ "at": 1, "descent": { "progress": 16 * RATIO_ONE, "total": 16 } });
+        chopper["landing"] =
+            json!({ "at": { "Structure": 1 }, "descent": { "progress": 16 * RATIO_ONE, "total": 16 } });
         assert_eq!(check(saved.clone()), Ok(()), "down on its spot");
         let broken = |edit: &dyn Fn(&mut serde_json::Value), problem: &str| {
             let mut json = saved.clone();
@@ -200,7 +202,7 @@ mod tests {
             assert!(violation.message.contains(problem), "{problem}: {violation:?}");
         };
         broken(
-            &|json| object(json, 2)["chopper"]["landing"]["at"] = 2.into(),
+            &|json| object(json, 2)["landing"]["at"] = json!({ "Structure": 2 }),
             "no Supply Tower",
         );
         broken(

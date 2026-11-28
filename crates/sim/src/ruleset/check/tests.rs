@@ -241,9 +241,9 @@ fn an_airfield_s_landing_and_slots_stay_within_their_bounds() {
 /// way, and not to the negative side of it by the sign's rule (the built-in offset is 0).
 #[test]
 fn a_chopper_s_landing_and_a_tower_s_spot_stay_within_their_bounds() {
-    fn chopper(rules: &mut Ruleset) -> &mut crate::defs::SupplyChopperDef {
+    fn chopper(rules: &mut Ruleset) -> &mut crate::defs::LandingDef {
         let unit = rules.defs.get_mut(ObjectKind::SupplyChopper).unit.as_mut().unwrap();
-        unit.supply_chopper.as_mut().expect("a Supply Chopper")
+        unit.landing.as_mut().expect("a Supply Chopper's landing")
     }
     fn tower(rules: &mut Ruleset) -> &mut crate::defs::SupplyTowerDef {
         let structure = rules.defs.get_mut(ObjectKind::SupplyTower).structure.as_mut().unwrap();

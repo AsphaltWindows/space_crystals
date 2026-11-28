@@ -296,9 +296,8 @@ mod tests {
         assert!(shadow_shown(hornet));
         let landing = |ticks: u32| {
             let mut landing = hornet.clone();
-            let state = landing.aircraft.as_mut().expect("an aircraft");
-            state.landing = Some(Landing {
-                at: ObjectId(9),
+            landing.landing = Some(Landing {
+                at: sc_sim::landing::Spot::Structure(ObjectId(9)),
                 descent: Progress {
                     elapsed: ticks * RATIO_ONE,
                     total: 16,

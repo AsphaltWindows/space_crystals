@@ -58,7 +58,10 @@ fn a_pick_up_takes_all_a_station_holds_and_a_drop_off_pays_it_in() {
     let began = step_until(&mut t, 400, "it lands on the station", |t| {
         landing_of(t, chopper).is_some()
     });
-    assert_eq!(landing_of(&t, chopper).map(|landing| landing.at), Some(id(S)));
+    assert_eq!(
+        landing_of(&t, chopper).map(|landing| landing.at),
+        Some(sc_sim::landing::Spot::Structure(id(S)))
+    );
     assert!(t.pos(chopper).distance(spot(&t, S)) <= ON_SPOT);
     t.run(LANDING - 1);
     assert_eq!((held(&t, S), carried(&t, chopper)), (3, 0), "not yet down");

@@ -80,6 +80,7 @@ impl UnitDef {
         one_way: false,
         unfold_ticks: 0,
         thrust: None,
+        landing: None,
     };
 }
 
