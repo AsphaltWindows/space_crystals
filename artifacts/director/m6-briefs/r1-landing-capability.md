@@ -50,7 +50,7 @@ The core, then the landing and Airfield paragraphs of `docs/architecture/product
 6. **The hash: every golden stays unchanged.**
    - The landing is hashed today inside the aircraft's state (Object tag 14, sub-tag 1, only while set) and inside the Chopper's (Object tag 27). Keep writing it there, in the same order, for those units, even though it now lives in one field.
    - Field landing is new state: hash it under the same tag, only while set, so that no golden sees it.
-   - Record any new tag in your report.
+   - If the landing needs `Mover` state of its own, use **`Mover` tag 17**, GS2's reservation, which R1 and R2 now hold. Record any new tag in your report.
 7. **Docs.** One paragraph on the landing capability, in the architecture doc that fits best. Make the old paragraphs on the Airfield's and the Chopper's landing point to it, rather than repeating it.
 
 ## Tests
