@@ -42,6 +42,19 @@ The Director proposed this, based on measurements of this session's transcripts.
 9. **The Director's own share (6%).** The Director batches its tool calls, and starts a fresh session at milestone boundaries, with `insights.md` and `plan.md` as the handoff.
 10. **The design side** (Q0193): shared mechanics defined once in their own `systems/` docs, with unit docs that compose them. One mechanic doc then maps to one module.
 
+## Measurements since adoption
+- **SP's first phase** (launched under the old brief, 251 calls): mean context 213k, past 300k within its first 63 calls; 53M input tokens. **GS1** (768 calls): mean 222k, 160M.
+  - **What this shows:** shorter phases bound the number of calls, but **what an agent reads in its first 60 calls sets its mean context**. A short phase therefore only gets cheap if its start is lean.
+  - **SP's reading:** about 384k tokens of tool output, spread over code files: `orders/run.rs`, `sim/gate/orders.rs`, `orders/resolution.rs`, `movement.rs`, the client's templates and feedback, each 30–60k characters, read whole. `ARCHITECTURE.md` was only about a tenth of it.
+- **Hub files.** Of 257 slice commits, about 20 central files were edited by 17–37 slices each: `invariants.rs`, `defs.rs`, the panel templates, `sim.rs`, `phase.rs`, `orders/run.rs`, `resolution.rs`, `events.rs`, `feedback.rs`, `gate/orders.rs`, and others. Each is 300–600 lines of long, comment-heavy lines, and every slice reads them whole.
+  - That is how a 300k-line project ends up costing more per mechanic than a 30k-line one: a new mechanic is wired through the same central matches and lists.
+  - **X4 now also proposes** how a mechanic can register in one place (one module per order kind or ability, behind a trait or a table). The design side matches it: `systems/mechanics/` has one doc per mechanic, with archetypes (0471, 0472).
+- **Levers, in order:**
+  1. lean starts: precise briefs naming the exact functions, and no reading lists;
+  2. the hub refactor (from X4);
+  3. X3;
+  4. the comment cleanup, since comments are 38% of the characters read.
+
 ## When agents resume
 1. **X3,** the `ARCHITECTURE.md` split. It runs alone, and mostly by script.
 2. **X4,** the read-only audit of mechanics built for one unit, with a context budget.

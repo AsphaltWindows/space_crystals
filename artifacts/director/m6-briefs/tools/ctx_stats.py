@@ -5,6 +5,7 @@ path = sys.argv[1]
 calls = []          # (input+cache_read+cache_creation, output) per API response, deduped by message id
 seen = set()
 res_by_tool = collections.Counter(); n_by_tool = collections.Counter()
+by_file = collections.Counter()
 read_files = collections.Counter(); bash_kinds = collections.Counter(); bash_n = collections.Counter()
 pending = {}        # tool_use_id -> (name, key)
 first_user = 0
@@ -40,18 +41,23 @@ for line in open(path):
                     elif re.match(r"^(sed|head|tail|cat|awk)\b", cmd): key = "sed/head/cat"
                     elif cmd.startswith("git"): key = "git"
                     else: key = "other: " + cmd.split()[0][:20] if cmd else "other"
-                pending[b.get("id")] = (name, key)
+                files = []
+                if name == "Bash":
+                    files = sorted({'/'.join(f.split('/')[-3:]) for f in re.findall(r'[\w./{},-]+\.(?:md|rs|txt|json|toml|py|sh)\b', cmd)})
+                elif name == "Read": files = ['/'.join(key.split('/')[-3:])]
+                pending[b.get("id")] = (name, key, files)
     elif e.get("type") == "user":
         c = m.get("content")
         if isinstance(c, str) and not first_user: first_user = len(c)
         if isinstance(c, list):
             for b in c:
                 if isinstance(b, dict) and b.get("type") == "tool_result":
-                    name, key = pending.get(b.get("tool_use_id"), ("?", ""))
+                    name, key, files = pending.get(b.get("tool_use_id"), ("?", "", []))
                     s = size(b.get("content"))
                     res_by_tool[name] += s; n_by_tool[name] += 1
                     if name == "Read": read_files[key] += s
                     if name == "Bash": bash_kinds[key] += s; bash_n[key] += 1
+                    for f in files: by_file[f] += s / len(files)
 tot_in = sum(c for c, _ in calls); tot_out = sum(o for _, o in calls)
 print(f"API calls {len(calls)}; total input tokens {tot_in/1e6:.1f}M (sum of context over calls); output {tot_out/1e3:.0f}k; compaction-ish events {compactions}")
 if calls:
@@ -67,3 +73,5 @@ print("Bash by kind:")
 for k, v in bash_kinds.most_common(9): print(f"  {k[:24]:24s} {v/1e3:7.0f}k chars  n={bash_n[k]}")
 print("Read, top files:")
 for k, v in read_files.most_common(12): print(f"  {v/1e3:6.0f}k  {k.replace('/home/iv/dev/space_crystals/','')[-90:]}")
+print("Tool output by the files a command names (split evenly when it names several):")
+for k, v in by_file.most_common(15): print(f"  {v/1e3:7.0f}k  {k}")
