@@ -1,10 +1,11 @@
-# Task SP2b: The Prism's panel, its drawing, docs and QA (phase 2b of M6-SP, the entity phase)
+# Task SP2c: The Prism's panel, its drawing, docs and QA (phase 2c of M6-SP, the entity phase)
 
-Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is an entity phase, and your budget is 200 tool calls.**
+Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is an entity phase, and your budget is 120 tool calls, a hard limit.**
 
 ## Where things stand
 - **SP phase 1** (`971ba38a`): the Prism is in production, and it launches (rise, then unfold) with its orders held.
-- **SP2a:** its sim mechanics, the thrust charges (`OrderKind::Thrust`) and the one-way rule. Its handoff: FILLED IN AT LAUNCH.
+- **SP2a:** the thrust charges (`OrderKind::Thrust`), a sim mechanic. Its handoff: FILLED IN AT LAUNCH.
+- **SP2b:** the one-way rule, a sim mechanic. Its handoff: FILLED IN AT LAUNCH.
 
 ## The design
 - `factions/syndicate/units/prism.md`, in particular the panel (designer placeholder; Q0168):
@@ -17,7 +18,7 @@ Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea9
    - `PanelCommand::Thrust` is targeted and queueable.
    - R is greyed by its probe when no charge is left (SP2a's handoff says what to call).
    - Remove any client placeholder for the Prism's panel.
-2. **The right-click,** in the client's `right_click_orders`: a one-way unit's right-click on an own Tunnel doesn't order it in.
+2. **The right-click,** in the client's `right_click_orders`: a one-way unit's right-click on an own Tunnel doesn't order it in. SP2b's handoff says what it resolves to.
 3. **Drawing:** the unfold (a simple placeholder look is fine), and a thrust, if SP2a's handoff asks for one.
 4. **Docs:**
    - regenerate the controls doc: `UPDATE_DOCS=1 cargo test -p space_crystals --test game playtest_docs::controls`;
