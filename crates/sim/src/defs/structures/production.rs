@@ -122,12 +122,13 @@ pub enum ExitRule {
     /// runway** and takes off along it toward C"). Only for a building that holds units, whose own exit lets its
     /// ejected and released units out on the ground, at the `toward` end (`defs_are_consistent`).
     Runway { from: SideLetter, toward: SideLetter },
-    /// (M6-GH1) An Airfield's pads (plan decision T88): its aircraft use no doorway
-    /// (`core/entities.md > Structure Type > Exit Doorway`: "Aircraft [...] are not covered by this rule") and never
-    /// wait. **Placeholder (D34 for slice M6-GH1)**: each appears over the centre of the footprint, facing its
-    /// building's rally point if it has one, and flies off with the order the rally point gives, or hovers there
-    /// (`Sim::release_over_pads`); slice M6-GH2 lands it on a free pad (`factions/gdo/structures/airfield.md > Returning
-    /// and rearming`: "**New aircraft** [...] appear **landed on a free slot**").
+    /// (M6-GH1) An Airfield's landing slots (plan decision T88; `crate::landing`): its aircraft use no doorway
+    /// (`core/entities.md > Structure Type > Exit Doorway`: "Aircraft [...] are not covered by this rule"). (M6-GH2)
+    /// Each appears landed on a free slot, facing its building's rally point if it has one, and takes off with the
+    /// order the rally point gives, or stays landed (`factions/gdo/structures/airfield.md > Returning and rearming`:
+    /// "**New aircraft** [...] appear **landed on a free slot**; they take off for the Airfield's rally point, and with
+    /// no rally point they stay landed", design change 0428 point 2; `Sim::release_onto_slot`), waiting inside while no
+    /// slot is free. It replaced slice M6-GH1's placeholder (D34), an appearance over the footprint's centre.
     Pad,
 }
 

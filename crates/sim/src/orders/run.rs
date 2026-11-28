@@ -50,7 +50,8 @@ pub(crate) fn update(
     let mut claims = gather::Claims::default();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         // (M6-GH1) Not an aircraft out of ammo (`crate::aircraft::armed`): it picks no target and lets go of the one it
-        // engaged, as a unit behind its shield.
+        // engaged, as a unit behind its shield. (M6-GH2) One on an Airfield's slot holds fire too (`Unit::attrs`),
+        // until an order lifts it off, in this tick for an order that starts in it (`Unit::take_off`).
         let may_attack = riot_shield::allows_attack(o) && aircraft::armed(o);
         // (M5-N1a) Its weapon and its top speed, at its owner's levels, with (M5-N11) its Inspire's.
         let mut augmented = None;
@@ -58,7 +59,6 @@ pub(crate) fn update(
         let max_speed = o.max_speed(world.research);
         let converting = conversion::is_converting(o);
         let tethered = tether::holds(o);
-        let base = aircraft::base_of(o);
         // (M5-H1) Where it counts as being, as the snapshot has the others (`World::new`): a Glider past the map's edge
         // at the nearest edge tile. Its flight reads its true position (`movement::glider`).
         let pos = o.map_pos(world.map);
@@ -90,7 +90,7 @@ pub(crate) fn update(
             may_attack,
             converting,
             tethered,
-            base,
+            aircraft: o.aircraft.as_mut(),
             worker: o.worker.as_mut(),
             energy: o.energy.as_mut(),
             mirrors: parent_channel.map(|channel| channel.is_some()),
@@ -147,6 +147,10 @@ fn path_group(order: &Order, click: Vec2) -> PathGroup {
 /// A behaviour begins (`systems/controls/behaviors.md`): its state as it starts. [`run`] follows in the same tick.
 pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
     let tick: Tick = world.tick;
+    // (M6-GH2) An aircraft on an Airfield's slot takes off for any order but its flight home to that Airfield (plan
+    // §GH2: "Any order lifts it off, in 16 frames"; `crate::landing::take_off`): it is an air target from here on, and
+    // the order runs from here too, its rise holding it still meanwhile (`Mover::rise`).
+    unit.take_off(order.kind);
     // `systems/controls/command_behaviors.md > AttackingObject`: the attack engages the order's target; every other
     // order disengages it (interrupting an attack being aimed, `systems/combat.md > Aiming`) and whatever the unit had
     // acquired by itself.
@@ -203,7 +207,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         // (M5-N4b) A channel holds the unit where it stands (`super::shroud`); (M5-K) so does a lock, and (M6-GD) a
         // launch (`super::launch`).
         OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => {}
-        // (M6-GH1) An aircraft flies to the centre of its Airfield (`super::air_base`); one without a base stands.
+        // (M6-GH1) An aircraft flies to the centre of its Airfield (`super::air_base`); one without a base stands, and
+        // (M6-GH2) so does one on a slot of it already.
         OrderKind::Rebase(_) | OrderKind::ReturnToBase => {
             if let Some(at) = air_base::destination(unit, world) {
                 unit.mover.go_to(MoveGoal::Point(at), Some(path_group(order, at)), tick);
@@ -256,7 +261,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         // order's start (`ActiveOrder::since`). (M5-K) A Target Lock's state is the attack's
         // (`crate::combat::AttackState::target_lock`). (M6-GD) A Launch lasts its first tick (`super::launch`).
         OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch => Behaviour::Plain,
-        // (M6-GH1) An aircraft with no base to fly to ends at once (`super::air_base`).
+        // (M6-GH1) An aircraft with no base to fly to ends at once (`super::air_base`); (M6-GH2) one on a slot of its
+        // base ends once it is rearmed.
         OrderKind::Rebase(_) | OrderKind::ReturnToBase => Behaviour::Plain,
         // (M6-GA) Its frames, none done (`super::vehicle_deploy`).
         OrderKind::VehicleDeploy { .. } => vehicle_deploy::begin(unit),
@@ -329,7 +335,7 @@ fn run(
         // (M6-GD) Standing for the launch, which the step right after this phase makes, ending the order
         // (`super::launch`). Its state, the plain one, is any.
         (OrderKind::Launch, _) => launch::run(first),
-        // (M6-GH1) The flight to its Airfield, over it once its move is no longer under way, or at once without a base
+        // (M6-GH1) The flight to its Airfield, (M6-GH2) down on its slot and rearmed, or at once without a base
         // (`super::air_base`). Its state, the plain one, is any.
         (OrderKind::Rebase(_) | OrderKind::ReturnToBase, _) => air_base::run(unit),
         // (M6-GA) Standing while it deploys, which the step right before this phase completes, ending the order

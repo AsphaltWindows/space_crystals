@@ -44,6 +44,7 @@
 mod flight;
 mod load;
 mod look;
+mod pads;
 mod remembered;
 mod resources;
 mod runway;
@@ -286,6 +287,12 @@ pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
             runway::draw(&mut mesh, structures::inner_half(w, h));
             mesh.into_mesh()
         }
+        Look::Pads => {
+            let (w, h) = kind.def().tile_size().unwrap_or((1, 1));
+            let mut mesh = structures::structure_shape(w, h, player_color(owner));
+            pads::draw(&mut mesh, kind);
+            mesh.into_mesh()
+        }
     }
 }
 
@@ -313,8 +320,8 @@ fn has_tick(kind: ObjectKind) -> bool {
 }
 
 /// The mesh of an object's visual: its placeholder shape, a unit's without the tick if its body doesn't turn, a
-/// structure in its size as placed, a Tunnel with its look by tier, a runway down its length (slice M5-N7, `runway`), a
-/// turret with its head (its barrel is an entity of
+/// structure in its size as placed, a Tunnel with its look by tier, a runway down its length (slice M5-N7, `runway`),
+/// (M6-GH2) an Airfield's pads on its landing slots (`pads`), a turret with its head (its barrel is an entity of
 /// its own, [`TurretBarrel`]), an underground structure as its outline, and so a pop-up turret while it is lowered
 /// (slice M4-S2), with neither head nor barrel; tinted while it transforms; a site, on the
 /// surface or underground (an expansion, slice M4-F), tinted and braced by its scaffold, with its progress bar's track
@@ -351,6 +358,8 @@ fn visual_mesh(key: MeshKey) -> Mesh {
                 turret::draw_head(&mut mesh, color);
             } else if Look::of(kind) == Look::Runway {
                 runway::draw(&mut mesh, structures::inner_half(w, h));
+            } else if Look::of(kind) == Look::Pads {
+                pads::draw(&mut mesh, kind);
             }
             mesh.into_mesh()
         }

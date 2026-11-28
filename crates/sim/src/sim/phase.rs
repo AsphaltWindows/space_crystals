@@ -144,6 +144,10 @@ impl Sim {
         // deployments: before 5b to 5f, so that no grid, collision, shot or sight of this tick includes a unit that
         // has gone in.
         self.step_entries(first_new);
+        // (M6-GH2) The aircraft flying home fly on to their landing slots and land, and the landings under way take a
+        // frame (`sim/landing.rs`, `crate::landing`): after 5a, which starts the flights and lifts the aircraft off;
+        // before 5b to 5f, so that the tick's movement flies each to its slot and its combat sees each as it is left.
+        self.step_landings(first_new);
         // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.
         self.step_too_close(first_new);
         // (M6-GD) The Launches 5a started launch their drones (`sim/drones.rs`, `crate::tether`): before 5b, so that a

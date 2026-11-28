@@ -12,16 +12,19 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use crate::aircraft::AircraftState;
 use crate::augmentation::Research;
 use crate::combat::{self, AttackState, domain_allows, object_domain};
 use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, TurretAttrs, UnitDef};
 use crate::economy::Worker;
 use crate::elevation::Elevation;
 use crate::ids::{ObjectId, PlayerId};
+use crate::landing::{self, Landing};
 use crate::map::Map;
 use crate::mover::Mover;
 use crate::network::EntryPath;
 use crate::object::{Object, ResourceState};
+use crate::orders::OrderKind;
 use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::shape::Shape;
@@ -96,9 +99,10 @@ pub(crate) struct Unit<'a> {
     pub converting: bool,
     /// (M6-GD) Whether it holds still for its drone (`tether::holds`: an operator with its drone out).
     pub tethered: bool,
-    /// (M6-GH1) The Airfield it is assigned to, if it is an aircraft with a base (`crate::aircraft::base_of`), which
-    /// its flight home goes to (`super::air_base`).
-    pub base: Option<ObjectId>,
+    /// (M6-GH1) Its state, if it is an aircraft that rearms at an Airfield (`crate::aircraft`): the Airfield it is
+    /// assigned to ([`Unit::base`]), which its flight home goes to (`super::air_base`), and (M6-GH2) its landing on a
+    /// slot (`crate::landing`), which an order lifts it off ([`Unit::take_off`]).
+    pub aircraft: Option<&'a mut AircraftState>,
     /// A worker's load, patch and drop-off (`economy::gathering`).
     pub worker: Option<&'a mut Worker>,
     /// (M5-N4b) Its energy pool (`Object::energy`), which a channel drains (`super::shroud`).
@@ -122,9 +126,36 @@ impl<'a> Unit<'a> {
     /// Its attack, if it has one (`systems/combat.md > AttackAttributes`) and may use it now: the weapon in hand
     /// ([`Unit::weapon`]). A unit whose Riot Shield is up has none (`factions/gdo/units/peacekeeper.md > Riot
     /// Shield`: it "cannot attack" and "does not auto-target enemies"): its behaviours pick no target and let go of
-    /// the one they engaged.
+    /// the one they engaged. (M6-GH2) Nor has an aircraft on an Airfield's slot, which holds fire there until an order
+    /// lifts it off (`crate::aircraft::may_fire`; [`Unit::take_off`]).
     pub fn attrs(&self) -> Option<&'a AttackAttrs> {
-        self.weapon.filter(|_| self.attack.is_some() && self.may_attack)
+        self.weapon
+            .filter(|_| self.attack.is_some() && self.may_attack && !self.on_slot())
+    }
+
+    /// (M6-GH1) The Airfield it is assigned to, if it is an aircraft with a base (`crate::aircraft::base_of`).
+    pub fn base(&self) -> Option<ObjectId> {
+        self.aircraft.as_ref().and_then(|state| state.base)
+    }
+
+    /// (M6-GH2) Its landing, if it is an aircraft on an Airfield's slot, landing or down (`crate::landing`).
+    pub fn landing(&self) -> Option<Landing> {
+        self.aircraft.as_ref().and_then(|state| state.landing)
+    }
+
+    /// (M6-GH2) Whether it is an aircraft on an Airfield's slot, landing or down (`crate::landing`).
+    pub fn on_slot(&self) -> bool {
+        self.landing().is_some()
+    }
+
+    /// (M6-GH2) An order of `kind` starts (`orders::start`): an aircraft on a slot takes off for any order but its
+    /// flight home to the Airfield it is on (`crate::landing::take_off`), rising from as low as it has come
+    /// (`Mover::rise`). Returns whether it took off.
+    pub fn take_off(&mut self, kind: OrderKind) -> bool {
+        let Some(state) = self.aircraft.as_deref_mut() else {
+            return false;
+        };
+        landing::take_off(kind, state, &mut self.mover.rise)
     }
 
     pub fn shape(&self) -> Shape {

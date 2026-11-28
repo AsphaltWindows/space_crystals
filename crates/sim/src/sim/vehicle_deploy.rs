@@ -55,8 +55,7 @@ impl Sim {
             let OrderKind::Attack(target) = kind else {
                 return None;
             };
-            let known = self.known_kind(owner?, target).ok()?;
-            Some((known.def().unit.as_ref()).map_or(Domain::Ground, |unit| unit.base_def().domain))
+            self.known_domain(owner?, target).ok()
         };
         let dropped: Vec<usize> = (orders.queue.iter().enumerate())
             .filter(|(_, order)| vehicle_deploy::can_take(o, order.kind, domain(order.kind), research).is_err())

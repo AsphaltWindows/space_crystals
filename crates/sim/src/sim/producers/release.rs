@@ -55,9 +55,9 @@ impl Sim {
         if producer_def(building).is_some_and(|def| def.exits == ExitRule::Network) {
             return self.release_into_network(producer);
         }
-        // (M6-GH1) An Airfield's aircraft appears over it (`ExitRule::Pad`, `sim/aircraft.rs`).
+        // (M6-GH1) An Airfield's aircraft appears (M6-GH2) landed on a free slot (`ExitRule::Pad`, `sim/landing.rs`).
         if producer_def(building).is_some_and(|def| def.exits == ExitRule::Pad) {
-            return self.release_over_pads(producer);
+            return self.release_onto_slot(producer);
         }
         let (Some(doorway), Some(owner)) = (ExitDoor::of(building), building.owner) else {
             return;

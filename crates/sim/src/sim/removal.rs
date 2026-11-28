@@ -32,10 +32,12 @@ impl Sim {
     /// whose patch is removed from under it (a debug command) mines nothing from then on. (M6-GD) An operator takes its
     /// drone along, which falls without exploding (`factions/gdo/units/drone_operator.md > Drone limits — how a drone
     /// ends`: "Its **operator dies**"; `Sim::drones_of`), and an operator whose drone goes is free. (M6-GH1) An
-    /// Airfield's aircraft are unassigned as it goes (`crate::aircraft`). (M6-CM) A Disciple takes its illusions along,
-    /// which vanish with no death, those held in a building too (`factions/cults/units/disciple.md > Spells > Mirage`:
-    /// "an illusion lasts until it **dies**, its **parent dies**, or the parent **casts Mirage again** [...]. An
-    /// illusion inside a Garrison when it ends simply vanishes"; `Sim::illusions_of`).
+    /// Airfield's aircraft are unassigned as it goes (`crate::aircraft`), and (M6-GH2) those landed on it, landing or
+    /// down, die with it (design change 0428 point 3: "**Aircraft landed on it are destroyed with it**";
+    /// `Sim::landed_on`, `crate::landing`), one taking off from it escaping, unassigned. (M6-CM) A Disciple takes its
+    /// illusions along, which vanish with no death, those held in a building too (`factions/cults/units/disciple.md >
+    /// Spells > Mirage`: "an illusion lasts until it **dies**, its **parent dies**, or the parent **casts Mirage
+    /// again** [...]. An illusion inside a Garrison when it ends simply vanishes"; `Sim::illusions_of`).
     ///
     /// A producer's whole queue is refunded as if cancelled, a finished unit waiting inside for the doorway included
     /// (design changes 0084 and 0085, `Sim::refund_production`); of the army cap it frees what its unit in production
@@ -85,6 +87,9 @@ impl Sim {
         );
         // (M6-GD) An operator takes its drone along, which falls (`Sim::drones_of`, `crate::tether`).
         gone.extend(self.drones_of(ids));
+        // (M6-GH2) An Airfield takes along the aircraft landed on it, landing or down (`Sim::landed_on`,
+        // `crate::landing`).
+        gone.extend(self.landed_on(ids));
         // (M6-CM) A Disciple takes its illusions along, which vanish (`Sim::illusions_of`, `crate::mirage`): those on
         // the map with it, those held in a building once everything else has gone.
         let (illusions, held_illusions) = self.illusions_of(ids);

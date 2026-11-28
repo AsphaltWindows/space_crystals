@@ -38,4 +38,12 @@ tunables! {
     /// pull of 1 took back much of each push that parts Gliders circling one point (`movement::air`): six Sparrows sent
     /// to one point were 30.8 su apart at closest 10 s later, against 31.8 at 0.5, for a SeparationRadius of 32.
     circle_pull: f32 = 0.5,
+
+    /// (M6-GH2) How near its landing slot an aircraft flying home must have come to rest to land on it
+    /// (`crate::landing`; plan decision T88: "a HoverCraft brakes to a stop over its pad"), centre to slot, space
+    /// units. **Placeholder (not in the design: how near over its slot an aircraft lands)**: a HoverCraft's flight ends
+    /// on its goal (`movement::drag`), and this leaves room for the air units' separation to have nudged it since it
+    /// came to rest (`movement::air`, at most `separation_push_su` a tick, until it lands); farther off, it flies back
+    /// over the slot first. On its slot it stays within it (invariant L1).
+    landing_reach_su: f32 = 8.0,
 }

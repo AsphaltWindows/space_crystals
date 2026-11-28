@@ -195,8 +195,9 @@ pub enum OrderKind {
     /// does the same"; and the automatic return, "when an aircraft runs out of ammo, it automatically flies back to its
     /// assigned Airfield", which "**can be interrupted** by giving the aircraft any other order" (plan decision T88:
     /// pushed by itself as its ammo reaches 0, an order that any new order replaces; `crate::aircraft`). The aircraft
-    /// flies to its base ([`air_base`]), and slice M6-GH2 lands and rearms it there. Only an aircraft with a base takes
-    /// it (the gate): "An unassigned aircraft has no base [...] Return to Base is unavailable until it is reassigned".
+    /// flies to its base ([`air_base`]), and (M6-GH2) lands there and rearms (`crate::landing`). Only an aircraft with
+    /// a base takes it (the gate): "An unassigned aircraft has no base [...] Return to Base is unavailable until it is
+    /// reassigned".
     ReturnToBase,
     /// (M6-GA) `factions/gdo/units/artillery_rig.md > Modes`: "**Deploy is an order, not a mode switch** [...] the
     /// deploying process is what actually changes the unit: it stays the mobile type until the process completes"

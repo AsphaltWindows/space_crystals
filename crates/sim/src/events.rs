@@ -65,7 +65,8 @@ pub enum SimEvent {
         shield_damage: f32,
     },
     /// The object was destroyed: its HP reached 0, or (M6-GD) it was a drone that ended (`crate::tether`): it fell
-    /// ([`SimEvent::DroneFell`]), or its explosion spent it. What it was and where, since its `Removed` event follows
+    /// ([`SimEvent::DroneFell`]), or its explosion spent it, or (M6-GH2) it was an aircraft landed on an Airfield that
+    /// was destroyed (`crate::landing`, `Sim::landed_on`). What it was and where, since its `Removed` event follows
     /// in the same tick.
     Died {
         id: ObjectId,

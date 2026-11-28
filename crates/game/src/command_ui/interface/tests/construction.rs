@@ -31,7 +31,8 @@ fn busy(kind: ObjectKind, constructor: Constructor) -> Conditions {
 /// and (slice M6-GR) a Radar Station (A) or a Defense System (F), and (slice M6-GK) holds the slot of its Supply Tower
 /// (R), greyed "Not available yet" with its label and name; Z is Back; X shows only while something is constructed or
 /// ready. The Advanced menu constructs (slice M6-GF) the Factory (Q), Advanced Mechanics (W) and the Industrial
-/// Powerplant (A), and holds the slots of the Airfield (E) and Propulsion Labs (R), greyed.
+/// Powerplant (A), and (slice M6-GH2) the Airfield (E), greyed while the gate refuses it for want of an Advanced
+/// Mechanics ("Requires an Advanced Mechanics"), and holds the slot of Propulsion Labs (R), greyed.
 #[test]
 fn the_deployment_center_opens_its_build_menus() {
     use ButtonLook::{Back, Common, Disabled, Group, Unavailable};
@@ -103,7 +104,7 @@ fn the_deployment_center_opens_its_build_menus() {
         [
             (q, command(Construct(ObjectKind::Factory)), Common),
             (w, command(Construct(ObjectKind::AdvancedMechanics)), Common),
-            (e, planned(Planned::Airfield), Unavailable),
+            (e, command(Construct(ObjectKind::Airfield)), Common),
             (slot(0, 3), planned(Planned::PropulsionLabs), Unavailable),
             (slot(1, 0), command(Construct(ObjectKind::IndustrialPowerplant)), Common),
             (CommandSlot::BACK, PanelButton::Back, Back),
@@ -111,8 +112,24 @@ fn the_deployment_center_opens_its_build_menus() {
     );
     let labels = [q, w, e, slot(0, 3), slot(1, 0)].map(|s| menu.get(s).unwrap().label());
     assert_eq!(labels, ["FY", "AM", "AD", "PL", "IP"]);
-    assert_eq!(press(&menu, e), SlotPress::Nothing);
     assert_eq!(menu.get(e).unwrap().name(), "Build Airfield");
+    assert_eq!(
+        press(&menu, e),
+        SlotPress::Construct(
+            Construct(ObjectKind::Airfield),
+            ConstructionCommand::Construct(ObjectKind::Airfield)
+        )
+    );
+    let requires = Reject::Requires(ObjectKind::AdvancedMechanics);
+    let unready = idle.clone().refusing(Construct(ObjectKind::Airfield), requires);
+    let greyed = panel(&dc, advanced, &unready);
+    let airfield = greyed.get(e).unwrap();
+    assert_eq!(airfield.look, Disabled);
+    assert_eq!(
+        airfield.why.map(unavailable_text),
+        Some("Requires an Advanced Mechanics")
+    );
+    assert_eq!(press(&greyed, e), SlotPress::Nothing);
     assert_eq!(
         press(&menu, q),
         SlotPress::Construct(

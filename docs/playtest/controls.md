@@ -326,7 +326,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | W | Adv. | Advanced Construction | opens a menu |
 | W → Q | FY | Build Factory | Requires a Barracks |
 | W → W | AM | Build Advanced Mechanics | Requires a Factory |
-| W → E | AD | Build Airfield | greyed: "Not available yet" |
+| W → E | AD | Build Airfield | Requires an Advanced Mechanics |
 | W → R | PL | Build Propulsion Labs | greyed: "Not available yet" |
 | W → A | IP | Build Industrial Powerplant | Requires an Advanced Mechanics |
 

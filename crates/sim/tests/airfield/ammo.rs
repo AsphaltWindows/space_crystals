@@ -1,7 +1,7 @@
 //! The Hornet's missiles (`factions/gdo/units/hornet.md > AttackAttributes`: "Ammo: **5 missiles**, then it must
 //! reload at its assigned Airfield"; "**DoublyDisjointed** (not homing [...] it can Attack Ground)"), the automatic
-//! return (`factions/gdo/structures/airfield.md > Returning and rearming`), the single-target hit by its placeholder
-//! rule (Q0182), and its aim: "No turret (fires forward; it turns in place to aim)".
+//! return (`factions/gdo/structures/airfield.md > Returning and rearming`), (M6-GH2) the burst at the spot each flies
+//! to (design change 0458), and its aim: "No turret (fires forward; it turns in place to aim)".
 
 use sc_sim::math;
 use sc_sim::ruleset::rules;
@@ -40,13 +40,9 @@ fn emptied() -> TestSim {
     next(&mut t, P1, set_rally);
     next(&mut t, P1, train(A));
     step_until(&mut t, 2 * FRAMES, "the Hornet", |sim| sim.object(id(8)).is_some());
-    assert_eq!(
-        aircraft(t.sim(), 8),
-        AircraftState {
-            ammo: AMMO,
-            base: Some(id(A))
-        }
-    );
+    let state = aircraft(t.sim(), 8);
+    assert_eq!((state.ammo, state.base), (AMMO, Some(id(A))));
+    assert!(state.landing.is_some(), "(M6-GH2) landed on a slot");
     step_until(&mut t, 400, "at its rally point", |sim| {
         at_rest(sim, 8) && sim.object(id(8)).is_some_and(|o| o.pos.distance(RALLY) < 2.0)
     });
@@ -64,13 +60,15 @@ fn emptied() -> TestSim {
     t
 }
 
-/// "Five shots of 30" (`m6-plan.md > GH1 > Acceptance`): five missiles, one every 32 frames, each landing on the spot
-/// its target stood on and hitting it for its 30 less the target's armour. Then the attack is unavailable
-/// (`Reject::OutOfAmmo`, for an Attack and an Attack Ground alike; its right-click on an enemy no longer attacks), and
-/// "when an aircraft runs out of ammo, it automatically flies back to its assigned Airfield", where it hovers until
-/// slice M6-GH2 lands it. Back home with auto-targeting on, it fires at nothing.
+/// "Five shots" (`m6-plan.md > GH1 > Acceptance`): five missiles, one every 32 frames, each (M6-GH2) bursting on the
+/// spot its target stood on (design change 0458: "the missile **bursts at the spot** it flies to"), 32 su across, and
+/// hitting it for its share of the 45 less its share of the target's armour (`systems/combat.md > AoEDamage`). Then the
+/// attack is unavailable (`Reject::OutOfAmmo`, for an Attack and an Attack Ground alike; its right-click on an enemy no
+/// longer attacks), and "when an aircraft runs out of ammo, it automatically flies back to its assigned Airfield, lands
+/// and rearms": (M6-GH2) on the Airfield's first slot, where it stays, full, its flight home over. There, with
+/// auto-targeting on, it fires at nothing: on a slot it holds fire (`aircraft::may_fire`, a placeholder).
 #[test]
-fn five_missiles_of_30_then_it_flies_home() {
+fn five_missiles_then_it_flies_home_lands_and_rearms() {
     let mut t = emptied();
     let shots = missiles(&t, 8);
     assert_eq!(shots.len(), AMMO as usize);
@@ -87,7 +85,8 @@ fn five_missiles_of_30_then_it_flies_home() {
         aircraft(t.sim(), 8),
         AircraftState {
             ammo: 0,
-            base: Some(id(A))
+            base: Some(id(A)),
+            landing: None
         }
     );
     assert_eq!(
@@ -107,33 +106,33 @@ fn five_missiles_of_30_then_it_flies_home() {
     let lands: Vec<Tick> = shots.iter().map(|s| s.4).collect();
     assert_eq!(hits.iter().map(|h| h.0).collect::<Vec<_>>(), lands);
     let each = hits[0].2;
-    let point = TARGET.def().armor.point;
-    assert!(each > 0.0 && each <= DAMAGE - point + 1e-4, "{each}");
+    assert!(each > 0.0 && each < DAMAGE, "a share of the 45: {each}");
     assert!(hits.iter().all(|h| h.1 == id(7) && h.2 == each), "{hits:?}");
     let max = TARGET.def().max_hp.expect("HP");
     let hp = object(t.sim(), 7).hp.expect("HP");
     assert!((hp - (max - 5.0 * each)).abs() < 1e-3, "{hp}");
-    assert!(blasts_of(&t, 8).iter().all(|b| b.2 == 0.0), "a single-target missile");
+    let blasts = blasts_of(&t, 8);
+    let spots: Vec<(Tick, Vec2, f32)> = shots.iter().map(|s| (s.4, s.3, RADIUS)).collect();
+    assert_eq!(blasts, spots, "a burst of 32 su on each spot");
 
-    step_until(&mut t, 400, "home", |sim| at_rest(sim, 8) && doing(sim, 8).is_none());
-    assert!(t.pos(8).distance(A_AT) < 2.0, "over its Airfield: {}", t.pos(8));
-    assert_eq!(
-        aircraft(t.sim(), 8),
-        AircraftState {
-            ammo: 0,
-            base: Some(id(A))
-        }
-    );
+    step_until(&mut t, 600, "home and rearmed", |sim| doing(sim, 8).is_none());
+    assert!(t.pos(8).distance(A_SLOT) < 8.0, "on its first slot: {}", t.pos(8));
+    let state = aircraft(t.sim(), 8);
+    assert_eq!((state.ammo, state.base), (AMMO, Some(id(A))), "full");
+    let landing = state.landing.expect("landed");
+    assert!(landing.descent.done() && landing.rearm.is_none(), "{landing:?}");
     debug(&mut t, DebugCommand::SetAutoTargeting { on: true });
     let near = A_AT + Vec2::new(0.0, 160.0);
     t.spawn_unit_at(t.sim().tick() + 1, TARGET, P2, near);
     t.run(3 * CYCLE);
-    assert_eq!(missiles(&t, 8).len(), AMMO as usize, "out of ammo, it fires at nothing");
-    assert!(t.pos(8).distance(A_AT) < 2.0, "and stays home: {}", t.pos(8));
+    assert_eq!(missiles(&t, 8).len(), AMMO as usize, "on its slot, it fires at nothing");
+    assert!(t.pos(8).distance(A_SLOT) < 8.0, "and stays landed: {}", t.pos(8));
+    assert!(aircraft(t.sim(), 8).landing.is_some());
 }
 
 /// "The automatic return **can be interrupted** by giving the aircraft any other order": a Move takes it elsewhere,
-/// where it stays, with no ammo and its base; F (Return to Base) then flies it home.
+/// where it stays, with no ammo and its base; F (Return to Base) then flies it home, (M6-GH2) where it lands on its
+/// slot and rearms.
 #[test]
 fn a_move_interrupts_the_return_and_the_ammo_stays_at_0() {
     let mut t = emptied();
@@ -148,22 +147,26 @@ fn a_move_interrupts_the_return_and_the_ammo_stays_at_0() {
         aircraft(t.sim(), 8),
         AircraftState {
             ammo: 0,
-            base: Some(id(A))
+            base: Some(id(A)),
+            landing: None
         }
     );
 
     let home = order(&[8], OrderKind::ReturnToBase);
     assert_eq!(gate(t.sim(), P1, &home), Ok(()));
     next(&mut t, P1, home);
-    step_until(&mut t, 400, "home", |sim| at_rest(sim, 8) && doing(sim, 8).is_none());
-    assert!(t.pos(8).distance(A_AT) < 2.0, "{}", t.pos(8));
+    step_until(&mut t, 600, "home and rearmed", |sim| doing(sim, 8).is_none());
+    assert!(t.pos(8).distance(A_SLOT) < 8.0, "{}", t.pos(8));
+    assert_eq!(aircraft(t.sim(), 8).ammo, AMMO, "rearmed");
 }
 
-/// Q0182's placeholder for a single-target projectile that can miss (`sc_sim::combat::projectiles`): "whatever object
-/// covers the locked point is hit". The Hornet's missile lands on the spot its target stood on as it was launched: a
-/// target standing still is hit; one that has moved off the spot is not, and the missile's damage is lost.
+/// Design change 0458: "the missile **bursts at the spot** it flies to [...] If nothing is in the circle, it bursts
+/// harmlessly". The Hornet's missile bursts on the spot its target stood on as it was launched: a target standing
+/// still is in the burst, and hit; one that has moved well off the spot is not, and the burst hits nothing (its
+/// Verification 1, "If the Raptor has left the spot, the missile bursts there and does at most partial damage": none
+/// at all 160 su off; `tests/landing` has the moving Raptor).
 #[test]
-fn a_missile_hits_a_target_standing_still_and_misses_one_that_moved() {
+fn a_missile_bursts_at_the_spot_its_target_stood_on() {
     let hornet_at = Vec2::new(1600.0, 1600.0);
     let mut t = field(|builder| {
         builder
@@ -210,9 +213,9 @@ fn a_missile_hits_a_target_standing_still_and_misses_one_that_moved() {
     t.run_until(lands_at);
     let blasts = blasts_of(&t, 7);
     assert_eq!(
-        blasts.last().map(|b| (b.0, b.1)),
-        Some((lands_at, spot)),
-        "it lands on the spot"
+        blasts.last().copied(),
+        Some((lands_at, spot, RADIUS)),
+        "it bursts on the spot"
     );
     assert!(
         hits_of(&t, 7).iter().all(|h| h.1 != id(9)),

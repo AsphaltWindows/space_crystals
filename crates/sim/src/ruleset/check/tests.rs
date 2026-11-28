@@ -186,6 +186,56 @@ fn a_null_chamber_turn_stays_within_a_recipe_s_bound() {
     assert_eq!(checked(&turn(0.0)), Some(("NullChamber", "turn", "must be positive")));
 }
 
+/// (M6-GH2) An Airfield's landing and its slots, and an aircraft's rearm of a round: the landing and the rearm as long
+/// as a recipe at most, in fixed point, and positive by the sign's rule; the capacity at most the 4 slots of the
+/// placeholder layout, one per assignment; the slots inside the 3 × 3 footprint, 96 su from its centre or nearer.
+#[test]
+fn an_airfield_s_landing_and_slots_stay_within_their_bounds() {
+    fn airfield(rules: &mut Ruleset) -> &mut crate::defs::AirfieldDef {
+        let structure = rules.defs.get_mut(ObjectKind::Airfield).structure.as_mut().unwrap();
+        structure.airfield.as_mut().expect("an Airfield")
+    }
+    let landing = |ticks| move |r: &mut Ruleset| airfield(r).landing_ticks = ticks;
+    assert_eq!(
+        checked(&landing(LONGEST_RECIPE + 1)),
+        Some(("Airfield", "landing_ticks", "must be at most 65535 ticks"))
+    );
+    assert_eq!(checked(&landing(LONGEST_RECIPE)), None);
+    assert_eq!(
+        checked(&landing(0)),
+        Some(("Airfield", "landing_ticks", "must be positive"))
+    );
+    assert_eq!(
+        checked(&|r| airfield(r).capacity = 5),
+        Some((
+            "Airfield",
+            "capacity",
+            "must be at most 4, the Airfield's landing slots"
+        ))
+    );
+    assert_eq!(checked(&|r| airfield(r).capacity = 3), None);
+    assert_eq!(
+        checked(&|r| airfield(r).slot_offset_su = 96.0),
+        Some((
+            "Airfield",
+            "slot_offset_su",
+            "must keep the landing slots inside the footprint"
+        ))
+    );
+    assert_eq!(checked(&|r| airfield(r).slot_offset_su = 95.0), None);
+    let rearm = |ticks| {
+        move |r: &mut Ruleset| {
+            let unit = r.defs.get_mut(ObjectKind::Hornet).unit.as_mut().unwrap();
+            unit.ammo.as_mut().expect("ammo").rearm_ticks_per_ammo = ticks;
+        }
+    };
+    assert_eq!(
+        checked(&rearm(LONGEST_RECIPE + 1)),
+        Some(("Hornet", "rearm_ticks_per_ammo", "must be at most 65535 ticks"))
+    );
+    assert_eq!(checked(&rearm(LONGEST_RECIPE)), None);
+}
+
 /// (M6-GD) The Drone Operator's stock in `rules`.
 fn stock(rules: &mut Ruleset) -> &mut StockDef {
     let unit = rules

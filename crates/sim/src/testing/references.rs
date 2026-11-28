@@ -50,8 +50,10 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     // (M6-GD) An operator's drone, and a drone's operator (`crate::tether`).
     ids.extend(o.drone);
     ids.extend(o.tether.map(|tether| tether.operator));
-    // (M6-GH1) An aircraft's Airfield (`crate::aircraft`), which the removal path unassigns as it goes.
+    // (M6-GH1) An aircraft's Airfield (`crate::aircraft`), which the removal path unassigns as it goes, and (M6-GH2)
+    // the one it is landed on (`crate::landing`), which takes it along as it goes.
     ids.extend(crate::aircraft::base_of(o));
+    ids.extend(crate::landing::at(o));
     // Not a unit's lineage (`Object::lineage`, plan decision T56): its entries name the Halls that produced its
     // Recruits, and they stay when a Hall is gone, the unit's points then being orphaned
     // (`factions/cults/structures/recruitment_hall.md > On Destruction`: "Surviving units produced by this hall remain

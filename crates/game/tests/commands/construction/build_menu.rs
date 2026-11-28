@@ -7,9 +7,9 @@ use super::*;
 /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104): a
 /// selected Deployment Center shows Q Basic Construction and W Advanced Construction. W opens BuildMenu[Advanced]: Q
 /// Factory, W Advanced Mechanics and A Industrial Powerplant (slice M6-GF), greyed without a Barracks, a Factory and an
-/// Advanced Mechanics (Q says "Requires a Barracks" and sends nothing), and E Airfield and R Propulsion Labs, which
-/// hold their slots greyed, not constructed yet (slice M6-GK): pressing one sends nothing and says "Not available
-/// yet".
+/// Advanced Mechanics (Q says "Requires a Barracks" and sends nothing), E Airfield (slice M6-GH2), greyed without an
+/// Advanced Mechanics (it says "Requires an Advanced Mechanics" and sends nothing), and R Propulsion Labs, which holds
+/// its slot greyed, not constructed yet (slice M6-GK): pressing it sends nothing and says "Not available yet".
 /// Q, or a click on its button, opens BuildMenu[Basic]: Q Generator, W Barracks, E Extraction Facility, S Arsenal
 /// (slice M5-K) and D Career Campus (slice M5-N9; both greyed: "Requires a Barracks"), A Radar Station and F Defense
 /// System (slice M6-GR; greyed: "Requires a Generator", "Requires a Radar Station"), R Supply Tower greyed as not
@@ -43,7 +43,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
         [
             (q(), c(Construct(ObjectKind::Factory)), Disabled, "FY"),
             (w(), c(Construct(ObjectKind::AdvancedMechanics)), Disabled, "AM"),
-            (e(), planned(Planned::Airfield), Unavailable, "AD"),
+            (e(), c(Construct(ObjectKind::Airfield)), Disabled, "AD"),
             (r(), planned(Planned::PropulsionLabs), Unavailable, "PL"),
             (a(), c(Construct(ObjectKind::IndustrialPowerplant)), Disabled, "IP"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
@@ -53,6 +53,9 @@ fn the_deployment_center_opens_its_basic_build_menu() {
     assert_eq!(constructions(&app), [], "no Barracks");
     assert_eq!(feedback(&app), Some("Requires a Barracks"));
     tap(&mut app, &[], KeyE);
+    assert_eq!(constructions(&app), [], "no Advanced Mechanics");
+    assert_eq!(feedback(&app), Some("Requires an Advanced Mechanics"));
+    tap(&mut app, &[], KeyR);
     assert_eq!(constructions(&app), [], "not constructed yet");
     assert_eq!(feedback(&app), Some(NOT_YET_TEXT));
     tap(&mut app, &[], KeyZ);

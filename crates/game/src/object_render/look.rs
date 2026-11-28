@@ -17,6 +17,9 @@ pub enum Look {
     /// (M5-N7) A structure whose aircraft take off along it (`sc_sim::defs::ExitRule::Runway`: the Airstrip): a
     /// structure's look, with a runway down its length (`super::runway`).
     Runway,
+    /// (M6-GH2) A structure its aircraft land on (`sc_sim::defs::AirfieldDef`: the Airfield): a structure's look, with
+    /// a pad on each of its landing slots (`super::pads`).
+    Pads,
     /// A Space Crystals Patch's shards (`super::resources`).
     CrystalPatch,
     /// A Supply Delivery Station's shape (`super::resources`).
@@ -51,7 +54,12 @@ impl Look {
     pub fn unit_shape(self) -> Option<UnitShape> {
         match self {
             Look::Unit { shape, .. } => Some(shape),
-            Look::Structure | Look::Turret | Look::Runway | Look::CrystalPatch | Look::SupplyDeliveryStation => None,
+            Look::Structure
+            | Look::Turret
+            | Look::Runway
+            | Look::Pads
+            | Look::CrystalPatch
+            | Look::SupplyDeliveryStation => None,
         }
     }
 

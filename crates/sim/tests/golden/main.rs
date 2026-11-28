@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): thirty-one small games, defined below and in
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): thirty-two small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
 //! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
@@ -32,10 +32,12 @@
 //! an Attack given meanwhile and dropping a Shift-Move, shelling Militants a Peacekeeper spots, and undeploying),
 //! `syndicate_null_chamber.rs` (a Null Chamber built while five Guards wait inside, their turns four at a time, and
 //! their buff against three Peacekeepers' hits), `mirage.rs` (a Disciple's illusions dying of double damage under two
-//! Guards' fire, a recast, and the Disciple's death taking its new set along) and below (the Riot Shield game), and
-//! every test is below.
+//! Guards' fire, a recast, and the Disciple's death taking its new set along), `airfield.rs` (an Airfield's four
+//! Hornets landed on its slots, raiding a block of Recruits with their bursts, flying home by themselves to land and
+//! rearm, and raiding again) and below (the Riot Shield game), and every test is below.
 
 mod air;
+mod airfield;
 mod altar;
 mod anti_air;
 mod artillery;
@@ -327,4 +329,9 @@ fn golden_syndicate_null_chamber() {
 #[test]
 fn golden_cults_mirage() {
     golden("cults_mirage", mirage::cults_mirage);
+}
+
+#[test]
+fn golden_gdo_air() {
+    golden("gdo_air", airfield::gdo_air);
 }

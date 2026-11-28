@@ -150,15 +150,27 @@ pub struct ChamberDef {
     pub reduction: f32,
 }
 
-/// (M6-GH1) An Airfield's support of its aircraft (`StructureDef::airfield`, plan decision T88, `crate::aircraft`).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// (M6-GH1) An Airfield's support of its aircraft (`StructureDef::airfield`, plan decision T88, `crate::aircraft`);
+/// (M6-GH2) its landing slots (`crate::landing`).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AirfieldDef {
     /// The most aircraft assigned to it, those in its production queue counting
     /// (`factions/gdo/structures/airfield.md > Aircraft Support`: "**Capacity: each Airfield supports at most 4
     /// aircraft.**"; `> Assignment`: "An Airfield holds at most **4 assignments**"; `> Production limit`: "An
     /// Airfield **can't queue another aircraft** if its assignments plus the aircraft already in its production queue
-    /// would exceed 4").
+    /// would exceed 4"). (M6-GH2) It has as many landing slots (`> Landing slots`: "An Airfield has **4 landing
+    /// slots**, one per possible assignment, so all of its aircraft can be landed at the same time";
+    /// `crate::landing::slots`), at most the placeholder layout's 4 (`Ruleset::check`).
     pub capacity: u32,
+    /// (M6-GH2) The frames an aircraft takes to land on one of its slots, and to take off from it
+    /// (`factions/gdo/structures/airfield.md > Returning and rearming`: "Landing and take-off: **16 frames (1 s)**
+    /// each (placeholder)"; `crate::landing`).
+    pub landing_ticks: u32,
+    /// (M6-GH2) **Placeholder (not in the design: the slots' layout)** (plan decision T88: "4 points in the
+    /// footprint, a placeholder layout"): the slots are the centres of the footprint's quarters, each this far from
+    /// its centre along both axes, space units (`crate::landing::slots`). 48 su on the 3×3 footprint: a Hornet's 48 ×
+    /// 48 Silhouette inside it on each, 48 su apart from the next.
+    pub slot_offset_su: f32,
 }
 
 /// A structure type that holds units inside (`StructureDef::holds`, plan decision T60; `crate::holding`): one

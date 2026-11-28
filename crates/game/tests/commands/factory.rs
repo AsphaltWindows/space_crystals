@@ -4,7 +4,8 @@
 //! W greyed for want of a Supply (design change 0441), E not available yet (slice M6-GP), (M6-GA) R greyed without
 //! Advanced Mechanics (the Artillery Rig's training is `artillery_rig_ui`'s); its default
 //! rally point out of side B (design change 0446), which a right-click on it clears (0447); the Deployment Center's
-//! Advanced menu constructing it once a Barracks stands; and a Twister's Attack on a Peacekeeper, an invalid target
+//! Advanced menu constructing it once a Barracks stands, and (M6-GH2) the Airfield once an Advanced Mechanics stands;
+//! and a Twister's Attack on a Peacekeeper, an invalid target
 //! ("An Attack on a Peacekeeper is refused, with feedback": its machine gun hits air only), and its R and F, its mines,
 //! not available yet (slice M6-GM). The panel as plain data
 //! is the unit tests' (`command_ui::interface::tests`), the training, the exit and the parking the sim's
@@ -247,6 +248,40 @@ fn the_advanced_menus_q_constructs_a_factory_once_a_barracks_stands() {
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     updates(&mut app, 2);
     assert_eq!(resources(&app), (750, 0), "the Factory's 250");
+}
+
+/// (M6-GH2) `factions/gdo/structures/deployment_center.md > Constructs`: "Airfield: 250 Space Crystals, 480 frames (30
+/// seconds) (placeholder). Requires: player owns at least one Advanced Mechanics". With a Factory standing but no
+/// Advanced Mechanics, the Advanced menu's E is greyed ("Requires an Advanced Mechanics") and sends nothing; with one
+/// (a debug spawn) E constructs an Airfield for 250 Space Crystals, and the menu closes.
+#[test]
+fn the_advanced_menus_e_constructs_an_airfield_once_an_advanced_mechanics_stands() {
+    use ButtonLook::{Common, Disabled};
+    let mut app = factory_game(1000, 0);
+    click(&mut app, DC_AT, &[]);
+    tap(&mut app, &[], KeyW);
+    assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Advanced));
+    let airfield = PanelButton::Command(PanelCommand::Construct(ObjectKind::Airfield));
+    assert_eq!(shown_in(&mut app, slot(0, 2)), Some((airfield, Disabled)));
+    tap(&mut app, &[], KeyE);
+    assert_eq!(said(&app), Some(requires_text(ObjectKind::AdvancedMechanics)));
+    assert_eq!(constructions(&app), []);
+
+    let spawn = DebugCommand::Spawn {
+        kind: ObjectKind::AdvancedMechanics,
+        owner: Some(P1),
+        at: SpawnAt::Tile(TilePos::new(26, 8)),
+        orientation: Default::default(),
+    };
+    submit(&mut app, P1, Command::Debug(spawn));
+    updates(&mut app, 2);
+    assert_eq!(shown_in(&mut app, slot(0, 2)), Some((airfield, Common)));
+    tap(&mut app, &[], KeyE);
+    let sent = ConstructionCommand::Construct(ObjectKind::Airfield);
+    assert_eq!(constructions(&app), [(P1, vec![DC], sent)]);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    updates(&mut app, 2);
+    assert_eq!(resources(&app), (750, 0), "the Airfield's 250");
 }
 
 /// The plan's acceptance: "An Attack on a Peacekeeper is refused, with feedback". The Twister's A awaits its target;

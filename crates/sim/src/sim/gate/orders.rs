@@ -7,7 +7,7 @@ use glam::Vec2;
 use super::Checked;
 use crate::command::Ability;
 use crate::construction::site::assists;
-use crate::defs::{Domain, SpellDef};
+use crate::defs::SpellDef;
 use crate::energy;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
@@ -69,13 +69,9 @@ impl Sim {
                 // the player knows the target (a structure stands on the ground), take it, the others ignore it, as a
                 // unit whose attack can't target the ground ignores an Attack Ground: none of them, and the Attack is
                 // refused (the plan's "An Attack on a Peacekeeper is refused, with feedback", for the Twister's
-                // anti-air machine gun; `Reject::CannotHit`).
-                let domain = self
-                    .known_kind(player, id)?
-                    .def()
-                    .unit
-                    .as_ref()
-                    .map_or(Domain::Ground, |unit| unit.base_def().domain);
+                // anti-air machine gun; `Reject::CannotHit`). (M6-GH2) An aircraft down on an Airfield's slot is a
+                // ground target (`Sim::known_domain`, `crate::landing`).
+                let domain = self.known_domain(player, id)?;
                 let research = self.research();
                 let hits = |o: &Object| {
                     deploying(o)
@@ -342,10 +338,7 @@ impl Sim {
     fn takers(&self, player: PlayerId, units: Vec<ObjectId>, kind: OrderKind) -> Result<Vec<ObjectId>, Reject> {
         let research = self.research();
         let domain = match kind {
-            OrderKind::Attack(id) => Some(
-                (self.known_kind(player, id)?.def().unit.as_ref())
-                    .map_or(Domain::Ground, |unit| unit.base_def().domain),
-            ),
+            OrderKind::Attack(id) => Some(self.known_domain(player, id)?),
             _ => None,
         };
         let mut first = None;

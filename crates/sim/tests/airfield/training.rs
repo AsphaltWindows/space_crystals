@@ -1,7 +1,8 @@
 //! The Airfield's Hornet (`factions/gdo/structures/airfield.md > Produces (so far)`): "Hornet: 150 Space Crystals,
 //! 320 frames", and its 2 Supplies (design changes 0435 and 0441: "Paid with the Space Crystals at the moment of
-//! queueing (the order needs enough of both), and refunded with them on cancel"). A new Hornet appears over the
-//! Airfield (D34, slice M6-GH1's placeholder: slice M6-GH2 lands it on a free pad), assigned to it.
+//! queueing (the order needs enough of both), and refunded with them on cancel"). A new Hornet appears (M6-GH2)
+//! landed on a free slot of the Airfield (design change 0428 point 2, which replaced slice M6-GH1's appearance over its
+//! centre), assigned to it.
 
 use sc_sim::math;
 
@@ -47,12 +48,14 @@ fn until_produced(t: &mut TestSim, producer: u32) -> (Tick, u32) {
     }
 }
 
-/// The Hornet comes out 320 frames after its Q, over the centre of its Airfield (D34), assigned to the Airfield that
-/// built it (`> Assignment`: "An aircraft is assigned to the Airfield that built it") with its 5 missiles, and hovers
-/// there without a rally point (`ExitRule::Pad`). The next, with a rally point set on the ground, appears facing it
-/// and flies there: its default order on the point, a Move (design change 0136).
+/// The Hornet comes out 320 frames after its Q, (M6-GH2) landed on the first slot of its Airfield (design change 0428
+/// point 2: "New aircraft appear **landed on a free slot** [...] with no rally point they stay landed"), assigned to
+/// the Airfield that built it (`> Assignment`: "An aircraft is assigned to the Airfield that built it") with its 5
+/// missiles, and stays there without a rally point (`ExitRule::Pad`). The next, with a rally point set on the ground,
+/// appears on the next free slot, facing it, and takes off and flies there: its default order on the point, a Move
+/// (design change 0136).
 #[test]
-fn a_new_hornet_appears_over_its_airfield_assigned_to_it() {
+fn a_new_hornet_appears_landed_on_its_airfield_assigned_to_it() {
     let mut t = field(|builder| builder);
     next(&mut t, P1, train(A));
     let queued_at = t.sim().tick();
@@ -61,19 +64,22 @@ fn a_new_hornet_appears_over_its_airfield_assigned_to_it() {
     let o = object(t.sim(), hornet);
     assert_eq!(
         (o.kind, o.owner, o.pos),
-        (HORNET, Some(P1), A_AT),
-        "over the Airfield's centre"
+        (HORNET, Some(P1), A_SLOT),
+        "on the Airfield's first slot"
     );
     assert_eq!(
         aircraft(t.sim(), hornet),
         AircraftState {
             ammo: AMMO,
-            base: Some(id(A))
-        }
+            base: Some(id(A)),
+            landing: Some(sc_sim::landing::down_on(id(A), 16)),
+        },
+        "landed, full"
     );
     t.run(40);
-    assert_eq!(t.pos(hornet), A_AT, "it hovers there");
+    assert_eq!(t.pos(hornet), A_SLOT, "it stays there");
     assert_eq!(t.mover(hornet).velocity, Vec2::ZERO);
+    assert!(aircraft(t.sim(), hornet).landing.is_some(), "landed");
 
     let rally = A_AT + Vec2::new(0.0, 640.0);
     let set_rally = Command::Production {
@@ -84,8 +90,9 @@ fn a_new_hornet_appears_over_its_airfield_assigned_to_it() {
     next(&mut t, P1, train(A));
     let (_, second) = until_produced(&mut t, A);
     let o = object(t.sim(), second);
-    assert_eq!(o.pos, A_AT);
-    let south = math::vector_angle(rally - A_AT);
+    assert_eq!(o.pos, A_SLOT_2, "the next free slot");
+    assert!(aircraft(t.sim(), second).landing.is_some(), "landed");
+    let south = math::vector_angle(rally - A_SLOT_2);
     assert!(
         math::wrap_angle(o.facing - south).abs() < 1e-4,
         "facing its rally point: {}",

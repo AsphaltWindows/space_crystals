@@ -194,8 +194,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `tether` (`Tether`, `tether.rs`: its operator and the tick its battery runs out; see *The Drone Operator* below);
   (slice M6-GR) for a caster waiting out an ability's cooldown, the Radar Station, `cooldown` (a `Progress`,
   `cooldown.rs`; see *Combat > Scan and cooldowns*); (slice M6-GH1) for an aircraft that rearms at an Airfield, the
-  Hornet, `aircraft` (`AircraftState`, `aircraft.rs`: its ammo and the Airfield it is assigned to, hashed under tag 14
-  and saved only while set; see *Production > The Airfield*); (slice M6-CM) for an illusion, `illusion_of` (the
+  Hornet, `aircraft` (`AircraftState`, `aircraft.rs`: its ammo, the Airfield it is assigned to and (slice M6-GH2) its
+  `landing` on an Airfield's slot, `landing::Landing`, hashed under tag 14, the landing under its sub-tag 1, and saved
+  only while set; see *Production > The Airfield*); (slice M6-CM) for an illusion, `illusion_of` (the
   Disciple whose Mirage made it, `mirage.rs`, hashed under tag 15 and saved only while set; see *Combat > Mirage*).
   The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
@@ -1044,6 +1045,13 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      (slice M5-F1, *Object model > Buildings that hold units*) the same, at its entry spot, if its pool has room then
      (`SimEvent::EnteredBuilding`); with none the Enter ends there. Before 5b to 5f, so that no grid, collision, shot
      or sight of the tick includes a unit that has gone in.
+   - Landings, `Sim::step_landings` (slice M6-GH2, `sim/landing.rs`, `landing.rs`; *Production > The Airfield*): part
+     of 5a, right after the entries, Airfield by Airfield in id order. Each aircraft flying home to an Airfield (its
+     Return to Base, or a Rebase) flies on to the slot it takes (`landing::claims`, derived every tick) and, come to
+     rest over it, lands: its mover stopped, its `Landing` begun. Each landing under way takes a frame, down once its
+     16 are done. After 5a, which starts the flights and lifts the aircraft off (an order's start ends its landing,
+     `landing::take_off`); before 5b to 5f, so that the tick's movement flies each to its slot, and its combat sees
+     each as it is left (an air target while landing, a ground one down: `combat::object_domain`).
    - Attacks on a target too close, `Sim::step_too_close` (slice M3-L2, design change 0182): part of 5a, right after
      the deployments, in id order. Each unit that can't move, or can't back off further (design change 0204 point
      3), whose Attack order 5a found with its target inside its MinRange (`AttackOrder::too_close`) ends the order,
@@ -1119,7 +1127,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
      the constructors (`construction::step`; when a recipe's frames count: *Economy > Recipe timing*), (slice M6-GR)
      the casters' cooldowns (`cooldown::step`: each by its owner's `PowerSummary::speed`, the cast's tick the first,
-     dropped once done; *Combat > Scan and cooldowns*), the plates' mining, the workers' timed work
+     dropped once done; *Combat > Scan and cooldowns*), (slice M6-GH2) the aircraft down on an Airfield's slot, which
+     rearm a round every RearmTimePerAmmo by its owner's `PowerSummary::speed` (`landing::rearm`, design change 0423;
+     the touchdown's tick the first), the plates' mining, the workers' timed work
      (`gathering::step`, slice M3-H: mining takes its load from the patch, a drop-off pays the bank).
      `economy::step` returns the patches the workers emptied, and `step` takes them out through
      `Sim::remove_objects` and syncs the grids again, as after 5e's deaths.
@@ -2551,7 +2561,9 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   0045), a Glider isn't. (Slice M6-GK) So is a HoverCraft's own move (`movement::step`: the edge stops it as an
   obstacle does, design change 0035), the end of its straight path (`paths::serve`, so that it arrives at a corner
   or an edge) and where the gate puts it (`Sim::check_unit_fits`, Blocked), all by `Map::clamp_box`. A push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and
-  a unit at rest stays at rest. Units spawned in the tick are pushed against but not pushed.
+  a unit at rest stays at rest. Units spawned in the tick are pushed against but not pushed. (M6-GH2) An aircraft on
+  an Airfield's slot, landing or down (`landing::at`), is out of the separation, neither pushed nor pushing, so that it
+  stays on its slot while others fly in beside it or over it (**placeholder**; *Production > The Airfield*).
 - **Idle units that overlap move apart** (`movement/separate.rs`; design change 0126, which amends 0106's "nothing
   is pushed apart"): in its turn, a unit that yields (`yielding::can_yield`: no command at all) and is at rest
   takes a step off the lowest-id unit its box overlaps, along the axis it is out soonest, at
@@ -2615,7 +2627,9 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   the map or held, holds two buffs of an ability, each ends within its ability's duration from now, and only a kind
   the ability affects holds it; (M6-CM) M1 (`illusions`): an illusion's parent is in the game, on the map or held,
   made before it, no illusion, of its type, a type that casts Mirage; a parent has no more illusions than its Mirage
-  makes; an illusion has no lineage;
+  makes; an illusion has no lineage; (M6-GH2) L1 (`landings`): an aircraft on a slot, landing or down, is on an
+  Airfield in the game, within `Air::landing_reach_su` of one of its slots, rises no more, and rearms exactly while it
+  is down and short of ammo; no Airfield has more on it than its 4 slots; a held unit is on none;
   (M5-V2) W1 (`momentum`): a FixedTurnRadiusMovement unit turns in a tick by at most the speed it can have in it (its
   momentum and one tick's acceleration) over its MinimumTurnRadius, never in place; (M5-V3) S1 (`momentum`): a
   SpeedTurnRadiusMovement unit turns in a tick by at most the tread law's rate at the slowest speed it can have in it
@@ -3169,18 +3183,18 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`Reject::CannotHit`, *Commands*). Tests: `crates/sim/tests/factory/` (below) and the golden `gdo_vehicles`.
 - **The Airfield** (slice M6-GH1; `factions/gdo/structures/airfield.md`, `factions/gdo/units/hornet.md`, design
   changes 0435 and 0441; plan decisions T88 and D34): its one live recipe is the Hornet, 150 Space Crystals and 2
-  Supplies (`Recipe::supplies`), 320 frames; its Dragonfly (slice M6-GL) and the Deployment Center's entry for the
-  Airfield itself (slice M6-GH2) stay held (`defs::PLANNED_RECIPES`). **Aircraft** (`aircraft.rs`,
-  `Object::aircraft`): a unit whose type has ammo (`UnitDef::ammo`, an `AmmoDef`: its max and its RearmTimePerAmmo,
-  read from slice M6-GH2 on) comes into the game full (`aircraft::fresh`) and unassigned. **Assignment**: the
-  Airfield that trains it is its base (`AircraftState::base`). An Airfield (`StructureDef::airfield`, an
+  Supplies (`Recipe::supplies`), 320 frames; its Dragonfly (slice M6-GL) stays held (`defs::PLANNED_RECIPES`), and
+  (slice M6-GH2) the Deployment Center constructs it (250 Space Crystals, 480 frames, behind Advanced Mechanics).
+  **Aircraft** (`aircraft.rs`, `Object::aircraft`): a unit whose type has ammo (`UnitDef::ammo`, an `AmmoDef`: its
+  max and its RearmTimePerAmmo, the rearm's) comes into the game full (`aircraft::fresh`) and unassigned.
+  **Assignment**: the Airfield that trains it is its base (`AircraftState::base`). An Airfield (`StructureDef::airfield`, an
   `AirfieldDef`: capacity 4) holds at most 4, the aircraft in its queue counting, counted from the game and never
   stored (`aircraft::taken`, `aircraft::room`): the production gate refuses one more (`Reject::AirfieldFull`,
   `Refusal::AirfieldFull` for a passed-over producer). `OrderKind::Rebase(airfield)`, an aircraft's right-click on
   another own Airfield, reassigns it as it is given (`Sim::rebase`, from `Sim::give_order`) if that Airfield has
   room, and flies it there (`orders/air_base.rs`); `OrderKind::ReturnToBase`, its F or a right-click on its own
-  Airfield, flies it home. Either ends over the Airfield's centre, where it hovers (D34's placeholder) until slice
-  M6-GH2 lands and rearms it. There is no manual unassigning: the removal path unassigns an Airfield's aircraft as
+  Airfield, flies it home. Either ends in a landing on one of its slots and a rearm (slice M6-GH2, below). There is
+  no manual unassigning: the removal path unassigns an Airfield's aircraft as
   it goes (`Sim::remove_objects`), and nothing reassigns them. **Ammo**: each missile spends a round as it is
   launched (`combat::phases`). With none left the unit can't attack (`aircraft::armed`): it acquires no target, is
   no threat in the others' scans (`combat::threat`), its right-click attacks nothing
@@ -3189,9 +3203,33 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   that still has a base gets a Return to Base in place of its orders (`Sim::send_home`, *Tick pipeline*;
   **placeholder**: the orders queued behind are dropped, as the Specter's), which any order interrupts, the ammo
   staying at 0. **The Hornet** (a HoverCraft, braking by drag alone: *Movement and collision > Movement models*)
-  fires 5 DoublyDisjointed missiles of 30, one every 32 frames, each landing where its target stood (radius 0: a hit
-  only on an object that covers the locked spot, Q0182's placeholder rule), and turns in place to aim (no turret).
-  It comes out over the Airfield (`ExitRule::Pad`, below). Tests: `crates/sim/tests/airfield/` (below).
+  fires 5 DoublyDisjointed missiles, one every 32 frames, each landing where its target stood and (slice M6-GH2,
+  design change 0458) bursting there, 45 over 32 su on the ground only (`TargetType::AoE`, `BlastDomain::Attack`:
+  each object in the circle hit by its share, *Combat > Area damage*; it was 30 on the one object covering the
+  spot), and turns in place to aim (no turret). It comes out landed on a free slot (`ExitRule::Pad`, below). Tests:
+  `crates/sim/tests/airfield/` (below).
+- **Landing and rearming** (slice M6-GH2; `landing.rs`, `sim/landing.rs`, `orders/air_base.rs`; plan decision T88,
+  `factions/gdo/structures/airfield.md > Landing slots`, `factions/gdo/structures/airfield.md > Returning and
+  rearming`, design changes 0428 and 0423):
+  an Airfield has 4 **slots**, the centres of its footprint's quarters (`AirfieldDef::slot_offset_su`; the layout a
+  placeholder), and who is on which is derived every tick, never stored (`landing::claims`): those on it, landing or
+  down, and those rising over it keep the free slot nearest them, in id order; then those flying home to it, in id
+  order, take the lowest free one. A Return to Base or a Rebase flies the aircraft to its slot, where, come to rest
+  (`Air::landing_reach_su`), it **lands** in 16 frames (`AirfieldDef::landing_ticks`), holding still, out of the air
+  units' separation (*Movement and collision*); its `AircraftState::landing` is its state from that frame to its
+  take-off. Its **domain** is Ground only while it is down (`combat::object_domain`, every reader of a domain asking
+  it: the scans, ValidTarget, the blasts, the gate's `CannotHit`, the right-click, the client's too); landing and
+  taking off, Air. Down, it **rearms** in the economy phase, a round every RearmTimePerAmmo at its owner's Power's
+  speed (`landing::rearm`), and **stays landed**: its flight home ends once it is down and full
+  (`orders::air_base::run`). **Any other order lifts it off** as it starts (`landing::take_off`, from
+  `orders::world::Unit::take_off`): its landing ends, with the ammo rearmed so far (the round under way lost), and it
+  rises for as many frames as it landed in (`Mover::rise`, slice M6-SD's), an air target; an order given while it
+  lands rises from as low as it came (`landing::rise_from`, a placeholder). On a slot it holds fire
+  (`aircraft::may_fire`, a placeholder). **A destroyed Airfield** takes the aircraft on it, landing or down, along
+  (`Sim::landed_on`, on the removal path, each with a `Died`); one taking off escapes, unassigned as the others. L1
+  checks it (*Movement and collision > Invariants*). Tests: `crates/sim/tests/landing/` (below) and the golden
+  `gdo_air`. The client draws an Airfield's pads (`Look::Pads`, `object_render/pads.rs`), a landing aircraft sinking
+  to the ground and one down on it without its shadow (`object_render/flight.rs`).
 - **Research** (slice M5-N3, plan decisions T70 and T74 as design changes 0335 to 0338 amend them;
   `core/tech_and_research.md > Research`, `factions/cults/structures/temple.md`; `defs/cults/research.rs`,
   `defs/structures/research.rs`, `sim/producers/research.rs`): the technologies are data (`Tech`, its `TechDef`: name,
@@ -3276,12 +3314,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
     Move to the point above it, not an object target (0252). Without a parent Tunnel, or one whose tier lets the unit
     out, it stays inside. An entry's order whose target leaves the game meanwhile is dropped (`forget`), and the unit
     then walks straight out and idles.
-  - **Over the pads** (slice M6-GH1, `ExitRule::Pad`, the Airfield's; plan decision D34's placeholder for GH1:
-    "in GH1, a new Hornet appears over its Airfield"; `Sim::release_over_pads`, `sim/aircraft.rs`): the finished
-    aircraft comes into the game over the centre of the footprint, assigned to the Airfield, facing its rally point
-    (east without one), with its rally's order, hovering there without one. It uses no doorway ("Aircraft [...] are
-    not covered by this rule") and never waits, nor parks (`Sim::park` is the doorways' only): the air units'
-    separation spreads the ones over the Airfield. Slice M6-GH2 lands it on a free pad instead.
+  - **Onto a slot** (slice M6-GH1's `ExitRule::Pad`, the Airfield's; since slice M6-GH2 `Sim::release_onto_slot`,
+    `sim/landing.rs`; design change 0428 point 2: "New aircraft appear **landed on a free slot**; they take off for the
+    Airfield's rally point, and with no rally point they stay landed"): the finished aircraft comes into the game down
+    and full on the first slot no aircraft takes (*Production > Landing and rearming*), assigned to the Airfield,
+    facing its rally point (east without one), with its rally's order, which lifts it off in its first tick. It uses
+    no doorway ("Aircraft [...] are not covered by this rule"), nor parks (`Sim::park` is the doorways' only); while no
+    slot is free (one rebased elsewhere still on it, or rising from it) it waits inside, finished. It replaced GH1's
+    release over the Airfield's centre (D34's placeholder).
   - **Occupied** while a unit the building released is in its doorway (`Mover::exit` is the building's id). While
     it is, the next finished unit is held (progress at its total, `waiting`), the queue behind it doesn't advance,
     and it is released in the first tick the doorway is free (0080; for the portals 0145 point 5, "it waits fully
@@ -4228,6 +4268,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   replayed; `Held::service` saved and hashed only while set). `buffs/tests.rs` checks that `BuffKind` hashes and
   saves as the abilities did, `ruleset/check/tests.rs` the turn's bound. In the client, the ExpandMenu's tests above
   (its D).
+- **Landing tests** (slice M6-GH2) are `crates/sim/tests/landing/`, under the invariants: `slots` (four out of ammo
+  on the four slots, a landing in 16 ticks holding still, F and the right-click home from anywhere, one down left on
+  its slot under an overflight), `rearm` (2 of 5 in 96 ticks, then landed until a Move; an order 5 s in leaves with
+  2; 272 ticks at 30/51 Power), `domains` (an air target landing and taking off, a ground one down), `destroyed` (the
+  aircraft on a destroyed Airfield die with it, one taking off escapes, one flying home flies on unassigned) and
+  `burst` (design change 0458's: where a moving target stood, about 33 on a tank before armour, a clump of infantry
+  own units included, nothing in the air). The unit tests in `landing/tests.rs` cover the layout, the claims, the
+  rise and the rearm's speed; L1's negative test is in `testing/invariants/landings.rs`.
 - **Airfield tests** (slice M6-GH1) are `crates/sim/tests/airfield/`, under the invariants: `training` (the
   Hornet's 150 Space Crystals and 2 Supplies, refused with 1, refunded on a cancel; a new Hornet over its Airfield,
   assigned, hovering, or facing its rally point and flying there), `assignment` (the limit of 4 with the queue; a
@@ -4351,6 +4399,9 @@ these.
   runway's B end and rolls into the air toward C") its lift is `object_lift`'s: none until `look.lift_off_su` (128 su, a
   placeholder) before the run's end, then rising evenly to the whole flight at the end, the shadow following
   (`place_shadows`); its shots' ends and a burst on it stay at the flight's height (`flight_lift`, a placeholder).
+  (M6-GH2) **Landing on an Airfield's slot** (`sc_sim::landing::lift`) it sinks evenly by the sim's ticks to the
+  ground, its shadow under it; **down**, it is drawn on the ground and its shadow hidden (`flight::shadow_shown`); its
+  take-off is a rise, drawn as one out of an air door is (`network::door_lift`).
 - **Terrain** (`map_render.rs`): one mesh. A flat tile is a quad, a sloped one four triangles around its center (at
   the corners' mean height), each shaded by Lambert's law towards `LIGHT_TOWARDS` (a placeholder: from the north-west,
   45° up), so flat ground keeps its colour. A non-Traversible tile at least `CLIFF_MIN_SLOPE` levels steep reads as a
@@ -5285,8 +5336,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `crates/game/tests/commands/factory.rs`.
 - **The Airfield's and the Hornet's panels** (slice M6-GH1): `templates/gdo/airfield.rs`, the Production template of
   its recipes, the Hornet in Q ("HT", greyed "Not enough Supplies" with under 2 and "Airfield full" at its limit,
-  `Refusal::AirfieldFull`), its Dragonfly held in W (`Planned::Dragonfly`, "DY": "Not available yet"), X and C; the
-  Deployment Center's menu keeps the Airfield `Planned` until slice M6-GH2. An aircraft's grid
+  `Refusal::AirfieldFull`), its Dragonfly held in W (`Planned::Dragonfly`, "DY": "Not available yet"), X and C;
+  (slice M6-GH2) the Deployment Center's Advanced menu constructs it in E ("AD"), greyed "Requires an Advanced
+  Mechanics" without one. An aircraft's grid
   (`templates::grid`, a kind with ammo) adds **F Return to Base** (`PanelCommand::ReturnToBase`, "Base",
   `OrderKind::ReturnToBase` at once; Shift queues it), greyed "No Airfield assigned" without a base
   (`Reject::NoBase`). With none of the selection able to attack, an aircraft out of ammo shows no A, and its D is
@@ -5674,8 +5726,8 @@ unchecked.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
   `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs`,
-  `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs`, `mirage.rs` and `main.rs`, the recording and the
-  comparison in `harness.rs`): thirty-one games, a 3v3 duel,
+  `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs`, `mirage.rs`, `airfield.rs` and `main.rs`, the
+  recording and the comparison in `harness.rs`): thirty-two games, a 3v3 duel,
   a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5689,8 +5741,8 @@ unchecked.
   M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below),
   `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
   M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below), `syndicate_air` (slice
-  M6-SD, below), `gdo_artillery` (slice M6-GA, below), `syndicate_null_chamber` (slice M6-SN, below) and
-  `cults_mirage` (slice M6-CM, below), are blessed as replays
+  M6-SD, below), `gdo_artillery` (slice M6-GA, below), `syndicate_null_chamber` (slice M6-SN, below),
+  `cults_mirage` (slice M6-CM, below) and `gdo_air` (slice M6-GH2, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5834,7 +5886,14 @@ unchecked.
   five, ejected at 562, come out buffed in the order they went in, each until its exit's tick plus 320. Three of the
   GDO's Peacekeepers on Hold attack a sixth Guard, which stayed out, and two buffed ones, and the six kill them: a hit
   takes 7 HP of a buffed Guard and 9 of the other (`during`: 8 and 6 of them), and each buff ends in the 319th tick
-  after its Guard's exit. The
+  after its Guard's exit. In `gdo_air` (slice M6-GH2, to 1:40, on an open test map, debug commands on for player 1's
+  150 Space Crystals and 2 Supplies) three Hornets are rebased onto an Airfield and land on its first three slots, and
+  the Airfield trains a fourth, which appears landed on the last and stays there, with no rally point (`during`: on its
+  slot, down). The four lift off together and AttackMove onto twelve of the Cults' Recruits on Hold, which can't hit
+  air, and their missiles' bursts hit up to six at once; out of ammo, each flies home by itself, lands on the first
+  slot free in id order, rearms its five missiles in 160 ticks and stays landed (`during`: all four home, full and
+  idle, the tick before each raid). The second raid kills the rest; sent home (F), all four end landed and rearmed,
+  every landing and take-off counted (`expect`). The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -6258,7 +6317,8 @@ examples, and against M5 (the Cults) by slice M5-Mb: M5's slices had added the C
    (item 15), and a rally point brings them out of a Tunnel. `ExitRule::Runway` is a holder's that trains aircraft
    (the Airstrip, slice M5-N7): they take off along the runway between its two sides, its ground units leaving by
    the holder's exit; the client draws it as `Look::Runway`. `ExitRule::Pad` is an Airfield's (slice M6-GH1): its
-   aircraft appear over its centre, assigned to it, and need no doorway (`Sim::release_over_pads`).
+   aircraft appear (slice M6-GH2) landed on a free slot, assigned to it, and need no doorway
+   (`Sim::release_onto_slot`); the client draws its slots as `Look::Pads`.
 
 The faction's own mechanics come next, each only if it has them (M3's and M4's in brackets):
 

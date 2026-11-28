@@ -146,7 +146,8 @@ fn a_destroyed_airfield_leaves_its_aircraft_unassigned() {
 
     debug(&mut t, DebugCommand::Remove { id: id(A) });
     for &n in &hornets {
-        assert_eq!(aircraft(t.sim(), n), AircraftState { ammo: AMMO, base: None }, "#{n}");
+        let state = aircraft(t.sim(), n);
+        assert_eq!((state.ammo, state.base, state.landing), (AMMO, None, None), "#{n}");
     }
     assert_eq!(
         gate(t.sim(), P1, &order(&hornets, OrderKind::ReturnToBase)),

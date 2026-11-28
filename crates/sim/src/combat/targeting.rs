@@ -23,10 +23,26 @@ pub fn object_box(o: &Object) -> (Vec2, Vec2) {
     Shape::of(o).bounds()
 }
 
-/// The domain an object is targeted in: a unit's base domain (`systems/units.md > UnitBase > Domain`); structures
-/// stand on the ground.
+/// The domain an object is targeted in: its type's ([`kind_domain`]), but (M6-GH2) Ground for an aircraft down on an
+/// Airfield's slot (`crate::landing::down`; `factions/gdo/structures/airfield.md > Returning and rearming`: "**Landed
+/// aircraft are ground targets** [...] Air-only weapons (TargetDomain Air) can't hit it. Once it takes off it is an air
+/// target again. **During landing and take-off** [...] it is an **air target**", design change 0428 point 1). Every
+/// reader of an object's domain asks it: the scans and ValidTarget ([`can_attack_now`], `orders::world`), the blasts
+/// and the projectiles (`super::Targets`), the gate's `Reject::CannotHit` (`Sim::known_domain`) and the right-click
+/// (`orders::resolution`). Collision and separation go by the type's base as before: a landed aircraft stays on the air
+/// layer (`movement::air`).
 pub fn object_domain(o: &Object) -> Domain {
-    o.def()
+    if crate::landing::down(o) {
+        return Domain::Ground;
+    }
+    kind_domain(o.kind)
+}
+
+/// (M6-GH2) The domain an object of type `kind` is targeted in, as its type has it: a unit's base domain
+/// (`systems/units.md > UnitBase > Domain`); structures stand on the ground. An object's own is [`object_domain`]; a
+/// remembered one's is its recorded type's (`Sim::known_domain`).
+pub fn kind_domain(kind: ObjectKind) -> Domain {
+    kind.def()
         .unit
         .as_ref()
         .map_or(Domain::Ground, |unit| unit.base_def().domain)

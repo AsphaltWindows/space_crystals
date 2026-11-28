@@ -115,8 +115,8 @@ pub use projectiles::{Projectile, flight_ticks};
 pub(crate) use step::step;
 pub use target_lock::TargetLock;
 pub use targeting::{
-    can_attack_now, can_target_ground, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches,
-    reaches_point, takes_attack_orders, within_range,
+    can_attack_now, can_target_ground, domain_allows, inside_min_range, kind_domain, max_range, object_box,
+    object_domain, reaches, reaches_point, takes_attack_orders, within_range,
 };
 pub use turret::{TurretState, turret_facing};
 
@@ -217,10 +217,11 @@ pub(crate) fn weapon_of(form: ObjectKind) -> Option<&'static AttackAttrs> {
 /// the auto-targeting scans rank first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`:
 /// "threatening targets first"): the behaviours' (`orders::world`), and a structure's own pick ([`structures`]), whose
 /// snapshots add (M5-S2b) what a building's units inside threaten ([`Threats`], design change 0377). (M6-GH1) Not an
-/// aircraft out of ammo (`crate::aircraft::armed`), which attacks nothing.
+/// aircraft out of ammo (`crate::aircraft::armed`), which attacks nothing, nor (M6-GH2) one on an Airfield's slot,
+/// which holds fire there (`crate::aircraft::may_fire`).
 pub(crate) fn threat(o: &Object) -> Option<TargetDomain> {
     weapon_in_hand(o)
-        .filter(|_| o.attack.is_some() && o.is_operational() && crate::aircraft::armed(o))
+        .filter(|_| o.attack.is_some() && o.is_operational() && crate::aircraft::may_fire(o))
         .map(|attack| attack.target_domain)
 }
 

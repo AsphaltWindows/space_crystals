@@ -120,6 +120,8 @@ mod holding;
 mod invariants_overlap;
 mod invariants_state;
 mod known_from_the_start;
+#[path = "landing/main.rs"]
+mod landing;
 #[path = "losing_tunnels/main.rs"]
 mod losing_tunnels;
 #[path = "mirage/main.rs"]

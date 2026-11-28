@@ -243,8 +243,9 @@ fn a_number_that_isnt_finite_is_named() {
 }
 
 /// (M6-GH1) The Hornet's ammo and the Airfield's assignments (`crate::aircraft`): their numbers apply live (the
-/// rounds, the rearm frames and the capacity); having them, the Airfield's pads (`ExitRule::Pad`) and the HoverCraft's
-/// braking by drag alone (`UnitBaseDef::brakes_by_drag`) are structure.
+/// rounds, the rearm frames and the capacity, and (M6-GH2) the landing's frames and the slots' layout,
+/// `crate::landing`); having them, the Airfield's pads (`ExitRule::Pad`) and the HoverCraft's braking by drag alone
+/// (`UnitBaseDef::brakes_by_drag`) are structure.
 #[test]
 fn ammo_and_an_airfield_are_structure_and_their_numbers_live() {
     use crate::defs::{AirfieldDef, AmmoDef, ExitRule, StructureDef};
@@ -270,6 +271,13 @@ fn ammo_and_an_airfield_are_structure_and_their_numbers_live() {
         None
     );
     assert_eq!(changed(&|r| airfield(r).airfield.as_mut().unwrap().capacity = 6), None);
+    assert_eq!(
+        changed(&|r| {
+            let support = airfield(r).airfield.as_mut().unwrap();
+            (support.landing_ticks, support.slot_offset_su) = (8, 40.0);
+        }),
+        None
+    );
     assert_eq!(changed(&|r| hornet(r).ammo = None), change("Hornet", "ammo"));
     let ammo = AmmoDef {
         max: 5,
@@ -280,7 +288,11 @@ fn ammo_and_an_airfield_are_structure_and_their_numbers_live() {
         changed(&|r| airfield(r).airfield = None),
         change("Airfield", "airfield")
     );
-    let room = AirfieldDef { capacity: 4 };
+    let room = AirfieldDef {
+        capacity: 4,
+        landing_ticks: 16,
+        slot_offset_su: 48.0,
+    };
     assert_eq!(
         changed(&|r| r
             .defs

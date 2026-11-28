@@ -1,19 +1,21 @@
 //! The Airfield and the Hornet (slice M6-GH1; `factions/gdo/structures/airfield.md`, `factions/gdo/units/hornet.md`,
 //! design changes 0366, 0420, 0435 and 0441; plan decisions T88 and D34), through the gate. One test binary:
 //! - `training`: the Airfield's Q, a Hornet for 150 Space Crystals and 2 Supplies, both paid as it is queued and
-//!   refunded with a cancel; it appears over the Airfield, assigned to it, with its 5 missiles, and flies off with the
-//!   order its rally point gives;
+//!   refunded with a cancel; it appears (M6-GH2) landed on a free slot of the Airfield (design change 0428), assigned
+//!   to it, with its 5 missiles, and takes off with the order its rally point gives;
 //! - `assignment`: at most 4 aircraft an Airfield, its queue counting (`Reject::AirfieldFull`); a right-click on
 //!   another Airfield with room reassigns (`OrderKind::Rebase`), on its own one flies home (`OrderKind::ReturnToBase`);
 //!   a destroyed Airfield leaves its aircraft unassigned, with no Return to Base (`Reject::NoBase`), and none is
 //!   reassigned;
-//! - `ammo`: five missiles of 30, each dodgeable (the single-target placeholder rule, Q0182: it hits what covers the
-//!   spot it lands on), then no attack (`Reject::OutOfAmmo`) and the Hornet flies home by itself, unless an order
-//!   interrupts it; it hovers and turns in place to aim, and fires only once it faces its target;
+//! - `ammo`: five missiles, each dodgeable, (M6-GH2) bursting at the spot it flies to for 45 over 32 su (design change
+//!   0458), then no attack (`Reject::OutOfAmmo`) and the Hornet flies home by itself, (M6-GH2) where it lands and
+//!   rearms, unless an order interrupts it; it hovers and turns in place to aim, and fires only once it faces its
+//!   target;
 //! - `braking`: an air HoverCraft brakes by drag alone, a ground hover unit with its thrust (`systems/units.md >
 //!   DragMovement`), and the map's edge still stops a drifting Hornet.
 //!
-//! Auto-targeting is off (`TestSim::without_auto_targeting`), so that only orders fight.
+//! Auto-targeting is off (`TestSim::without_auto_targeting`), so that only orders fight. (M6-GH2) The landings, the
+//! rearms and the burst's Verification are `tests/landing`'s.
 
 mod ammo;
 mod assignment;
@@ -36,9 +38,15 @@ const HORNET: ObjectKind = ObjectKind::Hornet;
 const COST: u32 = 150;
 const SUPPLIES: u32 = 2;
 const FRAMES: Tick = 320;
-/// `factions/gdo/units/hornet.md > AttackAttributes`: "Ammo: **5 missiles**"; "Damage 30".
+/// `factions/gdo/units/hornet.md > AttackAttributes`: "Ammo: **5 missiles**"; (M6-GH2) "**Damage 45 total over an
+/// AoERadius of 32 su**" (design change 0458).
 const AMMO: u32 = 5;
-const DAMAGE: f32 = 30.0;
+const DAMAGE: f32 = 45.0;
+const RADIUS: f32 = 32.0;
+/// (M6-GH2) [`A`]'s first landing slot, the north-west quarter's centre (**placeholder**: the slots' layout,
+/// `sc_sim::landing::slots`), where the first Hornet home lands, and its second, the north-east one's.
+const A_SLOT: Vec2 = Vec2::new(A_AT.x - 48.0, A_AT.y - 48.0);
+const A_SLOT_2: Vec2 = Vec2::new(A_AT.x + 48.0, A_AT.y - 48.0);
 
 // The objects of [`field`], by id: 1 player 1's Deployment Center on tiles (2, 2) to (5, 5) (Power +30), 2 and 3 its
 // Generators on tiles (8, 2) and (8, 5) (+20 each), 4 and 5 its Airfields below (−30 each), 6 player 2's Deployment
@@ -269,7 +277,11 @@ fn based_hornets(t: &mut TestSim, first: u32, points: &[Vec2], airfield: u32) ->
         assert_eq!(object(t.sim(), n).kind, HORNET);
         assert_eq!(
             aircraft(t.sim(), n),
-            AircraftState { ammo: AMMO, base: None },
+            AircraftState {
+                ammo: AMMO,
+                base: None,
+                landing: None
+            },
             "spawned unassigned"
         );
     }

@@ -20,6 +20,12 @@
 //! The pairs come from a spatial index: the movement's own grid ([`Layer`]), each air unit listed in the cell of its
 //! centre, so that a unit looks only at the cells within the largest radius of it. Units spawned in this tick are
 //! pushed against but not pushed, as they don't move in their spawn tick (`docs/movement.md > 4`).
+//!
+//! (M6-GH2) An aircraft on an Airfield's slot, landing or down (`crate::landing::at`), is out of the separation: it is
+//! neither pushed nor pushes, its slot holding it (plan decision T88: "Descend, 16 frames" over its pad; down, it is a
+//! ground unit, design change 0428: "**Landed aircraft are ground targets**"), so that one flying in to land beside it,
+//! or passing over the Airfield, leaves it where it landed. **Placeholder (not in the design: the separation of an
+//! aircraft on its slot)**. One taking off is an air unit again, separated as any.
 
 use std::collections::BTreeMap;
 
@@ -73,6 +79,9 @@ pub(super) fn separate(
         let Some(unit) = o.def().unit.as_ref().filter(|_| o.mover.is_some()) else {
             continue;
         };
+        if crate::landing::at(o).is_some() {
+            continue;
+        }
         let base = unit.base_def();
         if let (Domain::Air, Some(radius), Some(strength)) =
             (base.domain, unit.separation_radius, base.separation_strength)

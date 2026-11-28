@@ -92,8 +92,9 @@ pub(crate) fn step(
         if conversion::is_converting(o) {
             continue;
         }
-        // (M6-GH1) Not an aircraft out of ammo (`aircraft::armed`), as behind a raised Riot Shield.
-        let may_attack = riot_shield::allows_attack(o) && aircraft::armed(o);
+        // (M6-GH1) Not an aircraft out of ammo (`aircraft::armed`), as behind a raised Riot Shield, nor (M6-GH2) one on
+        // an Airfield's slot, which holds fire there (`aircraft::may_fire`).
+        let may_attack = riot_shield::allows_attack(o) && aircraft::may_fire(o);
         // The weapon in hand: the form's, which a Legionnaire whose conversion waits still fights with (design change
         // 0198); its shape and its turn rate are its type's, the same in either form. A structure's is its type's.
         // (M5-N1a) With its Augmentations' effects.

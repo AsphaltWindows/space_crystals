@@ -3,8 +3,9 @@
 //! of the new units but (M6-GD) the Drone Operator; a Field Engineer builds no Bunker and no First Aid Tent; the new
 //! buildings produce and construct nothing; and no game start spawns one. (M6-GR) The Radar Station, the Defense System
 //! and the Missile Turret are live since slice M6-GR, and (M6-GF) the Factory, Advanced Mechanics, the Industrial
-//! Powerplant, the Raptor and the Twister since slice M6-GF ([`LIVE`]; their tests are `tests/radar/`,
-//! `tests/defense_system/` and `tests/factory/`). The debug spawn, the map editor's, places every one, the new units
+//! Powerplant, the Raptor and the Twister since slice M6-GF, and (M6-GH2) the Airfield in the Deployment Center since
+//! slice M6-GH2 ([`LIVE`]; their tests are `tests/radar/`, `tests/defense_system/`, `tests/factory/`, `tests/airfield/`
+//! and `tests/landing/`). The debug spawn, the map editor's, places every one, the new units
 //! take orders and move, and a deployed Artillery Rig given a Move stays where it is (plan decision T87).
 
 use sc_sim::defs::PLANNED_RECIPES;
@@ -25,8 +26,8 @@ const FIELD_ENGINEER: u32 = 3;
 
 /// (M6-GR) Slice M6-GK's kinds that are live: the Deployment Center constructs the Radar Station and the Defense
 /// System, the Defense System the Missile Turret; (M6-GF) the Deployment Center the Factory, Advanced Mechanics and the
-/// Industrial Powerplant, the Factory the Raptor and the Twister.
-const LIVE: [ObjectKind; 8] = [
+/// Industrial Powerplant, the Factory the Raptor and the Twister; (M6-GH2) the Deployment Center the Airfield.
+const LIVE: [ObjectKind; 9] = [
     ObjectKind::RadarStation,
     ObjectKind::DefenseSystem,
     ObjectKind::MissileTurret,
@@ -35,6 +36,7 @@ const LIVE: [ObjectKind; 8] = [
     ObjectKind::IndustrialPowerplant,
     ObjectKind::Raptor,
     ObjectKind::Twister,
+    ObjectKind::Airfield,
 ];
 
 /// Slice M6-GK's kinds, in the registry's order: the Factory to the mine.
@@ -132,17 +134,18 @@ fn spawn(kind: ObjectKind, at: SpawnAt) -> DebugCommand {
 }
 
 /// `factions/gdo/structures/deployment_center.md > Constructs`, held (`sc_sim::defs::PLANNED_RECIPES`): the
-/// Deployment Center constructs none of the new buildings but the live ones ([`LIVE`]), its three held ones among
+/// Deployment Center constructs none of the new buildings but the live ones ([`LIVE`]), its two held ones among
 /// them, with the bank to pay for each (`Reject::CannotConstruct`), and still constructs a Generator. (M6-GF) Of the
-/// live ones, the Factory, which [`base`]'s Barracks allows, and Advanced Mechanics and the Industrial Powerplant, each
-/// refused for its own TechPrerequisite there (a Factory, Advanced Mechanics: `Reject::Requires`).
+/// live ones, the Factory, which [`base`]'s Barracks allows, and Advanced Mechanics, the Industrial Powerplant and
+/// (M6-GH2) the Airfield, each refused for its own TechPrerequisite there (a Factory, Advanced Mechanics:
+/// `Reject::Requires`).
 #[test]
 fn the_deployment_center_constructs_none_of_them_but_the_live_ones() {
     let t = base();
     let buildings = new_of(Category::Structure);
     assert_eq!(buildings.len(), 12);
     let held = (PLANNED_RECIPES.iter()).filter(|(maker, _)| *maker == ObjectKind::DeploymentCenter);
-    assert_eq!(held.clone().count(), 3);
+    assert_eq!(held.clone().count(), 2);
     assert!(held.clone().all(|(_, recipe)| buildings.contains(&recipe.kind)));
     for kind in buildings.into_iter().filter(|kind| !LIVE.contains(kind)) {
         assert_eq!(
@@ -159,6 +162,10 @@ fn the_deployment_center_constructs_none_of_them_but_the_live_ones() {
         ),
         (
             ObjectKind::IndustrialPowerplant,
+            Err(Reject::Requires(ObjectKind::AdvancedMechanics)),
+        ),
+        (
+            ObjectKind::Airfield,
             Err(Reject::Requires(ObjectKind::AdvancedMechanics)),
         ),
     ];

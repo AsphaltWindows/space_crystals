@@ -281,7 +281,7 @@ pub enum PanelCommand {
     /// plus **F: Return to Base**"; `factions/gdo/structures/airfield.md > Returning and rearming`: "**Return to Base**
     /// command: sends the aircraft to its assigned Airfield to land and rearm (hotkey **F**, placeholder)"): a Return to
     /// Base order, at once (`sc_sim::OrderKind::ReturnToBase`), to every aircraft of the ActiveGroup, each flying to its
-    /// own Airfield, where it hovers until slice M6-GH2 lands it. Shift queues it, as any unit order. Greyed while none
+    /// own Airfield, where (M6-GH2) it lands and rearms. Shift queues it, as any unit order. Greyed while none
     /// of them has a base ("An unassigned aircraft has no base [...] Return to Base is unavailable until it is
     /// reassigned", `sc_sim::Reject::NoBase`).
     ReturnToBase,

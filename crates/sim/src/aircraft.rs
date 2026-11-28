@@ -24,6 +24,8 @@
 //!   interrupted** by giving the aircraft any other order"; `Sim::send_home`), the orders queued behind the one it
 //!   ran out in dropped (a placeholder there). "An unassigned aircraft has no base: it doesn't return automatically,
 //!   and Return to Base is unavailable until it is reassigned."
+//! - **(M6-GH2) The landing**: its flight home ends on a landing slot of its base, where it rearms and stays
+//!   ([`AircraftState::landing`], `crate::landing`), holding fire until an order lifts it off ([`may_fire`]).
 //!
 //! No type of the design gains or loses ammo by a change of kind: `Sim::change_kind` keeps the state.
 
@@ -34,10 +36,11 @@ use serde::{Deserialize, Serialize};
 use crate::defs::{AirfieldDef, AmmoDef, ObjectKind};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
+use crate::landing::Landing;
 use crate::object::Object;
 use crate::production::QueueEntry;
 
-/// An aircraft's state (module docs): its ammo and its base.
+/// An aircraft's state (module docs): its ammo and its base, and (M6-GH2) its landing.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AircraftState {
     /// The rounds it has left, from none to its type's max (`AmmoDef::max`).
@@ -46,6 +49,11 @@ pub struct AircraftState {
     /// destroyed, or one that no Airfield built (a debug spawn's). Left out of files while none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base: Option<ObjectId>,
+    /// (M6-GH2) Its landing on a slot of an Airfield, from its first frame to its take-off (`crate::landing`); none in
+    /// the air. Left out of files, and of the hash, while none, so that a game's aircraft save and hash as they did
+    /// before the field existed until one lands.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub landing: Option<Landing>,
 }
 
 /// The ammo of `kind`'s type, if it has one: an aircraft that rearms at an Airfield.
@@ -58,6 +66,7 @@ pub fn fresh(kind: ObjectKind) -> Option<AircraftState> {
     def_of(kind).map(|def| AircraftState {
         ammo: def.max,
         base: None,
+        landing: None,
     })
 }
 
@@ -66,6 +75,17 @@ pub fn fresh(kind: ObjectKind) -> Option<AircraftState> {
 #[inline]
 pub fn armed(o: &Object) -> bool {
     o.aircraft.is_none_or(|aircraft| aircraft.ammo > 0)
+}
+
+/// (M6-GH2) Whether `o` may fire for its ammo and where it is: it is [`armed`], and it isn't on an Airfield's slot,
+/// landing or down (`crate::landing`). **Placeholder (not in the design: whether an aircraft on its Airfield fights)**:
+/// on a slot it holds fire, as out of ammo, until an order lifts it off: phase 5e's `may_attack`, the threat it is to
+/// the others' scans (`combat::threat`) and its behaviours' attacks (`orders::world::Unit::attrs`) ask it. Which orders
+/// it takes doesn't change ([`armed`]): an Attack lifts it off, and it attacks.
+#[inline]
+pub fn may_fire(o: &Object) -> bool {
+    o.aircraft
+        .is_none_or(|aircraft| aircraft.ammo > 0 && aircraft.landing.is_none())
 }
 
 /// The Airfield `o` is assigned to, if it is an aircraft with a base.
@@ -123,9 +143,15 @@ pub fn takes_place(entry: &QueueEntry) -> bool {
 
 impl StateHash for AircraftState {
     fn hash(&self, h: &mut StateHasher) {
-        let AircraftState { ammo, base } = self;
+        let AircraftState { ammo, base, landing } = self;
         ammo.hash(h);
         base.hash(h);
+        // (M6-GH2) Only while it is on a slot, under a sub-tag of its own: a game's aircraft hash as before the field
+        // existed until one lands.
+        if let Some(landing) = landing {
+            h.tag(1);
+            landing.hash(h);
+        }
     }
 }
 

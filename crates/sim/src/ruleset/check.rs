@@ -19,13 +19,18 @@
 //!   starts with at most its stock's max (`UnitDef::stock`); (M6-SD) so does an aircraft's rise and descent at an air
 //!   door (`UnitDef::air_door_ticks`), counted in fixed point as well (`Mover::rise`, `orders::state::Enter::descent`);
 //!   (M6-SN) a Null Chamber turn (`ChamberDef::turn`, in seconds, counted in ticks in fixed point:
-//!   `network::Service::chamber`); (M6-GA) and a vehicle deploy (`UnitDef::vehicle_deploy`, `crate::vehicle_deploy`).
+//!   `network::Service::chamber`); (M6-GA) and a vehicle deploy (`UnitDef::vehicle_deploy`, `crate::vehicle_deploy`);
+//!   (M6-GH2) and an aircraft's landing and take-off at an Airfield (`AirfieldDef::landing_ticks`) and its rearm of a
+//!   round (`AmmoDef::rearm_ticks_per_ammo`), counted in fixed point as well (`crate::landing`). An Airfield has a
+//!   landing slot for each of its assignments, so its capacity is at most [`LANDING_SLOTS`], the slots of the
+//!   placeholder layout (`landing::slots`), which lie inside its footprint (`AirfieldDef::slot_offset_su`).
 
 use super::structure::{Skeleton, variant_name};
 use super::{RuleField, Ruleset};
 use crate::defs::{ObjectDef, ObjectKind};
 use crate::economy::RATIO_ONE;
-use crate::units::seconds;
+use crate::landing::LANDING_SLOTS;
+use crate::units::{SU_PER_GU, seconds};
 
 /// The longest recipe or research, ticks: its progress, `frames × RATIO_ONE` (`crate::construction`), fits a `u32`
 /// (`defs/tests.rs`: "short enough for their progress in fixed point").
@@ -151,6 +156,24 @@ fn def_bounds(kind: ObjectKind, def: &ObjectDef) -> Option<Invalid> {
     let deploy = def.unit.as_ref().and_then(|unit| unit.vehicle_deploy);
     if deploy.is_some_and(|deploy| deploy.frames > LONGEST_RECIPE) {
         return invalid("frames", "must be at most 65535 ticks");
+    }
+    // (M6-GH2) So do an aircraft's rearm of a round and its landing and take-off at an Airfield (`crate::landing`); an
+    // Airfield has a slot for each assignment, the placeholder layout's at most, inside its footprint.
+    let ammo = def.unit.as_ref().and_then(|unit| unit.ammo);
+    if ammo.is_some_and(|ammo| ammo.rearm_ticks_per_ammo > LONGEST_RECIPE) {
+        return invalid("rearm_ticks_per_ammo", "must be at most 65535 ticks");
+    }
+    if let Some(airfield) = def.structure.as_ref().and_then(|structure| structure.airfield) {
+        if airfield.landing_ticks > LONGEST_RECIPE {
+            return invalid("landing_ticks", "must be at most 65535 ticks");
+        }
+        if airfield.capacity as usize > LANDING_SLOTS {
+            return invalid("capacity", "must be at most 4, the Airfield's landing slots");
+        }
+        let (w, h) = def.tile_size().unwrap_or((1, 1));
+        if airfield.slot_offset_su >= w.min(h) as f32 * SU_PER_GU / 2.0 {
+            return invalid("slot_offset_su", "must keep the landing slots inside the footprint");
+        }
     }
     None
 }

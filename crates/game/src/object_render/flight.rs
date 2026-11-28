@@ -20,10 +20,16 @@
 //! (`sc_sim::network::door_lift`; design change 0431: "it **descends** into the entry door and **rises** out of the
 //! exit door over **16 frames (1 s) each**"), is drawn on the door at the bottom of it and at its flight's height at
 //! the top, evenly by the sim's whole ticks in between ([`object_lift`]), its shadow under it all the way.
+//!
+//! (M6-GH2) An aircraft landing on an Airfield's slot (`sc_sim::landing::lift`;
+//! `factions/gdo/structures/airfield.md > Landing slots`: "Landing and take-off: **16 frames (1 s)** each") is drawn
+//! sinking from its flight's height to the ground, evenly by the sim's whole ticks, its shadow under it; down on its
+//! slot it is drawn on the ground with no shadow ([`shadow_shown`]: plan §GH2's landed look, "no air shadow"). Its
+//! take-off is a rise (`Mover::rise`), drawn as one out of an air door is.
 
 use bevy::prelude::*;
 use sc_sim::defs::Domain;
-use sc_sim::{Map, Object, ObjectId, ObjectKind, network};
+use sc_sim::{Map, Object, ObjectId, ObjectKind, landing, network};
 
 use super::{ObjectVisual, object_height};
 use crate::coords::{DrawLayer, lift};
@@ -56,10 +62,11 @@ pub fn flight_lift(kind: ObjectKind, look: &LookTuning) -> f32 {
 /// (M5-N11) How far above the ground under it `o`, drawn at `pos`, is drawn, in terrain levels: an air unit's flight
 /// ([`flight_lift`]); on its takeoff run, none until `LookTuning::lift_off_su` before the run's end, then rising
 /// evenly to all of it at the end (module docs); (M6-SD) at an air door, the share of its rise or of what is left of
-/// its descent (`network::door_lift`); nothing for anything else.
+/// its descent (`network::door_lift`), and so (M6-GH2) taking off from an Airfield's slot; landing on one, the share of
+/// its landing left (`landing::lift`), none down on it; nothing for anything else.
 pub fn object_lift(o: &Object, pos: Vec2, look: &LookTuning) -> f32 {
     let flight = flight_lift(o.kind, look);
-    if let Some(share) = network::door_lift(o)
+    if let Some(share) = network::door_lift(o).or_else(|| landing::lift(o))
         && flight > 0.0
     {
         return flight * share;
@@ -109,23 +116,41 @@ pub(super) fn shadow_transform(rotation: Quat, levels: f32) -> Transform {
     Transform::from_translation(back * Vec3::new(0.0, -lift(levels), below)).with_rotation(back)
 }
 
+/// (M6-GH2) Whether an air unit's shadow is shown: but while it is down on an Airfield's slot (`landing::down`; module
+/// docs), on the ground.
+pub fn shadow_shown(o: &Object) -> bool {
+    !landing::down(o)
+}
+
 /// Keeps every shadow on the ground under its visual, after the visuals are placed (`super::place_object_visuals`), as
-/// far under it as its body is lifted at the render `alpha` ([`object_lift`]).
+/// far under it as its body is lifted at the render `alpha` ([`object_lift`]), and (M6-GH2) hides it while its unit is
+/// down on a slot ([`shadow_shown`]).
 pub(super) fn place_shadows(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
     tuning: Res<ClientTuning>,
     visuals: Query<&Transform, (With<ObjectVisual>, Without<FlightShadow>)>,
-    mut shadows: Query<(&FlightShadow, &ChildOf, &mut Transform)>,
+    mut shadows: Query<(&FlightShadow, &ChildOf, &mut Transform, Option<&mut Visibility>)>,
 ) {
     let look = &tuning.look;
-    for (shadow, parent, mut transform) in &mut shadows {
+    for (shadow, parent, mut transform, visibility) in &mut shadows {
         let Ok(visual) = visuals.get(parent.parent()) else {
             continue;
         };
         let lift_at = |o: &Object| object_lift(o, o.prev_pos.lerp(o.pos, alpha.0), look);
-        let levels = (sim.object(shadow.0)).map_or(look.flight_lift_levels, lift_at);
+        let object = sim.object(shadow.0);
+        let levels = object.map_or(look.flight_lift_levels, lift_at);
         transform.set_if_neq(shadow_transform(visual.rotation, levels));
+        // A mesh's Visibility comes with the render plugins (`Mesh2d`'s required components), which a headless app
+        // may lack.
+        if let Some(mut visibility) = visibility {
+            let shown = object.is_none_or(shadow_shown);
+            visibility.set_if_neq(if shown {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            });
+        }
     }
 }
 
@@ -246,5 +271,59 @@ mod tests {
             object_lift(&descending, descending.pos, &LOOK)
         };
         assert_eq!([lift_descending(0), lift_descending(12)], [flight, flight / 4.0]);
+    }
+
+    /// (M6-GH2) A Hornet landing on an Airfield's slot over its 16 frames is drawn at its flight's height with none of
+    /// them done, at a quarter of it with 12 done, and on the ground, its shadow hidden, once down; taking off, it
+    /// rises as from an air door, its shadow shown.
+    #[test]
+    fn a_hornet_landing_on_its_slot_is_drawn_sinking_to_the_ground_and_down_without_its_shadow() {
+        use sc_sim::economy::RATIO_ONE;
+        use sc_sim::landing::Landing;
+        use sc_sim::progress::Progress;
+        use sc_sim::testing::ScenarioBuilder;
+        use sc_sim::{PlayerId, SpawnAt};
+        let t = ScenarioBuilder::new(&vec![".".repeat(16); 12].join("\n"))
+            .spawn(
+                ObjectKind::Hornet,
+                Some(PlayerId(1)),
+                SpawnAt::Point(Vec2::new(300.0, 300.0)),
+            )
+            .start();
+        let hornet = t.sim().object(ObjectId(1)).expect("a Hornet");
+        let flight = LOOK.flight_lift_levels;
+        assert_eq!(object_lift(hornet, hornet.pos, &LOOK), flight, "in flight");
+        assert!(shadow_shown(hornet));
+        let landing = |ticks: u32| {
+            let mut landing = hornet.clone();
+            let state = landing.aircraft.as_mut().expect("an aircraft");
+            state.landing = Some(Landing {
+                at: ObjectId(9),
+                descent: Progress {
+                    elapsed: ticks * RATIO_ONE,
+                    total: 16,
+                },
+                rearm: None,
+            });
+            landing
+        };
+        let lift_landing = |ticks| {
+            let landing = landing(ticks);
+            object_lift(&landing, landing.pos, &LOOK)
+        };
+        assert_eq!(
+            [lift_landing(0), lift_landing(12), lift_landing(16)],
+            [flight, flight / 4.0, 0.0]
+        );
+        assert!(shadow_shown(&landing(15)), "landing, in the air");
+        assert!(!shadow_shown(&landing(16)), "down, on the ground");
+        let mut rising = hornet.clone();
+        rising.mover.as_mut().expect("a mover").rise = Some(Progress::new(16));
+        assert_eq!(
+            object_lift(&rising, rising.pos, &LOOK),
+            0.0,
+            "taking off from the ground"
+        );
+        assert!(shadow_shown(&rising));
     }
 }

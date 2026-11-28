@@ -1,9 +1,9 @@
 //! The Airfield — `factions/gdo/structures/airfield.md` (design change 0366, slice M6-GK): "GDO aircraft production
 //! structure. Constructs aircraft and provides a landing/reloading zone for them." Its numbers are the design's
-//! "Placeholder stats" (plan decision T84). Since slice M6-GH1 it trains the Hornet (`> Produces (so far)`), whose
-//! aircraft appear over it (`ExitRule::Pad`), and supports at most 4 aircraft (`> Aircraft Support`, `AirfieldDef`;
-//! `crate::aircraft`). Its landing slots and rearming are slice M6-GH2's, and so is its Deployment Center entry
-//! ([`RECIPE`], held until then): until it, only a debug spawn places one.
+//! "Placeholder stats" (plan decision T84). Since slice M6-GH1 it trains the Hornet (`> Produces (so far)`), and
+//! supports at most 4 aircraft (`> Aircraft Support`, `AirfieldDef`; `crate::aircraft`). (M6-GH2) Its aircraft land on
+//! its 4 landing slots and rearm there, a new one appearing landed on a free slot (`ExitRule::Pad`, `crate::landing`),
+//! and the Deployment Center constructs it ([`RECIPE`], behind Advanced Mechanics).
 
 use crate::defs::gdo::units::hornet;
 use crate::defs::structures::{AirfieldDef, ExitRule, ProductionDef, Recipe, StructureDef, SymmetryType};
@@ -42,16 +42,28 @@ pub(crate) const AIRFIELD: ObjectDef = ObjectDef {
             augment: &[],
             default_rally: None,
         }),
-        // (M6-GH1) "**Capacity: each Airfield supports at most 4 aircraft.**"
-        airfield: Some(AirfieldDef { capacity: 4 }),
+        // (M6-GH1) "**Capacity: each Airfield supports at most 4 aircraft.**" (M6-GH2) "An Airfield has **4 landing
+        // slots**, one per possible assignment"; "Landing and take-off: **16 frames (1 s)** each (placeholder)"; the
+        // slots' layout a placeholder (not in the design), the quarters' centres.
+        airfield: Some(AIRFIELD_SUPPORT),
         ..StructureDef::NONE
     }),
     ..ObjectDef::NONE
 };
 
+/// (M6-GH2) Its support of its aircraft (`AirfieldDef`): "**Capacity: each Airfield supports at most 4 aircraft**",
+/// on "**4 landing slots**", landing and taking off in "**16 frames (1 s)** each (placeholder)"
+/// (`factions/gdo/structures/airfield.md > Aircraft Support`, `> Landing slots`, `> Returning and rearming`), the slots
+/// 48 su from its centre along both axes (**Placeholder (not in the design: the slots' layout)**).
+pub(crate) const AIRFIELD_SUPPORT: AirfieldDef = AirfieldDef {
+    capacity: 4,
+    landing_ticks: 16,
+    slot_offset_su: 48.0,
+};
+
 /// `factions/gdo/structures/deployment_center.md > Constructs`: "Airfield: 250 Space Crystals, 480 frames (30 seconds)
-/// (placeholder). Requires: player owns at least one Advanced Mechanics" (its own TechPrerequisite). Held until slice
-/// M6-GH2, which lands its aircraft (`crate::defs::PLANNED_RECIPES`).
+/// (placeholder). Requires: player owns at least one Advanced Mechanics" (its own TechPrerequisite). The Deployment
+/// Center's since slice M6-GH2, which lands its aircraft (`super::deployment_center`).
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::Airfield,
     cost: 250,
@@ -64,9 +76,10 @@ pub(crate) const RECIPE: Recipe = Recipe {
 mod tests {
     use super::*;
 
-    /// The placeholder stat block, and its TechPrerequisite: Advanced Mechanics. (M6-GH1) It trains the Hornet, whose
-    /// aircraft appear over its pads, and supports at most 4 aircraft; it holds and constructs nothing. Its Deployment
-    /// Center entry, 250 Space Crystals and 480 frames, is held.
+    /// The placeholder stat block, and its TechPrerequisite: Advanced Mechanics. (M6-GH1) It trains the Hornet, and
+    /// supports at most 4 aircraft; it holds and constructs nothing. (M6-GH2) Its aircraft land on its 4 slots in 16
+    /// frames, and appear landed on them (`ExitRule::Pad`); its slots lie 48 su from its centre along both axes, each a
+    /// Hornet's Silhouette inside its footprint. Its Deployment Center entry: 250 Space Crystals and 480 frames.
     #[test]
     fn the_airfield_follows_the_design() {
         let structure = super::super::assert_stat_block(
@@ -84,7 +97,22 @@ mod tests {
         let production = structure.production.expect("it trains aircraft");
         assert_eq!(production.exits, ExitRule::Pad);
         assert_eq!(production.recipes, [hornet::RECIPE]);
-        assert_eq!(structure.airfield, Some(AirfieldDef { capacity: 4 }));
+        let support = AirfieldDef {
+            capacity: 4,
+            landing_ticks: 16,
+            slot_offset_su: 48.0,
+        };
+        assert_eq!(structure.airfield, Some(support));
+        let half_footprint = 3.0 * crate::units::SU_PER_GU / 2.0;
+        let hornet = ObjectKind::Hornet.def().half_extents().expect("a Silhouette");
+        assert!(
+            support.slot_offset_su + hornet.max_element() <= half_footprint,
+            "inside the footprint"
+        );
+        assert!(
+            2.0 * support.slot_offset_su >= 2.0 * hornet.max_element(),
+            "apart from the next"
+        );
         assert!(structure.holds.is_none() && structure.constructs.is_empty());
         assert_eq!(RECIPE, super::super::held(ObjectKind::Airfield, 250, 480));
     }

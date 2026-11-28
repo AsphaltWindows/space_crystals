@@ -153,7 +153,8 @@ fn every_label_is_its_own() {
 /// A kind's module agrees with its def: a unit's look is a unit's, or (slice M6-GK) a mine's, "closer to a permanently
 /// deployed unit" (design change 0426), a structure's a structure's, a turret's a structure's that attacks (plan
 /// decision T49: `StructureDef::attack`), a runway's a structure's whose aircraft take off along it (slice M5-N7:
-/// `ExitRule::Runway`), a map resource's its own; and a kind has a shot style exactly when it has a weapon, a unit's
+/// `ExitRule::Runway`), (M6-GH2) the pads' a structure's its aircraft land on (`StructureDef::airfield`), a map
+/// resource's its own; and a kind has a shot style exactly when it has a weapon, a unit's
 /// or a structure's.
 #[test]
 fn every_kind_module_fits_its_def() {
@@ -164,11 +165,16 @@ fn every_kind_module_fits_its_def() {
             let exits = structure.production.as_ref().map(|production| production.exits);
             matches!(exits, Some(sc_sim::defs::ExitRule::Runway { .. }))
         };
+        let pads = |structure: &sc_sim::StructureDef| structure.airfield.is_some();
         let look_fits = match client.look {
             Look::Unit { .. } => def.unit.is_some() || def.category == Category::Mine,
-            Look::Structure => def.structure.as_ref().is_some_and(|s| !attacks(s) && !runway(s)),
+            Look::Structure => def
+                .structure
+                .as_ref()
+                .is_some_and(|s| !attacks(s) && !runway(s) && !pads(s)),
             Look::Turret => def.structure.as_ref().is_some_and(attacks),
             Look::Runway => def.structure.as_ref().is_some_and(|s| !attacks(s) && runway(s)),
+            Look::Pads => def.structure.as_ref().is_some_and(|s| !attacks(s) && pads(s)),
             Look::CrystalPatch | Look::SupplyDeliveryStation => def.category == Category::Resource,
         };
         assert!(look_fits, "{kind:?}'s look is {:?}", client.look);

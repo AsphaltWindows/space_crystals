@@ -20,8 +20,10 @@
 //! (M5-V2) the wheeled invariant W1 (a FixedTurnRadiusMovement unit turns by its speed, never in place: `momentum`),
 //! (M6-GD) the drone invariant D1 (stocks within their max, a drone and its operator naming each other, the drone
 //! within its leash and battery, its operator standing still: `tethers`), (M6-CM) the illusion invariant M1 (an
-//! illusion's parent is in the game, a Disciple that casts Mirage, with one set at most: `illusions`), and an ASCII
-//! picture of the map with its units for readable failures.
+//! illusion's parent is in the game, a Disciple that casts Mirage, with one set at most: `illusions`), (M6-GH2) the
+//! landing invariant L1 (an aircraft on a slot is on an Airfield in the game, at most 4 there, rising no more, and
+//! rearms exactly while down and short of ammo: `landings`), and an ASCII picture of the map with its units for
+//! readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step, as the golden games do (slice M5-M1); the fuzz's
@@ -35,6 +37,7 @@ mod energy;
 mod gliders;
 mod hit_points;
 mod illusions;
+mod landings;
 mod momentum;
 mod operations;
 mod overlaps;
@@ -75,7 +78,8 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1", "W1", "S1", "D1", "M1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1", "W1", "S1", "D1",
+    /// "M1", "L1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -187,8 +191,8 @@ impl Invariants {
     }
 
     /// (M5-M1) Of [`Invariants::check`]'s invariants, those of the game's rules alone: P1, O1, R1, H1, B1, A1, E1
-    /// (slice M5-N4a), T1 (slice M5-N3), C1 (slice M5-N4b), F1 (slice M5-N5), G1 (slice M5-H1), D1 (slice M6-GD) and M1
-    /// (slice M6-CM),
+    /// (slice M5-N4a), T1 (slice M5-N3), C1 (slice M5-N4b), F1 (slice M5-N5), G1 (slice M5-H1), D1 (slice M6-GD), M1
+    /// (slice M6-CM) and L1 (slice M6-GH2),
     /// which hold whatever the input and cost little. Not the movement invariants, whose I6 bounds how far a scenario
     /// may fall behind, nor V1 and K1, which rebuild every player's vision and planning grids and make most of a
     /// check's cost. For a harness of many games of random input: `tests/robustness.rs`, whose seed sweep V1 and K1
@@ -214,6 +218,7 @@ impl Invariants {
             .and_then(|()| gliders::gliders(sim, &self.seen))
             .and_then(|()| tethers::tethers(sim, &self.seen, &teleported))
             .and_then(|()| illusions::illusions(sim))
+            .and_then(|()| landings::landings(sim))
     }
 
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
