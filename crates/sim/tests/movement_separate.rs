@@ -235,3 +235,64 @@ fn only_an_idle_unit_that_overlapped_another_moves_off() {
     assert_eq!(moved(4), Some("I5/I7"), "on Hold, inside another");
     assert_eq!(moved(5), Some("I5/I7"), "idle, overlapping nobody");
 }
+
+/// I5/I7's exception for separating units counts a unit that dies in the tick: two idle Drones of player 1, of 1 HP
+/// and no shields each, stacked on one point (the state edited, as in [`stack`]), move apart, and a Peacekeeper of
+/// player 2 shoots one of them dead while they still overlap. The other moved off it in the movement of that tick
+/// (phase 5d), before the shot (5e) removed it (`systems/units.md > UnitCollision > Units that already overlap > Idle
+/// units push apart`).
+#[test]
+fn an_idle_drone_moves_off_one_that_dies_in_the_same_tick() {
+    let at = Vec2::new(300.0, 300.0);
+    let scenario = ScenarioBuilder::new(&vec![".".repeat(16); 12].join("\n"))
+        .spawn(DRONE, Some(P1), SpawnAt::Point(Vec2::new(100.0, 100.0)))
+        .spawn(DRONE, Some(P1), SpawnAt::Point(Vec2::new(150.0, 100.0)))
+        .spawn(
+            ObjectKind::Peacekeeper,
+            Some(PlayerId(2)),
+            SpawnAt::Point(at + Vec2::new(90.0, 0.0)),
+        );
+    let mut json = serde_json::to_value(scenario.start().sim()).expect("a state serializes");
+    for object in json["objects"].as_array_mut().expect("the objects are a list") {
+        if object["kind"] == "Drone" {
+            object["pos"] = serde_json::to_value(at).expect("a position serializes");
+            object["prev_pos"] = object["pos"].clone();
+            object["hp"] = serde_json::json!(1.0);
+            object["shields"] = serde_json::json!(0.0);
+        }
+    }
+    let mut sim: Sim = serde_json::from_value(json).expect("the edited state loads");
+    let mut invariants = Invariants::new(&sim);
+    for _ in 0..18 {
+        let before = sim.clone();
+        sim.step(&TickInputs::default());
+        if let Err(violation) = invariants.check(&sim, &TickInputs::default()) {
+            // The vision of an edited state is stale; the movement invariants are what this test is about.
+            assert!(
+                !violation.invariant.starts_with('I'),
+                "tick {}: {violation:?}",
+                sim.tick()
+            );
+        }
+        let alive: Vec<ObjectId> = sim.objects().filter(|o| o.kind == DRONE).map(|o| o.id).collect();
+        if let [survivor] = alive[..] {
+            let was = |n: ObjectId| before.object(n).expect("both were there").pos;
+            let dead = before
+                .objects()
+                .find(|o| o.kind == DRONE && o.id != survivor)
+                .expect("two Drones")
+                .id;
+            assert!(
+                (was(survivor) - was(dead)).abs().max_element() < 2.0 * HALF,
+                "they overlapped"
+            );
+            let moved = sim.object(survivor).expect("it survived");
+            assert_ne!(
+                moved.pos, moved.prev_pos,
+                "it moved off the other in the tick the other died"
+            );
+            return;
+        }
+    }
+    panic!("no Drone died while they overlapped");
+}

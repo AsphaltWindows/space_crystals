@@ -116,19 +116,24 @@ fn by_low_x(sim: &Sim, domain: Domain, shape: impl Fn(&Object) -> Option<Shape>)
 }
 
 /// The units whose box overlapped another unit's of their layer a tick earlier, by what the checker saw then: those
-/// that may be moving off it now, if they are idle (design change 0126). (M5-V1) Their shapes as they lay then.
+/// that may be moving off it now, if they are idle (design change 0126). (M5-V1) Their shapes as they lay then. The
+/// units that died in this tick count too ([`died`]).
 pub(super) fn overlapped_before(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) -> Vec<ObjectId> {
     let mut found = Vec::new();
     for domain in [Domain::Ground, Domain::Underground] {
-        let boxes = by_low_x(sim, domain, |o| seen_shape(o, before.get(&o.id)?));
-        for (i, (_, a, a_unit)) in boxes.iter().enumerate() {
+        let alive = by_low_x(sim, domain, |o| seen_shape(o, before.get(&o.id)?));
+        let mut boxes: Vec<(f32, Shape, ObjectId)> = (alive.into_iter().map(|(low, shape, o)| (low, shape, o.id)))
+            .chain(died(sim, before, domain))
+            .collect();
+        boxes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.2.cmp(&b.2)));
+        for (i, (_, a, a_id)) in boxes.iter().enumerate() {
             let high = a.bounds().1.x;
-            for (low, b, b_unit) in &boxes[i + 1..] {
+            for (low, b, b_id) in &boxes[i + 1..] {
                 if *low >= high {
                     break;
                 }
                 if a.overlaps(b) {
-                    found.extend([a_unit.id, b_unit.id]);
+                    found.extend([*a_id, *b_id]);
                 }
             }
         }
@@ -136,6 +141,25 @@ pub(super) fn overlapped_before(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) ->
     found.sort();
     found.dedup();
     found
+}
+
+/// The units of `domain`'s layer that died in this tick (`SimEvent::Died`), with their shapes where the checker saw
+/// them a tick earlier, each with the low x of its bounding box. One killed in the tick's combat (phase 5e) was still
+/// there in its movement (5d), for an idle unit inside it to move off (`systems/units.md > UnitCollision > Units that
+/// already overlap > Idle units push apart`), and is gone as the tick ends.
+fn died(sim: &Sim, before: &BTreeMap<ObjectId, Seen>, domain: Domain) -> Vec<(f32, Shape, ObjectId)> {
+    (sim.events().iter())
+        .filter_map(|e| match *e {
+            SimEvent::Died { id, kind, .. } => {
+                let seen = before.get(&id)?;
+                let in_layer = kind.def().unit.as_ref()?.domain() == domain;
+                kind.def().silhouette().filter(|_| in_layer)?;
+                let shape = Shape::silhouette(kind, seen.pos, seen.facing);
+                Some((shape.bounds().0.x, shape, id))
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 /// (M5-N6) The units that a unit evacuated in this tick (`evacuated`, design change 0349) came out on: their shapes as
