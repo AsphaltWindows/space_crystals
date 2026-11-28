@@ -1,5 +1,5 @@
 # Barracks
-GDO infantry production structure. Produces infantry units from a build queue. Units exit from one of the short sides (B side, the right end in the default orientation), through the exit doorway (core/entities.md > Structure Type > Exit Doorway).
+GDO infantry production structure. Produces infantry units from a build queue (**Unit Production, Queue producer**: systems/mechanics/production.md). Units exit from one of the short sides (B side, the right end in the default orientation), through the exit doorway (core/entities.md > Structure Type > Exit Doorway).
 
 ## Faction - GlobalDefenseOrganization
 ## Size - 2x3 grid units (2 tall, 3 wide in the default orientation)
