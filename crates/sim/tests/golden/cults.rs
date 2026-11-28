@@ -40,7 +40,7 @@ const OPENING_END: Tick = 2640;
 /// plays back in the client to where its game ended (`docs/architecture/replays-and-golden-hashes.md > Replays and golden hashes`, "Playback"), so the
 /// golden game ends there too, with its last checkpoint. A change that moves the end fails [`versus_syndicate`]'s
 /// `expect`: set this to the tick it names.
-const VERSUS_END: Tick = 2800;
+const VERSUS_END: Tick = 2796;
 /// [`opening`]'s camera starts over this tile: player 1's base, between its Halls.
 const OPENING_CAMERA: TilePos = TilePos::new(14, 12);
 /// [`versus_syndicate`]'s: player 2's Tunnel, where the Militants and Gunners fight.

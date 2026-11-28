@@ -52,9 +52,10 @@ const FROM: Vec2 = Vec2::new(200.0, 200.0);
 const TO: Vec2 = Vec2::new(2400.0, 200.0);
 
 /// "Attack-move past an enemy that shoots from 1 tile beyond the leash but within the unit's range: the unit fights
-/// back." A Guard given a Range and a SightRange of 8 grid units attack-moves east along y = 200; a Peacekeeper of
-/// player 2 given the same holds its position 7 grid units south of the route, 1 beyond the leash of 6. They come
-/// into each other's sight and range together: the Guard fights back from its route, without a step towards the
+/// back." A Guard given a Range of 8 grid units and a SightRange of 7.5 attack-moves east along y = 200; a Peacekeeper of
+/// player 2 given the same holds its position 7 grid units south of the route, 1 beyond the leash of 6. The
+/// Guard's scan, from its centre, first reaches the Peacekeeper inside its Range; its hits reveal it, and the
+/// Peacekeeper fires back. The Guard fights from its route, without a step towards the
 /// Peacekeeper, kills it and walks on.
 ///
 /// Then the case the old rule got wrong ("beyond the leash a unit used to disengage even from an enemy in weapon
@@ -66,7 +67,7 @@ fn a_unit_fights_back_at_an_enemy_beyond_its_leash_within_its_range() {
     let _pk = TestDef::unit(ObjectKind::Peacekeeper, |unit| {
         unit.attack.as_mut().unwrap().range = 8.0
     });
-    let _sight = SightRanges::new(8.0);
+    let _sight = SightRanges::new(7.5);
     let off = gu(ATTACK_MOVE_LEASH_GU + 1.0);
     let mut t = ScenarioBuilder::new(&open()).start();
     t.spawn_unit_at(1, ObjectKind::Guard, P1, FROM)

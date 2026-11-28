@@ -19,7 +19,11 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   (enemies only: another player's destructible objects that the unit's owner sees and its attack can target),
   threatening ones first, then the least rotation from the unit's facing **in steps of 45°** (design change 0179,
   `world::rotation_step`, a placeholder step: each step reaches up to its upper bound, so a target exactly 45° off is in
-  the first), then the smallest gap, then the lowest id. A scan of SightRange skips enemies inside the unit's MinRange
+  the first), then the smallest gap, then the lowest id. A scan of SightRange measures from the unit's centre, as vision does
+  (`systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`): a target is in reach when the nearest
+  point of its shape lies within the unit's SightRange of the unit's centre (its type's, with the ElevationModifier; a
+  sight buff widens vision only; `World::in_sight_range`); MinRange and Range stay edge to edge. It skips enemies
+  inside the unit's MinRange
   (design change 0182) and picks one it can hit; the caller may leave out more (`pick`'s `admit`: the AttackMove's
   leash). Enemy structures are ValidTargets too (design change 0103), so units attack enemy bases on their own; the
   structures that can't attack come after the targets that shoot back (a Garrison is one that can while a unit inside
@@ -275,8 +279,8 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   get to for `Orders::give_up_retry_ticks` (32). On an AttackMove or a Patrol such a target is rejected by the reach rule
   instead (0235). A target an explicit Attack gave up (`engage::attack`, the Failure rule) waits the same 32 ticks
   before the idle unit takes it again: the Attack leaves it in `Orders::auto` as the target given up.
-- **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): "within SightRange" for
-  a scan is measured edge to edge like Range; a 45° step reaches up to its upper bound; a unit backing off
+- **Placeholders** (the design is silent; each is a comment or a named const in `orders/`):
+  a 45° step reaches up to its upper bound; a unit backing off
   from a target inside its MinRange went to the middle of the band from MinRange to Range (now MinRange + 1 grid
   unit, design change 0454), and gives the order up when a back-off ends with the target inside and where it was
   (both written into the design since, by design change 0204, the second with the "Target too close" feedback, which

@@ -98,7 +98,9 @@ pub(crate) fn cults_shroud() -> Game {
         builder = builder.spawn(ObjectKind::Militant, Some(P1), at(x, y));
     }
     for x in [7, 11, 15] {
-        builder = builder.spawn(GUARD, Some(P2), at(x, 13));
+        // The middle Guard stands a quarter grid unit west of its tile's centre.
+        let west = if x == 11 { 16.0 } else { 0.0 };
+        builder = builder.spawn(GUARD, Some(P2), SpawnAt::Point(point(x, 13) - Vec2::new(west, 0.0)));
     }
     builder = builder.spawn(ObjectKind::Grenadier, Some(P2), at(12, 13));
     let shroud = |units| order(P1, units, OrderKind::Shroud);

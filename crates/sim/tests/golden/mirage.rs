@@ -23,7 +23,7 @@ const RECAST: Tick = 1610;
 /// The Disciple walks into the Guards' fire in this tick, its new illusions staying where they came.
 const WALK: Tick = 1620;
 /// The Disciple dies in this tick, its new illusions with it, at 1:49.6.
-const DEATH: Tick = 1753;
+const DEATH: Tick = 1754;
 /// The game's last tick.
 const END: Tick = DEATH + 16;
 

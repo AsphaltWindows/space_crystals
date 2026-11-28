@@ -19,6 +19,7 @@ mod air;
 mod leash;
 mod min_range;
 mod priority;
+mod scan;
 
 fn order(kind: OrderKind) -> Order {
     Order {

@@ -42,6 +42,8 @@ const ATTACK: Tick = 1160;
 const ONTO: (i32, i32) = (33, 9);
 /// The game's last tick.
 const END: Tick = 1600;
+/// Player 2's Recruits stand this far west of their tiles' centres: a quarter grid unit.
+const WEST: Vec2 = Vec2::new(16.0, 0.0);
 
 /// The hits of the game so far: by the Raptors on the Recruits and on the Sparrows, by the Twisters on the Sparrows,
 /// and on the vehicles by each of player 2's kinds (as the game played when it was made: the Raptors' twelve missiles
@@ -67,7 +69,8 @@ fn p1(command: Command) -> PlayerCommand {
 
 /// Player 1 plays the GDO with a Deployment Center and a Factory, whose Power -30 the Deployment Center's +30 covers,
 /// and gets by a debug command the four vehicles' 450 Space Crystals and the Twisters' 2 Supplies (set over the GDO's
-/// starting 1). Player 2 plays the Cults: four Recruits stand 18 grid units east of the Factory,
+/// starting 1). Player 2 plays the Cults: four Recruits stand 18 grid units east of the Factory, less
+/// [`WEST`],
 /// and two Sparrows hold over them. At tick 1 the Factory queues its four vehicles ([`KINDS`]): each comes out at its
 /// tick of [`OUT`], half inside the middle of side B and facing east, and drives to the default rally point; the first
 /// stops on it, and each of the others, the point taken, parks at the free spot nearest it (design change 0451). At
@@ -86,10 +89,10 @@ pub(crate) fn gdo_vehicles() -> Game {
         )
         .spawn(ObjectKind::Factory, Some(P1), SpawnAt::Tile(TilePos::new(8, 8)))
         .spawn(ObjectKind::Storage, Some(P2), SpawnAt::Tile(TilePos::new(36, 17)))
-        .spawn(ObjectKind::Recruit, Some(P2), at(28, 8))
-        .spawn(ObjectKind::Recruit, Some(P2), at(28, 10))
-        .spawn(ObjectKind::Recruit, Some(P2), at(29, 9))
-        .spawn(ObjectKind::Recruit, Some(P2), at(30, 10))
+        .spawn(ObjectKind::Recruit, Some(P2), SpawnAt::Point(point(28, 8) - WEST))
+        .spawn(ObjectKind::Recruit, Some(P2), SpawnAt::Point(point(28, 10) - WEST))
+        .spawn(ObjectKind::Recruit, Some(P2), SpawnAt::Point(point(29, 9) - WEST))
+        .spawn(ObjectKind::Recruit, Some(P2), SpawnAt::Point(point(30, 10) - WEST))
         .spawn(ObjectKind::Sparrow, Some(P2), at(29, 6))
         .spawn(ObjectKind::Sparrow, Some(P2), at(29, 12));
     let bank = p1(Command::Debug(DebugCommand::SetResources {

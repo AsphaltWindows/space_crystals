@@ -50,7 +50,7 @@ const OUT: Tick = PLACED + 320;
 const RAID: Tick = 760;
 const ONTO: Vec2 = Vec2::new(1856.0, 544.0);
 /// The sortie, a Move of the four onto a point north-west, away from the Sparrows left.
-const SORTIE: Tick = 1100;
+const SORTIE: Tick = 1300;
 const SORTIE_AT: Vec2 = Vec2::new(320.0, 192.0);
 /// The four are sent home (F).
 const HOME: Tick = 1400;
@@ -114,8 +114,8 @@ fn all_home(sim: &Sim) {
 /// trains a Dragonfly, which appears at [`OUT`] landed on the last slot, south-east, and with no rally point stays
 /// there (design change 0428 point 2). At [`RAID`] the four lift off straight up and AttackMove east, head on at the
 /// line of Sparrows: each fires its one missile along its heading at a Sparrow as it comes within its Range, and the
-/// missile homes in (Damage 90 on MaxHP 50). As the game played when it was made, the four missiles killed three
-/// Sparrows, two of them homing on one, and the Sparrows' guns hit two Dragonflies in passing. Out of ammo, each flies
+/// missile homes in (Damage 90 on MaxHP 50). As the game played when it was made, the four missiles killed four
+/// Sparrows, one each, and the Sparrows' guns hit two Dragonflies in passing. Out of ammo, each flies
 /// home by itself (the automatic return), lands on the first slot free in id order and rearms in 64 frames, and stays
 /// landed. At [`SORTIE`] a Move lifts the four off again, to circle a point in the north-west together; at [`HOME`]
 /// they are sent home (F) and land once more, coming in from the north-west. No Dragonfly is lost.
@@ -252,13 +252,13 @@ pub(crate) fn gdo_dragonflies() -> Game {
             all_home(sim);
             assert!(sim.object(ObjectId(4)).is_some(), "player 2's Storage stands");
             SEEN.with_borrow(|seen| {
-                // The raid: a missile each, three Sparrows down, and the Sparrows' guns hitting back (on two
+                // The raid: a missile each, four Sparrows down, and the Sparrows' guns hitting back (on two
                 // Dragonflies, 13 and 9, as the game played when it was made), the hit ones' HP short of their MaxHP.
                 let mut fired: Vec<u32> = seen.launches.iter().map(|&(_, n)| n).collect();
                 fired.sort();
                 assert_eq!(fired, DRAGONFLIES, "{:?}", seen.launches);
                 assert!(seen.launches.iter().all(|&(tick, _)| tick > RAID && tick < SORTIE));
-                assert_eq!(seen.deaths.len(), 3, "{:?}", seen.deaths);
+                assert_eq!(seen.deaths.len(), 4, "{:?}", seen.deaths);
                 let mut gunned: Vec<u32> = seen.gunned.iter().map(|&(_, n)| n).collect();
                 gunned.dedup();
                 assert!(!gunned.is_empty(), "the Sparrows hit back");

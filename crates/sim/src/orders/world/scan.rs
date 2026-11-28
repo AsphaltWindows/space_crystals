@@ -51,26 +51,31 @@ pub(crate) fn rotation_step(rotation: f32) -> u8 {
 }
 
 impl World<'_> {
-    /// Whether `view` is within the reach of `scan` from `unit`, the gap between their shapes
-    /// (`systems/combat.md > Range Measurement`).
-    /// - [`Scan::Sight`]: within the unit's SightRange, with the ElevationModifier (`core/vision.md >
-    ///   ElevationModifier`), and beyond its MinRange (design change 0182). The design doesn't say how "within
-    ///   SightRange" is measured for a scan; a placeholder reading: edge to edge, like Range.
-    /// - [`Scan::Weapon`]: within Range and beyond MinRange (`combat::within_range`).
+    /// Whether `view` is within the reach of `scan` from `unit`:
+    /// - [`Scan::Sight`]: within the unit's SightRange as a scan measures it ([`World::in_sight_range`]), and beyond
+    ///   its MinRange (design change 0182), the gap between their shapes (`systems/combat.md > Range Measurement`).
+    /// - [`Scan::Weapon`]: within Range and beyond MinRange, the gap between their shapes (`combat::within_range`).
     pub(crate) fn within(&self, unit: &Unit, attrs: &AttackAttrs, scan: Scan, view: &View) -> bool {
         let gap = unit.shape().gap(&view.shape);
-        Self::gap_within(unit.kind, attrs, scan, gap, self.elevation(unit), view)
+        Self::gap_within(unit, attrs, scan, gap, self.elevation(unit), view)
     }
 
-    /// [`World::within`] for a unit of `kind` on `source`, `gap` away from `view`.
-    fn gap_within(kind: ObjectKind, attrs: &AttackAttrs, scan: Scan, gap: f32, source: Elevation, view: &View) -> bool {
+    /// [`World::within`] for `unit` on `source`, `gap` away from `view`.
+    fn gap_within(unit: &Unit, attrs: &AttackAttrs, scan: Scan, gap: f32, source: Elevation, view: &View) -> bool {
         match scan {
-            Scan::Sight => {
-                !inside_min_range(attrs, gap)
-                    && gap <= gu(elevation::sight_range(kind.def().sight_range, source, view.elevation))
-            }
+            Scan::Sight => !inside_min_range(attrs, gap) && Self::in_sight_range(unit.kind, unit.pos, source, view),
             Scan::Weapon => within_range(attrs, gap, source, view.elevation),
         }
+    }
+
+    /// `systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`: whether `view` is within the
+    /// SightRange of a unit of `kind` whose centre is at `at`, on `source`, as every target scan measures it: from the
+    /// unit's centre, as vision does (`core/vision.md > Vision`), to the nearest point of `view`'s shape
+    /// (`Shape::distance_to`), the boundary included, with the ElevationModifier (`core/vision.md >
+    /// ElevationModifier`). The type's SightRange alone: a sight buff widens vision only
+    /// (`factions/syndicate/structures/null_chamber.md > Null Chamber Exit Buff`).
+    pub(crate) fn in_sight_range(kind: ObjectKind, at: Vec2, source: Elevation, view: &View) -> bool {
+        view.shape.distance_to(at) <= gu(elevation::sight_range(kind.def().sight_range, source, view.elevation))
     }
 
     /// The angle a unit at `pos` whose attack faces `facing` ([`Unit::aim_facing`]: its own facing, or its turret's)
@@ -122,11 +127,17 @@ impl World<'_> {
         let attrs = unit.attrs().filter(|_| self.auto_targeting)?;
         unit.owner?;
         let my_domain = unit.unit_def()?.domain();
-        // Everything a scan can reach lies within the unit's longest range, plus the modifier, of the unit's shape:
-        // its centre lies within that and the two half shapes along each axis, in the cells this box touches.
-        let longest = unit.kind.def().sight_range.max(attrs.range) + rules().tuning.vision.elevation_modifier;
-        let own_half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO).max_element();
-        let radius = gu(longest) + own_half + self.candidate_half;
+        // Everything a scan can reach lies within its reach, plus the modifier, of what it measures from: SightRange
+        // from the unit's centre, Range from the unit's shape. Its centre lies within that, the candidate's half shape
+        // and, for Range, the unit's half shape along each axis, in the cells this box touches.
+        let modifier = rules().tuning.vision.elevation_modifier;
+        let reach = match scan {
+            Scan::Sight => gu(unit.kind.def().sight_range + modifier),
+            Scan::Weapon => {
+                gu(attrs.range + modifier) + unit.kind.def().half_extents().unwrap_or(Vec2::ZERO).max_element()
+            }
+        };
+        let radius = reach + self.candidate_half;
         let (x0, x1) = (
             self.cell_coord(unit.pos.x - radius, self.cells_wide),
             self.cell_coord(unit.pos.x + radius, self.cells_wide),
@@ -148,8 +159,7 @@ impl World<'_> {
                         continue;
                     }
                     let gap = shape.gap(&view.shape);
-                    if !Self::gap_within(unit.kind, attrs, scan, gap, source, view)
-                        || !self.valid_target(unit, attrs, view)
+                    if !Self::gap_within(unit, attrs, scan, gap, source, view) || !self.valid_target(unit, attrs, view)
                     {
                         continue;
                     }

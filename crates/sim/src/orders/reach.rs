@@ -8,10 +8,10 @@
 //!   (`World::chase_path`: on what the unit's owner knows, to the point nearest the target that the unit can stand
 //!   on); it is walked in steps of [`SAMPLE_SU`] up to the first point the unit's attack reaches the target from,
 //!   the firing position. Every point up to there, the unit's own included, must lie within the leash of the
-//!   PathReference and have the target within the unit's SightRange, measured as the scan measures it (edge to
-//!   edge, with the ElevationModifier where the unit would stand). A path that ends short of any firing position
-//!   (the target on a cliff, across water) is a chase the unit can't finish either, and so is one too long to keep
-//!   the target in sight ([`JUDGE_PATH_SIGHTS`], which bounds the search).
+//!   PathReference and have the target within the unit's SightRange, measured as the scan measures it (from the
+//!   unit's centre where it would stand to the target's edge, `World::in_sight_range`). A path that ends short of any
+//!   firing position (the target on a cliff, across water) is a chase the unit can't finish either, and so is one
+//!   too long to keep the target in sight ([`JUDGE_PATH_SIGHTS`], which bounds the search).
 //! - **No memory** (0230: "the same enemy, or an identical one swapped in unseen, must get the same response"). A
 //!   rejection is kept ([`Judged`], `Leg::rejected`) only to save judging again, and only while nothing the judgement
 //!   depends on has changed (the Director's decision under 0230's "the exact triggers and caching are the Director's
@@ -36,7 +36,7 @@ use glam::Vec2;
 
 use crate::combat::within_range;
 use crate::defs::AttackAttrs;
-use crate::elevation::{self, Elevation};
+use crate::elevation::Elevation;
 use crate::nav::Search;
 use crate::shape::Shape;
 use crate::units::{SU_PER_GU, gu};
@@ -268,16 +268,17 @@ pub(super) fn judge(
 /// Whether `path`, walked from its start, comes to a firing position on `target` with every point up to it within
 /// the leash of `reference` and the target within the unit's SightRange from it (module docs).
 fn finishes(unit: &Unit, attrs: &AttackAttrs, reference: &[Vec2], target: &View, path: &[Vec2], world: &World) -> bool {
-    let sight = unit.kind.def().sight_range;
     // `Some(fires)` for a point the unit may walk through; `None` for one off the leash or out of sight.
     let at = |p: Vec2| {
         if !within_leash(p, reference) {
             return None;
         }
         let source = Elevation::of(world.map, unit.kind, p);
+        if !World::in_sight_range(unit.kind, p, source, target) {
+            return None;
+        }
         let gap = Shape::silhouette(unit.kind, p, unit.facing).gap(&target.shape);
-        (gap <= gu(elevation::sight_range(sight, source, target.elevation)))
-            .then(|| within_range(attrs, gap, source, target.elevation))
+        Some(within_range(attrs, gap, source, target.elevation))
     };
     let Some(&start) = path.first() else {
         return false;

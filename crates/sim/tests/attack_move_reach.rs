@@ -390,12 +390,13 @@ fn an_enemy_is_judged_again_when_the_known_obstacles_change() {
 fn a_unit_judges_a_bounded_number_of_enemies_per_tick() {
     let mut builder = ScenarioBuilder::new(WALL).spawn(GUARD, Some(P1), SpawnAt::Point(centre(15, 1))); // 1
     for i in 0..12 {
-        let at = centre(15, 5) + v(40.0 * (i as f32 - 5.5), 0.0);
+        let at = centre(15, 5) + v(40.0 * (i as f32 - 5.5), -16.0);
         builder = builder.spawn(DRONE, Some(P2), SpawnAt::Point(at)); // 2 to 13
     }
     let mut t = builder.start();
     for drone in 2..=13 {
-        assert!(gap(&t, 1, drone) <= 5.0 * 64.0 && gap(&t, 1, drone) > 3.0 * 64.0);
+        let from_centre = Shape::of(t.sim().object(id(drone)).unwrap()).distance_to(pos(&t, 1));
+        assert!(from_centre <= 5.0 * 64.0 && gap(&t, 1, drone) > 3.0 * 64.0);
     }
     let to = centre(29, 1);
     t.order_at(2, P1, &[id(1)], OrderKind::AttackMove(to), false)

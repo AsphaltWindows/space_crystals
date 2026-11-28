@@ -355,19 +355,18 @@ fn ledge() -> String {
     format!("{}\n\n{}", flat(20, 10), vec![corners; 11].join("\n"))
 }
 
-/// A scan finds a structure whose footprint is in reach, however far its centre lies: a Peacekeeper on high ground
-/// (SightRange 5, 6 over lower ground) takes an enemy Deployment Center whose edge lies exactly 6 grid units away,
-/// its centre 8.2 grid units (`World::pick`'s cells hold candidates by their centres). A Generator of its own shows
-/// it the Deployment Center.
+/// A scan finds a structure whose nearest tile is in reach, however far its centre lies: a Peacekeeper on high ground
+/// (SightRange 5, 6 over lower ground) takes an enemy Deployment Center the centre of whose nearest tile lies exactly
+/// 6 grid units from its own centre (`systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`: from
+/// the unit's centre, as vision does, the boundary included), the Deployment Center's centre 7.5 grid units away
+/// (`World::pick`'s cells hold candidates by their centres). Its own eye shows it the Deployment Center.
 #[test]
-fn a_scan_reaches_a_large_structure_by_its_edge() {
+fn a_scan_reaches_a_large_structure_by_its_nearest_tile() {
     let mut t = ScenarioBuilder::new(&ledge())
-        .spawn(PK, Some(P1), SpawnAt::Point(Vec2::new(500.0, 320.0))) // 1: its east edge at x 512, level 1
-        .spawn(ObjectKind::DeploymentCenter, Some(P2), tile(14, 3)) // 2: (14, 3) to (17, 6), from x 896
-        .spawn(ObjectKind::Generator, Some(P1), tile(12, 3)) // 3
+        .spawn(PK, Some(P1), SpawnAt::Point(Vec2::new(480.0, 288.0))) // 1: on tile (7, 4), level 1
+        .spawn(ObjectKind::DeploymentCenter, Some(P2), tile(13, 3)) // 2: (13, 3) to (16, 6), from x 832
         .start();
-    let gap = sc_sim::Shape::of(object(&t, 1)).gap(&sc_sim::Shape::of(object(&t, 2)));
-    assert_eq!(gap, gu(6.0));
+    assert_eq!(centre(13, 4).distance(object(&t, 1).pos), gu(6.0));
     // The first scan. (Chasing it down the ramp, the Peacekeeper loses the modifier, and with it the target.)
     t.run_until(1);
     assert!(is_visible(&t, P1, 2));

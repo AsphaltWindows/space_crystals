@@ -16,6 +16,8 @@ const RECRUITS: [u32; 3] = [2, 3, 4];
 /// Player 2's Militant, in the west, and its Guard, behind it.
 const MILITANT: ObjectId = ObjectId(5);
 const GUARD_ID: ObjectId = ObjectId(6);
+/// The Guard stands this far east of its tile's centre.
+const GUARD_EAST: Vec2 = Vec2::new(10.0, 0.0);
 /// The three Sparrows are queued in this tick, with the three Recruits inside, and the rally point set.
 const TRAIN: Tick = 48;
 /// The tick each Sparrow takes off in: the first 320 frames after the queue (the queue's tick the first), the others
@@ -71,9 +73,10 @@ pub(crate) fn cults_air() -> Game {
     for y in [7, 8, 9] {
         builder = builder.spawn(ObjectKind::Recruit, Some(P1), at(35, y));
     }
+    let guard_at = SpawnAt::Point(point(5, 9) + GUARD_EAST);
     builder = builder
         .spawn(ObjectKind::Militant, Some(P2), at(11, 9))
-        .spawn(GUARD, Some(P2), at(5, 9));
+        .spawn(GUARD, Some(P2), guard_at);
     let production = |command| PlayerCommand {
         player: P1,
         command: Command::Production {

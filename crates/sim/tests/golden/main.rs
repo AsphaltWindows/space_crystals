@@ -147,7 +147,7 @@ fn riot_shield() -> Game {
     for y in [4, 5, 6] {
         builder = builder.spawn(PK, Some(P1), at(3, y));
     }
-    builder = builder.spawn(GUARD, Some(P2), at(11, 5));
+    builder = builder.spawn(GUARD, Some(P2), SpawnAt::Point(point(11, 5) - Vec2::new(18.0, 0.0)));
     Game {
         scenario: syndicate_p2(builder),
         commands: vec![

@@ -12,7 +12,10 @@ or `Visible` for each player, and each player remembers the structures and resou
   tile is seen when its centre (`TILE_SIGHT_POINT`) lies within the SightRange (its type's, and, slice M6-SN, the Null
   Chamber exit buff's 2 GU while the unit holds it: `vision/sight.rs`'s `range`), boundary included, with the
   ElevationModifier between the object's elevation and the tile's level at its centre (`elevation::sight_range`: +1
-  GU towards lower tiles, −1 towards higher, none for air). No line of sight: terrain blocks nothing.
+  GU towards lower tiles, −1 towards higher, none for air). No line of sight: terrain blocks nothing. One test decides a tile (`vision/sight.rs`'s
+  `sees_tile`). The target scans measure from the same centre, unbuffed, but to the target's edge, not to a tile's
+  centre (`World::in_sight_range`): a target may be in a scan's reach before the scanner's own eye sees it, or seen
+  before it is in reach, by up to half a tile's diagonal.
 - **Incremental stamps**: each source keeps its `Eye` (owner, centre, SightRange, elevation) and the sorted tiles
   it stamped. In 5f a source whose eye is unchanged costs nothing; one that changed stamps again and only the
   difference changes the per-player counts of sources seeing each tile; a source that is gone takes its tiles away.

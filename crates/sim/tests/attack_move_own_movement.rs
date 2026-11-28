@@ -74,11 +74,11 @@ fn attack_ticks(t: &TestSim, attacker: u32, target: u32) -> Vec<Tick> {
         .collect()
 }
 
-/// Whether unit 1's scan finds enemy `enemy` this tick: its owner sees it, within its SightRange (`World::pick`, by
-/// the snapshot the last tick left: read it before the step).
+/// Whether unit 1's scan finds enemy `enemy` this tick: its owner sees it, within its SightRange from unit 1's centre
+/// to the enemy's edge (`World::pick`, by the snapshot the last tick left: read it before the step).
 fn in_its_sight(t: &TestSim, enemy: u32) -> bool {
     let object = t.sim().object(id(enemy)).expect("exists");
-    t.sim().is_visible(P1, object) && gap(t, 1, enemy) <= SIGHT_SU
+    t.sim().is_visible(P1, object) && Shape::of(object).distance_to(pos(t, 1)) <= SIGHT_SU
 }
 
 /// The rejections of unit 1's leg that its scan finds this tick and its own movement makes it judge again: it stands
@@ -304,7 +304,7 @@ fn a_rejection_is_judged_again_once_the_unit_has_moved_a_grid_unit() {
 fn several_rejections_are_judged_again_within_the_budget() {
     let mut builder = ScenarioBuilder::new(WALL).spawn(GUARD, Some(P1), SpawnAt::Point(centre(15, 1))); // 1
     for i in 0..12 {
-        let at = centre(15, 5) + Vec2::new(40.0 * (i as f32 - 5.5), 0.0);
+        let at = centre(15, 5) + Vec2::new(40.0 * (i as f32 - 5.5), -16.0);
         builder = builder.spawn(DRONE, Some(P2), SpawnAt::Point(at)); // 2 to 13
     }
     let mut t = builder.start();

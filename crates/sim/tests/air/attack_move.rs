@@ -8,7 +8,7 @@ use super::*;
 /// units from the PathReference, here the straight way from the Sparrow's start to its destination, along y = 640.
 const LEASH: f32 = 6.0 * 64.0;
 
-/// Player 1's Sparrow (1), alone, attack-moves 1700 su east past player 2's idle Drone (2), 100 su south of its way:
+/// Player 1's Sparrow (1), alone, attack-moves 1700 su east past player 2's idle Drone (2), 90 su south of its way:
 /// the Sparrow takes the Drone and makes strafing passes over it, firing; it flies on to its destination, where its
 /// AttackMove is over, and from then on it is idle and circles the destination: within 15 s at IdleSpeed on its idle
 /// circle, for good.
@@ -32,7 +32,7 @@ fn on_an_attack_move_it_strafes_what_it_meets_and_circles_its_destination() {
     let mut t = flat(40, 20)
         .faction(P2, Faction::Colonists)
         .spawn(SPARROW, Some(P1), point(300.0, 640.0))
-        .spawn(ObjectKind::Drone, Some(P2), point(1100.0, 740.0))
+        .spawn(ObjectKind::Drone, Some(P2), point(1100.0, 730.0))
         .start();
     order(&mut t, 1, P1, &[1], OrderKind::AttackMove(destination));
     let off_way = |p: Vec2| (p.y - destination.y).abs();
