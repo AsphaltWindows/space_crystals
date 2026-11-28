@@ -79,8 +79,8 @@ fn gathering_recruits_keep_their_collision() {
 }
 
 /// `factions/cults/units/recruit.md > Right-Click Resolution:`: "Space Crystal patch → Gather", "Own Storage (carrying Space Crystals) → Drop off
-/// resources". A Recruit keeps its load through another order (`factions/colonists/units/drone.md > Other orders keep
-/// the load`), and a Drop Off order on a Storage is only a delivery, to that Storage, whichever is nearer.
+/// resources". A Recruit keeps its load through another order (`systems/mechanics/gathering.md > Other orders keep the
+/// load`), and a Drop Off order on a Storage is only a delivery, to that Storage, whichever is nearer.
 #[test]
 fn a_drop_off_order_delivers_the_load_at_its_storage() {
     // Patch 1; Storage 2 a tile south of it; Storage 3 far to the east; Recruit 4.
@@ -137,7 +137,7 @@ fn a_recruit_has_no_set_drop_off() {
 }
 
 /// The Drone's job rules hold for a patch that runs out (`factions/colonists/units/drone.md > Patch Occupancy > A
-/// patch that runs out`, `factions/colonists/units/drone.md > When a Gather ends`): the Recruit that takes its last
+/// patch that runs out`, `systems/mechanics/gathering.md > When a Gather ends`): the Recruit that takes its last
 /// load goes on at the nearest other patch within its search radius (a placeholder: the other workers' 6 grid
 /// units), and with none left it delivers and idles.
 #[test]

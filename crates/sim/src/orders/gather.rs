@@ -1,11 +1,11 @@
 //! A worker's job — `factions/colonists/units/drone.md > Gathering`, `factions/colonists/units/drone.md > Patch
-//! Occupancy (one Drone per patch)`, `factions/colonists/units/drone.md > Last load of a patch`,
-//! `factions/colonists/units/drone.md > Interrupted mining`, `factions/colonists/units/drone.md > Other orders keep the
-//! load`, `factions/colonists/units/drone.md > Gather while carrying a load`, `factions/colonists/units/drone.md > Drop
-//! Off order`, `factions/colonists/units/drone.md > When a Gather ends` and `factions/colonists/units/drone.md >
-//! Assigned Drop-off` (slices M3-H and M3-H3, plan decision T17; design changes 0123 and 0127 to 0141 answered question
-//! Q0037). `systems/controls/commands.md` and `systems/controls/behaviors.md` define no Gather or Drop Off, so the
-//! Drone's own sections are the spec.
+//! Occupancy (one Drone per patch)`, `systems/mechanics/gathering.md > Last load of a patch`,
+//! `systems/mechanics/gathering.md > Interrupted mining`, `systems/mechanics/gathering.md > Other orders keep the
+//! load`, `systems/mechanics/gathering.md > Gather while carrying a load`, `systems/mechanics/gathering.md > Drop Off
+//! order`, `systems/mechanics/gathering.md > When a Gather ends` and `factions/colonists/units/drone.md > Assigned
+//! Drop-off` (slices M3-H and M3-H3, plan decision T17; design changes 0123 and 0127 to 0141 answered question Q0037).
+//! `systems/controls/commands.md` and `systems/controls/behaviors.md` define no Gather or Drop Off, so the Drone's own
+//! sections are the spec.
 //!
 //! **One job for every worker type** (slice M4-D, plan decision T34; `factions/syndicate/units/agent.md >
 //! Gathering > Gathering rules`, design change 0255: "The Drone's job rules apply to Agents [...] with two exceptions:
@@ -139,9 +139,9 @@ pub(crate) fn on_gather_job(o: &Object) -> bool {
 /// The state a Gather or a Drop Off order starts with, for `unit`, a worker (`orders::start`).
 /// - `factions/colonists/units/drone.md > Assigned Drop-off > Auto-assignment`: "When a Drone with no AssignedDropOff
 ///   is ordered to Gather, it automatically assigns the nearest Egress Node".
-/// - `factions/colonists/units/drone.md > Gather while carrying a load` (design change 0128): a worker that carries a
+/// - `systems/mechanics/gathering.md > Gather while carrying a load` (design change 0128): a worker that carries a
 ///   load "goes straight to the new pick-up point" all the same.
-/// - `factions/colonists/units/drone.md > Drop Off order` (design change 0127): straight to the order's drop-off.
+/// - `systems/mechanics/gathering.md > Drop Off order` (design change 0127): straight to the order's drop-off.
 /// - For a worker without a lasting AssignedDropOff, that chooses at every return (`DropOffChoice::EachReturn`): the
 ///   Gather begins without one, and each return takes the one nearest to the worker as it starts
 ///   (`deliver::to_drop_off`): the Agent's Tunnel (design changes 0375 and 0384; `factions/syndicate/units/agent.md >

@@ -1,5 +1,5 @@
 //! One Drone's loop (`factions/colonists/units/drone.md > Gathering`): its trip, pinned at 73 ticks (`TRIP`), and
-//! mining interrupted by another order (design change 0130, `> Interrupted mining`).
+//! mining interrupted by another order (design change 0130, `systems/mechanics/gathering.md > Interrupted mining`).
 
 use super::*;
 
@@ -17,7 +17,8 @@ fn one_drone_carries_loads_of_eight_from_the_patch_to_the_node() {
     assert_eq!(began, 17);
     assert_eq!(drop_off(&t, 3), Some(id(2)), "auto-assigned: the nearest Egress Node");
     assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(1))));
-    // `> Gathering`: MiningDuration. The load is taken as the mining ends, in the economy phase.
+    // `factions/colonists/units/drone.md > Gathering`: MiningDuration. The load is taken as the mining ends, in the
+    // economy phase.
     t.run_until(began + MINING - 2);
     assert_eq!((load(&t, 3), remaining(&t, 1)), (0, 1500));
     assert_eq!(phase(&t, 3), Some(GatherPhase::Mining { done: MINING - 1 }));
@@ -56,9 +57,9 @@ fn one_drone_carries_loads_of_eight_from_the_patch_to_the_node() {
     assert_eq!(t.sim().returning_drones(id(2)), [id(3)]);
 }
 
-/// Design change 0130 (`> Interrupted mining`; its Verification: "Order a mining Drone away at frame 20: it carries
-/// nothing; another waiting Drone starts mining that patch immediately"): the Drone that waited mines from that very
-/// tick.
+/// Design change 0130 (`systems/mechanics/gathering.md > Interrupted mining`; its Verification: "Order a mining Drone
+/// away at frame 20: it carries nothing; another waiting Drone starts mining that patch immediately"): the Drone that
+/// waited mines from that very tick.
 #[test]
 fn interrupted_mining_collects_nothing_and_frees_the_patch_at_once() {
     // Patch 1, node 2, Drone 3 (south) mines, Drone 4 (north) waits.

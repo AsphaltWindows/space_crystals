@@ -82,8 +82,8 @@ fn an_agent_and_a_drone_mine_one_patch_together() {
     run_to(&mut t, 400, "both mine again", |t| is_mining(t, 5) && is_mining(t, 3));
 }
 
-/// `factions/colonists/units/drone.md > Other orders keep the load` (0129), `factions/colonists/units/drone.md > Drop
-/// Off order` (0127; slice D's acceptance: "A right-click on an own Tunnel while carrying delivers at Side B, then the
+/// `systems/mechanics/gathering.md > Other orders keep the load` (0129), `systems/mechanics/gathering.md > Drop Off
+/// order` (0127; slice D's acceptance: "A right-click on an own Tunnel while carrying delivers at Side B, then the
 /// order completes"), `> Right-Click Resolution`: "Space Crystals patch → Gather crystals", "Own Tunnel (carrying
 /// resources) → Drop off resources".
 #[test]
@@ -126,8 +126,8 @@ fn a_load_is_kept_through_another_order_and_a_drop_off_order_delivers_it() {
     );
 }
 
-/// `factions/colonists/units/drone.md > Gather while carrying a load` (0128): the Agent "goes straight to the new
-/// pick-up point", skips mining there and returns to deliver; `factions/colonists/units/drone.md > Interrupted mining`
+/// `systems/mechanics/gathering.md > Gather while carrying a load` (0128): the Agent "goes straight to the new
+/// pick-up point", skips mining there and returns to deliver; `systems/mechanics/gathering.md > Interrupted mining`
 /// (0130): mining cut short collects nothing.
 #[test]
 fn a_gather_while_carrying_skips_mining_and_interrupted_mining_collects_nothing() {
@@ -154,9 +154,9 @@ fn a_gather_while_carrying_skips_mining_and_interrupted_mining_collects_nothing(
     assert_eq!((load(&t, 3), remaining(&t, 4)), (0, 1_000_000));
 }
 
-/// `factions/colonists/units/drone.md > Last load of a patch` (0138) and `factions/colonists/units/drone.md > When a
-/// Gather ends` (0123): the last load is what is left, after the full 64 frames; with no patch left in its search
-/// radius the Agent delivers it, and the Gather is complete.
+/// `systems/mechanics/gathering.md > Last load of a patch` (0138) and `systems/mechanics/gathering.md > When a Gather
+/// ends` (0123): the last load is what is left, after the full 64 frames; with no patch left in its search radius the
+/// Agent delivers it, and the Gather is complete.
 #[test]
 fn the_last_load_is_what_is_left_and_the_gather_ends_with_no_patch_left() {
     let mut t = flat(30, 20)

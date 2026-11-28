@@ -105,7 +105,7 @@ impl Sim {
     }
 
     /// The workers among `workers` that carry something, which take a Drop Off order (design change 0140,
-    /// `factions/colonists/units/drone.md > Drop Off order > Empty Drones`: "Drop Off is only resolved for a Drone that
+    /// `systems/mechanics/gathering.md > Drop Off order > Empty Drones`: "Drop Off is only resolved for a Drone that
     /// is carrying something"; there is no empty Drop Off order). The Director's choice for the gate: the empty ones
     /// are left out, and the command is rejected if none is left ([`Reject::NothingToDeliver`]). The client gives an
     /// empty Drone a Move to the node instead (slice M3-J2).

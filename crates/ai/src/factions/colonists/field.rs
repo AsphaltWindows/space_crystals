@@ -4,7 +4,7 @@
 //! gather, by their orders (as `sc_sim::testing::colonists`' `deal` does). The patch occupancy rule deals them out
 //! from there (`factions/colonists/units/drone.md > Patch Occupancy`: "When a Drone arrives at an occupied patch, it
 //! goes to the **nearest unoccupied patch to itself** instead"). A Drone whose patch runs out with none left near it
-//! ends its Gather and is sent again (`factions/colonists/units/drone.md > When a Gather ends`); with the field mined
+//! ends its Gather and is sent again (`systems/mechanics/gathering.md > When a Gather ends`); with the field mined
 //! out, it waits, to deploy as a Beacon if one is wanted.
 
 use sc_sim::{Command, ObjectId, OrderKind, Vec2, gu};

@@ -242,7 +242,7 @@ pub struct Gather {
     /// sees the patch. Optional in files.
     #[serde(default)]
     pub spot: Option<Vec2>,
-    /// Design change 0123 (`factions/colonists/units/drone.md > When a Gather ends`): the worker found no patch left
+    /// Design change 0123 (`systems/mechanics/gathering.md > When a Gather ends`): the worker found no patch left
     /// within its search radius. It delivers the load it carries, and then the order is complete. Optional in files.
     #[serde(default)]
     pub ending: bool,

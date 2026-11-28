@@ -1,10 +1,10 @@
-//! Where the loads go (`factions/colonists/units/drone.md > Assigned Drop-off`, `> Drop Off order`): Set
-//! Drop-off Location in the middle of mining and of a return, the Drop Off order, a lost Egress Node.
+//! Where the loads go (`factions/colonists/units/drone.md > Assigned Drop-off`, `systems/mechanics/gathering.md > Drop
+//! Off order`): Set Drop-off Location in the middle of mining and of a return, the Drop Off order, a lost Egress Node.
 
 use super::*;
 
-/// `> Assigned Drop-off > Set Drop-off Location command`: it "does not interrupt the Drone's current action", and
-/// it redirects "a trip already in progress".
+/// `factions/colonists/units/drone.md > Assigned Drop-off > Set Drop-off Location command`: it "does not interrupt the
+/// Drone's current action", and it redirects "a trip already in progress".
 #[test]
 fn set_drop_off_redirects_the_return_without_interrupting_the_mining() {
     // Patch 1, nodes 2 (near) and 3 (east), Drone 4.
@@ -48,9 +48,10 @@ fn set_drop_off_redirects_the_return_without_interrupting_the_mining() {
     assert_eq!(bank(&t, P1), 100 + 2 * LOAD);
 }
 
-/// `> Unit Commands > Drop Off Resources`: a Drone ordered away keeps its load (design change 0129, `> Other orders
-/// keep the load`); a Drop Off order is only a delivery, at the drop-off it names, after which the Drone idles there
-/// (design change 0127, `> Drop Off order`).
+/// `factions/colonists/units/drone.md > Unit Commands > Drop Off Resources`: a Drone ordered away keeps its load
+/// (design change 0129, `factions/colonists/units/drone.md > Other orders keep the load`); a Drop Off order is only a
+/// delivery, at the drop-off it names, after which the Drone idles there (design change 0127,
+/// `systems/mechanics/gathering.md > Drop Off order`).
 #[test]
 fn a_drop_off_order_delivers_the_load_and_the_drone_idles_at_the_node() {
     // Patch 1, nodes 2 (near) and 3 (east), Drone 4.
@@ -84,9 +85,9 @@ fn a_drop_off_order_delivers_the_load_and_the_drone_idles_at_the_node() {
     assert!(at.distance(node) < 96.0, "beside node 3: {at:?}, the node at {node:?}");
 }
 
-/// Design change 0135 (`> Assigned Drop-off > Drop-off gone`): a Drone whose Egress Node is destroyed assigns the
-/// nearest one as it starts its return; with none left it idles holding its load, and delivers it when it is sent
-/// gathering again (0128: to the patch first, where it turns round without mining).
+/// Design change 0135 (`factions/colonists/units/drone.md > Assigned Drop-off > Drop-off gone`): a Drone whose Egress
+/// Node is destroyed assigns the nearest one as it starts its return; with none left it idles holding its load, and
+/// delivers it when it is sent gathering again (0128: to the patch first, where it turns round without mining).
 #[test]
 fn drones_of_a_lost_egress_node_assign_another_or_idle_with_their_load() {
     // Patch 1, nodes 2 (near) and 3 (east), Drone 4; and a Beacon, 5, so that player 1 isn't defeated with its

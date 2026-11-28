@@ -5,7 +5,7 @@ use sc_sim::Reject;
 
 use super::*;
 
-/// Design change 0128 (`factions/colonists/units/drone.md > Gather while carrying a load`; its Verification:
+/// Design change 0128 (`systems/mechanics/gathering.md > Gather while carrying a load`; its Verification:
 /// "Right-click a far patch with a loaded Drone: it drives to the patch, turns around without mining, delivers, then
 /// mines that patch on the next trip. A Drone mining that patch is not displaced"): the loaded Drone takes no
 /// occupancy, and its Gather is the new patch from then on.
@@ -63,7 +63,7 @@ fn a_loaded_drone_sent_to_a_far_patch_turns_round_there_without_mining() {
     assert_eq!(remaining(&t, 4), before - LOAD, "Drone 5 mined its whole load");
 }
 
-/// Design change 0129 (`factions/colonists/units/drone.md > Other orders keep the load`; its Verification: "Move a
+/// Design change 0129 (`systems/mechanics/gathering.md > Other orders keep the load`; its Verification: "Move a
 /// loaded Drone away, then right-click a patch: it skips mining there and delivers the old load (0128)"): an order
 /// clears no load; only a delivery does.
 #[test]
@@ -100,7 +100,7 @@ fn a_load_survives_stop_hold_and_move_and_the_next_gather_delivers_it() {
     run_to(&mut t, 100, "then it mines", |t| mines(t, 3, 1));
 }
 
-/// Design change 0140 (`factions/colonists/units/drone.md > Drop Off order > Empty Drones`; its Verification: "Mixed
+/// Design change 0140 (`systems/mechanics/gathering.md > Drop Off order > Empty Drones`; its Verification: "Mixed
 /// group (some loaded, some empty) right-clicks the node: loaded ones deliver and idle; empty ones walk to the node and
 /// stop"): the gate gives a Drop Off to the loaded Drones only, and rejects it for empty ones alone
 /// (`Reject::NothingToDeliver`). The client's right-click gives the empty ones a Move to the node instead (slice
@@ -154,8 +154,8 @@ fn a_mixed_group_s_drop_off_goes_to_its_loaded_drones_only() {
     }
 }
 
-/// Design change 0138 (`factions/colonists/units/drone.md > Last load of a patch`; its Verification: "A patch with 3
-/// left: the Drone mines 2 s, carries 3, the patch disappears"), and `factions/colonists/units/drone.md > When a Gather
+/// Design change 0138 (`systems/mechanics/gathering.md > Last load of a patch`; its Verification: "A patch with 3
+/// left: the Drone mines 2 s, carries 3, the patch disappears"), and `systems/mechanics/gathering.md > When a Gather
 /// ends` (0123): with no patch left the Gather ends once the 3 are delivered.
 #[test]
 fn a_patch_with_3_left_gives_a_load_of_3_after_the_full_mining() {

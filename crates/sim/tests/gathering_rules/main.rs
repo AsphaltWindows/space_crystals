@@ -1,8 +1,10 @@
-//! The gathering rules of the design answers to questions Q0037 and Q0044 (slice M3-H3; in
-//! `factions/colonists/units/drone.md`: `> Patch Occupancy (one Drone per patch)`, `> Last load of a patch`,
-//! `> Interrupted mining`, `> Other orders keep the load`, `> Gather while carrying a load`, `> Drop Off order`,
-//! `> When a Gather ends`, `> Assigned Drop-off`): one test per Verification point of design changes 0123, 0127 to
-//! 0135, 0137, 0138, 0140, 0141 and 0170 that `gathering/` doesn't already cover, one test binary:
+//! The gathering rules of the design answers to questions Q0037 and Q0044 (slice M3-H3;
+//! `factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch)`, `systems/mechanics/gathering.md > Last
+//! load of a patch`, `systems/mechanics/gathering.md > Interrupted mining`, `systems/mechanics/gathering.md > Other
+//! orders keep the load`, `systems/mechanics/gathering.md > Gather while carrying a load`,
+//! `systems/mechanics/gathering.md > Drop Off order`, `systems/mechanics/gathering.md > When a Gather ends`,
+//! `factions/colonists/units/drone.md > Assigned Drop-off`): one test per Verification point of design changes 0123,
+//! 0127 to 0135, 0137, 0138, 0140, 0141 and 0170 that `gathering/` doesn't already cover, one test binary:
 //! - `ends`: when a Gather ends (0123), a Deploy queued behind a Drop Off (0127), a patch that runs out under a
 //!   Drone on its way (0134);
 //! - `loads`: Gather while carrying (0128), other orders keep the load (0129), the Drop Off of a mixed group (0140),
@@ -41,10 +43,11 @@ const P2: PlayerId = PlayerId(2);
 const DRONE: ObjectKind = ObjectKind::Drone;
 const NODE: ObjectKind = ObjectKind::EgressNode;
 const PATCH: ObjectKind = ObjectKind::CrystalPatch;
-/// `> Gathering`: CarryCapacity and MiningDuration.
+/// `factions/colonists/units/drone.md > Gathering`: CarryCapacity and MiningDuration.
 const LOAD: u32 = 8;
 const MINING: Tick = 32;
-/// `> Patch Occupancy > Waiting and re-checking`: the interval of a waiting Drone's re-check (design change 0132).
+/// `factions/colonists/units/drone.md > Patch Occupancy > Waiting and re-checking`: the interval of a waiting Drone's
+/// re-check (design change 0132).
 const RECHECK: Tick = 16;
 /// A player's starting bank in these scenarios.
 const BANK: u32 = 100;

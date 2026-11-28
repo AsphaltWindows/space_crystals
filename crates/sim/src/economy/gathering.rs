@@ -12,14 +12,14 @@
 //!   (`orders::gather`, phase 5a) owns the legs, the claims and every decision; its state
 //!   (`orders::state::Gather`) holds the phase and the frames of timed work done. **Deviation from the plan's
 //!   sketch**, which put the timed work into the `Worker`: it is part of the order's state, so that an order that
-//!   ends for any reason takes its unfinished work with it (design change 0130, `factions/colonists/units/drone.md >
+//!   ends for any reason takes its unfinished work with it (design change 0130, `systems/mechanics/gathering.md >
 //!   Interrupted mining`: "collects nothing, and the patch is freed immediately") and occupancy can't outlive the order
 //!   that holds it.
 //! - **The load** leaves the worker only at a drop-off, here, or with the worker itself when it deploys (design
-//!   change 0129, `factions/colonists/units/drone.md > Other orders keep the load`; 0114): no order clears it.
+//!   change 0129, `systems/mechanics/gathering.md > Other orders keep the load`; 0114): no order clears it.
 //! - **The timed work** runs here, in the economy phase ([`step`], after the plates' mining, plan decision T5): a
 //!   Mining phase counts its frames and, at MiningDuration, takes `min(CarryCapacity, remaining)` from the patch
-//!   (design change 0138, `factions/colonists/units/drone.md > Last load of a patch`: the full 32 frames, and then
+//!   (design change 0138, `systems/mechanics/gathering.md > Last load of a patch`: the full 32 frames, and then
 //!   "what is left"); a DroppingOff phase counts its frames and, at DropOffDuration, credits the owner's bank
 //!   (`SimEvent::ResourcesDelivered`). All bank changes stay in the economy phase.
 //! - **Timing**, by the Director's convention for recipes (`docs/architecture/economy.md > Economy > Recipe timing`): the frame

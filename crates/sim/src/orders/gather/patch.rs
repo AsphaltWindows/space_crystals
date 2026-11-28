@@ -183,7 +183,7 @@ pub(super) fn go_on(
     }
 }
 
-/// Design change 0123 (`factions/colonists/units/drone.md > When a Gather ends`): no patch is left within the worker's
+/// Design change 0123 (`systems/mechanics/gathering.md > When a Gather ends`): no patch is left within the worker's
 /// search radius. "It first delivers any load it carries, then becomes idle (or starts its next queued order)."
 pub(super) fn end(state: &mut Gather, unit: &Unit) -> Flow {
     if !loaded(unit) {
