@@ -47,6 +47,7 @@ impl PanelCommand {
         match self {
             PanelCommand::Move => "Move",
             PanelCommand::Reverse => "Rev.",
+            PanelCommand::Thrust => "Thrust",
             PanelCommand::HoldPosition => "Hold",
             PanelCommand::Attack => "Attack",
             PanelCommand::Patrol => "Patrol",
@@ -127,6 +128,7 @@ impl PanelCommand {
         let named = |verb: &str, kind: ObjectKind| format!("{verb} {}", kind.def().name);
         match self {
             PanelCommand::Reverse => "Reverse".into(),
+            PanelCommand::Thrust => "Thrust".into(),
             PanelCommand::HoldPosition => "Hold Position".into(),
             PanelCommand::AttackGround => "Attack Ground".into(),
             PanelCommand::RaiseShield => "Raise Shield".into(),

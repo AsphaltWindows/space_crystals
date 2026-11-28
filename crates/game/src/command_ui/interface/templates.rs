@@ -93,6 +93,9 @@ pub enum InterfaceTemplate {
     /// (`factions/syndicate/units/agent.md > Right-Click Resolution`: Gather, Drop Off, Enter, Repair, Attack, Move) is
     /// the sim's one rule, as every unit's.
     Agent,
+    /// `factions/syndicate/units/prism.md > Panel` (Q0168): Q Move, R Thrust, X Stop ([`syndicate::prism`]). Its
+    /// right-click is the sim's one rule, as every unit's.
+    Prism,
     /// A pool building's panel (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release
     /// and Eject All`; slice M5-F2), built from its `ProductionDef`: the Armory's ([`cults::armory`]). Its DefaultState
     /// picks a kind of Recruit, each opening its KindMenu, whose entries train or release one of that kind. Its
@@ -305,6 +308,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::EgressNode => colonists::egress_node::GRID,
             InterfaceTemplate::Tunnel => syndicate::tunnel::GRID,
             InterfaceTemplate::Agent => syndicate::agent::GRID,
+            InterfaceTemplate::Prism => syndicate::prism::GRID,
             InterfaceTemplate::PoolProducer => cults::armory::GRID,
             InterfaceTemplate::Recruit => cults::recruit::GRID,
             InterfaceTemplate::Garrison => cults::garrison::GRID,

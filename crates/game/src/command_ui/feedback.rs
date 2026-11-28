@@ -233,6 +233,9 @@ pub const ILLUSIONS_CANT_CAST_TEXT: &str = "Illusions can't cast";
 /// `factions/syndicate/units/shadebringer.md > Charges and recharging`: "When a tank runs **empty**, that ability
 /// switches off and can't be switched back on until the tank has some charge again"). Placeholder wording.
 pub const TANK_EMPTY_TEXT: &str = "Tank empty";
+/// The message of a Thrust pressed with every charge spent (`Reject::NoCharges`;
+/// `factions/syndicate/units/prism.md > Thrust`). Placeholder wording.
+pub const NO_CHARGES_TEXT: &str = "Every charge is spent";
 /// The message of a Schedule Deliveries pressed while none of its Supply Towers has a chopper attached
 /// (`Reject::NoChopperAttached`; `factions/gdo/economy.md > SupplyTower > ObjectInterfaceState[SupplyTower]`: "Only
 /// available if tower has an attached chopper"). Placeholder wording.
@@ -453,6 +456,7 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::Deploying => DEPLOYING_TEXT,
         Reject::IllusionsCantCast => ILLUSIONS_CANT_CAST_TEXT,
         Reject::TankEmpty => TANK_EMPTY_TEXT,
+        Reject::NoCharges => NO_CHARGES_TEXT,
         Reject::NoChopperAttached => NO_CHOPPER_TEXT,
         Reject::TowerTaken(_) => TOWER_TAKEN_TEXT,
         Reject::NotAStation(_) => NOT_A_STATION_TEXT,

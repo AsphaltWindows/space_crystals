@@ -13,6 +13,7 @@ mod expansions;
 mod gathering;
 mod place_buttons;
 mod prayer_mobile;
+mod prism;
 mod recruit;
 mod rocketman;
 mod shadebringer;

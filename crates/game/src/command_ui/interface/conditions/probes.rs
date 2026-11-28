@@ -5,7 +5,7 @@
 
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId,
-    Reject, Sim, TilePos,
+    Reject, Sim, TilePos, Vec2,
 };
 
 use super::super::{PanelCommand, recipients};
@@ -22,7 +22,8 @@ use crate::selection::Selection;
 /// Drone Operator's Launch Drone, (M6-GH1) an aircraft's Return to Base, (M6-GA) a vehicle's Deploy or Undeploy and
 /// (M6-ST1) a carrier's Unload All ask for their order, unqueued: R is greyed while every one of its units deploys
 /// already (`Reject::Deploying`), F while no one is aboard (`Reject::NothingInside`). (M6-SB) A tank's toggle asks for
-/// its `Command::Ability`, the way it switches (`sc_sim::Ability::switching`). `None` for a command the panel sends no
+/// its `Command::Ability`, the way it switches (`sc_sim::Ability::switching`). (M6-SP) A Prism's Thrust asks for its
+/// order, unqueued: R is greyed while every charge is spent (`Reject::NoCharges`). `None` for a command the panel sends no
 /// sim command for here (a menu, a target command).
 pub(super) fn refusal(sim: &Sim, player: PlayerId, selection: &Selection, command: PanelCommand) -> Option<Reject> {
     let objects = recipients(selection, command);
@@ -60,6 +61,13 @@ pub(super) fn refusal(sim: &Sim, player: PlayerId, selection: &Selection, comman
         }
     } else if let PanelCommand::Build(kind) = command {
         build_probe(objects, kind)
+    } else if command == PanelCommand::Thrust {
+        // A Thrust's point is the click's; the gate's checks of the unit (its charges) don't read it.
+        Command::Order {
+            units: objects,
+            kind: OrderKind::Thrust(Vec2::ZERO),
+            queue: false,
+        }
     } else if matches!(
         command,
         PanelCommand::Shroud

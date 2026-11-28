@@ -184,7 +184,7 @@ mod tests {
         let hotkeys: Vec<String> = CommandSlot::all().map(|slot| hotkey_label(&bindings, slot)).collect();
         let whole = [
             "Move", "Attack", "Patrol", "Stop", "Deploy", "Eject", "Repair", "Shroud", "Scan", "Mirage", "Cover",
-            "Burrow", "Back",
+            "Burrow", "Thrust", "Back",
         ];
         let mut types: Vec<GroupType> = ObjectKind::ALL.iter().map(|&kind| GroupType::finished(kind)).collect();
         let warped_in = transform::warp_in_recipes(ObjectKind::Beacon).iter().map(|r| r.kind);

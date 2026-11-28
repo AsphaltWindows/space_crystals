@@ -218,7 +218,8 @@ pub(super) fn place_object_visuals(
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
         let height = body_height(sim.map(), object, pos, &tuning.look);
         let facing = if body_turns(drawn) { facing } else { 0.0 };
-        transform.set_if_neq(object_transform(drawn, pos, height, facing));
+        let drawn_at = object_transform(drawn, pos, height, facing).with_scale(Vec3::splat(unfold_scale(object)));
+        transform.set_if_neq(drawn_at);
     }
     for (tick, mut transform) in &mut ticks {
         let Some(object) = sim.object(tick.0) else {
@@ -228,6 +229,21 @@ pub(super) fn place_object_visuals(
         transform.set_if_neq(Transform::from_rotation(facing_to_rotation(facing)));
     }
 }
+
+/// The size a body is drawn at: whole, but for a unit that unfolds after its rise out of an air exit door
+/// (`sc_sim::Mover::unfold`, `factions/syndicate/units/prism.md > Launch`: "unfolds"), which grows from
+/// [`UNFOLD_FROM`] of its size to all of it as the unfold is done. **Placeholder (Q0001: the art direction)**: a
+/// scaling stands for the unfolding.
+fn unfold_scale(object: &sc_sim::Object) -> f32 {
+    let Some(unfold) = object.mover.as_ref().and_then(|mover| mover.unfold) else {
+        return 1.0;
+    };
+    let total = (unfold.total.max(1) as f32) * sc_sim::economy::RATIO_ONE as f32;
+    UNFOLD_FROM + (1.0 - UNFOLD_FROM) * (unfold.elapsed as f32 / total).clamp(0.0, 1.0)
+}
+
+/// How much of its size an unfolding unit starts at. Placeholder (Q0001).
+const UNFOLD_FROM: f32 = 0.5;
 
 /// Shows each Riot Shield that isn't down, sized by how far up it is (from 60% of its size, close to the body, to
 /// all of it: `sc_sim::ShieldMode::progress`, from the unit's type and the toggle's state, design changes 0171 and

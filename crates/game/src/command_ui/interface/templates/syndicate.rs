@@ -10,6 +10,7 @@ pub mod agent;
 pub mod eject_menu;
 pub mod expand_menu;
 pub mod hideout;
+pub mod prism;
 pub mod shadebringer;
 pub mod transport;
 pub mod tunnel;

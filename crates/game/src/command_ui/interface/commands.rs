@@ -39,6 +39,9 @@ use super::{BuildMenu, Planned};
 pub enum PanelCommand {
     Move,
     Reverse,
+    /// `factions/syndicate/units/prism.md > Panel`: the Prism's R, targeted (a left-click on a point) and queueable
+    /// (`sc_sim::OrderKind::Thrust`, `sc_sim::thrust`). Greyed while every charge is spent (`sc_sim::Reject::NoCharges`).
+    Thrust,
     HoldPosition,
     Attack,
     Patrol,

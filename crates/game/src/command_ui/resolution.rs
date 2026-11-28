@@ -305,6 +305,7 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
             InterfaceTemplate::BasicCombatUnit
             | InterfaceTemplate::Drone
             | InterfaceTemplate::Agent
+            | InterfaceTemplate::Prism
             | InterfaceTemplate::Recruit
             | InterfaceTemplate::FieldEngineer
             | InterfaceTemplate::OperatorDrone
@@ -454,6 +455,7 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
         }
         (PanelCommand::Move, Ground(point)) => Some(OrderKind::Move(Target::Point(point))),
         (PanelCommand::Reverse, Ground(point)) => Some(OrderKind::Reverse(point)),
+        (PanelCommand::Thrust, Ground(point)) => Some(OrderKind::Thrust(point)),
         (PanelCommand::Move, EnemyObject(id) | FriendlyObject(id) | NeutralObject(id)) => {
             Some(OrderKind::Move(Target::Object(id)))
         }

@@ -28,6 +28,7 @@ impl PanelCommand {
         match self {
             PanelCommand::Move
             | PanelCommand::Reverse
+            | PanelCommand::Thrust
             | PanelCommand::Attack
             | PanelCommand::Patrol
             | PanelCommand::AttackGround
@@ -200,6 +201,7 @@ impl PanelCommand {
             PanelCommand::Move
             | PanelCommand::Reverse
             | PanelCommand::HoldPosition
+            | PanelCommand::Thrust
             | PanelCommand::Attack
             | PanelCommand::Patrol
             | PanelCommand::AttackGround

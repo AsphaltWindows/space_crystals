@@ -556,3 +556,48 @@ fn a_producer_rallies_on_whatever_is_clicked() {
     );
     assert_eq!(target_resolution(PanelCommand::Patrol, &enemy()), None);
 }
+
+/// `factions/syndicate/units/prism.md > One way only`, by the sim's one rule (`sc_sim::network::one_way`): a Prism's
+/// right-click on an own Tunnel its tier lets through moves to it, where a Guard's, of the same tier, enters.
+#[test]
+fn a_one_way_unit_moves_to_an_own_tunnel_instead_of_entering_it() {
+    let unit = |kind: ObjectKind| {
+        let transit = Transit::of(kind.def().unit.as_ref().expect("a unit").base);
+        let abilities = Abilities {
+            kind,
+            attack: None,
+            may_attack: false,
+            worker: false,
+            carrying: false,
+            gathers_supplies: false,
+            transit,
+            aircraft: None,
+            illusion: false,
+            chopper: None,
+        };
+        (
+            UnitCapabilities {
+                template: InterfaceTemplate::of(kind),
+                abilities: Some(abilities),
+            },
+            transit,
+        )
+    };
+    let tunnel = |transit: Transit| {
+        let mut tunnel = on(CursorTarget::FriendlyObject(id(4)), true, Domain::Ground);
+        let transits: &'static [Transit] = Box::leak(Box::new([transit]));
+        tunnel.aimed = tunnel.aimed.map(|aimed| Aimed {
+            transit: transits,
+            ..aimed
+        });
+        tunnel
+    };
+    let (guard, transit) = unit(ObjectKind::Guard);
+    assert_eq!(unit_right_click(guard, &tunnel(transit)), Some(OrderKind::Enter(id(4))));
+    let (prism, transit) = unit(ObjectKind::Prism);
+    assert_eq!(unit_right_click(prism, &tunnel(transit)), Some(object(4)));
+    assert_eq!(
+        crate::command_ui::resolution::PointerDisplay::of_order(object(4)),
+        crate::command_ui::resolution::PointerDisplay::Move
+    );
+}

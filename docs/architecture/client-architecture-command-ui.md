@@ -515,3 +515,10 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   and off, "Sl.Off" / "Sludge Off", once every one has it on (Placeholders); greyed "Tank empty" by the gate
   (`Reject::TankEmpty`). The Vehicle Assembly trains it in W, greyed "Requires a Vault" until one stands; the Tunnel's
   ExpandMenu builds the Vault in R, greyed "Requires a Hideout"; the Vault has no panel.
+- **The Prism's panel** (`factions/syndicate/units/prism.md > Panel`, Q0168: "Q Move, R Thrust, X Stop"):
+  `templates/syndicate/prism.rs` is its own grid, with no A until it is armed (slice SR). **R, Thrust**
+  (`PanelCommand::Thrust`) is targeted (a left-click on ground gives `OrderKind::Thrust(point)`,
+  `resolution::target_order`) and queueable; its probe (`conditions/probes.rs`) asks the gate for a Thrust, so R is
+  greyed "Every charge is spent" (`Reject::NoCharges`) once the charges are gone. Its right-click is the sim's one rule:
+  on an own Tunnel it moves to it, a one-way unit never entering (`network::one_way`). The Aerospace Assembly trains it
+  in E.
