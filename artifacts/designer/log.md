@@ -2434,3 +2434,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0187: Null Chamber sight bonus vision-only (behaviour unchanged by buffs); finished turn always buffs (0463).
 - Q0188: illusions copy parent's timed buffs (remaining time); Shift+F queues Mirage as a step (0464).
 - Q0189: landed aircraft hold fire; queued orders wait for full rearm; Return to Base renamed Rearm (user); slots 2x2; no slot → wait inside; Hornet example shares corrected (0465).
+- Q0189 part 2 revised: Return to Base name kept; queued orders run on landing (0466). Q0190: scans from centre; Shadebringer full tanks; new Tech Gates sub-mechanic (0467).

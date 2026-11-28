@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 
-- Q0190: sight from centre, scans from edge, and full tanks.
 - Q0191: Transport unload crowded; pips moving.
 - Q0192: Dragonfly launch cone and landing approach.
 - Q0193: shared mechanics in systems docs.

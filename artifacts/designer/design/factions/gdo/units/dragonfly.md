@@ -19,4 +19,4 @@ GDO air-to-air fighter produced at the Airfield once the player owns Propulsion 
 - GliderMovement: IdleSpeed 6, MaxSpeed **14 su/frame**, Acceleration 0.6, Deceleration 0.6, MaxCentripetalAcceleration 0.6 (about 330 su turn radius at full speed); idle circle radius 1 grid unit; SeparationRadius **48** su (raised from 32, Q0148; must exceed the 40 su Silhouette). No turret (fires forward).
 - Attack: **HeadDisjointed** (homing air-to-air missile; user, 2026-11-27); Damage **90**; Range 6 grid units; ProjectileSpeed 20 su/frame; Aim 8, Firing 2, Cooldown 4, Reload 0 (1 missile); **RearmTimePerAmmo 64 frames**.
 - Cost: Airfield, 175 Space Crystals **+ 4 Supplies** (user, 2026-11-26; Q0169), 320 frames.
-- Panel: BasicCombatUnitInterfaceState plus **F: Rearm** (renamed from Return to Base, 2026-11-28).
+- Panel: BasicCombatUnitInterfaceState plus **F: Return to Base**.

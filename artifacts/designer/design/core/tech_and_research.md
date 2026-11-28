@@ -31,6 +31,12 @@ A unit type's production option may also declare a TechPrerequisite: the structu
 - **Check Timing**: checked only when the unit is queued. Production options whose TechPrerequisite is not met are unavailable on the production building's panel.
 - **Losing a Prerequisite**: units already queued or in production continue and complete normally; new ones cannot be queued until the player again owns a qualifying prerequisite structure.
 
+## Tech Gates
+(user, 2026-11-28; Q0190) A shared sub-mechanic for **an ability, effect or starting state that only works once the player has a tech** (a researched upgrade, or a structure owned). Any doc can mark something with one of:
+- **Tech gate: <tech>**: unavailable until the player has that tech. A gated ability is shown greyed on the panel, naming the tech ("Requires <tech>"), as unmet TechPrerequisites are; a gated effect or starting state simply doesn't apply (e.g. without it a unit starts in its ungated state).
+- **Tech gate: possible**: may be gated by a tech that isn't designed yet. **Build it ungated for now**, but as a gate that can later be switched on (no rework needed), and list it for the techs pass.
+Whether the gate is checked once (e.g. when a unit is made) or continuously is stated with each gate; for starting states it is checked when the unit is made.
+
 ## Research
 
 A structure type may offer **Research**: technologies that a player pays for once at that structure and that then apply to that player's eligible objects. The shared rules below apply to all factions. Individual factions may have exceptions, listed under Faction Exceptions.

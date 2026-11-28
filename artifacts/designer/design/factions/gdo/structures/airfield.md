@@ -31,15 +31,15 @@ An Airfield has **4 landing slots**, one per possible assignment, so all of its 
 ### Returning and rearming
 - **Automatic return**: when an aircraft runs out of ammo, it automatically flies back to its assigned Airfield, lands and rearms.
 - The automatic return **can be interrupted** by giving the aircraft any other order (e.g. to fly elsewhere). It then stays out of ammo until it returns.
-- **Rearm** command (renamed from "Return to Base", user, 2026-11-28; Q0189: the name says it rearms, which is why a queued order waits for it): sends the aircraft to its assigned Airfield to land and rearm (hotkey **F**, placeholder). Right-clicking its own Airfield does the same.
-- **Shift-queued orders wait for the full rearm** (user, 2026-11-28; Q0189): after a Rearm (or an automatic return), an order queued with Shift runs once rearming is **complete**. Only an order **given** during rearming (without Shift) takes off early, below.
+- **Return to Base** command (name kept, user, 2026-11-28): sends the aircraft to its assigned Airfield to land and rearm (hotkey **F**, placeholder). **Right-clicking its own (assigned) Airfield** does the same; right-clicking **another** own Airfield reassigns it there (Reassigning, above), and it flies there to land and rearm.
+- **Shift-queued orders run as soon as it has landed** (user, 2026-11-28; Q0189, the literal reading of "return to base"): an order queued behind a Return to Base (or an automatic return) starts **immediately after landing**, as an order given during rearming does: the aircraft takes off with the ammo rearmed so far. To leave fully rearmed, the player waits and gives the order once rearming is done.
 - **Landed aircraft hold fire** (user, 2026-11-28; Q0189): they fire only in the air, even at enemies in range of their slot.
 - **Landed aircraft are out of the air separation** (designer, 2026-11-28; Q0189): flying aircraft don't push landed ones off their slots, nor the reverse.
 - After rearming, the aircraft **stays landed** at the Airfield. It doesn't go back to where it was unless ordered.
 - **An order during rearming** (user, 2026-11-26; Q0162): the aircraft takes off at once **with the ammo rearmed so far** (a Hornet ordered off 5 s into its 10 s rearm leaves with 2 of 5 missiles).
 - **New aircraft** (user, 2026-11-26; Q0162) appear **landed on a free slot**; they take off for the Airfield's rally point, and with no rally point they stay landed.
 - **The Dragonfly** (a Glider) lands and takes off **vertically**, as the Specter at an air door (user, 2026-11-26; Q0162): it approaches its slot at IdleSpeed, stops over it while it lands (16 frames), and takes off straight up, leaving at IdleSpeed. Landed, it doesn't move.
-- An unassigned aircraft has no base: it doesn't return automatically, and Rearm is unavailable until it is reassigned.
+- An unassigned aircraft has no base: it doesn't return automatically, and Return to Base is unavailable until it is reassigned.
 - **Rearm time is per unit of ammo**, and the value differs per aircraft type (RearmTimePerAmmo on each aircraft, factions/gdo/units/README.md). Rearming an aircraft takes RearmTimePerAmmo × missing ammo (user, 2026-11-23).
 - **Landed aircraft are ground targets** (user, 2026-11-23): while parked on the Airfield, an aircraft can be hit only by anti-ground weapons (TargetDomain Ground or Universal, systems/combat.md). Air-only weapons (TargetDomain Air) can't hit it. Once it takes off it is an air target again. **During landing and take-off** (user, 2026-11-26; Q0162) it is an **air target**: anti-air can hit it until it has fully landed, and again from the moment it starts to take off (as the Specter at a Tunnel's air door).
 

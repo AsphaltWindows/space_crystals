@@ -1,7 +1,7 @@
 # Vision
 
 ## Vision
-The fog of war system that controls what each player can see on the map. Every tile on the map has one of three visibility states per player. Vision is provided by owned Object Instances (units and structures) based on their SightRange.
+The fog of war system that controls what each player can see on the map. Every tile on the map has one of three visibility states per player. Vision is provided by owned Object Instances (units and structures) based on their SightRange, measured from the object's **centre** (a disc of radius SightRange; target scans use the same measure, systems/controls/behaviors.md > BaseAutoTargeting; Q0190).
 
 ## VisibilityState
 The visibility of a tile from the perspective of a specific player.
