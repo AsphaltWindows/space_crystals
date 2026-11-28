@@ -30,6 +30,8 @@ A worker **picks up at X and delivers to Y**, repeating the trip: a Gather order
 
 **Empty Drones** (user, 2026-11-24): Drop Off is only resolved for a Drone that is carrying something. A right-click on an own Egress Node with an **empty** Drone is a plain **Move to the node** (it walks there and stops). Right-click resolves per Drone (systems/controls/interface.md > RightClickResolution), so in a mixed group the loaded Drones deliver and idle, and the empty ones walk to the node; none goes back to mining on its own.
 
+**Empty workers that can repair or build** (user, 2026-11-28; Q0194): "a plain Move" above is the Drone's case, since Drones can't repair. Once Drop Off doesn't apply (the worker carries nothing), **the worker's own right-click rules decide**: a worker that can repair **repairs** a damaged own drop-off structure, and one that can assist **assists** an unfinished one (e.g. Cults Recruits on a Storage); otherwise it is a Move. **Repair is the default right-click on a damaged own building** for every unit that can repair it (systems/mechanics/hp_restoration.md > Repair).
+
 ### When a Gather ends
 (user, 2026-11-24) A Gather order normally never ends: the Drone repeats its trip. It **ends on its own** only when the Drone runs out of crystals to mine: its patch is gone and no patch is left within its search radius. It first **delivers any load** it carries, then becomes idle (or starts its next queued order).
 
