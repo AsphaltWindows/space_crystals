@@ -119,6 +119,8 @@ pub fn moves(kind: OrderKind) -> bool {
         OrderKind::Shroud | OrderKind::TargetLock(_) | OrderKind::Launch | OrderKind::VehicleDeploy { .. } => false,
         // (M6-ST1) A carrier unloads where it comes to rest.
         OrderKind::UnloadAll => false,
+        // A thrust's burst (`crate::thrust`).
+        OrderKind::Thrust(_) => true,
     }
 }
 

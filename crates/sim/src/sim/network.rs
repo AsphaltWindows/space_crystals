@@ -137,6 +137,10 @@ impl Sim {
         if let Some(tanks) = &mut object.tanks {
             tanks.switch_off();
         }
+        // A burst under way ends (`crate::thrust`): **Placeholder (not in the design: a unit that goes in mid-burst)**.
+        if let Some(thrust) = &mut object.thrust {
+            thrust.burst = None;
+        }
         object.prev_pos = object.pos;
         object.prev_facing = object.facing;
         let since = self.tick;

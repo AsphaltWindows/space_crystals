@@ -326,6 +326,11 @@ impl StateHash for Behaviour {
                 h.tag(13);
                 progress.hash(h);
             }
+            // A new tag, hashed only while a unit thrusts.
+            Behaviour::Thrust { fired } => {
+                h.tag(17);
+                fired.hash(h);
+            }
         }
     }
 }

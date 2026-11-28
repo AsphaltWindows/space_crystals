@@ -344,6 +344,7 @@ impl StateHash for Object {
             aircraft,
             illusion_of,
             tanks,
+            thrust,
             chopper,
             schedule,
         } = self;
@@ -455,6 +456,12 @@ impl StateHash for Object {
         if let Some(tanks) = tanks {
             h.tag(24);
             tanks.hash(h);
+        }
+        // The same for a unit's thrusts (`crate::thrust`), under a tag of its own: only a unit whose type has thrusts
+        // has them.
+        if let Some(thrust) = thrust {
+            h.tag(17);
+            thrust.hash(h);
         }
         // A chopper's and a Supply Tower's supply loop, under tags 27 and 28: only while set.
         crate::supply_run::hash_object(chopper, schedule, h);

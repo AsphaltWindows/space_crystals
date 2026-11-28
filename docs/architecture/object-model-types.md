@@ -42,7 +42,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Disciple whose Mirage made it, `mirage.rs`, hashed under tag 15 and saved only while set; see *Combat > Mirage*);
   (slice M6-SB) for a unit whose type has tanks, the Shadebringer, `tanks` (`Tanks`, `patches.rs`: what each tank has
   used, its toggle and its trail's newest patch, hashed under tag 24 and saved only while set; see *The Vault and the
-  Sludge* below); (slice M6-GS1) for a Supply Chopper, `chopper` (`ChopperState`, `supply_run.rs`: its cargo, one kind
+  Sludge* below); for a unit whose type has thrusts (`UnitDef::thrust`), the Prism, `thrust` (`Thrust`, `thrust.rs`:
+  the charges it has spent and its burst under way, hashed under tag 17 and saved only while set); (slice M6-GS1) for a Supply Chopper, `chopper` (`ChopperState`, `supply_run.rs`: its cargo, one kind
   at a time, the Supply Tower it is attached to and its `landing` on a Tower's or a station's spot, hashed under tag
   27), and for a Supply Tower `schedule` (the station whose deliveries it runs, tag 28), each saved only while set; see
   *Production > The Supply Tower* below.

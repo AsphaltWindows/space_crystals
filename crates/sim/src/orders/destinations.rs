@@ -121,6 +121,8 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
             OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => {}
             // A chopper's flight ends on its target's spot, wherever that is.
             OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => return None,
+            // A thrust's burst ends its distance from wherever the unit was as it started (`crate::thrust`).
+            OrderKind::Thrust(_) => return None,
         }
     }
     None

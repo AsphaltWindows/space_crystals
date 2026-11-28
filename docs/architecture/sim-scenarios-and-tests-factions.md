@@ -129,6 +129,13 @@ Read this when you write or find a sim test of a Cults, Syndicate or GDO feature
   empty"), `patches_view/tests.rs` (the discs, the fog, the shrink), `crates/game/tests/commands/sludge.rs` (R on and
   off in a game, the trail drawn, the tank bar, the slow's mark) and the Vehicle Assembly's and the ExpandMenu's tests
   (W, and R).
+- **Prism tests** are `crates/sim/tests/prism/`, under the invariants (I3 and I5/I7 with their allowance for a
+  burst): `thrust` (3 GU toward a point 10 GU away and toward one 1 GU away, the drift during and after it the
+  Prism's own, three charges then `NoCharges`, `LacksAbility` for a unit without thrusts, three Shift-queued thrusts
+  in a row and a fourth that ends without moving, Q0198), `launch` (a thrust given while the Prism rises and unfolds
+  held, the last one winning, and run once it has unfolded) and `saves` (a save mid-burst; the thrusts in the hash
+  and the file only while a unit has them); with `thrust/tests.rs` (the burst, the waits, the allowance, the hash),
+  and the ruleset's (`thrusts_are_structure_and_their_numbers_live`, `a_thrust_keeps_its_numbers_positive`).
 - **Transport tests** (slice M6-ST1) are `crates/sim/tests/transport/`, under the invariants (U1 among them):
   `production` (the Vehicle Assembly's R behind a Forge, 200 in 400 frames, into the network; ejected, boarded),
   `boarding` (four Guards board and a fifth idles beside it; boarding a Transport that drives away; no enemy, no

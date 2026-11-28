@@ -74,6 +74,9 @@ impl PointerDisplay {
             OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => PointerDisplay::Move,
             // (M5-V2) `systems/controls/hud.md`: "AwaitingTarget[Reverse] over ground: **Move**".
             OrderKind::Reverse(_) => PointerDisplay::Move,
+            // A Prism's thrust toward a point (`sc_sim::thrust`): **Placeholder (not in the design:
+            // `systems/controls/hud.md > Types` has no row for it)**, Move.
+            OrderKind::Thrust(_) => PointerDisplay::Move,
             OrderKind::Enter(_) | OrderKind::Rebase(_) | OrderKind::ReturnToBase => PointerDisplay::Enter,
             OrderKind::AttachToTower(_) => PointerDisplay::Enter,
             OrderKind::Assist(_) => PointerDisplay::Assist,

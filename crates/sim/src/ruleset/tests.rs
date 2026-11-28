@@ -643,3 +643,38 @@ fn a_hold_and_a_domain_are_structure_and_the_hold_s_numbers_live() {
         change("Peacekeeper", "domain")
     );
 }
+
+/// The Prism's thrusts (`crate::thrust`): their numbers apply live (its charges, each thrust's distance and frames);
+/// having thrusts is structure, the Prism's as another type's.
+#[test]
+fn thrusts_are_structure_and_their_numbers_live() {
+    use crate::defs::ThrustDef;
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    let change = |entry, field| Some(RuleField { entry, field });
+    fn unit(rules: &mut Ruleset, kind: ObjectKind) -> &mut UnitDef {
+        rules.defs.get_mut(kind).unit.as_mut().unwrap()
+    }
+    let numbers = ThrustDef {
+        charges: 5,
+        distance: 6.0,
+        frames: 8,
+    };
+    assert_eq!(
+        changed(&|r| unit(r, ObjectKind::Prism).thrust = Some(numbers)),
+        None,
+        "its numbers"
+    );
+    assert_eq!(
+        changed(&|r| unit(r, ObjectKind::Prism).thrust = None),
+        change("Prism", "thrust")
+    );
+    assert_eq!(
+        changed(&|r| unit(r, ObjectKind::Phantom).thrust = Some(numbers)),
+        change("Phantom", "thrust")
+    );
+}

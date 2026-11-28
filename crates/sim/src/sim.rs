@@ -478,6 +478,8 @@ impl Sim {
             illusion_of: None,
             // (M6-SB) Its type's tanks, full and off (`crate::patches`).
             tanks: crate::patches::fresh(kind),
+            // Its type's thrusts, none spent (`crate::thrust`).
+            thrust: crate::thrust::fresh(kind),
             // A chopper's empty, unattached and in the air (`crate::supply_run`).
             chopper: crate::supply_run::fresh(kind),
             schedule: None,

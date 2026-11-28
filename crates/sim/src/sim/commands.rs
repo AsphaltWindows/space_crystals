@@ -130,6 +130,8 @@ impl Sim {
             OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => {
                 vec![None; units.len()]
             }
+            // Each thrusts toward the point clicked (`crate::thrust`).
+            OrderKind::Thrust(_) => vec![None; units.len()],
         };
         if self.gives_shared_build(units, kind) {
             return self.give_shared_build(units, kind, queue, group);

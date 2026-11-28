@@ -237,6 +237,8 @@ impl Sim {
             illusion_of: _,
             // (M6-SB) Kept: no type of the design gains or loses tanks by a change of kind (`crate::patches`).
             tanks: _,
+            // Kept: no type of the design gains or loses thrusts by a change of kind (`crate::thrust`).
+            thrust: _,
             // Kept: no type of the design becomes a Supply Chopper or a Supply Tower, or stops being one
             // (`crate::supply_run`).
             chopper: _,

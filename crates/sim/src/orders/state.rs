@@ -383,6 +383,11 @@ pub enum Behaviour {
     /// progress is the order's behaviour state, hashed with the orders"): its frames done of the type's, which the
     /// step right before phase 5a counts.
     VehicleDeploy(Progress),
+    /// A unit's thrust (`crate::thrust`; `factions/syndicate/units/prism.md > Movement`): whether it has spent its
+    /// charge and started its burst, which its order waits out.
+    Thrust {
+        fired: bool,
+    },
 }
 
 impl Leg {
@@ -421,6 +426,7 @@ impl Behaviour {
             Behaviour::Gather(gather) => gather.node.iter().copied().collect(),
             Behaviour::Deploy(_) | Behaviour::Enter(_) | Behaviour::Build(_) | Behaviour::AttackGround(_) => Vec::new(),
             Behaviour::Assist(_) | Behaviour::Repair(_) | Behaviour::VehicleDeploy(_) => Vec::new(),
+            Behaviour::Thrust { .. } => Vec::new(),
         }
     }
 
@@ -430,7 +436,7 @@ impl Behaviour {
         match self {
             Behaviour::Plain | Behaviour::Attack(_) | Behaviour::Approach(_) | Behaviour::Deploy(_) => {}
             Behaviour::Enter(_) | Behaviour::Build(_) | Behaviour::AttackGround(_) | Behaviour::Assist(_) => {}
-            Behaviour::Repair(_) | Behaviour::VehicleDeploy(_) => {}
+            Behaviour::Repair(_) | Behaviour::VehicleDeploy(_) | Behaviour::Thrust { .. } => {}
             Behaviour::AttackMove(leg) => leg.forget(is_gone),
             Behaviour::Patrol(patrol) => patrol.leg.forget(is_gone),
             Behaviour::Hold { target } => {

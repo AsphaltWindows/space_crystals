@@ -134,6 +134,11 @@ impl StateHash for OrderKind {
                 h.tag(35);
                 tower.hash(h);
             }
+            // A new tag, hashed only while a unit carries the order.
+            OrderKind::Thrust(at) => {
+                h.tag(24);
+                at.hash(h);
+            }
         }
     }
 }

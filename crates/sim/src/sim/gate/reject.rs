@@ -319,6 +319,9 @@ pub enum Reject {
     /// (`factions/gdo/economy.md > SupplyTower > ObjectInterfaceState[SupplyTower]`: "Only available if tower has an
     /// attached chopper").
     NoChopperAttached,
+    /// Every unit of a Thrust that thrusts has spent all its charges (`crate::thrust`;
+    /// `factions/syndicate/units/prism.md > Movement`: "**Charges never come back**"): what greys a Prism's R.
+    NoCharges,
 }
 
 impl fmt::Display for Reject {
@@ -419,6 +422,7 @@ impl fmt::Display for Reject {
             Reject::NotASupplyTower(id) => write!(f, "object {} is no Supply Tower of the player's in operation", id.0),
             Reject::TowerTaken(id) => write!(f, "Supply Tower {} has another chopper attached", id.0),
             Reject::NoChopperAttached => write!(f, "none of the Supply Towers has a chopper attached"),
+            Reject::NoCharges => write!(f, "every charge is spent"),
         }
     }
 }

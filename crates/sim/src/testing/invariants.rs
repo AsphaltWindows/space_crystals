@@ -68,6 +68,7 @@ use crate::production::ExitDoor;
 use crate::ruleset::rules;
 use crate::shape::Shape;
 use crate::sim::Sim;
+use crate::thrust::Thrust;
 use crate::units::Tick;
 
 /// I6: a path request is served within this many ticks. Requests are served oldest first and at least one per
@@ -114,6 +115,8 @@ struct Seen {
     speed_bonus: f32,
     /// (M5-Mb) Whether it had an owner, for I5/I7 in the tick a defeat makes it neutral.
     owned: bool,
+    /// Its thrusts (`crate::thrust`), for I3 and I5/I7 in a tick a burst moves it.
+    thrust: Option<Thrust>,
 }
 
 /// Checks the invariants between ticks (module docs). It remembers each unit's state, and each player's banks, of the
@@ -155,6 +158,7 @@ fn seen(o: &Object, mover: &Mover, research: Research) -> Seen {
         max_speed: o.max_speed(research),
         speed_bonus: crate::buffs::max_speed_bonus(o),
         owned: o.owner.is_some(),
+        thrust: o.thrust,
     }
 }
 
@@ -342,7 +346,11 @@ impl Invariants {
                 Some(b) if drag && crate::patches::slowed(o) => max_speed.max(b.momentum.length()),
                 _ => max_speed,
             };
-            let step = max_speed * if drag { 1.0 } else { mover.speed_factor } + gliders::push_allowance(o);
+            // A thrust's burst moves it by its step on top (`crate::thrust`).
+            let burst = crate::thrust::burst_moved(o.kind, before.and_then(|b| b.thrust.as_ref()), o.thrust.as_ref());
+            let step = max_speed * if drag { 1.0 } else { mover.speed_factor }
+                + gliders::push_allowance(o)
+                + burst.unwrap_or(0.0);
             let moved = o.pos.distance(o.prev_pos);
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));
@@ -397,6 +405,8 @@ impl Invariants {
             // (M5-H1) A Glider flies whether or not it has a goal (G1), and an air unit near another may be pushed off
             // it (`movement::air`).
             let flying = glides || gliders::pushed(sim, o);
+            // A thrust's burst moves it whether or not it has a goal (`crate::thrust`).
+            let thrusting = burst.is_some();
             // (M5-N10) A unit that turned in place toward its aim in this tick without a goal
             // (`movement::turn_in_place`, the hull aim: its Orientation Turning, which a unit without a goal has from
             // nothing else, as the step stands every other one) may creep out of the contact of a spin cut short, by at
@@ -421,6 +431,7 @@ impl Invariants {
                 && !separating
                 && !flying
                 && !creeping
+                && !thrusting
             {
                 return fail(
                     "I5/I7",
@@ -542,7 +553,8 @@ fn floats_finite(o: &Object) -> bool {
                     | OrderKind::AttackMove(p)
                     | OrderKind::Patrol(p)
                     | OrderKind::AttackGround(p)
-                    | OrderKind::Reverse(p) => p.is_finite(),
+                    | OrderKind::Reverse(p)
+                    | OrderKind::Thrust(p) => p.is_finite(),
                     OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
                         true
                     }

@@ -179,6 +179,9 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         // deploys where it stands; (M6-ST1) a carrier unloads round itself.
         OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch | OrderKind::ReturnToBase => None,
         OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => None,
+        // A Prism's thrust (`sc_sim::thrust`): **Placeholder (not in the design: `> Indicator assignments` has no row
+        // for it)**, none.
+        OrderKind::Thrust(_) => None,
     }
 }
 
@@ -224,7 +227,7 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
             color,
         }),
         OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud | OrderKind::Launch | OrderKind::ReturnToBase => None,
-        OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => None,
+        OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll | OrderKind::Thrust(_) => None,
     }
 }
 

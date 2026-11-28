@@ -29,6 +29,7 @@ use crate::scenario::BuildingOrientation;
 use crate::stock::Stock;
 use crate::supply_run::ChopperState;
 use crate::tether::Tether;
+use crate::thrust::Thrust;
 use crate::transform::Transform;
 use crate::tunnel::TunnelState;
 use crate::units::{SU_PER_GU, TilePos};
@@ -229,6 +230,12 @@ pub struct Object {
     /// off: `sim/load.rs`) and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tanks: Option<Tanks>,
+    /// A unit's thrusts (`crate::thrust`; `factions/syndicate/units/prism.md > Movement`): the charges it has spent and
+    /// its burst under way, for a unit whose type has thrusts (`UnitDef::thrust`, the Prism). `None` for every other
+    /// object. Optional in files and left out of them while `None`, and hashed only while set, so that states saved
+    /// before it existed load (a Prism's with none spent: `sim/load.rs`) and those without one hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thrust: Option<Thrust>,
     /// A Supply Chopper's cargo, attachment and landing (`crate::supply_run`), for a unit whose type has a
     /// `UnitDef::supply_chopper`. `None` for every other object. Optional in files and left out of them while `None`,
     /// and hashed only while set, so that states saved before it existed load (a chopper's empty, unattached and in the

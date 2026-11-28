@@ -37,7 +37,10 @@ Read this when you add a `Command`, a `SimEvent` or a gate check, or touch how c
   player's own in operation, `NotAnAirfield` if not; the aircraft among the units take it, `LacksAbility` if none:
   those assigned to it, and of the others, in the command's order, as many as it has room for, `AirfieldFull` if
   none) and `ReturnToBase` (the aircraft with a base, `NoBase` if none), and for workers `Gather(patch)` and
-  `DropOff(node)` (`factions/colonists/units/drone.md > Unit Commands`). (M6-GH1) An Attack and an Attack Ground go
+  `DropOff(node)` (`factions/colonists/units/drone.md > Unit Commands`), and `Thrust(point)` (`crate::thrust`,
+  `factions/syndicate/units/prism.md > Movement`: the units whose type has thrusts, `LacksAbility` if none, and of
+  them those with a charge left, `NoCharges` if none; a queued one is judged as it is given, and ends at once if it
+  starts with no charge left, Placeholder Q0198). (M6-GH1) An Attack and an Attack Ground go
   to the units with ammo left, or whose weapon never runs out (`aircraft::armed`; `OutOfAmmo` if none). The gate
   takes an order whole or not at all, but tolerates stale selections: at most `MAX_ORDER_UNITS`
   ids (`TooManyUnits`), repeated ids count once, ids of objects that are gone and objects that take no orders are

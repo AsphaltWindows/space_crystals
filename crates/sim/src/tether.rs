@@ -101,6 +101,8 @@ pub fn allows(kind: OrderKind) -> bool {
         OrderKind::UnloadAll => true,
         // A chopper's flight to a spot (no operator is one).
         OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => false,
+        // A thrust's burst (no operator thrusts).
+        OrderKind::Thrust(_) => false,
     }
 }
 

@@ -127,6 +127,7 @@ mod tests {
             aircraft: None,
             illusion_of: None,
             tanks: None,
+            thrust: None,
             chopper: None,
             schedule: None,
         }

@@ -62,6 +62,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         aircraft: None,
         illusion_of: None,
         tanks: None,
+        thrust: None,
         chopper: None,
         schedule: None,
     }

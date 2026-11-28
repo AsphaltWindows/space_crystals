@@ -157,6 +157,8 @@ mod popup;
 mod prayer_mobile;
 #[path = "prerequisites/main.rs"]
 mod prerequisites;
+#[path = "prism/main.rs"]
+mod prism;
 #[path = "production/main.rs"]
 mod production;
 mod queued_group_destinations;

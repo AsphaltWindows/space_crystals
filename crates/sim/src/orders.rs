@@ -244,6 +244,12 @@ pub enum OrderKind {
     /// `Sim::step_supply_runs`), flies there and lands; the order ends once it is down. Only a Supply Chopper takes it,
     /// on an own Supply Tower in operation with no other chopper attached (the gate).
     AttachToTower(ObjectId),
+    /// `factions/syndicate/units/prism.md > Movement`: "**Directional thrust**", the Prism's R (design change 0434:
+    /// "click a point; always the full 3 GU toward it"): the unit spends a charge as the order starts, and its burst
+    /// moves it its type's distance toward this point, space units, whatever the point's distance (`crate::thrust`,
+    /// [`run`]); the order ends with the burst. Queueable, each queued thrust spending its charge as it starts. Only a
+    /// unit whose type has thrusts takes it (`UnitDef::thrust`), with a charge left (the gate).
+    Thrust(Vec2),
 }
 
 impl OrderKind {
@@ -271,6 +277,8 @@ impl OrderKind {
             OrderKind::VehicleDeploy { .. } => None,
             // (M6-ST1) Its passengers are the carrier's (`crate::carry`).
             OrderKind::UnloadAll => None,
+            // Its point is a direction's.
+            OrderKind::Thrust(_) => None,
         }
     }
 }
@@ -308,6 +316,8 @@ impl Order {
             OrderKind::VehicleDeploy { .. } | OrderKind::UnloadAll => None,
             // The chopper goes to its target's spot (`supply_run`).
             OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => None,
+            // A thrust moves the unit its distance toward the point, wherever the point is (`crate::thrust`).
+            OrderKind::Thrust(_) => None,
         }
     }
 

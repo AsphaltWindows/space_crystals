@@ -401,6 +401,17 @@ pub(crate) fn step(
                 }
             }
         }
+        // A thrust's burst (`crate::thrust`; `factions/syndicate/units/prism.md > Movement`): on top of the unit's own
+        // move, after the clamp above, which writes that move into its velocity, so that the burst stays out of its
+        // drift. Against what blocks it and on the map as its own move is; not while it rises out of an air door.
+        if !rising && let Some(step) = crate::thrust::burst_step(&mut o.thrust) {
+            let to = world.shuffle(o.pos, step, &mut scratch.touched);
+            o.pos = if domain == Domain::Air && !unit.glides() {
+                map.clamp_box(to, half)
+            } else {
+                to
+            };
+        }
         // (M5-V1) A turn its tick made outside `World::turn` (DragMovement's, a portal's doorway) is tried where the
         // unit now stands, and cut at contact as every turn of a Silhouette that turns is: it never ends up
         // overlapping, and a cut turn loses the unit its speed (`systems/units.md > UnitCollision > Collision

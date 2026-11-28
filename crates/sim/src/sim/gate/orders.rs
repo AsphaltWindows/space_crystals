@@ -14,7 +14,7 @@ use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::sim::{Reject, Sim};
 use crate::stock::{self, Unbuyable};
-use crate::{aircraft, combat, conversion, mirage, patches, tether, vehicle_deploy};
+use crate::{aircraft, combat, conversion, mirage, patches, tether, thrust, vehicle_deploy};
 
 impl Sim {
     /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped. (M6-GA) A unit that
@@ -164,6 +164,9 @@ impl Sim {
             OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => {
                 ordered = self.check_supply_run(player, ordered, kind)?;
             }
+            // `factions/syndicate/units/prism.md > Movement` (`crate::thrust`): the units that thrust, with a charge
+            // left, take it; the others ignore it. The point is on the map.
+            OrderKind::Thrust(_) => ordered = self.check_thrust(ordered)?,
         }
         // (M6-GD) "The Drone Operator **cannot move** while it has a drone active" (`crate::tether`): a unit that holds
         // still for its drone ignores an order that would move it; if every unit does, the order is refused, with
@@ -204,6 +207,7 @@ impl Sim {
             OrderKind::Patrol(p) => OrderKind::Patrol(onto(p)?),
             OrderKind::AttackGround(p) => OrderKind::AttackGround(onto(p)?),
             OrderKind::Reverse(p) => OrderKind::Reverse(onto(p)?),
+            OrderKind::Thrust(p) => OrderKind::Thrust(onto(p)?),
             other => other,
         })
     }
@@ -333,6 +337,28 @@ impl Sim {
             return Err(Reject::StockEmpty);
         }
         Ok(stocked)
+    }
+
+    /// The gate for a Thrust (`crate::thrust`): the units of `units` whose type has thrusts take it (`thrust::thrusts`),
+    /// else [`Reject::LacksAbility`]; of them those with a charge left (`thrust::charges_left`), else
+    /// [`Reject::NoCharges`]. A queued Thrust is judged as it is given: one that starts with no charge left ends at once
+    /// (**Placeholder (Q0198)**, `thrust::run`).
+    fn check_thrust(&self, units: Vec<ObjectId>) -> Result<Vec<ObjectId>, Reject> {
+        let thrusting: Vec<&Object> = (units.iter())
+            .filter_map(|id| self.objects.get(id))
+            .filter(|o| thrust::thrusts(o))
+            .collect();
+        if thrusting.is_empty() {
+            return Err(Reject::LacksAbility);
+        }
+        let charged: Vec<ObjectId> = (thrusting.into_iter())
+            .filter(|o| thrust::charges_left(o) > 0)
+            .map(|o| o.id)
+            .collect();
+        if charged.is_empty() {
+            return Err(Reject::NoCharges);
+        }
+        Ok(charged)
     }
 
     /// (M6-GA) Of `units`, which the gate's other checks of an order of `kind` took, those that take it by the vehicle

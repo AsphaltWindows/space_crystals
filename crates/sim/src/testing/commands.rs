@@ -58,6 +58,7 @@ pub fn every_command() -> Vec<Command> {
         OrderKind::PickUpSupplies(ObjectId(11)),
         OrderKind::DropOffSupplies(ObjectId(12)),
         OrderKind::AttachToTower(ObjectId(12)),
+        OrderKind::Thrust(Vec2::new(70.0, 80.0)),
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -287,7 +288,8 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::UnloadAll
                 | OrderKind::PickUpSupplies(_)
                 | OrderKind::DropOffSupplies(_)
-                | OrderKind::AttachToTower(_) => {}
+                | OrderKind::AttachToTower(_)
+                | OrderKind::Thrust(_) => {}
             },
             Command::Ability {
                 ability:

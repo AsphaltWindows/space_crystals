@@ -98,6 +98,7 @@ pub(crate) fn update(
             tethered,
             aircraft: o.aircraft.as_mut(),
             chopper: o.chopper.as_mut(),
+            thrust: o.thrust.as_mut(),
             worker: o.worker.as_mut(),
             energy: o.energy.as_mut(),
             mirrors: parent_channel.map(|channel| channel.is_some()),
@@ -232,6 +233,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
                 return Behaviour::Plain;
             }
         }
+        // A thrust's burst is on top of the unit's drift, its own move none (`crate::thrust`).
+        OrderKind::Thrust(_) => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -285,6 +288,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::UnloadAll => Behaviour::Plain,
         // A chopper on its target's spot already (`super::supply_run`).
         OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_) => Behaviour::Plain,
+        // Its charge not yet spent: it spends it in its first tick (`crate::thrust::run`).
+        OrderKind::Thrust(_) => Behaviour::Thrust { fired: false },
     }
 }
 
@@ -368,11 +373,16 @@ fn run(
         (OrderKind::PickUpSupplies(_) | OrderKind::DropOffSupplies(_) | OrderKind::AttachToTower(_), _) => {
             supply_run::run(order.kind, unit, world)
         }
+        // `factions/syndicate/units/prism.md > Movement`: its charge spent as it starts, and its burst waited out, or
+        // at once with no charge left (`crate::thrust::run`).
+        (OrderKind::Thrust(at), Behaviour::Thrust { fired }) => {
+            crate::thrust::run(unit.thrust.as_deref_mut(), unit.kind, unit.pos, unit.facing, at, fired)
+        }
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
         | (OrderKind::Deploy { .. } | OrderKind::Enter(_) | OrderKind::AttackGround(_), _)
         | (OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_), _)
-        | (OrderKind::VehicleDeploy { .. }, _) => true,
+        | (OrderKind::VehicleDeploy { .. } | OrderKind::Thrust(_), _) => true,
     }
 }

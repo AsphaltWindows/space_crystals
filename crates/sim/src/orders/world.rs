@@ -30,6 +30,7 @@ use crate::paths::knowledge::PathKnowledge;
 use crate::shape::Shape;
 use crate::supply_run::{self, ChopperState};
 use crate::targets::{self, Live, TargetView};
+use crate::thrust::Thrust;
 use crate::units::{SU_PER_GU, Tick};
 use crate::vision::{Hiding, Vision};
 
@@ -107,6 +108,8 @@ pub(crate) struct Unit<'a> {
     /// Its state, if it is a Supply Chopper (`crate::supply_run`): its cargo, its attachment and its landing
     /// on a spot, which an order lifts it off ([`Unit::take_off`]).
     pub chopper: Option<&'a mut ChopperState>,
+    /// Its thrusts, if its type has them (`crate::thrust`): the charge a Thrust spends and the burst it starts.
+    pub thrust: Option<&'a mut Thrust>,
     /// A worker's load, patch and drop-off (`economy::gathering`).
     pub worker: Option<&'a mut Worker>,
     /// (M5-N4b) Its energy pool (`Object::energy`), which a channel drains (`super::shroud`).

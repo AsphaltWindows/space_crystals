@@ -322,3 +322,32 @@ fn production(rules: &mut Ruleset, kind: ObjectKind) -> &mut ProductionDef {
     let structure = rules.defs.get_mut(kind).structure.as_mut().expect("a structure");
     structure.production.as_mut().expect("a producer")
 }
+
+/// The Prism's thrusts (`crate::thrust`): its charges, and each thrust's distance and frames, positive by the sign's
+/// rule, so that a burst lasts a tick at least.
+#[test]
+fn a_thrust_keeps_its_numbers_positive() {
+    use crate::defs::ThrustDef;
+    let thrust = |change: fn(&mut ThrustDef)| {
+        move |r: &mut Ruleset| {
+            let unit = r.defs.get_mut(ObjectKind::Prism).unit.as_mut().expect("a unit");
+            change(unit.thrust.as_mut().expect("its thrusts"));
+        }
+    };
+    assert_eq!(
+        checked(&thrust(|t| (t.charges, t.distance, t.frames) = (1, 0.5, 1))),
+        None
+    );
+    assert_eq!(
+        checked(&thrust(|t| t.charges = 0)),
+        Some(("Prism", "charges", "must be positive"))
+    );
+    assert_eq!(
+        checked(&thrust(|t| t.distance = 0.0)),
+        Some(("Prism", "distance", "must be positive"))
+    );
+    assert_eq!(
+        checked(&thrust(|t| t.frames = 0)),
+        Some(("Prism", "frames", "must be positive"))
+    );
+}

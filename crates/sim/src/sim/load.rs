@@ -155,6 +155,10 @@ impl TryFrom<SimState> for Sim {
             if o.tanks.is_none() {
                 o.tanks = crate::patches::fresh(o.kind);
             }
+            // A Prism saved before it had thrusts (`Object::thrust`) has every charge.
+            if o.thrust.is_none() {
+                o.thrust = crate::thrust::fresh(o.kind);
+            }
             // A Supply Chopper saved before it had its state (`Object::chopper`) is empty, unattached and in
             // the air.
             if o.chopper.is_none() {
@@ -180,6 +184,9 @@ impl TryFrom<SimState> for Sim {
             }
             if unit.object.tanks.is_none() {
                 unit.object.tanks = crate::patches::fresh(unit.object.kind);
+            }
+            if unit.object.thrust.is_none() {
+                unit.object.thrust = crate::thrust::fresh(unit.object.kind);
             }
             if unit.object.chopper.is_none() {
                 unit.object.chopper = crate::supply_run::fresh(unit.object.kind);

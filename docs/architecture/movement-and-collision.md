@@ -338,7 +338,11 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   the pushes are summed and applied together; nothing blocks them. A HoverCraft is kept on the map (design change
   0045), a Glider isn't. (Slice M6-GK) So is a HoverCraft's own move (`movement::step`: the edge stops it as an
   obstacle does, design change 0035), the end of its straight path (`paths::serve`, so that it arrives at a corner
-  or an edge) and where the gate puts it (`Sim::check_unit_fits`, Blocked), all by `Map::clamp_box`. A push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and
+  or an edge) and where the gate puts it (`Sim::check_unit_fits`, Blocked), all by `Map::clamp_box`. A thrust's burst
+  (`crate::thrust`, the Prism's) is added after that clamp, which writes the unit's own move into its `velocity`: the
+  burst goes through `World::shuffle` and, for a HoverCraft, `Map::clamp_box`, but never into `velocity` or
+  `momentum`, so that the drift after it is the unit's own; none while the unit rises out of an air door. I3 and
+  I5/I7 allow a tick's burst step (`thrust::burst_moved`). A push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and
   a unit at rest stays at rest. Units spawned in the tick are pushed against but not pushed. (M6-GH2) An aircraft on
   an Airfield's slot, landing or down (`landing::at`), is out of the separation, neither pushed nor pushing, so that it
   stays on its slot while others fly in beside it or over it (**placeholder**; *Production > The Airfield*).
