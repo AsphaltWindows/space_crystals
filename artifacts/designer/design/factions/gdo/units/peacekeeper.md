@@ -59,6 +59,8 @@ While the shield is **up**:
 
 While the shield is **down**, the Peacekeeper behaves normally.
 
+**Uses Unit Modes, Toggle archetype** (systems/mechanics/modes.md; 2026-11-28): the shared toggle rules (type switches at the press, orders kept, not queueable, deferred mid-attack) are defined there; this section gives the Riot Shield's own parameters and examples. **Pressed again mid-switch: reverses from the current point.**
+
 **Toggle time:** raising and lowering the shield takes a short time, so it cannot be flicked on and off between enemy shots. **6 frames (0.375 s), placeholder** (user, 2026-11-24; should stay under half a second).
 
 **During the toggle** (user, 2026-11-24):

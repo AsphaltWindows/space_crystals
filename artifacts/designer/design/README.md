@@ -36,6 +36,7 @@ Index of the design docs. Paths are relative to this folder.
 
 | File | Contents |
 |---|---|
+| `systems/mechanics/modes.md` | Unit modes: Deploy (an order; type changes on completion) and Toggle (a mode switch; type changes at the press) |
 | `systems/mechanics/carrying.md` | Carrying units: Ground, Landing and Docked carriers, Paradrop; loading, unloading, passengers, carrier destroyed |
 
 ## factions/ — one folder per faction

@@ -7,6 +7,8 @@ Sabre Legionnaire and Rifle Legionnaire are two forms of the same underlying uni
 - Issue the Convert command (panel button R). **It goes only to the ActiveGroup** (user, 2026-11-25): with Sabres active, only the Sabres convert, to Rifles; the Rifles in the selection are untouched.
 - The unit converts in place over 4 frames
 
+**Uses Unit Modes, Toggle archetype** (systems/mechanics/modes.md; 2026-11-28): the shared toggle rules are defined there; this doc gives Convert's own parameters and examples. **Pressed again mid-switch: completes, then switches back.**
+
 ## A toggle sets a target form
 (user, 2026-11-25; Q0049) Pressing R **flips the unit's target form**; the unit then works to get itself into that form. So however fast R is pressed, every unit that received the presses ends up in the same form; quick presses simply skip the in-between conversions.
 - **The unit's type, and so its SelectionGroup, switches at the press** to the target form. The pressed units join the group of that form (merging with any units of that form already selected), and **that merged group becomes the ActiveGroup**. Example: 4 Sabres (active) and 6 Rifles selected; R → 10 Rifles in one active group; R again at once → all 10 target Sabre, including the original 6.

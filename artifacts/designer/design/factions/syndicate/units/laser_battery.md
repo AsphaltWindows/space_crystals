@@ -36,17 +36,8 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 ## Deploy (ability)
 - **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).
 - **Relay** (ability, deployed only; user, 2026-11-25; renamed from "Refract"): the deployed Laser Battery reflects its beam through the player's **Prisms** to hit far-off **ground or air** targets. See **Relay** below.
-- **Switching modes works like the GDO Artillery Rig** (user, 2026-11-25; factions/gdo/units/artillery_rig.md > Modes): deploying and undeploying take time, during which it can **neither move nor attack**.
+- **Uses Unit Modes, Deploy archetype** (systems/mechanics/modes.md; user, 2026-11-25: "works like the GDO Artillery Rig"): deploying and undeploying take time, during which it can neither move nor attack; it becomes Laser Battery (Deployed) when deploying finishes.
 - **Two unit types**: **Laser Battery** and **Laser Battery (Deployed)**, with separate SelectionGroups.
-- **Deploy is an order, not a mode switch** (user, 2026-11-25; unlike Convert and the Riot Shield, which follow the toggle rule):
-  - **The difference** (user, 2026-11-25): with a mode switch the unit's type changes **instantly** and the unit catches up in its own time. With deployment, **the deploying process is what actually changes the unit**: it stays the mobile type until the process completes.
-  - **Queueable**: Shift-Deploy waits until the earlier orders are done (e.g. move here, then deploy). Without Shift it replaces the current orders and starts at once.
-  - **No reversing mid-way**: **Undeploy is only available once deployment is complete**. The unit becomes Laser Battery (Deployed) (type and SelectionGroup) when deploying finishes; until then it is still a Laser Battery. (Undeploying is assumed symmetric: Deploy becomes available again only once undeploying is complete.)
-  - **Not cancellable** (user, 2026-11-25; replaces the earlier wind-back on Stop): once deploying has started it always runs to completion; Stop doesn't interrupt it. Undeploying likewise always completes, and Deploy is available again only once it has (user, 2026-11-25; Q0071).
-  - **Orders given while deploying** (user, 2026-11-25): the **last order given** (without Shift; each new one replaces the previous) is **held**, and it is the first thing the unit tries once deployment finishes. Shift-queued orders line up behind it as usual. At that point each order is checked against the deployed unit: one it can't carry out (e.g. **Move**, since a deployed unit can't move) is **dropped** with the usual unavailable-command feedback (user, 2026-11-25; Q0071), and the next one is tried.
-  - **Not the same as the Colonists Drone's Deploy** (user, 2026-11-25): a Drone becomes a Beacon **immediately** and the transformation **can be cancelled** (factions/colonists/economy.md > Beacon Deployment).
-  - When the switch makes a group disappear, the group the units joined becomes active (systems/controls/selection.md > Selection > ActiveGroup > When the ActiveGroup disappears).
-- The battery keeps charging in every mode (Battery: always charging).
 - Deploy/undeploy time: placeholder below.
 
 ## Relay (ability, deployed only)

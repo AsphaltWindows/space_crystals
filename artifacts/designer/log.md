@@ -2439,3 +2439,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0191: transport unload: crowded stay aboard, pips owner-only, F stops first (0469).
 - Q0192: no launch cone, must face target; limited-ammo aircraft no turret (Specter turret removed); Aim 2 for Dragonfly/Hornet/Specter; landing approach as built (0470).
 - Q0193: option (a) mechanics docs, independent archetypes (user). First: systems/mechanics/carrying.md; Transport/Chopper/Pilgrim refer to it (0471).
+- Q0193 migration: systems/mechanics/modes.md (Deploy, Toggle) (0472).
