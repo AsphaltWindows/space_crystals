@@ -8,7 +8,7 @@ Two parts: **how an aircraft lands and takes off** (three landing archetypes), a
 - **Air target while landing and taking off**, **ground target while landed** (user, 2026-11-23/26; Q0162): landed, it can be hit only by anti-ground weapons (TargetDomain Ground or Universal); from the moment it starts to take off it is an air target again.
 - **Landed aircraft hold fire** (user, 2026-11-28; Q0189): they fire only in the air.
 - **Out of the air separation** while landed (designer, Q0189): flying aircraft don't push landed ones, nor the reverse.
-- **Landed on a structure that is destroyed** (user, 2026-11-26; Q0162, for the Airfield): aircraft landed on it are **destroyed with it**; one still **landing** counts as landed, one already **taking off** escapes. A structure's doc may say otherwise.
+- **Landed on a structure that is destroyed** (user, 2026-11-26, Q0162; **for every structure**, user, 2026-11-28): aircraft landed on a structure when it is destroyed are **destroyed with it** (e.g. a Pilgrim on an Airstrip, with its passengers); one still **landing** counts as landed, one already **taking off** escapes.
 
 ## Landing archetypes
 
