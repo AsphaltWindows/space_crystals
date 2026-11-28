@@ -348,6 +348,7 @@ impl StateHash for Object {
             chopper,
             schedule,
             landing,
+            amplified,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -479,6 +480,10 @@ impl StateHash for Object {
         if let (None, None, Some(landing)) = (aircraft, chopper, landing) {
             h.tag(36);
             landing.hash(h);
+        }
+        // Amplify's mark (`crate::surge`), under tag 23: only while set.
+        if *amplified {
+            h.tag(23);
         }
     }
 }

@@ -74,6 +74,7 @@ pub(crate) const ASSAULT_BIKE: ObjectDef = ObjectDef {
             firing_ticks: 2,             // Firing 2
             cooldown_ticks: 4,           // Cooldown 4
             reload_ticks: 34,            // Reload 34 frames (one round per 48 frames)
+            surge: None,
         }),
         tunnel_space_cost: Some(2), // TunnelSpaceCost 2
         ..UnitDef::NONE

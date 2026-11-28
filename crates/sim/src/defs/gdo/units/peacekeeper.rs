@@ -95,6 +95,7 @@ const PEACEKEEPER_UNIT: UnitDef = UnitDef {
         firing_ticks: 1,                       // FiringDuration: 1 frame
         cooldown_ticks: 2,                     // CooldownDuration: 2 frames
         reload_ticks: 12,                      // ReloadDuration: 12 frames
+        surge: None,
     }),
     unit_control_cost: Some(1), // UnitControlCost - 1
     riot_shield: Some(PEACEKEEPER_RIOT_SHIELD),

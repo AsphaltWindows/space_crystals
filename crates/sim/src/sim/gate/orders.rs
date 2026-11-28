@@ -536,6 +536,8 @@ impl Sim {
             // (M6-SB) A unit with the tank (`crate::patches`): the Shadebringer's Sludge's; its Cover's is slice M6-SC's.
             Ability::Sludge { .. } | Ability::Cover { .. } => (ability.toggle())
                 .is_some_and(|(kind, _)| o.tanks.is_some() && patches::tank_def(o.kind, kind).is_some()),
+            // A unit whose attack has surges (`crate::surge`), in either of the Laser Battery's modes.
+            Ability::Amplify => crate::surge::has(o),
         };
         let own = self.own_units(player, units, |_| true)?;
         if own.is_empty() {
@@ -561,6 +563,7 @@ impl Sim {
             Ability::RiotShield { .. }
             | Ability::SetDropOff(_)
             | Ability::Convert
+            | Ability::Amplify
             | Ability::Sludge { on: false }
             | Ability::Cover { on: false } => units,
         };

@@ -90,6 +90,10 @@ pub fn every_command() -> Vec<Command> {
         units: units.clone(),
         ability: Ability::Mirage,
     });
+    commands.push(Command::Ability {
+        units: units.clone(),
+        ability: Ability::Amplify,
+    });
     // (M6-SB) The tanks' toggles, each on and off.
     commands.extend([true, false].map(|on| Command::Ability {
         units: units.clone(),
@@ -298,6 +302,7 @@ pub fn every_command() -> Vec<Command> {
                     | Ability::Convert
                     | Ability::Buy
                     | Ability::Mirage
+                    | Ability::Amplify
                     | Ability::Sludge { .. }
                     | Ability::Cover { .. },
                 ..

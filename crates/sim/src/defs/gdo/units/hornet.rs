@@ -69,6 +69,7 @@ pub(crate) const HORNET: ObjectDef = ObjectDef {
             firing_ticks: 2,
             cooldown_ticks: 4,
             reload_ticks: 22,
+            surge: None,
         }),
         unit_control_cost: Some(2), // UnitControlCost 2
         // **Placeholder (Q0181)**: SeparationRadius 56 su, its Silhouette's side and 8 su, as the Sparrow's and the

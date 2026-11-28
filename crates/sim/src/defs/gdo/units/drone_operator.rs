@@ -111,6 +111,7 @@ pub(crate) const OPERATOR_DRONE: ObjectDef = ObjectDef {
             firing_ticks: 1,
             cooldown_ticks: 0,
             reload_ticks: 0,
+            surge: None,
         }),
         unit_control_cost: Some(0), // **Unit Control 0** (it is spent like ammunition)
         // **Placeholder (Q0181)**: SeparationRadius 32 su, its Silhouette's side and 8 su, as the Sparrow's and the

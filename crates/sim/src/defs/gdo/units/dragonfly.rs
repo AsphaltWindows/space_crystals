@@ -65,6 +65,7 @@ pub(crate) const DRAGONFLY: ObjectDef = ObjectDef {
             firing_ticks: 2,
             cooldown_ticks: 4,
             reload_ticks: 0,
+            surge: None,
         }),
         unit_control_cost: Some(2), // UnitControlCost 2
         // "SeparationRadius **48** su (raised from 32, Q0148; must exceed the 40 su Silhouette)"

@@ -70,6 +70,7 @@ pub(crate) const RAPTOR: ObjectDef = ObjectDef {
             firing_ticks: 2,
             cooldown_ticks: 4,
             reload_ticks: 22,
+            surge: None,
         }),
         unit_control_cost: Some(2), // UnitControlCost 2
         ..UnitDef::NONE

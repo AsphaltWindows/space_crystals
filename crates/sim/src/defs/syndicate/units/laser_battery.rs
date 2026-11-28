@@ -3,10 +3,10 @@
 //! **Laser Battery (Deployed)**, with separate SelectionGroups").
 
 use crate::defs::units::{
-    AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, TargetDomain, TargetType, TurretAttrs, UnitBase,
-    UnitDef,
+    AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, SurgeDef, TargetDomain, TargetType, TurretAttrs,
+    UnitBase, UnitDef,
 };
-use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
+use crate::defs::{Armor, Category, EnergyDef, EnergyRegen, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
 
@@ -52,9 +52,26 @@ pub(crate) const LASER_BATTERY_DEPLOYED: ObjectDef = ObjectDef {
 };
 
 /// The damage of a normal surge: "**Damage per surge = 4 × charge^(2/3)**: a normal surge deals about 18.6", "a normal
-/// surge uses **10**", so 4 × 10^(2/3), until slice M6-SL computes each surge's from the charge it uses (plan decision
-/// T97).
+/// surge uses **10**", so 4 × 10^(2/3), [`SURGE`]'s of its draw (`crate::surge::damage`), which each surge computes
+/// from the charge it uses.
 const SURGE_DAMAGE: f32 = 18.566_355;
+
+/// `> Placeholder stats`: "a normal surge uses **10** (twice one interval's charge)"; "**Damage per surge = 4 ×
+/// charge^(2/3)**" (`crate::surge`).
+const SURGE: SurgeDef = SurgeDef {
+    draw: 10.0,
+    constant: 4.0,
+};
+
+/// `> Battery`, its battery charge, is its energy pool (`crate::energy`), which charges every tick, attacking or not,
+/// in both modes, through the change of kind between them and inside the Tunnel Network: `> Placeholder stats`,
+/// "**Battery**: capacity **100**; charge rate **5 per second** (it charges in every mode, including while switching,
+/// as assumed)". Placeholder (not in the design: its start, full, as a unit's Shields).
+const BATTERY: EnergyDef = EnergyDef {
+    max: 100.0,
+    start: 100.0,
+    regen: EnergyRegen::PerSecond(5.0),
+};
 
 /// `factions/syndicate/units/laser_battery.md`: its laser, mobile, at the ground ("TargetDomain: Ground (mobile)").
 const LASER: AttackAttrs = AttackAttrs {
@@ -69,11 +86,11 @@ const LASER: AttackAttrs = AttackAttrs {
     projectile_speed: None, // FullyConnected: no projectile
     aim_ticks: 8,           // AimDuration 8 frames
     // "surge interval **16 frames** (1 s)": plan decision T97's split of it, **Placeholder (not in the design: the
-    // split)**: Firing 1, Cooldown 1 and Reload 14, the surges' cadence once slice M6-SL aims only once while engaged
-    // (until then each surge aims again, as every attack does).
+    // split)**: Firing 1, Cooldown 1 and Reload 14, the surges' cadence while the beam stays on (`crate::surge`).
     firing_ticks: 1,
     cooldown_ticks: 1,
     reload_ticks: 14,
+    surge: Some(SURGE),
 };
 
 /// `factions/syndicate/units/laser_battery.md`: what both of its types are.
@@ -96,6 +113,7 @@ const LASER_BATTERY_DEF: ObjectDef = ObjectDef {
         full: 3.0,  // FullArmor 3
     },
     needs_flat_ground: false,
+    energy: Some(BATTERY),
     unit: Some(LASER_BATTERY_UNIT),
     ..ObjectDef::NONE
 };
@@ -185,6 +203,19 @@ mod tests {
             (attack.range, attack.min_range, attack.projectile_speed),
             (8.0, 0.0, None)
         );
+        let surge = attack.surge.expect("its surges");
+        assert_eq!(
+            (surge.draw, surge.constant),
+            (10.0, 4.0),
+            "a normal surge uses 10; 4 × charge^(2/3)"
+        );
+        assert_eq!(attack.damage, crate::surge::damage(&surge, crate::energy::units(10.0)));
+        let battery = EnergyDef {
+            max: 100.0,
+            start: 100.0,
+            regen: EnergyRegen::PerSecond(5.0),
+        };
+        assert_eq!(def.energy, Some(battery), "capacity 100; charge rate 5 per second");
         let ((aim, firing, cooldown, reload), _) = timings(&attack);
         assert_eq!(
             (aim, firing + cooldown + reload),

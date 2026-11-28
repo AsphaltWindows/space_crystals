@@ -66,6 +66,7 @@ pub(crate) const MISSILE_TURRET_ATTACK: AttackAttrs = AttackAttrs {
     firing_ticks: 2,                         // Firing 2
     cooldown_ticks: 4,                       // Cooldown 4
     reload_ticks: 14,                        // Reload 14 frames
+    surge: None,
 };
 
 #[cfg(test)]

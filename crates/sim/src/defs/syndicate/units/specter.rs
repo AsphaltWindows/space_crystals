@@ -81,6 +81,7 @@ pub(crate) const SPECTER: ObjectDef = ObjectDef {
             // (`> Placeholder stats`), which slice M6-SA builds. Until then: **Placeholder (not in the design: a Reload
             // for a single payload)**, a bomb every 160 frames, its re-arming time, Aim, Firing and Cooldown included.
             reload_ticks: 150,
+            surge: None,
         }),
         tunnel_space_cost: Some(3), // TunnelSpaceCost 3
         // "SeparationRadius **64** su (raised from 40, Q0148; must exceed the 56 su Silhouette)."

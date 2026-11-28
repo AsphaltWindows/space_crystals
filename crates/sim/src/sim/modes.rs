@@ -25,7 +25,7 @@ use super::Sim;
 use crate::command::Ability;
 use crate::defs::ObjectKind;
 use crate::ids::ObjectId;
-use crate::{conversion, patches, riot_shield};
+use crate::{conversion, patches, riot_shield, surge};
 
 impl Ability {
     /// The type a unit of type `kind` switches to at the press of this ability, if it does (module docs; design change
@@ -41,7 +41,8 @@ impl Ability {
             | Ability::Buy
             | Ability::Mirage
             | Ability::Sludge { .. }
-            | Ability::Cover { .. } => None,
+            | Ability::Cover { .. }
+            | Ability::Amplify => None,
             Ability::Convert => conversion::converts_to(kind),
         }
     }
@@ -82,6 +83,8 @@ impl Sim {
                         break;
                     }
                 }
+                // `crate::surge`: the next surge uses the whole pool; the unit's orders go on.
+                Ability::Amplify => surge::amplify(o),
                 // (M6-SB) `crate::patches`: one rule for both toggles.
                 Ability::Sludge { .. } | Ability::Cover { .. } => {
                     if let Some((kind, on)) = ability.toggle() {

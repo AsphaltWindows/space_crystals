@@ -71,6 +71,7 @@ pub(crate) const ROCKETMAN: ObjectDef = ObjectDef {
             firing_ticks: 2,
             cooldown_ticks: 16,
             reload_ticks: 8,
+            surge: None,
         }),
         unit_control_cost: Some(1), // UnitControlCost 1
         // "Target Lock: **LockOnDuration 48 frames (3 s)**; **LockRange 7 grid units**; locked missiles use the same

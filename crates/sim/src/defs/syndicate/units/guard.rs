@@ -52,6 +52,7 @@ pub(crate) const GUARD: ObjectDef = ObjectDef {
             firing_ticks: 1,                        // FiringDuration: 1 frame (placeholder)
             cooldown_ticks: 3,                      // CooldownDuration: 3 frames (placeholder)
             reload_ticks: 16,                       // ReloadDuration: 16 frames (placeholder)
+            surge: None,
         }),
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
         ..UnitDef::NONE

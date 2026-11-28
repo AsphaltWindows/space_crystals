@@ -60,6 +60,7 @@ use crate::movement;
 use crate::object::Object;
 use crate::shape::Shape;
 use crate::suppress;
+use crate::surge::{self, Surge};
 use crate::units::Tick;
 use crate::vision::PlayerVision;
 
@@ -82,6 +83,9 @@ pub(super) struct Volley {
     /// (M6-GH1) The aircraft that fired a round of their ammo ([`Shooter::spends_rounds`]), once per shot, in the order
     /// they fired: `super::step` spends them (`crate::aircraft::spend`).
     pub rounds: Vec<ObjectId>,
+    /// The surges fired ([`Shooter::surge`]), each with the charge it used, in the order they fired: `super::step`
+    /// spends them from their pools (`crate::surge::spend`).
+    pub surges: Vec<(ObjectId, u32)>,
 }
 
 impl Volley {
@@ -94,6 +98,7 @@ impl Volley {
             launched: Vec::new(),
             spent: Vec::new(),
             rounds: Vec::new(),
+            surges: Vec::new(),
         }
     }
 }
@@ -133,6 +138,9 @@ pub(super) struct Shooter<'a> {
     /// (M6-GR) Its share of each tick, in `RATIO_ONE`s (`super::power`): a whole one but for a consumer's weapon at low
     /// Power.
     pub(super) speed: u32,
+    /// The surge its attack would fire now, for an attack with surges (`AttackAttrs::surge`, `crate::surge`): what it
+    /// uses of its energy pool and deals.
+    surge: Option<Surge>,
 }
 
 impl<'a> Shooter<'a> {
@@ -166,6 +174,7 @@ impl<'a> Shooter<'a> {
             spent_by_attack: unit.is_some_and(|unit| unit.tether.is_some()),
             spends_rounds: o.aircraft.is_some(),
             speed: RATIO_ONE,
+            surge: attrs.surge.map(|def| surge::next(o, &def)),
         }
     }
 
@@ -196,6 +205,8 @@ impl<'a> Shooter<'a> {
             spent_by_attack: false,
             spends_rounds: false,
             speed: RATIO_ONE,
+            // No unit whose attack has surges goes into a building: a hit from inside deals the attack's Damage.
+            surge: None,
         }
     }
 
@@ -204,6 +215,32 @@ impl<'a> Shooter<'a> {
         if self.spends_rounds {
             volley.rounds.push(self.id);
         }
+    }
+
+    /// The damage of its single-target hit: its surge's ([`Shooter::surge`]), else its attack's Damage.
+    pub(super) fn damage(&self) -> f32 {
+        self.surge.map_or(self.attrs.damage, |surge| surge.damage)
+    }
+
+    /// Its surge, fired: the charge it used, for `super::step` to spend ([`Volley::surges`]).
+    fn spend_surge(&self, volley: &mut Volley) {
+        if let Some(surge) = self.surge {
+            volley.surges.push((self.id, surge.used));
+        }
+    }
+
+    /// The target its beam stays on once a surge's reload is over (`crate::surge`: the next surge without a new aim):
+    /// for an attack with surges, the object it aims at, while it could begin an aim at it and faces it.
+    fn beam_on(&self, state: &AttackState, facing: f32, targets: &Targets) -> Option<ObjectId> {
+        self.attrs.surge?;
+        let target = self.aimed(state)?;
+        let t = targets.get(target)?;
+        (self.can_target(t)
+            && self.sees(t)
+            && self.reaches(t)
+            && self.in_arc(facing, t.pos)
+            && self.faces(facing, state.turret, t.pos))
+        .then_some(target)
     }
 
     /// (M5-N11) The same shooter, holding its fire if `holds`: a unit inside a building that is suppressed
@@ -460,6 +497,12 @@ pub(super) fn run(
             && aimed_at.is_none_or(|at| shooter.faces(*facing, state.turret, at));
         if over {
             state.phase = end(phase, aimed_at, shooter, targets, volley, events);
+            // A surge's beam stays on its target: the next surge follows the reload without a new aim (`crate::surge`).
+            if phase == AttackPhase::Reloading
+                && let Some(target) = shooter.beam_on(state, *facing, targets)
+            {
+                state.phase = Some(AttackPhase::Firing { target: Some(target) });
+            }
             state.elapsed = 0;
             continue;
         }
@@ -510,6 +553,7 @@ fn end(
                 } else {
                     volley.origins.mark(volley.hits.len(), shooter.muzzle(t.pos));
                     fire(shooter, t, &mut volley.hits, events);
+                    shooter.spend_surge(volley);
                 }
                 // (M6-GH1) A round of its ammo, fired.
                 shooter.spend_round(volley);

@@ -70,6 +70,7 @@ pub(crate) const TWISTER: ObjectDef = ObjectDef {
             firing_ticks: 1,
             cooldown_ticks: 1,
             reload_ticks: 1,
+            surge: None,
         }),
         unit_control_cost: Some(2), // UnitControlCost 2
         ..UnitDef::NONE

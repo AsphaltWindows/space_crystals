@@ -32,6 +32,12 @@ pub fn sqrt(x: f32) -> f32 {
     libm::sqrtf(x)
 }
 
+/// The cube root of `x` (the surges' `used^(2/3)`, `crate::surge::damage`), through `libm` like the rest of this
+/// module.
+pub fn cbrt(x: f32) -> f32 {
+    libm::cbrtf(x)
+}
+
 pub fn degrees_to_radians(deg: f32) -> f32 {
     deg * (PI / 180.0)
 }

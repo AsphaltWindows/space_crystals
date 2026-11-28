@@ -182,6 +182,12 @@ pub(crate) fn step(
             emptied.push(id);
         }
     }
+    // The charge the tick's surges used (`phases::Volley::surges`), spent from their pools (`crate::surge`).
+    for (id, used) in std::mem::take(&mut volley.surges) {
+        if let Some(o) = objects.get_mut(&id) {
+            crate::surge::spend(o, used);
+        }
+    }
     // The blasts first: due projectiles land before this tick's new hits are applied (plan decision T45).
     let mut hits = Vec::new();
     let mut origins = damage::Origins::new(shrouded);

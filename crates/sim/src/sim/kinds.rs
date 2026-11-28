@@ -245,6 +245,7 @@ impl Sim {
             schedule: _,
             // Kept: no type of the design that lands changes kind (`crate::landing`).
             landing: _,
+            amplified,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {
@@ -259,6 +260,8 @@ impl Sim {
             .map(|max| shields.map_or(max, |shields| shields.min(max)));
         // (M5-N4a) Kept at most the new maximum, or the new type's start, as Shields (`crate::energy::after_change`).
         *energy = crate::energy::after_change(*energy, kind);
+        // Amplify's mark, kept while the new type's attack has surges (`crate::surge`): the Laser Battery's two modes.
+        *amplified &= crate::surge::of_kind(kind).is_some();
         // (M5-N5) Kept while their ability affects the new kind (`crate::buffs`): a Recruit's Health regeneration in
         // the Militant it is trained into, not in a Seeker.
         buffs.retain(|buff| buff.ability.affects(kind));

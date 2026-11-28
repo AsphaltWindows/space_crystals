@@ -69,6 +69,7 @@ pub(crate) const PHANTOM: ObjectDef = ObjectDef {
             firing_ticks: 1,
             cooldown_ticks: 3,
             reload_ticks: 10,
+            surge: None,
         }),
         tunnel_space_cost: Some(2), // TunnelSpaceCost 2
         // `systems/units.md > Air Collision`: "SeparationRadius — per unit type [...] Must be larger than the unit's

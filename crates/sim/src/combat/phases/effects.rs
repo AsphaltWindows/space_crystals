@@ -40,7 +40,7 @@ fn hit(shooter: &Shooter, t: &TargetView, hits: &mut Vec<Hit>) {
     hits.push(Hit::single(
         shooter.id,
         t.id,
-        shooter.attrs.damage,
+        shooter.damage(),
         t.pre_armor,
         t.point_armor,
         directional,

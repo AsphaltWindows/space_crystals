@@ -484,6 +484,7 @@ impl Sim {
             chopper: crate::supply_run::fresh(kind),
             schedule: None,
             landing: None,
+            amplified: false,
         };
         if let Some(rally) = crate::production::default_rally(&self.map, &object)
             && let Some(production) = &mut object.production

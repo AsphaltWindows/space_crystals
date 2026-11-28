@@ -75,6 +75,7 @@ pub(crate) const LASER_TURRET_ATTACK: AttackAttrs = AttackAttrs {
     firing_ticks: 1,                        // Firing 1
     cooldown_ticks: 3,                      // Cooldown 3
     reload_ticks: 16,                       // Reload 16 frames
+    surge: None,
 };
 
 /// The Laser Turret's construction by a Tunnel (`StructureDef::expansion`, slice M4-S2;

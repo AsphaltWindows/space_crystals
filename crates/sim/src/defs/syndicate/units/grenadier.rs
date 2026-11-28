@@ -64,6 +64,7 @@ pub(crate) const GRENADIER: ObjectDef = ObjectDef {
             firing_ticks: 2,             // FiringDuration: 2 frames
             cooldown_ticks: 4,           // CooldownDuration: 4 frames
             reload_ticks: 28,            // ReloadDuration: 28 frames
+            surge: None,
         }),
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
         ..UnitDef::NONE

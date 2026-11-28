@@ -67,6 +67,7 @@ pub(crate) const SPARROW: ObjectDef = ObjectDef {
             firing_ticks: 1,
             cooldown_ticks: 1,
             reload_ticks: 1,
+            surge: None,
         }),
         // `> Produced at - Airstrip (consumes **1 Recruit**; Unit Control cost **1**)` (plan decision T55).
         unit_control_cost: Some(1),

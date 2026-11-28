@@ -24,6 +24,7 @@ pub(crate) const GRENADE: AttackAttrs = AttackAttrs {
     firing_ticks: 2,
     cooldown_ticks: 4,
     reload_ticks: 28,
+    surge: None,
 };
 
 /// (M5-K) The homing missile (`systems/combat.md > HeadDisjointed`), with the Rocketman's numbers as slice M5-K had
@@ -42,6 +43,7 @@ pub(crate) const MISSILE: AttackAttrs = AttackAttrs {
     firing_ticks: 2,
     cooldown_ticks: 16,
     reload_ticks: 8,
+    surge: None,
 };
 
 /// (M5-S8) A single-target DoublyDisjointed missile: the Rocketman's before design change 0445 made its missiles burst

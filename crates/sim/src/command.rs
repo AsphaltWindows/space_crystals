@@ -177,6 +177,11 @@ pub enum Ability {
     /// Sludge's rule (`crate::patches`), with its own tank. Slice M6-SC gives the Shadebringer that tank and the smoke
     /// it lays: until then no unit has it, and the gate refuses the press (`Reject::LacksAbility`).
     Cover { on: bool },
+    /// `factions/syndicate/units/laser_battery.md > Amplify (ability)`: each unit's next surge uses its whole energy
+    /// pool (`crate::surge`; design change 0369: "pressing it makes the next surge use the whole battery. It does not
+    /// fire at once"). "Usable mobile and deployed; not queueable" (`factions/syndicate/units/laser_battery.md >
+    /// Placeholder stats`): its orders stay.
+    Amplify,
 }
 
 impl Ability {
@@ -186,9 +191,12 @@ impl Ability {
         match self {
             Ability::Sludge { on } => Some((PatchKind::Sludge, on)),
             Ability::Cover { on } => Some((PatchKind::Smoke, on)),
-            Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert | Ability::Buy | Ability::Mirage => {
-                None
-            }
+            Ability::RiotShield { .. }
+            | Ability::SetDropOff(_)
+            | Ability::Convert
+            | Ability::Buy
+            | Ability::Mirage
+            | Ability::Amplify => None,
         }
     }
 

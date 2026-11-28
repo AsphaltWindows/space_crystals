@@ -53,6 +53,7 @@ pub(crate) const RECRUIT: ObjectDef = ObjectDef {
             firing_ticks: 8,        // FiringDuration: 8 frames
             cooldown_ticks: 1,      // CooldownDuration: 1 frame
             reload_ticks: 1,        // ReloadDuration: 1 frame
+            surge: None,
         }),
         // Its Unit Control: the one Recruit it is (plan decision T55; `factions/cults/overview.md > CultsResources >
         // Unit Control`: "Each Cult unit has a Unit Control cost"; `factions/cults/structures/recruitment_hall.md >

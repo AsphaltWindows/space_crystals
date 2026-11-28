@@ -24,6 +24,7 @@ fn attrs(aim: u32, firing: u32, cooldown: u32, reload: u32) -> AttackAttrs {
         firing_ticks: firing,
         cooldown_ticks: cooldown,
         reload_ticks: reload,
+        surge: None,
     }
 }
 
@@ -71,6 +72,7 @@ fn object(id: ObjectId, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) ->
         chopper: None,
         landing: None,
         schedule: None,
+        amplified: false,
     }
 }
 

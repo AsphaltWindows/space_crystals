@@ -66,6 +66,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         chopper: None,
         landing: None,
         schedule: None,
+        amplified: false,
     }
 }
 

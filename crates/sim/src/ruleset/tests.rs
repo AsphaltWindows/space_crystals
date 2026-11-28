@@ -218,6 +218,31 @@ fn a_vehicle_deploy_is_structure_and_its_frames_live() {
     );
 }
 
+/// An attack's surges are structure (`crate::surge`: whether a unit has Amplify follows them), and their numbers apply
+/// live.
+#[test]
+fn a_surge_is_structure_and_its_numbers_live() {
+    let builtin = Ruleset::builtin();
+    let changed = |change: &dyn Fn(&mut Ruleset)| {
+        let mut rules = Ruleset::builtin();
+        change(&mut rules);
+        builtin.structural_diff(&rules)
+    };
+    fn surge(rules: &mut Ruleset) -> &mut Option<crate::defs::SurgeDef> {
+        let unit = rules.defs.get_mut(ObjectKind::LaserBattery).unit.as_mut().unwrap();
+        &mut unit.attack.as_mut().unwrap().surge
+    }
+    assert_eq!(changed(&|r| surge(r).as_mut().unwrap().draw = 20.0), None);
+    assert_eq!(changed(&|r| surge(r).as_mut().unwrap().constant = 5.0), None);
+    assert_eq!(
+        changed(&|r| *surge(r) = None),
+        Some(RuleField {
+            entry: "LaserBattery",
+            field: "surge",
+        })
+    );
+}
+
 /// (M5-X1b) `Ruleset::non_finite` names the first number that isn't finite: an attack's NaN Damage, an infinite
 /// MaxHP, a tunable; none of the built-in rules'.
 #[test]

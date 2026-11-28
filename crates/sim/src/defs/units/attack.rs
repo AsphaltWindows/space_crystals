@@ -88,6 +88,24 @@ pub struct AttackAttrs {
     pub firing_ticks: u32,
     pub cooldown_ticks: u32,
     pub reload_ticks: u32,
+    /// An attack whose hits spend from its object's energy pool, in surges (`crate::surge`;
+    /// `factions/syndicate/units/laser_battery.md > Attack: constant beam with surges`): each hit deals what the charge
+    /// it uses comes to, the next surge follows the reload without a new aim, and its unit has Amplify. `None` for
+    /// every other attack, whose hits deal its Damage.
+    #[serde(default)]
+    pub surge: Option<SurgeDef>,
+}
+
+/// The surges of an attack ([`AttackAttrs::surge`], `crate::surge`; `factions/syndicate/units/laser_battery.md >
+/// Battery`, `factions/syndicate/units/laser_battery.md > Attack: constant beam with surges`: "Damage per surge is
+/// proportional to the charge used^(2/3)").
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SurgeDef {
+    /// Points of energy a normal surge uses if the pool holds them, else whatever is left ("a surge uses the normal
+    /// surge charge if the battery holds it, otherwise whatever is left").
+    pub draw: f32,
+    /// A surge's damage is `constant × used^(2/3)`, `used` in points (`crate::surge::damage`).
+    pub constant: f32,
 }
 
 /// (M5-K) `factions/gdo/units/rocketman.md > Target Lock (targeted ability)`: the numbers of a unit's Target Lock

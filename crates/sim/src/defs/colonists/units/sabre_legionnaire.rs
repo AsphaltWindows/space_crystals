@@ -55,6 +55,7 @@ pub(crate) const SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
             firing_ticks: 3,        // FiringDuration: 3 frames
             cooldown_ticks: 1,      // CooldownDuration: 1 frame
             reload_ticks: 5,        // ReloadDuration: 5 frames
+            surge: None,
         }),
         beacon_capacity_cost: Some(2),            // BeaconCapacityCost - 2
         conversion: Some(LEGIONNAIRE_CONVERSION), // `factions/colonists/units/weapon_conversion.md`
@@ -87,6 +88,7 @@ mod tests {
                 firing_ticks: 3,
                 cooldown_ticks: 1,
                 reload_ticks: 5,
+                surge: None,
             }
         );
         assert_eq!(gu(attack.range), 8.0, "8 space units, edge to edge");

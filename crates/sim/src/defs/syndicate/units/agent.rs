@@ -53,6 +53,7 @@ pub(crate) const AGENT: ObjectDef = ObjectDef {
             firing_ticks: 1,                                                        // FiringDuration: 1 frame
             cooldown_ticks: 2,                                                      // CooldownDuration: 2 frames
             reload_ticks: 14,                                                       // ReloadDuration: 14 frames
+            surge: None,
         }),
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
         // `> Gathering` (design change 0255, answering Q0066): "The Drone's job rules apply to Agents [...] with two

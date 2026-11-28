@@ -37,6 +37,7 @@ pub(crate) const GUN: AttackAttrs = AttackAttrs {
     firing_ticks: 1,
     cooldown_ticks: 1,
     reload_ticks: 2,
+    surge: None,
 };
 
 /// The base's TurnRate, degrees a tick: slow, so that a test sees the base turn over several ticks. MaxSpeed 5 su a

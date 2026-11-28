@@ -111,6 +111,7 @@ pub(crate) const ARTILLERY_RIG_DEPLOYED: ObjectDef = ObjectDef {
             firing_ticks: 16,
             cooldown_ticks: 8,
             reload_ticks: 64,
+            surge: None,
         }),
         // `> Modes`: "Undeploying likewise always completes, and Deploy is available again only once it has";
         // `> Placeholder stats`: "**Undeploy 48 frames.**"

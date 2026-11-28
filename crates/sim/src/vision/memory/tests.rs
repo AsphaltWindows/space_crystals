@@ -49,6 +49,7 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         chopper: None,
         landing: None,
         schedule: None,
+        amplified: false,
     }
 }
 

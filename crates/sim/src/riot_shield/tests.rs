@@ -58,6 +58,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         chopper: None,
         landing: None,
         schedule: None,
+        amplified: false,
     }
 }
 

@@ -52,6 +52,7 @@ pub(crate) const MILITANT: ObjectDef = ObjectDef {
             firing_ticks: 2,                        // FiringDuration: 2 frames
             cooldown_ticks: 1,                      // CooldownDuration: 1 frame
             reload_ticks: 3,                        // ReloadDuration: 3 frames
+            surge: None,
         }),
         // `factions/cults/structures/recruitment_hall.md > Unit Control Tracking`: "A trained unit's Unit Control cost
         // equals the number of Recruits consumed to produce it": one, the Recruit an Armory trains it from

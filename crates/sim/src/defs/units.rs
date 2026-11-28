@@ -16,8 +16,8 @@ mod tanks;
 mod worker;
 
 pub use attack::{
-    AttackAttrs, AttackType, BlastDomain, FullyConnectedSubtype, MELEE_CONTACT_GU, TargetDomain, TargetLockDef,
-    TargetType,
+    AttackAttrs, AttackType, BlastDomain, FullyConnectedSubtype, MELEE_CONTACT_GU, SurgeDef, TargetDomain,
+    TargetLockDef, TargetType,
 };
 pub use bases::{ContactStep, Domain, MovementModel, UnitBase, UnitBaseDef};
 pub use movement_attrs::{MovementAttrs, ReverseSpeed};

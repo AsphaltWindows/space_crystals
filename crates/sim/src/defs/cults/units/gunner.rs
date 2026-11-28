@@ -66,6 +66,7 @@ pub(crate) const GUNNER: ObjectDef = ObjectDef {
             // fire is unchanged; designer placeholder").
             cooldown_ticks: 6,
             reload_ticks: 8, // ReloadDuration: 8 frames
+            surge: None,
         }),
         // `factions/cults/structures/recruitment_hall.md > Unit Control Tracking`: "A trained unit's Unit Control cost
         // equals the number of Recruits consumed to produce it": one, the Recruit an Armory trains it from

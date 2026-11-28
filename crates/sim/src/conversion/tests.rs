@@ -57,6 +57,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
         chopper: None,
         landing: None,
         schedule: None,
+        amplified: false,
     }
 }
 

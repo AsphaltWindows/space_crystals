@@ -64,6 +64,7 @@ pub mod spot_work;
 pub mod stock;
 pub mod supply_run;
 pub mod suppress;
+pub mod surge;
 pub mod symmetry;
 pub mod targets;
 pub mod tech;

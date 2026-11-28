@@ -52,6 +52,7 @@ pub(crate) const RIFLE_LEGIONNAIRE: ObjectDef = ObjectDef {
             firing_ticks: 2,                       // FiringDuration: 2 frames
             cooldown_ticks: 7,                     // CooldownDuration: 7 frames
             reload_ticks: 4,                       // ReloadDuration: 4 frames
+            surge: None,
         }),
         beacon_capacity_cost: Some(2),            // BeaconCapacityCost - 2
         conversion: Some(LEGIONNAIRE_CONVERSION), // `factions/colonists/units/weapon_conversion.md`
@@ -82,6 +83,7 @@ mod tests {
                 firing_ticks: 2,
                 cooldown_ticks: 7,
                 reload_ticks: 4,
+                surge: None,
             }
         );
     }

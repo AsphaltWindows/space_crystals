@@ -58,7 +58,7 @@ pub use units::{
     AmmoDef, AttackAttrs, AttackType, Augmentable, BlastDomain, CarrierDef, ContactStep, ConversionDef, Domain,
     DropOffChoice, FullyConnectedSubtype, LandingDef, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Nearest,
     PatchKind, Places, RepairDef, RepairPayment, RepairTargets, Resource, ReverseSpeed, RiotShieldDef, SlowDef,
-    StockDef, TankDef, TargetDomain, TargetLockDef, TargetType, TetherDef, ThrustDef, TurretAttrs, UnitBase,
+    StockDef, SurgeDef, TankDef, TargetDomain, TargetLockDef, TargetType, TetherDef, ThrustDef, TurretAttrs, UnitBase,
     UnitBaseDef, UnitDef, VehicleDeploy, WorkerDef,
 };
 

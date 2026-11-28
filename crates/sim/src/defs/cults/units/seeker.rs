@@ -69,6 +69,7 @@ pub(crate) const SEEKER: ObjectDef = ObjectDef {
             firing_ticks: 1,
             cooldown_ticks: 1,
             reload_ticks: 1,
+            surge: None,
         }),
         // "Produced at - Chop Shop (consumes **2 Recruits**; Unit Control cost **2**", and
         // `factions/cults/structures/README.md > Cults Vehicles`: "vehicles cost one Unit Control per Recruit consumed"

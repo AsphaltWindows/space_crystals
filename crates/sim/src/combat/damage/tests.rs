@@ -141,6 +141,7 @@ fn target(kind: crate::defs::ObjectKind, shields: f32) -> Object {
         chopper: None,
         landing: None,
         schedule: None,
+        amplified: false,
     }
 }
 

@@ -232,6 +232,7 @@ mod tests {
             chopper: None,
             landing: None,
             schedule: None,
+            amplified: false,
         }
     }
 

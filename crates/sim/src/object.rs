@@ -256,6 +256,11 @@ pub struct Object {
     /// aircraft or a chopper (`hash.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub landing: Option<Landing>,
+    /// Amplify's mark (`crate::surge`): the unit's next surge uses its whole energy pool. `false` for every other
+    /// object, and once that surge is fired. Optional in files and left out of them while `false`, and hashed only
+    /// while set, so that states saved before it existed load and those without it hash as they did.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub amplified: bool,
 }
 
 impl Object {

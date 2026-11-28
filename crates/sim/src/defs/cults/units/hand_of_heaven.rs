@@ -84,6 +84,7 @@ pub(crate) const HAND_OF_HEAVEN: ObjectDef = ObjectDef {
             firing_ticks: 2,             // FiringDuration 2
             cooldown_ticks: 4,           // CooldownDuration **4**
             reload_ticks: 96,            // ReloadDuration **96** (6 s): one missile per 150 frames, about 9.4 s
+            surge: None,
         }),
         // `> Produced at - Chop Shop (consumes **3 Recruits**; Unit Control cost **3**)` (plan decision T55).
         unit_control_cost: Some(3),
