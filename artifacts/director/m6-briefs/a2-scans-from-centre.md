@@ -1,6 +1,6 @@
 # Task A2: Target scans agree with the unit's own sight (0467 part 1)
 
-Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, and your budget is 150 tool calls.**
+Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, and your budget is 120 tool calls.**
 
 ## The architecture
 The core, then the paragraphs on sight in `docs/architecture/vision.md` and those on target scans in `docs/architecture/behaviours.md` and `docs/architecture/combat.md`. Find them with `grep -n -i 'scan\|within\|sight' <file>`.
