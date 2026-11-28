@@ -9,7 +9,7 @@ The Cults' spell caster (spells: Shroud, Mirage), trained from a single Recruit 
 ## Trained at - Cathedral (consumes 1 Recruit; Unit Control cost 1)
 
 ## Energy
-The Disciple has its own energy pool, which it spends on its spells. It regenerates naturally over time (values in Placeholder stats below). The Shrine's energy regeneration ability temporarily increases this rate.
+Uses **Energy, Casts and Timed Effects** (systems/mechanics/energy_and_effects.md): an energy pool; **Shroud** is a **Channel**, **Mirage** an **Instant cast** (Shift-queueable). The Disciple has its own energy pool, which it spends on its spells. It regenerates naturally over time (values in Placeholder stats below). The Shrine's energy regeneration ability temporarily increases this rate.
 
 ## Spells
 

@@ -10,7 +10,7 @@
 ## Produced at - Chop Shop (consumes **2 Recruits**; Unit Control cost **2**)
 ## TechPrerequisite - player owns at least one **Temple** (core/tech_and_research.md > Unit Prerequisites)
 ## AttackAttributes - None (pure caster)
-## Energy - has an energy pool for its abilities (values TBD)
+## Energy - has an energy pool for its abilities (values below). Uses **Energy, Casts and Timed Effects** (systems/mechanics/energy_and_effects.md): Inspire and Suppress are **Instant casts** (around it; an arc in front), applying **timed effects**.
 
 ## Abilities
 - **Inspire**: buffs nearby own infantry with **increased movement speed**, and **Recruits** also with **increased attack speed**. **A cast** (user, 2026-11-27): it spends energy and buffs the infantry around it at that moment for a set duration. Area, size of the buff and duration: placeholders to follow.

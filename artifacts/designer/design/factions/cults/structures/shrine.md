@@ -16,7 +16,7 @@ Recruits enter the Shrine to take part in the ritual (right-click own Shrine wit
 - **Energy regeneration**: proportional to the number of Recruits inside (0.25 per second per Recruit, placeholder). With no Recruits inside, the Shrine does not regenerate energy.
 
 ## Abilities
-Both abilities are cast on an area anywhere the player currently has vision, and spend Shrine energy.
+Uses **Energy, Casts and Timed Effects** (systems/mechanics/energy_and_effects.md): an energy pool (regenerating per Recruit inside); both abilities are **Targeted area casts** applying **timed effects**. Both abilities are cast on an area anywhere the player currently has vision, and spend Shrine energy.
 
 The effect is a **buff applied to units at the moment of casting**: qualifying units inside the area when the ability is cast receive the buff for its duration and keep it even if they leave the area. Units that enter the area afterward do not receive it. Only the caster's own units are affected.
 

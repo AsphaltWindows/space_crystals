@@ -5,6 +5,8 @@ A shielded dome that works like a Faraday cage against imprinting, so crystal-ba
 Distinct from the Syndicate's physical augmentation: Syndicate infantry are Heavy Infantry because of mechanical exoskeleton-style assistance, which involves no crystals. The Null Chamber is about **consumption**: its effects are subtle and mental (heightened awareness), unlike the Cults' morphological Altar augmentation and unlike Colonists psionics.
 
 ## Null Chamber Exit Buff
+A **timed effect** given by a service on leaving (systems/mechanics/energy_and_effects.md > Timed effects).
+
 **Throughput limits** (user, 2026-11-25, to be designed): the re-buff should probably be **limited**: only so many units buffed at a time (per Null Chamber), and each buff takes time to apply. How that combines with "every unit that exits receives the buff": placeholder below (to confirm).
 
 While the player owns at least one Null Chamber anywhere in the Tunnel Network, every **manned** Syndicate unit that exits the Tunnel Network through any Tunnel receives a temporary buff that wears off over time.

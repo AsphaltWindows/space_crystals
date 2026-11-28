@@ -2444,3 +2444,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0193 migration: systems/mechanics/garrisoning.md (0475). Flag: Bunker evacuation 'around' vs Garrison 'inside' footprint.
 - Q0193 migration: systems/mechanics/hp_restoration.md (0476).
 - Bunker evacuation inside former footprint (user) (0477).
+- Q0193 migration: systems/mechanics/energy_and_effects.md (0478).
