@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 
-- Q0192: Dragonfly launch cone and landing approach.
 - Q0193: shared mechanics in systems docs.
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends

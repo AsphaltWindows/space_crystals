@@ -2437,3 +2437,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0189 part 2 revised: Return to Base name kept; queued orders run on landing (0466). Q0190: scans from centre; Shadebringer full tanks; new Tech Gates sub-mechanic (0467).
 - Shadebringer: one shared tank 200, 10/s per toggle, refill 10/s (user: related, tension); Tech gate mark on full tanks removed (0468).
 - Q0191: transport unload: crowded stay aboard, pips owner-only, F stops first (0469).
+- Q0192: no launch cone, must face target; limited-ammo aircraft no turret (Specter turret removed); Aim 2 for Dragonfly/Hornet/Specter; landing approach as built (0470).

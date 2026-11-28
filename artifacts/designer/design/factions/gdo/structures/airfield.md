@@ -38,6 +38,7 @@ An Airfield has **4 landing slots**, one per possible assignment, so all of its 
 - After rearming, the aircraft **stays landed** at the Airfield. It doesn't go back to where it was unless ordered.
 - **An order during rearming** (user, 2026-11-26; Q0162): the aircraft takes off at once **with the ammo rearmed so far** (a Hornet ordered off 5 s into its 10 s rearm leaves with 2 of 5 missiles).
 - **New aircraft** (user, 2026-11-26; Q0162) appear **landed on a free slot**; they take off for the Airfield's rally point, and with no rally point they stay landed.
+- **Glider landing approach** (designer placeholder, 2026-11-28; Q0192, as built): a Dragonfly flying home slows from MaxSpeed to IdleSpeed 4 GU before its slot, lines up by flying straight on while the slot is within its tightest turn (overflying, it comes round again) and lands facing the way it came; with **no free slot** it circles over the Airfield's centre until one frees.
 - **The Dragonfly** (a Glider) lands and takes off **vertically**, as the Specter at an air door (user, 2026-11-26; Q0162): it approaches its slot at IdleSpeed, stops over it while it lands (16 frames), and takes off straight up, leaving at IdleSpeed. Landed, it doesn't move.
 - An unassigned aircraft has no base: it doesn't return automatically, and Return to Base is unavailable until it is reassigned.
 - **Rearm time is per unit of ammo**, and the value differs per aircraft type (RearmTimePerAmmo on each aircraft, factions/gdo/units/README.md). Rearming an aircraft takes RearmTimePerAmmo × missing ammo (user, 2026-11-23).
