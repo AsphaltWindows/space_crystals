@@ -29,8 +29,8 @@
 //! (M6-GK) The Deployment Center's build menus hold the slots of the eight buildings it doesn't construct yet
 //! (`factions/gdo/structures/deployment_center.md > Two build menus`), each in the game but greyed until its slice makes
 //! its entry live (`super::gdo::deployment_center`): slice M6-GR made the Radar Station and the Defense System live,
-//! slice M6-GF the Factory, Advanced Mechanics and the Industrial Powerplant, slice M6-GH2 the Airfield, and the
-//! Factory's panel held the two
+//! slice M6-GF the Factory, Advanced Mechanics and the Industrial Powerplant, slice M6-GH2 the Airfield, slice M6-GL
+//! Propulsion Labs and the Airfield's W, the Dragonfly (`super::gdo::airfield`), and the Factory's panel held the two
 //! units that later slices have it train, E and R (`super::gdo::factory`): slice M6-GA made the Artillery Rig live,
 //! and E holds the Prospector until slice M6-GP. The Field Engineer's two are in the game
 //! since M6-GK too, and stay greyed until slice M6-GB. The Twister's R and F hold its mines' two commands, Lay Mine and
@@ -92,9 +92,8 @@ pub enum Planned {
     /// (`factions/gdo/structures/deployment_center.md > Constructs`), in its Constructs order: each in the game (plan
     /// decision T84), its entry held until its slice (`sc_sim::defs::PLANNED_RECIPES`). The Radar Station and the
     /// Defense System are constructed (slice M6-GR), and so are the Factory, Advanced Mechanics and the Industrial
-    /// Powerplant (slice M6-GF), and the Airfield (slice M6-GH2).
+    /// Powerplant (slice M6-GF), the Airfield (slice M6-GH2) and Propulsion Labs (slice M6-GL).
     SupplyTower,
-    PropulsionLabs,
     /// (M6-GF) The Factory's E (`factions/gdo/structures/factory.md > Placeholder stats`: "**E** Prospector"), which it
     /// trains from slice M6-GP on. Its type is in the game (slice M6-GK), so its label is its type's ([`Planned::label`]).
     /// Its R, the Artillery Rig, held its slot too, until slice M6-GA.
@@ -104,10 +103,6 @@ pub enum Planned {
     /// (`crate::kinds::gdo::twister`).
     LayMine,
     BuyMine,
-    /// (M6-GH1) The Airfield's W (`factions/gdo/structures/airfield.md > Placeholder stats`: "**W** Dragonfly (greyed
-    /// without Propulsion Labs)"), in the game since slice M6-GK, which slice M6-GL has it train
-    /// (`super::gdo::airfield`).
-    Dragonfly,
     /// (M6-SB) The Shadebringer's F, its Cover (`factions/syndicate/units/shadebringer.md > Placeholder stats`:
     /// "Hotkeys: **R** Sludge, **F** Cover"), slice M6-SC's, which gives the Shadebringer its smoke tank
     /// (`super::syndicate::shadebringer`).
@@ -122,7 +117,7 @@ pub enum Planned {
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 29] = [
+    pub const ALL: [Planned; 27] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -144,11 +139,9 @@ impl Planned {
         Planned::Bunker,
         Planned::FirstAidTent,
         Planned::SupplyTower,
-        Planned::PropulsionLabs,
         Planned::Prospector,
         Planned::LayMine,
         Planned::BuyMine,
-        Planned::Dragonfly,
         Planned::Cover,
         Planned::Burrow,
         Planned::Surface,
@@ -186,11 +179,9 @@ impl Planned {
             Planned::Bunker => "Bunker",
             Planned::FirstAidTent => "First Aid Tent",
             Planned::SupplyTower => "Supply Tower",
-            Planned::PropulsionLabs => "Propulsion Labs",
             Planned::Prospector => "Prospector",
             Planned::LayMine => "Lay Mine",
             Planned::BuyMine => "Buy Mine",
-            Planned::Dragonfly => "Dragonfly",
             Planned::Cover => "Cover",
             Planned::Burrow => "Burrow",
             Planned::Surface => "Surface",
@@ -211,9 +202,10 @@ impl Planned {
     /// Assembly's "AA", (M6-SN) the Null Chamber's "NC", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice M4-G). (M6-SV)
     /// The Vehicle Assembly's units not trained yet are labelled by their types, in the game already (slice M6-SK):
     /// "SBR", "LB" and "STR"; (M6-SD) the Aerospace Assembly's alike, "SPR" and "PRM". (M6-GK) The Deployment Center's
-    /// two, whose types are in the game, have their types' labels (the Airfield's "AD" until slice M6-GH2); (M6-GF)
-    /// and so has the Factory's unit not trained
-    /// yet, "PR" (the Artillery Rig's "ARG" until slice M6-GA), and (M6-GH1) the Airfield's Dragonfly, "DY". The Twister's mines' commands by their
+    /// one, whose type is in the game, has its type's label (the Airfield's "AD" until slice M6-GH2, Propulsion Labs'
+    /// "PL" until slice M6-GL); (M6-GF) and so has the Factory's unit not trained
+    /// yet, "PR" (the Artillery Rig's "ARG" until slice M6-GA), as (M6-GH1) the Airfield's Dragonfly had, "DY", until
+    /// slice M6-GL. The Twister's mines' commands by their
     /// names' first words, "Lay" and "Buy", as the Drone Operator's Launch Drone is "Launch" (slice M6-GD,
     /// `PanelCommand::label`); not Buy Mine by the mine's tag, as Build Drone is by the drone's, "DRN": "ME" is the
     /// mine type's own, which no placeholder shares. (M6-SB) The Shadebringer's Cover by its name, "Cover", as its
@@ -244,11 +236,9 @@ impl Planned {
             Planned::Bunker => "BKR",
             Planned::FirstAidTent => "FAT",
             Planned::SupplyTower => "SPT",
-            Planned::PropulsionLabs => "PL",
             Planned::Prospector => "PR",
             Planned::LayMine => "Lay",
             Planned::BuyMine => "Buy",
-            Planned::Dragonfly => "DY",
             Planned::Cover => "Cover",
             Planned::Burrow => "Burrow",
             Planned::Surface => "Surf.",
@@ -267,13 +257,12 @@ impl Planned {
                 | Planned::Specter
                 | Planned::Prism
                 | Planned::Prospector
-                | Planned::Dragonfly
         )
     }
 
     /// (M6-GK) Whether it is a building of the Deployment Center's build menus.
     pub fn is_constructed(self) -> bool {
-        matches!(self, Planned::SupplyTower | Planned::PropulsionLabs)
+        matches!(self, Planned::SupplyTower)
     }
 
     /// Whether it is an expansion of the Tunnel's ExpandMenu.

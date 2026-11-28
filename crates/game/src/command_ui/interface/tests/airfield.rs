@@ -1,7 +1,7 @@
 //! (M6-GH1) The Airfield's panel and the Hornet's as plain data, read from a game (`factions/gdo/structures/airfield.md >
 //! Placeholder stats`: "Panel: **Q** Hornet, **W** Dragonfly (greyed without Propulsion Labs), **X** Cancel Production,
 //! **C** Set Rally Point"; `factions/gdo/units/hornet.md > Placeholder stats`: "Panel: BasicCombatUnitInterfaceState
-//! plus **F: Return to Base**"): what the gate says greys them.
+//! plus **F: Return to Base**", and (M6-GL) `factions/gdo/units/dragonfly.md`'s alike): what the gate says greys them.
 
 use bevy::math::Vec2;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -9,19 +9,26 @@ use sc_sim::{Command, DebugCommand, Faction, PlayerId, SpawnAt, TilePos};
 
 use super::*;
 use crate::command_ui::feedback::{
-    AIRFIELD_FULL_TEXT, NO_BASE_TEXT, NO_SUPPLIES_TEXT, NOT_YET_TEXT, OUT_OF_AMMO_TEXT, unavailable_text,
+    AIRFIELD_FULL_TEXT, NO_BASE_TEXT, NO_SUPPLIES_TEXT, OUT_OF_AMMO_TEXT, requires_text, unavailable_text,
 };
 
 const AIRFIELD: ObjectKind = ObjectKind::Airfield;
 const HORNET: ObjectKind = ObjectKind::Hornet;
+const DRAGONFLY: ObjectKind = ObjectKind::Dragonfly;
 const P1: PlayerId = PlayerId(1);
 const TRAIN: PanelCommand = PanelCommand::Train(HORNET);
+const TRAIN_DRAGONFLY: PanelCommand = PanelCommand::Train(DRAGONFLY);
 const RETURN: PanelCommand = PanelCommand::ReturnToBase;
 
 /// Player 1's Airfield (1) on tiles (4, 4) to (6, 6), 1000 Space Crystals and `supplies` Supplies, and `hornets`
 /// Hornets east of it (ids from 2), assigned to it by a Rebase in tick 2, which has run; and a Generator after them,
 /// which keeps player 1 in the game without the Airfield.
 fn field(supplies: u32, hornets: u32) -> TestSim {
+    field_of(supplies, hornets, false)
+}
+
+/// [`field`], (M6-GL) with Propulsion Labs after the Generator if `labs`.
+fn field_of(supplies: u32, hornets: u32, labs: bool) -> TestSim {
     let mut builder = ScenarioBuilder::new(&vec![".".repeat(32); 24].join("\n"))
         .faction(P1, Faction::Gdo)
         .spawn(AIRFIELD, Some(P1), SpawnAt::Tile(TilePos::new(4, 4)));
@@ -29,7 +36,11 @@ fn field(supplies: u32, hornets: u32) -> TestSim {
         let at = Vec2::new(900.0, 300.0 + 80.0 * n as f32);
         builder = builder.spawn(HORNET, Some(P1), SpawnAt::Point(at));
     }
-    let mut t = (builder.spawn(ObjectKind::Generator, Some(P1), SpawnAt::Tile(TilePos::new(20, 16)))).start();
+    builder = builder.spawn(ObjectKind::Generator, Some(P1), SpawnAt::Tile(TilePos::new(20, 16)));
+    if labs {
+        builder = builder.spawn(ObjectKind::PropulsionLabs, Some(P1), SpawnAt::Tile(TilePos::new(10, 4)));
+    }
+    let mut t = builder.start();
     let bank = DebugCommand::SetResources {
         player: P1,
         crystals: 1000,
@@ -78,14 +89,17 @@ fn look(panel: &Panel, slot: CommandSlot) -> Option<ButtonLook> {
     panel.get(slot).map(|shown| shown.look)
 }
 
-/// The Airfield's DefaultState: Q trains a Hornet, "HT", at once; W holds the Dragonfly's slot, not available yet; X
+/// The Airfield's DefaultState: Q trains a Hornet, "HT", at once; (M6-GL) W a Dragonfly, "DY", greyed while the player
+/// owns no Propulsion Labs ("Requires a Propulsion Labs"; it held its slot, not available, until slice M6-GL); X
 /// Cancel Production (greyed with nothing queued) and C Set Rally Point, as on every producer. With 1 Supply Q is
 /// greyed, "Not enough Supplies" (the Hornet's 2, design change 0435); with three Hornets assigned and one queued,
-/// "Airfield full" (`factions/gdo/structures/airfield.md > Production limit`: "3 assigned + 1 queued = full").
+/// "Airfield full" (`factions/gdo/structures/airfield.md > Production limit`: "3 assigned + 1 queued = full"). With
+/// Propulsion Labs W trains a Dragonfly at once, with its 4 Supplies (design change 0435), and is greyed with 3, "Not
+/// enough Supplies".
 #[test]
-fn the_airfields_q_trains_a_hornet_and_w_holds_the_dragonfly() {
-    use ButtonLook::{Common, Disabled, Unavailable};
-    use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint};
+fn the_airfields_q_trains_a_hornet_and_w_a_dragonfly() {
+    use ButtonLook::{Common, Disabled};
+    use PanelCommand::{CancelProduction, SetRallyPoint};
     let one = Selection::new([(id(1), AIRFIELD)]);
     let start = panel_of(&field(2, 0), &one);
     let c = PanelButton::Command;
@@ -99,7 +113,7 @@ fn the_airfields_q_trains_a_hornet_and_w_holds_the_dragonfly() {
         shown(&start),
         [
             (q, c(TRAIN), Common),
-            (w, c(P(Planned::Dragonfly)), Unavailable),
+            (w, c(TRAIN_DRAGONFLY), Disabled),
             (x, c(CancelProduction), Disabled),
             (r, c(SetRallyPoint), Common),
         ]
@@ -112,7 +126,8 @@ fn the_airfields_q_trains_a_hornet_and_w_holds_the_dragonfly() {
         [q, w].map(|at| start.name(at)),
         [Some("Train Hornet".into()), Some("Train Dragonfly".into())]
     );
-    assert_eq!(why(&start, w), Some(NOT_YET_TEXT));
+    assert_eq!(why(&start, w), Some(requires_text(ObjectKind::PropulsionLabs)));
+    assert_eq!(press(&start, w), SlotPress::Nothing, "greyed");
     assert_eq!(
         press(&start, q),
         SlotPress::Produce(TRAIN, ProductionCommand::Train(HORNET))
@@ -121,6 +136,18 @@ fn the_airfields_q_trains_a_hornet_and_w_holds_the_dragonfly() {
     let short = panel_of(&field(1, 0), &one);
     assert_eq!(
         (look(&short, q), why(&short, q)),
+        (Some(Disabled), Some(NO_SUPPLIES_TEXT))
+    );
+
+    let labs = panel_of(&field_of(4, 0, true), &one);
+    assert_eq!(look(&labs, w), Some(Common));
+    assert_eq!(
+        press(&labs, w),
+        SlotPress::Produce(TRAIN_DRAGONFLY, ProductionCommand::Train(DRAGONFLY))
+    );
+    let short = panel_of(&field_of(3, 0, true), &one);
+    assert_eq!(
+        (look(&short, w), why(&short, w)),
         (Some(Disabled), Some(NO_SUPPLIES_TEXT))
     );
 

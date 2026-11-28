@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): thirty-four small games, defined below and in
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): thirty-five small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
 //! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
@@ -37,8 +37,10 @@
 //! rearm, and raiding again), `syndicate_sludge.rs` (two Shadebringers' trails slowing four Peacekeepers across them,
 //! one backing up over its own, and a Vault refilling both tanks at once in the network), `syndicate_transport.rs` (a
 //! Vehicle Assembly's Subterranean Transport boarding four Guards, crushing a line of Peacekeepers, unloading them in
-//! a ring, into the Tunnel and out loaded, and dying with its two passengers) and below (the Riot Shield game), and
-//! every test is below.
+//! a ring, into the Tunnel and out loaded, and dying with its two passengers), `dragonflies.rs` (Propulsion Labs
+//! constructed and the Airfield's Dragonfly trained, four Dragonflies landing on its slots by their landing approach, a
+//! raid on four Sparrows with a missile each, home by themselves to land and rearm, and a sortie) and below (the Riot
+//! Shield game), and every test is below.
 
 mod air;
 mod airfield;
@@ -48,6 +50,7 @@ mod artillery;
 mod colonists;
 mod cults;
 mod defense;
+mod dragonflies;
 mod drones;
 mod factory;
 mod garrison;
@@ -350,4 +353,9 @@ fn golden_syndicate_sludge() {
 #[test]
 fn golden_syndicate_transport() {
     golden("syndicate_transport", syndicate_transport::syndicate_transport);
+}
+
+#[test]
+fn golden_gdo_dragonflies() {
+    golden("gdo_dragonflies", dragonflies::gdo_dragonflies);
 }

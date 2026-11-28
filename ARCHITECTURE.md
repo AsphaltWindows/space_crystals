@@ -2684,7 +2684,21 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   (slice M5-H2, design change 0404) a Move's order completes as it arrives, and the next queued order starts there
   (`orders::run`; with none it circles the point, idle). The
   ground units' back-off from a target inside MinRange is skipped for it. Its base gets no turn budget in phase 5e
-  (`movement::turn_rate` is 0 for it): only its turret aims.
+  (`movement::turn_rate` is 0 for it): only its turret aims, and (slice M6-GL) a Glider with none, the Dragonfly,
+  fires once its flight has its heading within `Combat::facing_tolerance` of its target
+  (`combat::turret::Source::Base`). **Its landing is the one exception** (slice M6-GL, `movement/approach.rs`; design
+  change 0428 point 5: "it approaches its slot at IdleSpeed, stops over it while it lands (16 frames), and takes off
+  straight up, leaving at IdleSpeed"): a leg begun by `Mover::approach_to` (`Mover::approach`, `Approach::Flying`;
+  hashed (Mover tag 13) and saved only while set, cleared by `go_to` and `stop`) is flown by `approach::fly` in place of
+  `Glider::fly`: MaxSpeed only while the point is ahead, outside its widest turn and beyond `Air::approach_gu` (4 GU, a
+  placeholder), else IdleSpeed; straight on while the point is inside the circle its tick-by-tick flight at that speed
+  makes (`approach::circles`, the polygon's circumcircle, not the turn's tangent circle) and the tick's turn can't reach
+  it; and at IdleSpeed, with the point on the line of the tick's flight (`ON_LINE_SU`), onto it, its leg over
+  (`MoveStatus::Arrived`), Stationary and **over** it (`Approach::Over`), its momentum kept for that tick. It holds
+  still in the air (`approach::holds`, `approach::hold`: no move, no momentum, Stationary, its goal kept) while over the
+  point with its order running (an order that ended without a stop, a removal's, leaves it stale: `approach::stale`
+  stops it), on an Airfield's slot (`landing::of`), and rising (`Mover::rise`); its rise's last tick flies it from
+  IdleSpeed. **Placeholder (not in the design: how a Glider lines up with its slot)**. G1 allows the hold.
 - **Where an object counts as being: `Object::map_pos`** (slice M5-H1; `systems/units.md > Air Collision`: a Glider
   outside the map edge "stays visible and attackable as if it were at the nearest edge tile"). A Glider's `pos` may
   leave the map while it turns or circles (no cap: design change 0354); `map_pos` is `pos` clamped onto the map
@@ -2750,7 +2764,9 @@ did, **(V1)** where Silhouettes turning with the facing did, **(M5-V4)** where c
   `Air::separation_push_su` ((M5-H2) its base's share of it; which I3 allows it beyond its speed too). (M5-H1) G1
   (`gliders`): every Glider that was in the game a tick earlier flies at a speed between its IdleSpeed and MaxSpeed,
   its velocity its momentum, and its `map_pos` is on the map; one stopped after its flight (its Attack's target died
-  in phase 5e) shows no move until its next, and keeps its speed. K1 (`paths`): each player's known grids are
+  in phase 5e) shows no move until its next, and keeps its speed; (slice M6-GL) one held still by its landing (on a
+  slot, rising off it, or over its approach's point, `movement::approach`) shows no move and no flight, Stationary,
+  with no speed. K1 (`paths`): each player's known grids are
   those a fresh build
   from the state gives. P1 (`projectiles`, slice M4-O, plan decision T42): every projectile in flight lands after the
   tick just played, between finite points. O1 (`operations`, slice M4-F): a Tunnel's operation and its site name each
@@ -3334,9 +3350,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   the Twister's 360° machine gun hits air only, and an Attack on a ground unit by Twisters alone is refused
   (`Reject::CannotHit`, *Commands*). Tests: `crates/sim/tests/factory/` (below) and the golden `gdo_vehicles`.
 - **The Airfield** (slice M6-GH1; `factions/gdo/structures/airfield.md`, `factions/gdo/units/hornet.md`, design
-  changes 0435 and 0441; plan decisions T88 and D34): its one live recipe is the Hornet, 150 Space Crystals and 2
-  Supplies (`Recipe::supplies`), 320 frames; its Dragonfly (slice M6-GL) stays held (`defs::PLANNED_RECIPES`), and
-  (slice M6-GH2) the Deployment Center constructs it (250 Space Crystals, 480 frames, behind Advanced Mechanics).
+  changes 0435 and 0441; plan decisions T88 and D34): its recipes are the Hornet, 150 Space Crystals and 2 Supplies
+  (`Recipe::supplies`), 320 frames, and (slice M6-GL) the Dragonfly, 175 Space Crystals and 4 Supplies, 320 frames,
+  behind Propulsion Labs (its Unit Prerequisite, `Recipe::requires`: `Reject::Requires`), which the Deployment Center
+  constructs (200 Space Crystals, 400 frames, behind an Airfield); (slice M6-GH2) the Deployment Center constructs the
+  Airfield (250 Space Crystals, 480 frames, behind Advanced Mechanics).
   **Aircraft** (`aircraft.rs`, `Object::aircraft`): a unit whose type has ammo (`UnitDef::ammo`, an `AmmoDef`: its
   max and its RearmTimePerAmmo, the rearm's) comes into the game full (`aircraft::fresh`) and unassigned.
   **Assignment**: the Airfield that trains it is its base (`AircraftState::base`). An Airfield (`StructureDef::airfield`, an
@@ -3359,7 +3377,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   design change 0458) bursting there, 45 over 32 su on the ground only (`TargetType::AoE`, `BlastDomain::Attack`:
   each object in the circle hit by its share, *Combat > Area damage*; it was 30 on the one object covering the
   spot), and turns in place to aim (no turret). It comes out landed on a free slot (`ExitRule::Pad`, below). Tests:
-  `crates/sim/tests/airfield/` (below).
+  `crates/sim/tests/airfield/` (below). **The Dragonfly** (slice M6-GL; `factions/gdo/units/dragonfly.md`, design
+  changes 0366, 0435 and 0457) is a Glider with one HeadDisjointed missile, 90 on air only (SingleTarget, 0457), and
+  RearmTimePerAmmo 64: with no turret it fires along its heading (*Movement and collision > Movement models*,
+  GliderMovement), its SeparationRadius 48, pushed at a Glider's third. It lands and takes off vertically (below).
+  Tests: `crates/sim/tests/dragonfly/` (below).
 - **Landing and rearming** (slice M6-GH2; `landing.rs`, `sim/landing.rs`, `orders/air_base.rs`; plan decision T88,
   `factions/gdo/structures/airfield.md > Landing slots`, `factions/gdo/structures/airfield.md > Returning and
   rearming`, design changes 0428 and 0423):
@@ -3379,9 +3401,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   lands rises from as low as it came (`landing::rise_from`, a placeholder). On a slot it holds fire
   (`aircraft::may_fire`, a placeholder). **A destroyed Airfield** takes the aircraft on it, landing or down, along
   (`Sim::landed_on`, on the removal path, each with a `Died`); one taking off escapes, unassigned as the others. L1
-  checks it (*Movement and collision > Invariants*). Tests: `crates/sim/tests/landing/` (below) and the golden
-  `gdo_air`. The client draws an Airfield's pads (`Look::Pads`, `object_render/pads.rs`), a landing aircraft sinking
-  to the ground and one down on it without its shadow (`object_render/flight.rs`).
+  checks it (*Movement and collision > Invariants*). (slice M6-GL) **A Glider**, which can't come to rest, flies its
+  **landing approach** to its slot instead (`sim/landing.rs`'s `glide_home`, `Mover::approach_to`;
+  *Movement and collision > Movement models*, GliderMovement): it lands once it is over the slot
+  (`Mover::is_over`) and within reach, held still from then on; with no slot free it flies to the Airfield's centre
+  and circles there (**placeholder**) until one is. Tests: `crates/sim/tests/landing/` (below), (slice M6-GL)
+  `crates/sim/tests/dragonfly/`, and the goldens `gdo_air` and `gdo_dragonflies`. The client draws an Airfield's pads
+  (`Look::Pads`, `object_render/pads.rs`), a landing aircraft sinking to the ground and one down on it without its
+  shadow (`object_render/flight.rs`).
 - **Research** (slice M5-N3, plan decisions T70 and T74 as design changes 0335 to 0338 amend them;
   `core/tech_and_research.md > Research`, `factions/cults/structures/temple.md`; `defs/cults/research.rs`,
   `defs/structures/research.rs`, `sim/producers/research.rs`): the technologies are data (`Tech`, its `TechDef`: name,
@@ -4459,6 +4486,15 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `burst` (design change 0458's: where a moving target stood, about 33 on a tank before armour, a clump of infantry
   own units included, nothing in the air). The unit tests in `landing/tests.rs` cover the layout, the claims, the
   rise and the rearm's speed; L1's negative test is in `testing/invariants/landings.rs`.
+- **Dragonfly tests** (slice M6-GL) are `crates/sim/tests/dragonfly/`, under the invariants: `training` (the
+  Deployment Center's Propulsion Labs behind an Airfield, the Airfield's W refused until it is placed; 175 Space
+  Crystals and 4 Supplies, refused with 3 or 174; 320 frames, landed on a free slot and still, or rising straight up
+  for its rally point from IdleSpeed), `missile` (one missile along its heading downs a Sparrow, then home by itself,
+  IdleSpeed over its slot, 16 to land, 64 to rearm, a Move lifting it straight up; air alone, nothing once spent),
+  `approach` (from 20 starts and headings, never stopped in the air; three at once; no slot free: on to the centre),
+  `landing` (`tests/landing`'s domains, destroyed and rearm cases for a Dragonfly) and `separation` (two end 48 su
+  apart); with `movement/approach.rs`'s unit tests (the straight-in approach; three starts, far, beside and nearly on
+  the spot, each at 24 headings) and G1's held case in `testing/invariants/gliders.rs`.
 - **Airfield tests** (slice M6-GH1) are `crates/sim/tests/airfield/`, under the invariants: `training` (the
   Hornet's 150 Space Crystals and 2 Supplies, refused with 1, refunded on a cancel; a new Hornet over its Airfield,
   assigned, hovering, or facing its rally point and flying there), `assignment` (the limit of 4 with the queue; a
@@ -5943,8 +5979,8 @@ unchecked.
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
   `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs`, `factory.rs`,
   `syndicate_air.rs`, `artillery.rs`, `syndicate_null_chamber.rs`, `mirage.rs`, `airfield.rs`, `syndicate_sludge.rs`,
-  `syndicate_transport.rs` and `main.rs`, the recording and the comparison in `harness.rs`): thirty-four games, a 3v3
-  duel,
+  `syndicate_transport.rs`, `dragonflies.rs` and `main.rs`, the recording and the comparison in `harness.rs`):
+  thirty-five games, a 3v3 duel,
   a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5959,8 +5995,8 @@ unchecked.
   `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
   M6-GD, below), `gdo_defense` (slice M6-GR, below), `gdo_vehicles` (slice M6-GF, below), `syndicate_air` (slice
   M6-SD, below), `gdo_artillery` (slice M6-GA, below), `syndicate_null_chamber` (slice M6-SN, below),
-  `cults_mirage` (slice M6-CM, below), `gdo_air` (slice M6-GH2, below), `syndicate_sludge` (slice M6-SB, below) and
-  `syndicate_transport` (slice M6-ST1, below), are blessed as replays
+  `cults_mirage` (slice M6-CM, below), `gdo_air` (slice M6-GH2, below), `syndicate_sludge` (slice M6-SB, below),
+  `syndicate_transport` (slice M6-ST1, below) and `gdo_dragonflies` (slice M6-GL, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -6118,15 +6154,22 @@ unchecked.
   across them are slowed, each 2.4 su a tick at most while it holds the slow, and arrive after a fifth that crosses
   none; A backs up over its own trail, slowed; B drives into the Tunnel laying, its Sludge switched off as it goes
   in, and A after it, slowed by B's trail; the Vault refills both tanks at once, 5 a second, until both are full
-  (`during`: every new patch at its layer's trail point, none on the ground past 10 s). In `syndicate_transport`
-  (slice M6-ST1, to 1:34, on an open test map, debug commands for player 1's Tier 2 and its 200 Space Crystals,
-  auto-targeting off) a finished Vehicle Assembly trains a Subterranean Transport behind a finished Forge, inside the
-  network in tick 401; ejected, it takes four Guards aboard one by one, drives through a line of three of the GDO's
-  Peacekeepers on Hold, crushing each, and its Unload All, queued after the move, puts the four out round it in one
-  tick; two board it again, it drives into the Tunnel with them (`during`: the EjectMenu lists it alone) and is
-  ejected again, loaded, once its transit delay is over; six Peacekeepers kill it in tick 1338, and its two passengers
-  die with it, in its tick, where it was (`expect`: player 1's Tunnel Space in use 4, then 7 from the Train on, then
-  2, the two Guards left). The
+  (`during`: every new patch at its layer's trail point, none on the ground past 10 s). In `syndicate_transport` (slice
+  M6-ST1, to 1:34, on an open test map, debug commands for player 1's Tier 2 and its 200 Space Crystals, auto-targeting
+  off) a finished Vehicle Assembly trains a Subterranean Transport behind a finished Forge, inside the network in tick
+  401; ejected, it takes four Guards aboard one by one, drives through a line of three of the GDO's Peacekeepers on
+  Hold, crushing each, and its Unload All, queued after the move, puts the four out round it in one tick; two board it
+  again, it drives into the Tunnel with them (`during`: the EjectMenu lists it alone) and is ejected again, loaded, once
+  its transit delay is over; six Peacekeepers kill it in tick 1338, and its two passengers die with it, in its tick,
+  where it was (`expect`: player 1's Tunnel Space in use 4, then 7 from the Train on, then 2, the two Guards left). In
+  `gdo_dragonflies` (slice M6-GL, to 1:46, on an open test map, debug commands on for player 1's 375 Space Crystals and
+  4 Supplies) the Deployment Center constructs Propulsion Labs and places it at tick 401, and the Airfield, its W
+  refused until then, trains a Dragonfly, which appears landed on the last slot (`during`: down, there); three
+  Dragonflies rebased onto it land on the others by their landing approach. The four lift off straight up and AttackMove
+  head on at four of the Cults' Sparrows, which hit back: a missile each, three Sparrows down; out of ammo, each flies
+  home by itself, lands and rearms in 64 frames (`during`: all four home, full and idle, before each lift-off). A sortie
+  lifts them off to circle a point in the north-west; sent home (F), they land from there, every landing and take-off
+  counted (`expect`). The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -6440,10 +6483,10 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
    `EJECT_MENU_ORDER` (`NEVER_INSIDE`, `defs/syndicate/tests.rs`). A kind registered before its slice makes it (the
    GDO's, slice M6-GK) keeps its `Recipe` in its def module, held in `defs::PLANNED_RECIPES` with its producer; its
    slice moves it into the producer's `constructs`, `production` or `builds` (and its `Planned` menu entry, if it has
-   one, becomes its command). (M6-GH1) An aircraft that rearms at an Airfield (the Hornet; slice M6-GL's Dragonfly)
-   has its ammo in `UnitDef::ammo` (an `AmmoDef`), which alone gives it `Object::aircraft`, its assignment, the gate's
-   ammo checks, its F Return to Base and its pips (*Production > The Airfield*); an Airfield's limit is its
-   `StructureDef::airfield` (an `AirfieldDef`).
+   one, becomes its command). (M6-GH1) An aircraft that rearms at an Airfield (the Hornet and, slice M6-GL, the
+   Dragonfly) has its ammo in `UnitDef::ammo` (an `AmmoDef`), which alone gives it `Object::aircraft`, its assignment,
+   the gate's ammo checks, its F Return to Base and its pips (*Production > The Airfield*), and, a Glider, its landing
+   approach (`movement/approach.rs`); an Airfield's limit is its `StructureDef::airfield` (an `AirfieldDef`).
 2. **Its client module**, `crates/game/src/kinds/<faction>/<object>.rs` (*Client architecture > Kinds*): its
    `ClientKind`, with
    - its label, two letters of its own (`kinds::tests::every_label_is_its_own` checks them against every other

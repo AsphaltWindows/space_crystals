@@ -30,7 +30,7 @@ use sc_sim::{
     SpawnAt, Tile, TilePos, TilePresetId, TileProblem, WholeProblem, scenarios,
 };
 use space_crystals::command_ui::cursor::PointerLook;
-use space_crystals::command_ui::feedback::{NOT_YET_TEXT, TargetFeedback};
+use space_crystals::command_ui::feedback::TargetFeedback;
 use space_crystals::command_ui::{BuildMenu, ButtonLook, InterfaceState, PanelButton, PanelCommand, Placing, Planned};
 use space_crystals::coords::drawn_position;
 use space_crystals::hud::command_panel::CommandButton;

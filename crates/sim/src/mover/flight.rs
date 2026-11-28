@@ -1,12 +1,14 @@
 //! (M5-H1) What a Glider's mover keeps of its flight from tick to tick (plan decision T81): the point it circles
 //! ([`Mover::orbit`]) and its strafing run ([`Strafe`]); (M5-N7) its takeoff run along a runway ([`Takeoff`]). The
 //! movement step flies it (`movement::glider`); its speed is its [`Mover::momentum`], as a DragMovement unit's velocity
-//! is. (M6-SD) And an aircraft's rise out of a Tunnel's air exit door ([`Mover::rise`], [`Mover::rises`]).
+//! is. (M6-SD) And an aircraft's rise out of a Tunnel's air exit door ([`Mover::rise`], [`Mover::rises`]). (M6-GL) And
+//! a Glider's landing approach, which ends stopped over its point ([`Approach`], [`Mover::approach_to`]).
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use super::Mover;
+use super::{MoveGoal, Mover};
+use crate::units::Tick;
 
 /// A Glider's strafing run at its goal: `systems/controls/command_behaviors.md > AttackingObject`, GliderMovement
 /// exception: "Gliders cannot stop. Instead of stopping when in range, the Glider performs strafing runs: 1. Fly toward
@@ -57,6 +59,19 @@ impl Mover {
         true
     }
 
+    /// (M6-GL) A Glider's leg to `spot` that ends stopped over it, in the air, as the Dragonfly's landing does
+    /// ([`Approach`]): a new leg to the point ([`Mover::go_to`]), flown as a landing approach (`movement::approach`).
+    /// Its landing at an Airfield's slot (`Sim::step_landings`).
+    pub fn approach_to(&mut self, spot: Vec2, tick: Tick) {
+        self.go_to(MoveGoal::Point(spot), None, tick);
+        self.approach = Some(Approach::Flying);
+    }
+
+    /// (M6-GL) Whether it is a Glider stopped over the point of its landing approach ([`Approach::Over`]).
+    pub fn is_over(&self) -> bool {
+        self.approach == Some(Approach::Over)
+    }
+
     /// A Glider's leg that just began ([`Mover::go_to`]) is a strafing run at its goal, flying on past it to `range`
     /// space units ([`Strafe`]), from a turn toward it. The behaviours' strafing passes (`orders::engage`,
     /// `orders::attack_ground`); a new leg and a stop end it.
@@ -66,6 +81,20 @@ impl Mover {
             pass: Pass::Toward,
         });
     }
+}
+
+/// (M6-GL) A Glider's landing approach to its goal's point ([`Mover::approach`], [`Mover::approach_to`]):
+/// `factions/gdo/structures/airfield.md > Returning and rearming`: "**The Dragonfly** (a Glider) lands and takes off
+/// **vertically**, as the Specter at an air door (user, 2026-11-26; Q0162): it approaches its slot at IdleSpeed, stops
+/// over it while it lands (16 frames), and takes off straight up, leaving at IdleSpeed. Landed, it doesn't move"
+/// (design change 0428 point 5). The movement step flies it (`movement::approach`); a new leg and a stop end it.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Approach {
+    /// It flies at its goal's point, slowing to IdleSpeed for the last of the way, to stop over it.
+    Flying,
+    /// It has stopped over the point, its leg over (`MoveStatus::Arrived`), and holds still there in the air while the
+    /// order that sent it there runs, for its landing to begin (`movement::approach::holds`).
+    Over,
 }
 
 /// (M5-N7) A Glider's takeoff run along the runway it appeared on (`ExitRule::Runway`, `production::Runway`;

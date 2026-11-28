@@ -276,6 +276,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | A | Attack | Attack | click a target; Shift queues |
 | S | Patrol | Patrol | click a target; Shift queues |
 | D | AtkGnd | Attack Ground | click a target; Shift queues; greyed: "Not available for this unit" |
+| F | Base | Return to Base | Shift queues |
 | X | Stop | Stop | Shift queues |
 
 #### Drone Operator (DO)
@@ -327,7 +328,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | W → Q | FY | Build Factory | Requires a Barracks |
 | W → W | AM | Build Advanced Mechanics | Requires a Factory |
 | W → E | AD | Build Airfield | Requires an Advanced Mechanics |
-| W → R | PL | Build Propulsion Labs | greyed: "Not available yet" |
+| W → R | PL | Build Propulsion Labs | Requires an Airfield |
 | W → A | IP | Build Industrial Powerplant | Requires an Advanced Mechanics |
 
 **While it builds:** E Place the building (greyed: "Still under construction"), X Cancel Construction.
@@ -375,7 +376,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Keys | Button | Command | Notes |
 |---|---|---|---|
 | Q | HT | Train Hornet |  |
-| W | DY | Train Dragonfly | greyed: "Not available yet" |
+| W | DY | Train Dragonfly | Requires a Propulsion Labs |
 | X | Cancel | Cancel Production |  |
 | C | Rally | Set Rally Point | click a target |
 

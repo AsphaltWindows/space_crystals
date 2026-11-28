@@ -105,7 +105,7 @@ fn the_deployment_center_opens_its_build_menus() {
             (q, command(Construct(ObjectKind::Factory)), Common),
             (w, command(Construct(ObjectKind::AdvancedMechanics)), Common),
             (e, command(Construct(ObjectKind::Airfield)), Common),
-            (slot(0, 3), planned(Planned::PropulsionLabs), Unavailable),
+            (slot(0, 3), command(Construct(ObjectKind::PropulsionLabs)), Common),
             (slot(1, 0), command(Construct(ObjectKind::IndustrialPowerplant)), Common),
             (CommandSlot::BACK, PanelButton::Back, Back),
         ]

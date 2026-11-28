@@ -25,7 +25,9 @@
 //!   taken at); [`follow`]: one unit's tick along its path, shared by every model.
 //! - [`separate`]: an idle unit that overlaps another moves off it (design change 0126).
 //! - (M5-H1) [`glider`]: GliderMovement, the model of the units that never stop, in place of a unit's tick along its
-//!   path; [`air`]: the soft separation of air units from each other, after every unit has moved.
+//!   path; [`air`]: the soft separation of air units from each other, after every unit has moved. (M6-GL)
+//!   [`approach`]: a Glider's landing approach, which ends stopped over its point, in place of its flight, and its hold
+//!   in the air while it is over that point, on an Airfield's slot or rising off one.
 //! - [`doorway`]: a released unit walking out of its producer's exit doorway (design change 0080), the one case in
 //!   which a unit's box overlaps a structure: `collide::World::door` is where the tiles of that building stop
 //!   blocking it. (M3-D2) Out of a portal's energy doorway (design change 0145) the unit walks straight from the
@@ -42,6 +44,7 @@
 //! [`space::blocks`] and a kill at the crusher's commit ([`crush`]).
 
 mod air;
+mod approach;
 mod collide;
 mod crush;
 mod doorway;
@@ -69,7 +72,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::math;
-use crate::mover::{Locomotion, MoveGoal, Mover, Orientation};
+use crate::mover::{Approach, Locomotion, MoveGoal, Mover, Orientation};
 use crate::nav::Nav;
 use crate::object::Object;
 use crate::paths;
@@ -126,7 +129,9 @@ fn tracked_turn_noted(movement: &MovementAttrs, turned: f32, momentum: Vec2) -> 
 /// Phase 5d (`docs/movement.md > 4`): builds the spatial grids from **all** units, this tick's spawns included
 /// (they are obstacles, though not moved), then moves every unit before `first_new`, in id order, updating the
 /// grid at each commit. A unit whose attack holds its base (`combat::may_move`, `combat::may_turn`) stands and
-/// keeps its goal, and so (M6-SD) does an aircraft rising out of an air door (`Mover::rises`). An idle unit asked to
+/// keeps its goal, and so (M6-SD) does an aircraft rising out of an air door (`Mover::rises`), and (M6-GL) a Glider
+/// held in the air by its landing: over its slot, on it, or rising off it (`approach`), a Glider otherwise flying
+/// whatever its attack does. An idle unit asked to
 /// make way takes its sidestep in its turn, like any move (`yielding::sidestep`); the sidesteps asked for in this tick
 /// are noted when every unit has moved (`yielding::apply`) and begin in the next. (M4-S2) A lowered pop-up turret that
 /// wants to rise asks its owner's idle units over its footprint the same way (`yielding::make_way`). The angle each
@@ -218,6 +223,10 @@ pub(crate) fn step(
         // `systems/combat.md > UnitBaseSource`: while its attack aims, fires or cools down, a unit's base neither
         // moves nor turns (the attack turns it while aiming, in phase 5e).
         let held = rising || !combat::may_move(o) || !combat::may_turn(o);
+        // (M6-GL) A Glider on an Airfield's slot, landing or down, holds still there (`approach::holds`), and so does
+        // one over the point of its landing approach while the order that sent it there runs (`approach::stale`).
+        let on_slot = crate::landing::of(o).is_some();
+        let ordered = o.orders.as_ref().is_some_and(|orders| orders.current.is_some());
         let mover = o.mover.as_mut().expect("units have movers");
         let base = unit.base_def();
         // (M6-ST1) Its type's Domain, its own over its base's (`UnitDef::domain`).
@@ -257,16 +266,27 @@ pub(crate) fn step(
         };
         let coasting = mover.momentum != Vec2::ZERO;
         let failed = if let Some(glider) = Glider::of(movement) {
-            // (M5-H1) A Glider never stands, waits nor yields: it flies, whatever its attack does (`glider`).
-            glider.fly(
-                &mut o.pos,
-                &mut o.facing,
-                &mut turned,
-                mover,
-                scratch.chased[me].as_ref(),
-                half,
-                map,
-            );
+            if approach::stale(mover, ordered) {
+                mover.stop();
+            }
+            if approach::holds(mover, on_slot, rising) {
+                // (M6-GL) Its landing holds it still in the air: over its slot, on it, and rising off it (`approach`).
+                approach::hold(mover, &mut turned);
+            } else if let (Some(Approach::Flying), MoveGoal::Point(spot)) = (mover.approach, mover.goal) {
+                // (M6-GL) Its landing approach, in place of its flight (`approach`).
+                approach::fly(&glider, &mut o.pos, &mut o.facing, &mut turned, mover, spot);
+            } else {
+                // (M5-H1) A Glider never stands, waits nor yields: it flies, whatever its attack does (`glider`).
+                glider.fly(
+                    &mut o.pos,
+                    &mut o.facing,
+                    &mut turned,
+                    mover,
+                    scratch.chased[me].as_ref(),
+                    half,
+                    map,
+                );
+            }
             false
         } else if held {
             // A unit in an attack sequence is busy: it doesn't yield (design change 0023).

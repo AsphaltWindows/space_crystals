@@ -79,6 +79,8 @@ mod deploy_gate;
 #[path = "design_citations/main.rs"]
 mod design_citations;
 mod determinism;
+#[path = "dragonfly/main.rs"]
+mod dragonfly;
 #[path = "drone_operator/main.rs"]
 mod drone_operator;
 mod economy_mining;

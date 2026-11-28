@@ -1,12 +1,17 @@
 //! The Dragonfly — `factions/gdo/units/dragonfly.md` (design change 0366, slice M6-GK): "GDO air-to-air fighter
 //! produced at the Airfield once the player owns Propulsion Labs. Fires **air-to-air missiles**." Its numbers are the
 //! design's "Placeholder stats" (plan decision T84), its GliderMovement and its homing missile among them; its idle
-//! circle's radius, "1 grid unit", is every Glider's (`crate::tuning::air`). Its ammo (`> AttackAttributes`: "Ammo:
-//! **1 missile**, then it must reload at its assigned Airfield"; "**RearmTimePerAmmo 64 frames**") and its Airfield
-//! entry ([`RECIPE`], held) are slice M6-GL's; no player produces one before.
+//! circle's radius, "1 grid unit", is every Glider's (`crate::tuning::air`). (M6-GL) Its ammo (`> AttackAttributes`:
+//! "Ammo: **1 missile**, then it must reload at its assigned Airfield"; "**RearmTimePerAmmo 64 frames**";
+//! `crate::aircraft`), and the Airfield trains it behind Propulsion Labs ([`RECIPE`]). It lands on the Airfield's slots
+//! and takes off from them vertically (`crate::landing`, `movement::approach`). With no turret it fires along its
+//! heading: its attack comes from its base (`combat::turret::Source::Base`), which its flight alone turns, so its
+//! missile leaves once its heading faces the target (`Combat::facing_tolerance`), as its strafing runs bring it to.
 
 use crate::defs::structures::Recipe;
-use crate::defs::units::{AttackAttrs, AttackType, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef};
+use crate::defs::units::{
+    AmmoDef, AttackAttrs, AttackType, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
@@ -46,7 +51,8 @@ pub(crate) const DRAGONFLY: ObjectDef = ObjectDef {
             // "Attack: **HeadDisjointed** (homing air-to-air missile; user, 2026-11-27)"
             attack_type: AttackType::HeadDisjointed,
             target_domain: TargetDomain::Air, // "TargetDomain: Air"
-            // **Placeholder (not in the design: the Dragonfly's TargetType)**: SingleTarget, its Damage a missile's.
+            // "**Raptor, Dragonfly, Twister:** SingleTarget, confirmed from the docs (homing missiles and a
+            // FullyConnected gun)" (design change 0457, answering Q0182): its Damage a missile's.
             target_type: TargetType::SingleTarget,
             // "Damage **90**; Range 6 grid units; ProjectileSpeed 20 su/frame; Aim 8, Firing 2, Cooldown 4, Reload 0 (1
             // missile)"; no MinRange given.
@@ -62,6 +68,12 @@ pub(crate) const DRAGONFLY: ObjectDef = ObjectDef {
         unit_control_cost: Some(2), // UnitControlCost 2
         // "SeparationRadius **48** su (raised from 32, Q0148; must exceed the 40 su Silhouette)"
         separation_radius: Some(48.0),
+        // (M6-GL) "Ammo: **1 missile**, then it must reload at its assigned Airfield"; "**RearmTimePerAmmo 64
+        // frames**".
+        ammo: Some(AmmoDef {
+            max: 1,
+            rearm_ticks_per_ammo: 64,
+        }),
         ..UnitDef::NONE
     }),
     ..ObjectDef::NONE
@@ -70,7 +82,8 @@ pub(crate) const DRAGONFLY: ObjectDef = ObjectDef {
 /// `factions/gdo/structures/airfield.md > Produces (so far)`: "Dragonfly: 175 Space Crystals, 320 frames (20 seconds)
 /// (placeholder). Requires: player owns at least one Propulsion Labs", its Unit Prerequisite, and `> Placeholder
 /// stats` of `factions/gdo/units/dragonfly.md`: "Cost: Airfield, 175 Space Crystals **+ 4 Supplies** (user,
-/// 2026-11-26; Q0169), 320 frames" (design change 0435). Held until slice M6-GL (`crate::defs::PLANNED_RECIPES`).
+/// 2026-11-26; Q0169), 320 frames" (design change 0435). The Airfield's since slice M6-GL
+/// (`super::super::structures::airfield`).
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::Dragonfly,
     cost: 175,
@@ -86,8 +99,8 @@ mod tests {
 
     /// The placeholder stats: a Glider, 40×40, MaxHP 100, armour 1/1, SightRange 8, Unit Control 2; GliderMovement from
     /// an idle 6 su a frame to 14; no turret; a homing missile at air only, 90 damage up to 6 grid units at 20 su a
-    /// frame, no reload (its one missile); a SeparationRadius of 48 su, more than its Silhouette. Its Airfield entry,
-    /// 175 Space Crystals and 4 Supplies in 320 frames behind Propulsion Labs, is held.
+    /// frame, no reload (its one missile); a SeparationRadius of 48 su, more than its Silhouette. (M6-GL) 1 missile, 64
+    /// frames to rearm. Its Airfield entry, 175 Space Crystals and 4 Supplies in 320 frames behind Propulsion Labs.
     #[test]
     fn the_dragonfly_follows_the_design() {
         let unit = super::super::assert_stat_block(
@@ -120,6 +133,13 @@ mod tests {
         );
         assert_eq!(super::super::cycle(&attack), ((8, 2, 4, 0), 14));
         assert_eq!(unit.separation_radius, Some(48.0));
+        assert_eq!(
+            unit.ammo,
+            Some(AmmoDef {
+                max: 1,
+                rearm_ticks_per_ammo: 64
+            })
+        );
         let recipe = Recipe {
             kind: ObjectKind::Dragonfly,
             cost: 175,

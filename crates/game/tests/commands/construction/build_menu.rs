@@ -8,8 +8,8 @@ use super::*;
 /// selected Deployment Center shows Q Basic Construction and W Advanced Construction. W opens BuildMenu[Advanced]: Q
 /// Factory, W Advanced Mechanics and A Industrial Powerplant (slice M6-GF), greyed without a Barracks, a Factory and an
 /// Advanced Mechanics (Q says "Requires a Barracks" and sends nothing), E Airfield (slice M6-GH2), greyed without an
-/// Advanced Mechanics (it says "Requires an Advanced Mechanics" and sends nothing), and R Propulsion Labs, which holds
-/// its slot greyed, not constructed yet (slice M6-GK): pressing it sends nothing and says "Not available yet".
+/// Advanced Mechanics (it says "Requires an Advanced Mechanics" and sends nothing), and R Propulsion Labs (slice
+/// M6-GL), greyed without an Airfield (it says "Requires an Airfield" and sends nothing).
 /// Q, or a click on its button, opens BuildMenu[Basic]: Q Generator, W Barracks, E Extraction Facility, S Arsenal
 /// (slice M5-K) and D Career Campus (slice M5-N9; both greyed: "Requires a Barracks"), A Radar Station and F Defense
 /// System (slice M6-GR; greyed: "Requires a Generator", "Requires a Radar Station"), R Supply Tower greyed as not
@@ -23,7 +23,7 @@ use super::*;
 /// active group: the menu closes, and Q builds a plate there, at the Extraction Facility only.
 #[test]
 fn the_deployment_center_opens_its_basic_build_menu() {
-    use ButtonLook::{Back, Common, Disabled, Group, Unavailable};
+    use ButtonLook::{Back, Common, Disabled, Group};
     use PanelCommand::{BuildMenu as Menu, Construct};
     let mut app = construction_game(1000);
     select(&mut app, DC);
@@ -37,14 +37,13 @@ fn the_deployment_center_opens_its_basic_build_menu() {
     );
     tap(&mut app, &[], KeyW);
     assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Advanced));
-    let planned = |planned| c(PanelCommand::Planned(planned));
     assert_eq!(
         buttons(&mut app),
         [
             (q(), c(Construct(ObjectKind::Factory)), Disabled, "FY"),
             (w(), c(Construct(ObjectKind::AdvancedMechanics)), Disabled, "AM"),
             (e(), c(Construct(ObjectKind::Airfield)), Disabled, "AD"),
-            (r(), planned(Planned::PropulsionLabs), Unavailable, "PL"),
+            (r(), c(Construct(ObjectKind::PropulsionLabs)), Disabled, "PL"),
             (a(), c(Construct(ObjectKind::IndustrialPowerplant)), Disabled, "IP"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
         ]
@@ -56,8 +55,8 @@ fn the_deployment_center_opens_its_basic_build_menu() {
     assert_eq!(constructions(&app), [], "no Advanced Mechanics");
     assert_eq!(feedback(&app), Some("Requires an Advanced Mechanics"));
     tap(&mut app, &[], KeyR);
-    assert_eq!(constructions(&app), [], "not constructed yet");
-    assert_eq!(feedback(&app), Some(NOT_YET_TEXT));
+    assert_eq!(constructions(&app), [], "no Airfield");
+    assert_eq!(feedback(&app), Some("Requires an Airfield"));
     tap(&mut app, &[], KeyZ);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
 

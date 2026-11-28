@@ -55,17 +55,15 @@ const BASIC_MENU: [Option<PanelCommand>; 12] = {
 /// Mechanics [E] Airfield [R] Propulsion Labs / [A] Industrial Powerplant". (M6-GF) The Factory, Advanced Mechanics and
 /// the Industrial Powerplant it constructs, each greyed while the player owns none of the one before it (their
 /// TechPrerequisites: the gate's `Reject::Requires`, "Requires a Barracks", "Requires a Factory", "Requires an
-/// Advanced Mechanics"), and (M6-GH2) the Airfield, greyed while they own no Advanced Mechanics ("Requires an Advanced
-/// Mechanics"). (M6-GK) Propulsion Labs is in the game (plan decision T84), but no player constructs one yet: it holds
-/// its slot, greyed ([`Planned`]), until slice M6-GL makes its entry live. The menu opens on them
-/// (`super::super::offers`).
+/// Advanced Mechanics"), (M6-GH2) the Airfield, greyed while they own no Advanced Mechanics ("Requires an Advanced
+/// Mechanics"), and (M6-GL) Propulsion Labs, greyed while they own no Airfield ("Requires an Airfield"); it held its
+/// slot, greyed, from slice M6-GK until slice M6-GL. The menu opens on them (`super::super::offers`).
 #[rustfmt::skip]
 const ADVANCED_MENU: [Option<PanelCommand>; 12] = {
-    use sc_sim::ObjectKind::{AdvancedMechanics, Airfield, Factory, IndustrialPowerplant};
-    use Planned::PropulsionLabs;
-    use PanelCommand::{Construct as C, Planned as P};
+    use sc_sim::ObjectKind::{AdvancedMechanics, Airfield, Factory, IndustrialPowerplant, PropulsionLabs};
+    use PanelCommand::Construct as C;
     [
-        Some(C(Factory)),              Some(C(AdvancedMechanics)), Some(C(Airfield)), Some(P(PropulsionLabs)),
+        Some(C(Factory)),              Some(C(AdvancedMechanics)), Some(C(Airfield)), Some(C(PropulsionLabs)),
         Some(C(IndustrialPowerplant)), None,                       None,              None,
         None,                          None,                       None,              None,
     ]

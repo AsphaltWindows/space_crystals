@@ -1,7 +1,8 @@
 //! (M5-H1) Air units: a Glider's idle circle and the soft separation of air units from each other
 //! (`systems/units.md > GliderMovement`, `> Air Collision`; plan decision T81; `crate::movement::glider`,
 //! `crate::movement::air`); (M5-N7) where an aircraft out of a runway circles without a rally point
-//! (`crate::production::exit::Runway`). A type's own flight numbers (IdleSpeed, MaxSpeed, its accelerations, its
+//! (`crate::production::exit::Runway`); (M6-GH2) how near its slot an aircraft lands; (M6-GL) where a Glider's landing
+//! approach slows down. A type's own flight numbers (IdleSpeed, MaxSpeed, its accelerations, its
 //! MaxCentripetalAcceleration) and its SeparationRadius are its def's.
 
 tunables! {
@@ -46,4 +47,12 @@ tunables! {
     /// came to rest (`movement::air`, at most `separation_push_su` a tick, until it lands); farther off, it flies back
     /// over the slot first. On its slot it stays within it (invariant L1).
     landing_reach_su: f32 = 8.0,
+
+    /// (M6-GL) How far from the point of its landing approach a Glider slows to its IdleSpeed, for the last of the way
+    /// (`crate::movement::approach`; `factions/gdo/structures/airfield.md > Returning and rearming`: "it approaches its
+    /// slot at IdleSpeed, stops over it while it lands"), grid units. **Placeholder (not in the design: where a
+    /// Glider's approach to its slot slows to IdleSpeed)**: the Dragonfly, braking 0.6 su/frame² from its MaxSpeed of
+    /// 14, is at its IdleSpeed of 6 some 133 su on, so that it flies the last 120 su or so, about 20 frames, straight
+    /// at its slot at IdleSpeed. Farther off it flies at MaxSpeed, as to any goal.
+    approach_gu: f32 = 4.0,
 }

@@ -36,7 +36,7 @@ use crate::units::{Tick, TilePos};
 
 /// A tunable of `tuning::movement`, re-exported here for the client, whose tests read it by this path.
 pub use aside::StepAside;
-pub use flight::{Pass, Strafe, Takeoff};
+pub use flight::{Approach, Pass, Strafe, Takeoff};
 pub use sidestep::Sidestep;
 
 /// `docs/movement.md > 3`: at most this many `avoid_tiles` (a technical cap).
@@ -265,6 +265,12 @@ pub struct Mover {
     /// (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rise: Option<Progress>,
+    /// (M6-GL) A Glider's landing approach ([`Approach`], [`Mover::approach_to`]): it flies at its goal's point to stop
+    /// over it (`movement::approach`), then holds still there, in the air, its leg over, until its landing begins
+    /// (`Sim::step_landings`). A new leg and a stop end it. Always `None` for the other models. Left out of files and
+    /// of the hash while `None` (`mover/hash.rs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approach: Option<Approach>,
     /// (M5-N10) A point its behaviour asks the unit to turn toward in place in this tick, standing: the
     /// OrientationChannel's Turning, "rotating toward a target position" (`systems/controls/action_channels.md >
     /// OrientationChannel`). The hull aim of a unit whose turret's arc is narrower than its targets need
@@ -328,6 +334,7 @@ impl Default for Mover {
             takeoff: None,
             reverses: false,
             rise: None,
+            approach: None,
             turn_to: None,
         }
     }
@@ -356,6 +363,7 @@ impl Mover {
         self.orbit = None;
         self.strafe = None;
         self.reverses = false;
+        self.approach = None;
     }
 
     /// Design change 0315: the leg that just began ([`Mover::go_to`]) never counts as arrived behind standing units
@@ -373,13 +381,15 @@ impl Mover {
     /// becomes `Idle`. A sidestep ends too: every order stops or sends the unit, and a unit with an order doesn't
     /// yield (design change 0023). A unit with [`Mover::momentum`] keeps it: from its next turn in phase 5d it
     /// brakes to a stop (`movement::drag`), and only then is at rest. (M5-H1) A Glider, which can't stop, circles
-    /// where it is from its next turn on (`movement::glider`): its [`Mover::orbit`] and its strafing run end. (M5-V2) A
-    /// leg driven backwards ([`Mover::reverses`]) ends with it.
+    /// where it is from its next turn on (`movement::glider`): its [`Mover::orbit`] and its strafing run end, and
+    /// (M6-GL) its landing approach ([`Mover::approach`]). (M5-V2) A leg driven backwards ([`Mover::reverses`]) ends
+    /// with it.
     pub fn stop(&mut self) {
         self.sidestep = None;
         self.orbit = None;
         self.strafe = None;
         self.reverses = false;
+        self.approach = None;
         self.goal = MoveGoal::None;
         self.status = MoveStatus::Idle;
         self.clear_path();

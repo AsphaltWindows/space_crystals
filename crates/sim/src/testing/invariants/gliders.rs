@@ -8,6 +8,12 @@
 //! stopped after its flight in the tick (`Mover::stop`: an order that ended in phase 5e, its target gone) shows no
 //! move, Stationary, until its next flight, from which it circles where it is; it keeps its speed.
 //!
+//! (M6-GL) Its landing is the exception (`movement::approach`): one held still in the air, on an Airfield's slot
+//! (landing or down, `crate::landing`), rising off it (`Mover::rise`), or over the point of its landing approach after
+//! a tick of holding there (`Approach::Over`), shows no move and no flight (Stationary), and has no speed. One that
+//! stopped over that point in this tick's flight, its leg over, is one stopped after its flight: no move, Stationary,
+//! the speed it came in at kept.
+//!
 //! It also holds the exemptions the Gliders and the soft separation need from I3, I5 and I7 (`super::check_units`):
 //! a Glider moves, and has momentum, without a goal, and an air unit is pushed apart from another by at most
 //! `Air::separation_push_su` a tick, beyond its own move ((M5-H2) its base's share of it,
@@ -21,6 +27,7 @@ use glam::Vec2;
 use super::{Seen, Violation};
 use crate::defs::{Domain, MovementAttrs, UnitDef};
 use crate::ids::ObjectId;
+use crate::landing;
 use crate::mover::{Locomotion, MoveGoal};
 use crate::object::Object;
 use crate::ruleset::rules;
@@ -50,16 +57,18 @@ pub(super) fn gliders(sim: &Sim, seen: &BTreeMap<ObjectId, Seen>) -> Result<(), 
             })
         };
         let speed = mover.momentum.length();
-        let stopped = mover.goal == MoveGoal::None
-            && mover.orbit.is_none()
-            && mover.strafe.is_none()
-            && mover.velocity == Vec2::ZERO
-            && mover.locomotion == Locomotion::Stationary;
-        if mover.locomotion != Locomotion::Moving && !stopped {
+        let at_rest = mover.velocity == Vec2::ZERO && mover.locomotion == Locomotion::Stationary;
+        // (M6-GL) Held still in the air by its landing (module docs).
+        let held = landing::of(o).is_some() || mover.rise.is_some() || (mover.is_over() && speed == 0.0);
+        if held && !(at_rest && speed == 0.0) {
+            return fail(format!("is held still by its landing, and flies: {mover:?}"));
+        }
+        let stopped = mover.goal == MoveGoal::None && mover.orbit.is_none() && mover.strafe.is_none() && at_rest;
+        if mover.locomotion != Locomotion::Moving && !stopped && !held {
             return fail(format!("is a Glider, and isn't flying: {mover:?}"));
         }
         let slowest = idle_speed * (1.0 - SPEED_TOLERANCE) - SPEED_TOLERANCE;
-        if speed.is_nan() || speed < slowest {
+        if !held && (speed.is_nan() || speed < slowest) {
             return fail(format!(
                 "flies at {speed} su a tick, slower than its IdleSpeed of {idle_speed}"
             ));
@@ -69,7 +78,7 @@ pub(super) fn gliders(sim: &Sim, seen: &BTreeMap<ObjectId, Seen>) -> Result<(), 
                 "flies at {speed} su a tick, faster than its MaxSpeed of {max_speed}"
             ));
         }
-        if mover.velocity != mover.momentum && !stopped {
+        if mover.velocity != mover.momentum && !stopped && !held {
             return fail(format!(
                 "moved by {} in its own flight, which was {}",
                 mover.velocity, mover.momentum
@@ -206,5 +215,35 @@ mod tests {
         let circling = [&stopped[..1], &stopped[2..]].concat();
         let broken = check_with(json, &circling).unwrap_err();
         assert!(broken.message.contains("isn't flying"), "{broken:?}");
+    }
+
+    /// (M6-GL) A Glider held still in the air by its landing, over the point of its approach (`Approach::Over`) with
+    /// no speed, no move and Stationary, passes G1 so, its circle kept; moved while held, it breaks G1, and with no
+    /// speed but not held, it is a Glider stopped in the air. Over the point the tick it stops there, its speed kept
+    /// and its leg over, it is one stopped after its flight.
+    #[test]
+    fn a_glider_held_still_by_its_landing_keeps_g1_at_rest() {
+        let held = [
+            ("approach", json!("Over")),
+            ("momentum", json!([0.0, 0.0])),
+            ("velocity", json!([0.0, 0.0])),
+            ("locomotion", json!("Stationary")),
+        ];
+        let json = saved();
+        assert_eq!(check_with(json.clone(), &held), Ok(()));
+        let moved = [&held[..3], &[("velocity", json!([0.0, 2.0]))]].concat();
+        let broken = check_with(json.clone(), &moved).unwrap_err();
+        assert!(broken.message.contains("is held still by its landing"), "{broken:?}");
+        let broken = check_with(json.clone(), &held[1..]).unwrap_err();
+        assert_eq!(broken.invariant, "G1", "{broken:?}");
+        let arrived = [
+            ("approach", json!("Over")),
+            ("goal", json!("None")),
+            ("orbit", Value::Null),
+            ("momentum", json!([6.0, 0.0])),
+            ("velocity", json!([0.0, 0.0])),
+            ("locomotion", json!("Stationary")),
+        ];
+        assert_eq!(check_with(json, &arrived), Ok(()));
     }
 }

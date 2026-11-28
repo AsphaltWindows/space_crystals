@@ -1,6 +1,8 @@
 //! The Deployment Center — `factions/gdo/structures/deployment_center.md`.
 
-use super::{advanced_mechanics, airfield, defense_system, factory, industrial_powerplant, radar_station};
+use super::{
+    advanced_mechanics, airfield, defense_system, factory, industrial_powerplant, propulsion_labs, radar_station,
+};
 use crate::defs::structures::{Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
@@ -35,9 +37,10 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         // (`StructureDef::requires`), and (M6-GR) the Radar Station and the Defense System, each with its own (a
         // Generator; a Radar Station and an Arsenal), and (M6-GF) the Factory, Advanced Mechanics and the Industrial
         // Powerplant, each its def module's entry, behind its own (a Barracks, a Factory, Advanced Mechanics), and
-        // (M6-GH2) the Airfield, behind its own (Advanced Mechanics), all in the design's order. The design's others
-        // (Supply Tower, Propulsion Labs) come with their slices, their Requires clauses (`core/tech_and_research.md >
-        // Tech Prerequisites`) with them, held until then (`crate::defs::PLANNED_RECIPES`).
+        // (M6-GH2) the Airfield, behind its own (Advanced Mechanics), and (M6-GL) Propulsion Labs, behind its own (an
+        // Airfield), all in the design's order. The design's other (the Supply Tower) comes with its slice, its
+        // Requires clause (`core/tech_and_research.md > Tech Prerequisites`) with it, held until then
+        // (`crate::defs::PLANNED_RECIPES`).
         constructs: &[
             Recipe {
                 kind: ObjectKind::Generator,
@@ -85,6 +88,9 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
             // (M6-GH2) "Airfield: 250 Space Crystals, 480 frames (30 seconds) (placeholder). Requires: player owns at
             // least one Advanced Mechanics."
             airfield::RECIPE,
+            // (M6-GL) "Propulsion Labs: 200 Space Crystals, 400 frames (25 seconds) (placeholder). Requires: player
+            // owns at least one Airfield."
+            propulsion_labs::RECIPE,
             // (M6-GF) "Industrial Powerplant: 250 Space Crystals, 480 frames (30 seconds) (placeholder). Requires:
             // player owns at least one Advanced Mechanics."
             industrial_powerplant::RECIPE,
@@ -101,11 +107,12 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
 mod tests {
     use super::*;
 
-    /// The stat block, and `> Constructs`: the eleven buildings in the game with each one's cost and time, in the
+    /// The stat block, and `> Constructs`: the twelve buildings in the game with each one's cost and time, in the
     /// design's order, the Arsenal and the Career Campus requiring a Barracks (each its own TechPrerequisite, which
     /// `tech::recipe_requires` adds to its entry's), (M6-GR) the Radar Station a Generator, the Defense System a Radar
     /// Station and an Arsenal, (M6-GF) the Factory a Barracks, Advanced Mechanics a Factory and the Industrial
-    /// Powerplant Advanced Mechanics, and (M6-GH2) the Airfield Advanced Mechanics. It, the Extraction Facility
+    /// Powerplant Advanced Mechanics, (M6-GH2) the Airfield Advanced Mechanics, and (M6-GL) Propulsion Labs an
+    /// Airfield. It, the Extraction Facility
     /// (`factions/gdo/economy.md > ExtractionFacility > Constructs`) and (M6-GR) the Defense System are the three
     /// constructors.
     #[test]
@@ -140,6 +147,7 @@ mod tests {
                 recipe(ObjectKind::RadarStation, 150, 320),
                 recipe(ObjectKind::AdvancedMechanics, 200, 400),
                 recipe(ObjectKind::Airfield, 250, 480),
+                recipe(ObjectKind::PropulsionLabs, 200, 400),
                 recipe(ObjectKind::IndustrialPowerplant, 250, 480),
                 recipe(ObjectKind::DefenseSystem, 150, 320),
             ]
@@ -151,8 +159,9 @@ mod tests {
         assert_eq!(requires(6), [ObjectKind::Generator]);
         assert_eq!(requires(7), [ObjectKind::Factory]);
         assert_eq!(requires(8), [ObjectKind::AdvancedMechanics]);
-        assert_eq!(requires(9), [ObjectKind::AdvancedMechanics]);
-        assert_eq!(requires(10), [ObjectKind::RadarStation, ObjectKind::Arsenal]);
+        assert_eq!(requires(9), [ObjectKind::Airfield]);
+        assert_eq!(requires(10), [ObjectKind::AdvancedMechanics]);
+        assert_eq!(requires(11), [ObjectKind::RadarStation, ObjectKind::Arsenal]);
         for &kind in ObjectKind::ALL {
             let constructs = kind.def().structure.as_ref().is_some_and(|s| !s.constructs.is_empty());
             let constructor = matches!(

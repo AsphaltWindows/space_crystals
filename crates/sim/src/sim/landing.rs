@@ -1,7 +1,7 @@
 //! (M6-GH2) Landing at an Airfield, in the game (`crate::landing`, plan decision T88): the step right after phase 5a
-//! that sends the aircraft flying home on to their slots, lands them there and counts their landings
-//! ([`Sim::step_landings`]); an Airfield's new aircraft, landed on a free slot ([`Sim::release_onto_slot`]); and the
-//! aircraft that go with an Airfield destroyed under them ([`Sim::landed_on`]).
+//! that sends the aircraft flying home on to their slots, (M6-GL) a Glider by its landing approach, lands them there
+//! and counts their landings ([`Sim::step_landings`]); an Airfield's new aircraft, landed on a free slot
+//! ([`Sim::release_onto_slot`]); and the aircraft that go with an Airfield destroyed under them ([`Sim::landed_on`]).
 
 use std::collections::BTreeSet;
 
@@ -15,10 +15,11 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::landing::{self, Landing, User};
 use crate::math;
-use crate::mover::{MoveGoal, MoveStatus};
+use crate::mover::{Approach, MoveGoal, MoveStatus, Mover};
 use crate::production::QueueEntry;
 use crate::progress::Progress;
 use crate::ruleset::rules;
+use crate::units::Tick;
 
 impl Sim {
     /// The landing step, right after phase 5a (`crate::landing`), for the aircraft before `first_new`, as 5a's orders
@@ -30,6 +31,10 @@ impl Sim {
     ///   to rest off it. Once it has come to rest over its slot (`Air::landing_reach_su`; plan decision T88: "a
     ///   HoverCraft brakes to a stop over its pad") it lands there: its landing begins, none of its frames done, and it
     ///   holds still (`Mover::stop`), an air target until it is down.
+    /// - (M6-GL) **A Glider flying home**, which can't come to rest by itself (`movement::glider`), flies its landing
+    ///   approach to its slot instead (`Mover::approach_to`, `movement::approach`): it slows to IdleSpeed for the last
+    ///   of the way and stops over the slot, where it lands as above, held still from then on (`movement::approach`).
+    ///   With no slot free it flies to the Airfield's centre and circles there (`movement::glider`), until one is.
     ///
     /// Here, as the entries (`Sim::step_entries`): after the orders, which start the flights and lift the aircraft off,
     /// and before 5b to 5f, so that the tick's movement flies each to its slot, and its combat sees each as the step
@@ -80,12 +85,19 @@ impl Sim {
             let Some(o) = self.objects.get_mut(&user.id) else {
                 continue;
             };
+            let glides = o.def().unit.as_ref().is_some_and(|unit| unit.glides());
             let (Some(mover), Some(state)) = (o.mover.as_mut(), o.aircraft.as_mut()) else {
                 continue;
             };
             let to = slot.unwrap_or(centre);
             // Its move over: an arrival holds it still from its next tick on (`movement::drag`'s braking approach).
-            let at_rest = mover.status != MoveStatus::Moving;
+            // (M6-GL) A Glider's, once it has stopped over its slot at the end of its landing approach
+            // (`movement::approach`).
+            let at_rest = if glides {
+                mover.is_over()
+            } else {
+                mover.status != MoveStatus::Moving
+            };
             let near = o.pos.distance_squared(to) <= reach * reach;
             if slot.is_some() && at_rest && near {
                 // Its frames are positive (the sign's rule, `Ruleset::check`): it is down from a later step on.
@@ -95,6 +107,10 @@ impl Sim {
                     descent: Progress::new(ticks),
                     rearm: None,
                 });
+                continue;
+            }
+            if glides {
+                glide_home(mover, slot, centre, tick);
                 continue;
             }
             // On its way there it flies on; come to rest over the centre while no slot is free, it waits there.
@@ -179,5 +195,25 @@ impl Sim {
             }
         }
         landed
+    }
+}
+
+/// (M6-GL) A Glider's flight home to an Airfield centred on `centre`, as the landing step leaves it in `tick` (module
+/// docs, [`Sim::step_landings`]): its landing approach to `slot`, the slot it takes, unless it flies it already (a new
+/// one from wherever it is, over another slot or its approach's way); with none free, on to the centre, to circle there
+/// as a Glider does at its goal (`movement::glider`), unless it circles there already. **Placeholder (not in the
+/// design: where a Glider waits for a free slot)**.
+fn glide_home(mover: &mut Mover, slot: Option<Vec2>, centre: Vec2, tick: Tick) {
+    match slot {
+        Some(slot) => {
+            if mover.goal != MoveGoal::Point(slot) || mover.approach != Some(Approach::Flying) {
+                mover.approach_to(slot, tick);
+            }
+        }
+        None => {
+            if mover.goal != MoveGoal::Point(centre) && mover.orbit != Some(centre) {
+                mover.go_to(MoveGoal::Point(centre), None, tick);
+            }
+        }
     }
 }

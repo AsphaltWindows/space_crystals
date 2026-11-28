@@ -4,12 +4,12 @@
 //! Hornet's, for 150 Space Crystals and 2 Supplies: greyed while the bank holds less (`sc_sim::Reject::InsufficientSupplies`,
 //! "Not enough Supplies"; the GDO has no Supply until slice M6-GS) and while the Airfield is full, its assignments and
 //! the aircraft in its queue at 4 (`factions/gdo/structures/airfield.md > Production limit`; `sc_sim::Reject::AirfieldFull`,
-//! "Airfield full"). W holds the Dragonfly's slot, not available ([`Planned::Dragonfly`]) until slice M6-GL trains it.
+//! "Airfield full"). (M6-GL) W is its second recipe, the Dragonfly's, for 175 Space Crystals and 4 Supplies, greyed so
+//! too, and while the player owns no Propulsion Labs, its Unit Prerequisite (`sc_sim::Reject::Requires`, "Requires a
+//! Propulsion Labs", as `crate::command_ui::feedback::requires_text` words every one). It held the Dragonfly's slot,
+//! not available, from slice M6-GH1 until slice M6-GL trained it.
 
-use super::super::{InterfaceTemplate, PanelTemplate, Planned};
+use super::super::{InterfaceTemplate, PanelTemplate};
 
-/// The Airfield's panel template: the Production template, its recipe in Q, the Dragonfly not in the game yet in W.
-pub const TEMPLATE: PanelTemplate = PanelTemplate {
-    planned: &[(1, Planned::Dragonfly)],
-    ..PanelTemplate::of(InterfaceTemplate::Production)
-};
+/// The Airfield's panel template: the Production template, its recipes in Q and W.
+pub const TEMPLATE: PanelTemplate = PanelTemplate::of(InterfaceTemplate::Production);

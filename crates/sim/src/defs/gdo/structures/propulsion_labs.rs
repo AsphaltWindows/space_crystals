@@ -1,7 +1,8 @@
 //! Propulsion Labs — `factions/gdo/structures/propulsion_labs.md` (design change 0366, slice M6-GK): "GDO advanced
 //! aircraft structure [...] Unlocks the **Dragonfly** at the Airfield." Its numbers are the design's "Placeholder
-//! stats" (plan decision T84); it has no panel ("Panel: none yet"). No player constructs one until slice M6-GL makes
-//! its Deployment Center entry ([`RECIPE`], held) live.
+//! stats" (plan decision T84); it has no panel ("Panel: none yet"). (M6-GL) The Deployment Center constructs it
+//! ([`RECIPE`]), behind an Airfield, and it is the Dragonfly's Unit Prerequisite at the Airfield
+//! (`super::super::units::dragonfly::RECIPE`).
 
 use crate::defs::structures::{Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
@@ -36,8 +37,8 @@ pub(crate) const PROPULSION_LABS: ObjectDef = ObjectDef {
 };
 
 /// `factions/gdo/structures/deployment_center.md > Constructs`: "Propulsion Labs: 200 Space Crystals, 400 frames (25
-/// seconds) (placeholder). Requires: player owns at least one Airfield" (its own TechPrerequisite). Held until slice
-/// M6-GL (`crate::defs::PLANNED_RECIPES`).
+/// seconds) (placeholder). Requires: player owns at least one Airfield" (its own TechPrerequisite). The Deployment
+/// Center's since slice M6-GL (`super::deployment_center`).
 pub(crate) const RECIPE: Recipe = Recipe {
     kind: ObjectKind::PropulsionLabs,
     cost: 200,
@@ -51,7 +52,7 @@ mod tests {
     use super::*;
 
     /// The placeholder stat block, and its TechPrerequisite: an Airfield. It produces and constructs nothing; its
-    /// Deployment Center entry, 200 Space Crystals and 400 frames, is held.
+    /// Deployment Center entry costs 200 Space Crystals and takes 400 frames, with no Requires or Supplies of its own.
     #[test]
     fn propulsion_labs_follows_the_design() {
         let structure = super::super::assert_stat_block(

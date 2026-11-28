@@ -137,7 +137,7 @@ fn the_gdo_kinds_are_every_designed_one() {
 /// Missile Turret; (M6-GF) the Deployment Center's Factory, Advanced Mechanics and Industrial Powerplant, and the
 /// Factory's Raptor and Twister; (M6-GH1) the Airfield's Hornet; (M6-GA) the Factory's Artillery Rig, and each of its
 /// two types, which the other's vehicle deploy leads into (`UnitDef::vehicle_deploy`); (M6-GH2) the Deployment
-/// Center's Airfield.
+/// Center's Airfield; (M6-GL) the Deployment Center's Propulsion Labs and the Airfield's Dragonfly.
 const LIVE: &[(ObjectKind, ObjectKind)] = &[
     (ObjectKind::Barracks, ObjectKind::DroneOperator),
     (ObjectKind::DroneOperator, ObjectKind::OperatorDrone),
@@ -154,6 +154,8 @@ const LIVE: &[(ObjectKind, ObjectKind)] = &[
     (ObjectKind::ArtilleryRig, ObjectKind::ArtilleryRigDeployed),
     (ObjectKind::ArtilleryRigDeployed, ObjectKind::ArtilleryRig),
     (ObjectKind::DeploymentCenter, ObjectKind::Airfield),
+    (ObjectKind::DeploymentCenter, ObjectKind::PropulsionLabs),
+    (ObjectKind::Airfield, ObjectKind::Dragonfly),
 ];
 
 /// The kinds that some live list makes, each with the kind whose list it is: a constructor's `Constructs` list
@@ -240,11 +242,12 @@ fn no_new_kind_is_made_yet() {
 
 /// `factions/gdo/structures/deployment_center.md > Constructs`: the Deployment Center's eight new buildings, held or
 /// live ((M6-GR) the Radar Station and the Defense System; (M6-GF) the Factory, Advanced Mechanics and the Industrial
-/// Powerplant; (M6-GH2) the Airfield), each behind the buildings of its "Requires" clause, its own TechPrerequisite
-/// (`StructureDef::requires`): the Supply Tower a Radar Station, the Factory a Barracks, the Radar Station a Generator,
-/// Advanced Mechanics a Factory, the Airfield Advanced Mechanics, Propulsion Labs an Airfield, the Industrial
-/// Powerplant Advanced Mechanics, and the Defense System a Radar Station and an Arsenal (here in the registry's order).
-/// The live ones follow the buildings of the M1 to M5 game in its `constructs`, in the design's order.
+/// Powerplant; (M6-GH2) the Airfield; (M6-GL) Propulsion Labs), each behind the buildings of its "Requires" clause, its
+/// own TechPrerequisite (`StructureDef::requires`): the Supply Tower a Radar Station, the Factory a Barracks, the Radar
+/// Station a Generator, Advanced Mechanics a Factory, the Airfield Advanced Mechanics, Propulsion Labs an Airfield, the
+/// Industrial Powerplant Advanced Mechanics, and the Defense System a Radar Station and an Arsenal (here in the
+/// registry's order). The live ones follow the buildings of the M1 to M5 game in its `constructs`, in the design's
+/// order.
 #[test]
 fn the_deployment_centers_new_buildings_need_theirs() {
     let constructs = ObjectKind::DeploymentCenter
@@ -264,6 +267,7 @@ fn the_deployment_centers_new_buildings_need_theirs() {
             ObjectKind::RadarStation,
             ObjectKind::AdvancedMechanics,
             ObjectKind::Airfield,
+            ObjectKind::PropulsionLabs,
             ObjectKind::IndustrialPowerplant,
             ObjectKind::DefenseSystem
         ]

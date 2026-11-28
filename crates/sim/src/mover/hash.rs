@@ -2,7 +2,8 @@
 //! compile until it is hashed.
 
 use super::{
-    Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState, Side, Sidestep, StepAside, Strafe, Takeoff,
+    Approach, Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState, Side, Sidestep, StepAside, Strafe,
+    Takeoff,
 };
 use crate::hash::{StateHash, StateHasher};
 use crate::nav::PathGroup;
@@ -111,6 +112,7 @@ impl StateHash for Mover {
             takeoff,
             reverses,
             rise,
+            approach,
             // (M5-N10) Set in phase 5a and taken in 5d of the same tick: never set between ticks.
             turn_to: _,
         } = self;
@@ -200,6 +202,19 @@ impl StateHash for Mover {
             h.tag(10);
             rise.hash(h);
         }
+        // (M6-GL) Likewise only while a Glider flies a landing approach, or holds still over its point: games without
+        // one hash as before the field existed.
+        if let Some(approach) = approach {
+            h.tag(13);
+            approach.hash(h);
+        }
+    }
+}
+
+impl StateHash for Approach {
+    fn hash(&self, h: &mut StateHasher) {
+        // Fieldless enum: the discriminant is the declaration index.
+        h.tag(*self as u8);
     }
 }
 
