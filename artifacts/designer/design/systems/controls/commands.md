@@ -102,7 +102,7 @@ Order the unit to enter an own structure that can hold units. The unit walks to 
 - **Cults — Armory, Cathedral**: Recruits only (to be trained), up to the building's internal capacity.
 - **Cults — Temple, Gunworks, Machine Shop**: Recruits only (to staff research). (Gunworks and Machine Shop: not enterable until their research is designed; 0319)
 - **Cults — Shrine**: Recruits only (to join the ritual).
-- **Cults — Garrison**: Recruits, Militants, Gunners, and Disciples (up to 4; Recruits fire as Militants; Disciples and their illusions are sheltered but don't fire; Militants and Gunners get +1 range).
+- **Cults — Garrison** and **Bastion** (a vehicle; factions/cults/units/bastion.md): Recruits, Militants, Gunners, and Disciples (up to 4; Recruits fire as Militants; Disciples and their illusions are sheltered but don't fire; Militants and Gunners get +1 range).
 - **GDO — Bunker**: all GDO infantry (up to 4; fire their own weapons, no range bonus).
 - **Carriers** (units that carry units): eligible units walk to the carrier and board it (systems/mechanics/carrying.md > Loading).
 
