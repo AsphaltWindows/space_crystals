@@ -8,6 +8,7 @@
 ## Faction - TheCults
 ## UnitBase - TrackedVehicle (turns in place; **directional armor** and **crushes enemy Light Infantry**, as every tracked vehicle: systems/units.md; user, 2026-11-28)
 ## Produced at - Chop Shop (consumes **4 Recruits**, designer placeholder; Unit Control cost 4, one per Recruit)
+## TechPrerequisite - player owns at least one **Machine Shop** (user, 2026-11-28; core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites)
 ## TurretAttributes - None
 ## AttackAttributes - None (only its occupants fire)
 
@@ -26,5 +27,5 @@ Uses **Garrisoning, Garrison vehicle** (systems/mechanics/garrisoning.md), with 
 **Placeholder stats** (designer, 2026-11-28, user's standing permission; tune in the numbers pass):
 - Silhouette **72x56 su** (length x width); MaxHP **600**; PointArmor **3**, FullArmor **3**; SightRange **6 grid units**; Groupable true.
 - SpeedTurnRadiusMovement: MaxSpeed **3.5 su/frame** (Hand of Heaven: 5); Acceleration 0.3 su/frame²; Deceleration 1 su/frame²; **TrackWidth 40 su**; ReverseMaxSpeed 1.75 (spins about 10° a frame when stopped; can't turn at full speed).
-- Cost: Chop Shop, **4 Recruits, 250 Space Crystals, 480 frames (30 s)**; hotkey **R** at the Chop Shop. No TechPrerequisite beyond the Chop Shop (placeholder).
+- Cost: Chop Shop, **4 Recruits, 250 Space Crystals, 480 frames (30 s)**; hotkey **R** at the Chop Shop (greyed "Requires a Machine Shop" until one stands).
 - Panel: BasicCombatUnitInterfaceState without attack commands (Q Move, W Reverse, E Hold Position, X Stop), plus **F: Eject All**. Right-click: as a vehicle without an attack; own eligible infantry right-clicking it → Enter.

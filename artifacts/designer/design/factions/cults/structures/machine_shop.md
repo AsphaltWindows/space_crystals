@@ -1,6 +1,6 @@
 # Machine Shop
 
-Tier 2 support building of the Tech/Weaponry branch (sits beside the Chop Shop). Researches upgrades for vehicles and aircraft.
+Tier 2 support building of the Tech/Weaponry branch (sits beside the Chop Shop). Researches upgrades for vehicles and aircraft. **Unlocks the Bastion** at the Chop Shop (user, 2026-11-28; factions/cults/units/bastion.md).
 
 ## Faction - TheCults
 ## Constructed by - Recruit

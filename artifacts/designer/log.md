@@ -2453,3 +2453,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Design audit/migration complete (0471–0483). Single-unit mechanics stay in unit docs.
 - Recruits follow gathering job rules (user) (0484).
 - Bastion designed (user: Garrison on treads; name Bastion), Garrison vehicle archetype defined (0485).
+- Bastion requires Machine Shop (user) (0486).

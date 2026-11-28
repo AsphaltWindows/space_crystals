@@ -19,7 +19,7 @@ The Cults tech tree splits into two branches above a shared base. A player may b
 | Gunworks | Tech/Weaponry | 2 | Armory | Unlocks Gunner training at the Armory; researches weapon upgrades (staffed by Recruits) |
 | Garrison | Tech/Weaponry (defense) | 2 | Armory | Defensive structure; up to 4 Recruits/Militants/Gunners/Disciples garrison inside; Recruits fire as Militants; Disciples (and illusions) sheltered, no fire; Militants and Gunners get +1 range |
 | Chop Shop | Tech/Weaponry | 2 | Armory | Vehicle production (vehicles consume multiple Recruits) |
-| Machine Shop | Tech/Weaponry | 2 | Chop Shop | Researches vehicle and air upgrades (staffed by Recruits) |
+| Machine Shop | Tech/Weaponry | 2 | Chop Shop | Researches vehicle and air upgrades (staffed by Recruits); unlocks the Bastion at the Chop Shop |
 | Airstrip | Tech/Weaponry | 3 | Chop Shop | Aircraft production (from Recruits) |
 | Scrap Hangar | Tech/Weaponry | 3 | Airstrip | Unlocks advanced aircraft at the Airstrip (a large paratrooper plane, an airship/zeppelin) |
 | Altar | Mystical/Human Enhancement | 1 | Storage | Applies Augmentations (Enhanced Constitution, Improved Metabolism) to individual infantry |
