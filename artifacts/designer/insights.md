@@ -30,6 +30,7 @@
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
+- **Syndicate Purifier IN PROGRESS (2026-11-28, not in docs)**: heavy infantry, Hideout, requires Forge; slower, heavier armor (suit); short-range AoE flamethrower-style attack. Open (user thinking, unsure after the friendly-fire point): flame shape (cone / circle at target / line), lingering ground fire, friendly fire. Also noted: satellites undesigned; Forge has no unit of its own besides the Transport.
 - **Notification system** (pinned by the user, 2026-11-27): only the off-screen damage alert exists (hud.md > Alerts). Waiting on it: exit stays blocked (Q0177, user wants it), production waiting for capacity, refinery input full, Agents' empty station. Open: form (ping colour, text line?), trigger delay, throttle, Space jump.
 - **Real in-game menu / game creation screen**: the F10 playtest menu (0414) and command-line flags (computer players, starting exploration 0416) are temporary.
 - **Supplies**: only 6 GDO units cost Supplies (0435); buildings/research Supply costs still open. Starting Supplies 1.
