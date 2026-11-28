@@ -3364,6 +3364,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0198 | A Shift-queued thrust that starts with no charge left: (a) queue freely, and it ends without moving; or (b) the gate counts the thrusts already queued, and R greys out once every charge is spoken for | no: proceeding on (a) (SP2a) | open |
 | Q0199 | A loaded Recruit's right-click on an unfinished own Storage: (a) assists, as built, since no unfinished drop-off takes a delivery (as 0116 and 0234 rule for the Egress Node and the Tunnel); or (b) delivers, as 0487's Verification 4 and the Recruit's table read. Raised by A3 | no: proceeding on (a), marked `Placeholder (Q0199)` in A3's test | open |
 | Q0200 | The Prism's thrust: (1) does an order given during a burst stop it? As built, no: orders steer the drift only, and a new thrust waits for the burst to end. (2) A thrust at the Prism's own position: as built, along its facing; or refused. Raised by SP2a | no: proceeding on (a) for both, as built | open |
+| Q0201 | The Laser Battery: (1) is the 16-frame surge interval the spacing while the beam holds, with one aim on engaging (as built, plan decision T97), or the whole cycle with an aim before each surge? (2) Does a new target the turret already faces get an aim? As built, no. (3) A new Battery's charge: as built, full. Raised by SLa | no: proceeding on (a) for all three | open |
 
 ## Design change entries
 Last triaged: 0464.
