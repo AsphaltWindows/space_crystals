@@ -8,15 +8,12 @@ The Cults' defensive structure. Infantry enter the Garrison and fire from inside
 ## GarrisonCapacity - 4 units
 
 ## Garrisoning
-- **Who can enter**: Recruits, Militants, Gunners, and Disciples, and Disciples' **illusions** (factions/cults/units/disciple.md > Mirage). **Disciples and illusions don't fire** from inside (user, 2026-11-27): they are only sheltered. Units enter with the Enter command (right-click own Garrison with eligible infantry selected), up to 4 units total.
-- **Weapons**: a Recruit inside attacks with the Militant's AttackAttributes (see Militant); a **Disciple or illusion inside doesn't attack** (user, 2026-11-27; replaces "Disciples fire as Militants"); Militants and Gunners use their own AttackAttributes. **No spells from inside** (user, 2026-11-26; Q0115). **Augmentations don't change the borrowed attack** (user, 2026-11-26; Q0115): a Recruit inside fires the Militant's attack unchanged.
-- **Range bonus**: **Militants and Gunners** inside get **+1 grid unit of Range** on their attack. Recruits (firing with the Militant's attack) do not get the bonus — they fire at the Militant's normal Range.
-- **Seen as a threat** (user, 2026-11-27; Q0139): enemies' target scans treat the Garrison as a threatening target while any occupant could attack the scanner's domain (systems/controls/behaviors.md > TurretAutonomousScanning > Target Selection Priority).
-- **Targets** (user, 2026-11-26; Q0115): each unit inside **picks its own target** by the normal targeting rules (as the Laser Turret: factions/syndicate/structures/laser_turret.md > Targeting). **Range** is measured **from the Garrison's edge** (its footprint), including a Gunner's MinRange.
-- Units inside are not consumed and still count toward Unit Control.
-- Evacuation on Destruction applies: when the Garrison is destroyed, everyone inside comes out alive inside its former footprint.
-- **Protection**: units inside cannot be targeted and take no damage while the Garrison stands.
-- Sight: units inside see with the Garrison's SightRange (placeholder, below).
+Uses **Garrisoning, Garrison structure** (systems/mechanics/garrisoning.md), with:
+- **Capacity 4**. **Who**: Recruits, Militants, Gunners, Disciples, and Disciples' **illusions** (factions/cults/units/disciple.md > Mirage).
+- **Weapons inside**: a **Recruit** fires the **Militant's** attack (see Militant; the weapons come from the Armory); **Militants and Gunners** fire their own; **Disciples and illusions don't fire** (user, 2026-11-27; replaces "Disciples fire as Militants"): they are only sheltered. **Augmentations don't change the borrowed attack** (Q0115).
+- **Range bonus**: **Militants and Gunners** get **+1 grid unit**; Recruits (with the Militant's attack) don't.
+- **Sight**: occupants see with the Garrison's SightRange (placeholder, below).
+- **Destroyed**: Evacuation on Destruction (factions/cults/economy.md): everyone inside comes out alive inside its former footprint.
 
 Size, armor and other stats: see Placeholder stats below. Space Crystals cost and construction time are listed under the Recruit's Constructs list (see Recruit > Building).
 

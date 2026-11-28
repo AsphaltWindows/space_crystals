@@ -38,6 +38,7 @@ Index of the design docs. Paths are relative to this folder.
 |---|---|
 | `systems/mechanics/modes.md` | Unit modes: Deploy (an order; type changes on completion) and Toggle (a mode switch; type changes at the press) |
 | `systems/mechanics/aircraft_landing.md` | Aircraft landing (Vertical, Runway, Field landing; landed-aircraft rules) and rearming (Assigned base, Network base) |
+| `systems/mechanics/garrisoning.md` | Garrisoning: occupants fire out (Garrison structure; Garrison vehicle to be defined) |
 | `systems/mechanics/carrying.md` | Carrying units: Ground, Landing and Docked carriers, Paradrop; loading, unloading, passengers, carrier destroyed |
 
 ## factions/ — one folder per faction

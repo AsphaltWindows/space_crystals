@@ -10,14 +10,11 @@ GDO field defensive structure built by a Field Engineer. Infantry garrison insid
 Can be placed on **any Buildable terrain** — not limited to the GDO build area. Follows the Worker-Built Structures rules (core/entities.md > Placement Validation > Worker-Built Structures).
 
 ## Garrison
-Works like the Cults Garrison (factions/cults/structures/garrison.md), except as noted:
-- **Who can enter**: all GDO infantry, up to **4 units**, using the Enter command.
-- Units inside **fire their own weapons** from the Bunker. (Unlike the Cults Garrison, the Bunker gives no units a substitute weapon — an unarmed unit stays unarmed.)
-- **No bonus range** for units inside (the Cults Garrison gives Militants and Gunners +1).
-- **Protection**: units inside cannot be targeted and take no damage while the Bunker stands.
-- **Evacuation on destruction**: when the Bunker is destroyed, everyone inside comes out alive around its footprint.
-- Units inside are not consumed and still count toward Unit Control.
-- **No abilities from inside**: units inside the Bunker cannot use their abilities (e.g. a Drone Operator cannot launch drones, a Rocketman cannot use Target Lock, a Peacekeeper cannot raise its Riot Shield). They only fire their normal weapons. **A shielded Peacekeeper lowers its shield on entering** (user, 2026-11-26; Q0164): the normal 6-frame toggle, after which it fires from inside like any occupant; it comes out unshielded.
+Uses **Garrisoning, Garrison structure** (systems/mechanics/garrisoning.md), with:
+- **Capacity 4**. **Who**: all GDO infantry.
+- **Weapons inside**: each fires **its own weapon** (no substitute: an unarmed unit stays unarmed). **No range bonus.**
+- **Entry rule**: **a shielded Peacekeeper lowers its shield on entering** (user, 2026-11-26; Q0164): the normal 6-frame toggle, after which it fires from inside like any occupant; it comes out unshielded. (No abilities from inside, as every garrison: e.g. no drone launches, no Target Lock.)
+- **Destroyed**: everyone inside comes out alive **around its footprint**.
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Size 2x2; SymmetryType AAAB with **one door on side B** (as the Cults Garrison); MaxHP 500; PointArmor 2, FullArmor 8; SightRange 6 grid units; Groupable true; Power 0.
