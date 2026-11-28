@@ -29,6 +29,13 @@ Pressed, the player left-clicks a point (in vision, if the doc says so); the are
 - **What ends it**: only the caster's **death**, a **cancel** (Stop, or any other order **given without Shift**; casting another of its abilities if its doc says so), or running **out of energy**. **Taking damage doesn't end it.** A Shift-queued order waits and runs when the channel ends (systems/controls/commands.md > Unit Command; Q0171).
 - **After it ends** the effect may **linger** for a set time (parameter; e.g. Shroud's cloud, 1.5 s, stays where it was).
 
+### Drain toggle
+(user, 2026-11-25/28; the Syndicate Shadebringer) An ability **switched on and off** by the player; while on, it **drains a charge pool** (a "tank", the energy pool's counterpart) and keeps its effect going (e.g. laying a trail).
+- **Parameters**: the pool (size, starting full or not, how it refills, e.g. only inside a network with a given service); drain per second **per toggle on** (several toggles may share one pool); minimum charge to switch on.
+- **An empty pool switches its toggles off**; they can't be switched on until it has some charge again.
+- A unit may have **several toggles on at once**, each draining.
+- The unit's doc says what else switches them off (e.g. entering a network).
+
 ### Queueing
 An instant cast is **Shift-queueable** as an order step when its doc says so (e.g. Mirage, Q0188): it casts when its turn comes if there is enough energy, else it is dropped with the refusal feedback.
 
@@ -42,5 +49,12 @@ An instant cast is **Shift-queueable** as an order step when its doc says so (e.
 - **Debuffs** take the same rules (e.g. Suppress: affected units can't make **weapon attacks** or use **abilities that use a weapon** for its duration; other abilities unaffected).
 - **Services** that apply an effect on leaving (e.g. the Syndicate Null Chamber's exit buff) give it at the moment the unit leaves, with the full duration; leaving again refreshes it.
 
+## Ground fields
+Effects laid **on the ground** for a time: a channelled cloud (Shroud), a trail (sludge, smoke).
+- **In it = its centre is in it** (user, 2026-11-26; Q0159/Q0113): an object is in a field when its **centre** is inside (as for Rugged terrain, the Shrine and the First Aid Tent); area damage still goes by overlap.
+- **Duration**: each piece lasts a set time, then disappears (parameter); a field can **linger** after its source stops (parameter).
+- **Who sees it**: shown to every player over the tiles that are Visible to them (Q0113, for Shroud's cloud).
+- **Who it affects** and how: parameters (e.g. everyone, own units included; not hover or air units).
+
 ## Used by (index only)
-Energy pools: Cults Disciple, Prayer-mobile, Shrine. Instant cast: Inspire, Suppress (Prayer-mobile), Mirage (Disciple). Targeted area cast: Shrine's two abilities. Channel: Shroud (Disciple). Timed effects: Inspire, Suppress, Shrine regeneration and energy regeneration, Null Chamber exit buff.
+Energy pools: Cults Disciple, Prayer-mobile, Shrine. Instant cast: Inspire, Suppress (Prayer-mobile), Mirage (Disciple). Targeted area cast: Shrine's two abilities. Channel: Shroud (Disciple). Drain toggle: Sludge, Cover (Shadebringer). Ground fields: Shroud's cloud, sludge and smoke trails. Timed effects: Inspire, Suppress, Shrine regeneration and energy regeneration, Null Chamber exit buff.

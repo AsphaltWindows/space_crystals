@@ -40,7 +40,7 @@ Index of the design docs. Paths are relative to this folder.
 | `systems/mechanics/aircraft_landing.md` | Aircraft landing (Vertical, Runway, Field landing; landed-aircraft rules) and rearming (Assigned base, Network base) |
 | `systems/mechanics/garrisoning.md` | Garrisoning: occupants fire out (Garrison structure; Garrison vehicle to be defined) |
 | `systems/mechanics/hp_restoration.md` | Restoring HP: Repair (by workers), Healing area, Regeneration |
-| `systems/mechanics/energy_and_effects.md` | Energy pools; casts (Instant, Targeted area, Channel); timed effects (buffs, debuffs) |
+| `systems/mechanics/energy_and_effects.md` | Energy pools; casts (Instant, Targeted area, Channel, Drain toggle); timed effects (buffs, debuffs); ground fields |
 | `systems/mechanics/production.md` | Unit production: common queue rules (paid when queued, capacity reserved at start, blocked exit, destroyed refunds); Queue producer, Pool producer |
 | `systems/mechanics/construction.md` | Construction: payment and refunds; Builders outside, Builder inside, Placed by a constructor |
 | `systems/mechanics/spawned_objects.md` | Stocks and purchase; spawned objects: Piloted object, Deployed object, Copy |

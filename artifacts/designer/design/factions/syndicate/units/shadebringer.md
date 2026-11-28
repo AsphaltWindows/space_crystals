@@ -8,6 +8,7 @@
 ## TechPrerequisite - player owns at least one **Vault**
 ## Groupable - true (assumed)
 ## AttackAttributes - none
+## Uses - **Energy, Casts and Timed Effects** (systems/mechanics/energy_and_effects.md): Sludge and Cover are **Drain toggles** sharing one tank; their trails are **Ground fields**.
 
 ## Sludge (toggle)
 While on, the Shadebringer leaves a **trail of sludge** on the ground in its wake. Each patch of sludge lasts **X seconds** and then disappears.

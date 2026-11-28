@@ -2449,3 +2449,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0193 migration: systems/mechanics/construction.md (0480).
 - Q0193 migration: systems/mechanics/spawned_objects.md (0481).
 - Q0193 migration: systems/mechanics/gathering.md (0482). Open: Recruit job rules.
+- Q0193 migration: drain toggle + ground fields in energy_and_effects (0483).
