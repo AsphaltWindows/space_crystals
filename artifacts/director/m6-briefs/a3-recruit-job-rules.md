@@ -1,6 +1,6 @@
 # Task A3: The tests of three answers that match the build: the Recruits' job rules (0484), an empty worker's right-click (0487), and the automatic return (0488)
 
-Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a small phase of tests and citations, and your budget is 100 tool calls.** No behaviour changes: all three design changes match the build.
+Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a small phase of tests only, and your budget is 80 tool calls.** No behaviour changes: all three design changes match the build.
 
 ## Where things stand
 The mechanics audit found that the Recruits already follow all seven gathering job rules. They share one code path with the Drones and the Agents: one Gather behaviour, keyed by `UnitDef::worker`. The Recruit's parameters are data in `crates/sim/src/defs/cults/units/recruit.rs` (about lines 64–82).
@@ -37,14 +37,9 @@ Where each rule lives:
    6. **0487's Verification,** an empty Recruit's right-click on an own Storage: on a damaged one it repairs; on an unfinished one it assists; on an undamaged, complete one it walks there. A loaded Recruit's right-click on each of the three delivers its load. Find where the right-click is resolved, and the existing tests of a Recruit's right-click, with `grep -rln 'Recruit' crates/*/tests | xargs grep -ln -i 'right'`.
    7. A mixed group right-clicked on a Storage: the loaded Recruits deliver, the empty ones move.
 2. **0484 (4), who sees the load:** a client test that an opponent sees the load marker but not the amount, if no test covers it (`grep -rn -i 'load' crates/game/tests | grep -i 'owner\|opponent\|enemy'`).
-3. **Citations.** The job rules moved from the Drone's doc to `systems/mechanics/gathering.md > Job rules`; `drone.md`'s `### Job rules` now points there.
-   - Re-point the 23 citations of the seven moved sections, in 11 files. Find them with `grep -rnE 'drone\.md > (Last load of a patch|Interrupted mining|Other orders keep the load|Who sees the load|Gather while carrying a load|Drop Off order|When a Gather ends)' crates docs`. Write `systems/mechanics/gathering.md > <section>`, the subsection's own name.
-   - The module docs of `crates/sim/src/orders/gather.rs` (lines 1–8), `crates/sim/src/economy/gathering.rs` (lines 1–3) and `crates/sim/src/defs/units/worker.rs` cite the Drone's doc for the whole job. Cite `systems/mechanics/gathering.md` for the shared rules there. The Drone's own sections stay in its doc, so leave their citations as they are: Gathering, Patch Occupancy, Gathering Drones pass through each other, and Assigned Drop-off.
-   - **The relative-citation rule:** a module whose doc cites exactly one file may use relative `` `> Section` `` references. If you add a second file to such a module's doc, make its relative references full, and run `cargo test -p sc_sim --test sim design_citations`.
-   - Don't rewrite any other comment.
+3. **Citations:** the Director has already pointed the job rules' citations to `systems/mechanics/gathering.md` (`8ff61a99`). Cite it the same way in your tests.
 4. **0488: the automatic return drops the queued orders.**
    - **The test:** a Hornet is given an Attack Move, then a Shift-queued Move to B. When it runs dry, it flies home, rearms fully and stays landed, and it never flies to B. Put it beside A1's tests in `crates/sim/tests/landing/rearm.rs`, using their helpers.
-   - **The mark:** the doc of `send_home` in `crates/sim/src/sim/aircraft.rs` says `Placeholder (Q0195)`. 0488 settles it: cite `systems/mechanics/aircraft_landing.md > Assigned base` (the automatic return replaces all the aircraft's orders), and drop the placeholder wording.
 5. **Goldens:** none may move.
 
 ## Don't
@@ -53,4 +48,4 @@ Where each rule lives:
 - Don't edit anything under `artifacts/`.
 
 ## Report
-At most 8 lines, then **Handoff**, at most 4 lines: the tests added, the citations re-pointed, and anything that failed.
+At most 8 lines, then **Handoff**, at most 4 lines: the tests added, and anything that failed.
