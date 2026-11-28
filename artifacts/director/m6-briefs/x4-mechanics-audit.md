@@ -14,7 +14,11 @@ The user wants units to be compositions of shared mechanics: "most unit addition
   The systems read those parts.
 - **The design** (`artifacts/designer/design/`, read-only) is one file per unit or structure under `factions/<faction>/{units,structures}/`, plus `systems/` and `core/`.
 - **The newest mechanics,** each built inside its first unit's slice: the glider landing approach (`crates/sim/src/movement/approach.rs`, the Dragonfly), the carrier (`crates/sim/src/carry.rs`, the Subterranean Transport), the Supply Chopper's cargo and its landing on an object (`Cargo`, `Landing.at`), and the unfold after a launch (`Mover::unfold`, the Prism).
-- **The design may move shared mechanics** into `systems/` docs of their own (question Q0193, open). Where a mechanic's rules are spread over several unit docs, say so.
+- **The design now defines shared mechanics once,** in `artifacts/designer/design/systems/mechanics/` (0471, answering Q0193). Each doc defines a mechanic and its **archetypes**, and the unit docs name the archetype they use, with their parameters:
+  - `carrying.md`: the Ground carrier (the Subterranean Transport, built), the Landing carrier (the Supply Chopper, slice GS2), the Docked carrier and Paradrop (the Pilgrim, slice CP);
+  - `modes.md` (0472): Deploy (the Artillery Rig, built; the Laser Battery, the Transport's Burrow and Surface, the Prospector) and Toggle (the Riot Shield and Weapon Conversion, built). The Drone's Beacon deploy is neither.
+  - **Coming, one doc at a time:** aircraft landing and rearming with runways, garrisoning, channelling, energy pools, heals and auras, hidden deployed objects, tanks and toggles.
+  The design asks for **one module per mechanic, with its archetypes as parameters**.
 
 ## What to find
 1. **Mechanics keyed by a unit's kind, not by its def.** Find code that tests for a specific `ObjectKind` (`grep -rn 'ObjectKind::' crates/sim/src`). Leave out `defs/`, the tests, `scenario/`, `scenarios.rs` and `testing/`. Sort each cluster into:
@@ -38,8 +42,22 @@ The user wants units to be compositions of shared mechanics: "most unit addition
 3. **The same mechanic built twice:** for example two landing paths, two deploy models, two heal or aura implementations, two stock or ammo systems, or two "hold units inside" models (buildings' holding, the Tunnel Network, the carrier).
 4. **Abilities:** for each `Ability` variant, whether any unit could carry it through its def, or whether it is tied to one unit.
 
+5. **The mechanics docs against the code.** For `carrying.md` and `modes.md`, and for each coming mechanic above:
+   - which modules implement it now;
+   - whether it is one module or several, shaped per unit;
+   - what refactor would make it one module, with the archetype and its parameters in the defs;
+   - which upcoming slice needs that refactor first.
+6. **Hub files.** Of 257 slice commits, these files were touched by the most (count, lines):
+   - `sim/testing/invariants.rs` 37 (563); `sim/defs.rs` 33 (477); `game/command_ui/interface/templates.rs` 29 (440);
+   - `templates/planned.rs` 29 (270); `sim/defs/units.rs` 26 (376); `sim/sim.rs` 25 (564); `sim/sim/phase.rs` 23 (362);
+   - `game/command_ui/resolution.rs` 23 (532); `sim/orders/run.rs` 22 (363); `sim/events.rs` 21 (586); `game/command_ui/feedback.rs` 21 (600);
+   - `sim/sim/gate/orders.rs` 20 (559); `interface/conditions.rs` 20 (594); `interface/commands.rs` 20 (332);
+   - `sim/movement.rs` 19 (559); `sim/combat.rs` 19 (388).
+
+   Agents read these files whole: a slice read about 40–60k characters from each, much of it comments. Say which of them a new order, ability or unit must edit, and why (a central `match`, a list, a registration). Propose how a new mechanic could register in one place instead, for example one module per order kind behind a trait or a table, with a size and a risk.
+
 ## How to work
-- **Budget:** 150 tool calls. If you reach it, report what you have, and list what you didn't get to.
+- **Budget:** 200 tool calls. If you reach it, report what you have, and list what you didn't get to.
 - **Keep your context lean:** aim to stay under about 150k tokens.
   - Use `grep -n`, `grep -c` and `wc` to find things, then read only the lines you need (`sed -n 'A,Bp'`). Most modules start with a `//!` doc that says what they do: read those first.
   - Never read a whole large file, `ARCHITECTURE.md` (712 KB), or a log.
@@ -47,8 +65,10 @@ The user wants units to be compositions of shared mechanics: "most unit addition
 - Keep to what the code does now. Where you're unsure whether something is per-unit, say so rather than guessing.
 
 ## Report
-At most 80 lines:
+At most 110 lines:
 1. **Summary** (5 lines): how much of the sim is per-unit and how much data-driven, with numbers.
+1b. **Mechanics docs against the code** (item 5), a table: the mechanic, its archetypes, the modules now, the refactor, its size, the slice that needs it first.
+1c. **Hubs** (item 6): what a new mechanic must edit today, and the proposal.
 2. **Refactor candidates,** a table with these columns:
    - the mechanic;
    - where it lives (files);

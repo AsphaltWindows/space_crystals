@@ -14,6 +14,7 @@ Read both before you start.
 Filled in at launch.
 
 ## The design: answers since the plan
+- **The mechanics doc comes first** (0472): `systems/mechanics/modes.md` defines Unit Modes once, with two archetypes, Deploy and Toggle; the unit doc gives only its parameters. The Prospector's deploy is the **Deploy** archetype, permanent and targeted. Build it on the one modes module, shaped by the def, not by the unit's kind. A refactor phase before you may merge the existing deploy and toggle code into that module first; its handoff will say so.
 Read `factions/gdo/units/prospector.md` and `factions/gdo/structures/outpost.md` as they stand.
 - **0427 (Q0161): the damage carries over unchanged.** The Outpost starts at its MaxHP (600) minus the Prospector's damage, as Drone → Beacon does. This is D36's placeholder, now the design. Verification: a Prospector damaged to 200/300 deploys into an Outpost at 500/600.
 - **0435 (Q0169): its 8 Supplies.** The recipe held in `defs::PLANNED_RECIPES` carries them (`Recipe::supplies`). A test that trains it must give its player the Supplies: the GDO starts with 1 (0436), and the supply loop is GS's, later.

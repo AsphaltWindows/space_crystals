@@ -18,6 +18,7 @@ Read them before you start. Three design changes since the plan change it (below
 Filled in at launch.
 
 ## The design: answers since the plan
+- **The mechanics doc comes first** (0472): `systems/mechanics/modes.md` defines Unit Modes once, with two archetypes, Deploy and Toggle; the unit doc gives only its parameters. Burrow and Surface are the **Deploy** archetype. Build it on the one modes module, shaped by the def, not by the unit's kind. A refactor phase before you may merge the existing deploy and toggle code into that module first; its handoff will say so.
 Read `factions/syndicate/units/subterranean_transport.md` as it stands, from `> Burrow` to `> Destroyed with passengers`, and `systems/units.md > Underground Collision` and `> DrillUnit`.
 - **0432 (Q0166) part 3: an Enter order given while burrowed** makes the Transport **surface by itself** (48 frames, where it is, by the Surface rules), then drive in through Side A like any vehicle. It never enters from below.
   - If it can't surface where it stands (a building, a tile a tracked vehicle can't cross, an overlapping unit), the order fails as a Surface would.

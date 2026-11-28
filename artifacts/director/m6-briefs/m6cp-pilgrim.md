@@ -26,6 +26,7 @@ The Pilgrim was designed after M6's plan, so the plan has no section for it: thi
 Filled in at launch.
 
 ## The design
+- **The mechanics doc comes first** (0471): `systems/mechanics/carrying.md` defines Carrying Units once, with its archetypes, and the unit doc gives only its parameters and exceptions. The Pilgrim is the **Docked carrier** (it loads and unloads only while landed on a given own structure, unloading along a given side) **plus Paradrop**, the addition for aircraft carriers. Build it as that archetype of the one carry module (`crates/sim/src/carry.rs`), shaped by the def, not by the unit's kind. A refactor phase before you may shape the module by archetype first; its handoff will say so.
 Read `factions/cults/units/pilgrim.md` (all of it), `factions/cults/structures/airstrip.md > Production` and `> Placeholder stats`, `factions/cults/structures/scrap_hangar.md > Unlocks`, and `factions/cults/units/recruit.md > Repair`, as they stand.
 - **The designer's readings, now the design:**
   - an Airstrip holds one landed Pilgrim, and one sent to an occupied runway circles over it until the runway is free;

@@ -16,6 +16,7 @@ Read them before you start. The Relay through Prisms is SR's, later: not yours.
 Filled in at launch.
 
 ## The design: answers since the plan
+- **The mechanics doc comes first** (0472): `systems/mechanics/modes.md` defines Unit Modes once, with two archetypes, Deploy and Toggle; the unit doc gives only its parameters. The Laser Battery's Deploy is the **Deploy** archetype. Build it on the one modes module, shaped by the def, not by the unit's kind. A refactor phase before you may merge the existing deploy and toggle code into that module first; its handoff will say so.
 Read `factions/syndicate/units/laser_battery.md` as it stands, `> Battery`, `> Attack`, `> Amplify`, `> Deploy` and `> Placeholder stats`.
 - **No change entry since the plan touches the Battery** but these:
   - **0417 (Q0153): the tracked turning law.** Its numbers are TrackWidth 33 su and ReverseMaxSpeed 2.25 (spinning about 15.6° a frame). Check that M6-SK registered them, and add them if not.
