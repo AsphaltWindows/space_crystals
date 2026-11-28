@@ -7,6 +7,7 @@ GDO specialist infantry, trained at the Barracks once the player owns a Career C
 ## TechPrerequisite - player owns at least one Career Campus (see core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites)
 
 ## Drone Stock
+Uses **Stocks and Spawned Objects** (systems/mechanics/spawned_objects.md): a stock refilled "only once the previous object has ended", and the drone is a **Piloted object**.
 - Starts with **1** drone when trained; holds a **maximum of 1** (changed from 3).
 - **Build Drone** is one of the Drone Operator's abilities: once its drone has been used, it purchases/builds a replacement (placeholders below).
 - **Not while a drone is out** (user, 2026-11-26; Q0155): Build Drone can start only once the operator's drone has **ended** (detonated, fallen or lost with the leash, battery). Each flight is followed by at least the build time with no drone, so drones stay bursts to time, not a constant presence.

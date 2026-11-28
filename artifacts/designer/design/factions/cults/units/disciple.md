@@ -33,7 +33,7 @@ Uses **Energy, Casts and Timed Effects** (systems/mechanics/energy_and_effects.m
 
 ### Mirage
 (Named by the user, 2026-11-27.)
-(user, 2026-11-27) An **instant** spell: the Disciple creates **4 illusions** of itself.
+(user, 2026-11-27) An **instant** spell: the Disciple creates **4 illusions** of itself (**Copy** archetype, systems/mechanics/spawned_objects.md).
 - **Where**: one on each side of the Disciple, **north, east, south and west**; the Disciple stays where it is. A blocked spot puts that illusion at the **nearest free spot**.
 - **Health**: each illusion starts with the Disciple's **current HP**, and has its MaxHP and speed (augmentations included; designer's default, confirmed by the user). Illusions can't be augmented at the Altar themselves. **Buffs are copied** (user, 2026-11-27; Q0188): each timed buff the parent has at the cast (e.g. Inspire, a Shrine's regeneration) is copied to every illusion **for the time it has left**, so they keep matching it.
 - **Double damage**: illusions take **double damage from all sources** (Shroud releases included).

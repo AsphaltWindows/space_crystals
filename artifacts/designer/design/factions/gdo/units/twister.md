@@ -16,6 +16,7 @@ GDO vehicle produced at the Factory. A little slower than the Raptor. Mounts a m
 - Damage, Range, timings: placeholders below
 
 ## Mines
+Uses **Stocks and Spawned Objects** (systems/mechanics/spawned_objects.md): a stock that "queues up to the free stock", and the mine is a **Deployed object**.
 - **Stock:** the Twister carries up to **3 mines** and **starts with 3** when produced. Further mines are **purchased one at a time** (one after another; presses queue up to the free stock, Q0160) (a "Buy Mine" ability, like the Drone Operator's Build Drone). Mine cost and purchase time: placeholders below.
 - **Lay Mine (targeted ability):** the player picks a location — **anywhere** (not limited to the GDO build area). The Twister drives there, **stops temporarily** to lay the mine, then is free to move again.
 - **Hidden:** mines are **underground and hidden** from enemies (detection mechanics not yet designed).

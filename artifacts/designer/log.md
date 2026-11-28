@@ -2447,3 +2447,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0193 migration: systems/mechanics/energy_and_effects.md (0478).
 - Q0193 migration: systems/mechanics/production.md (0479).
 - Q0193 migration: systems/mechanics/construction.md (0480).
+- Q0193 migration: systems/mechanics/spawned_objects.md (0481).
