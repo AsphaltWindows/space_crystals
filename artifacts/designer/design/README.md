@@ -16,7 +16,7 @@ Index of the design docs. Paths are relative to this folder.
 | `core/map.md` | Tiles, tile presets (Buildable/Traversible/Rugged/Drillable/Recruitable), Elevation (corner heights, slopes, flat-only building), Space Crystals patches, Supply Delivery Stations |
 | `core/map_editor.md` | Map editor: map creation settings, map types (Skirmish Default / Custom), per-object resource values, per-faction Starting Layouts (overlay, Skirmish Default restriction, outdated flags), Symmetry (chosen at creation, generated), custom tile presets |
 | `core/vision.md` | Vision, visibility states, elevation |
-| `core/tech_and_research.md` | Shared Tech Prerequisite rules and Research rules (with faction exceptions) |
+| `core/tech_and_research.md` | Shared Tech Prerequisite rules, Tech Gates, and Research rules (with faction exceptions) |
 
 ## systems/ — shared gameplay systems
 | File | Contents |
