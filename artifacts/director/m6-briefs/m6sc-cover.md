@@ -14,6 +14,7 @@ Read them before you start. Smoke is the game's first sight blocker, and vision 
 Filled in at launch.
 
 ## The design: answers since the plan
+- **The mechanics doc** (0483): `systems/mechanics/energy_and_effects.md`. The shared tank (0468) is a **Drain toggle** pool: drained once per toggle that is on, several toggles can be on at once, an empty pool switches its toggles off, and the refill is a parameter. Smoke is a **Ground field**: an object is in it when its centre is; it has a duration and may linger; it is shown to every player over the tiles Visible to them; who it affects is a parameter. If the sludge was built otherwise (the X4 audit reports it), bring it in line in the same phase.
 Read `factions/syndicate/units/shadebringer.md` as it stands, `> Cover (toggle)`, `> Charges and recharging` and `> Placeholder stats`, and `core/vision.md`.
 - **0425 (Q0159), D44's answer, as for the Sludge:** read `artifacts/designer/changes/0425-shadebringer-trail-rules.md`.
   1. A stationary Shadebringer with a toggle on lays its effect where it stands, and drains. This replaces D44's "lays only while moving".

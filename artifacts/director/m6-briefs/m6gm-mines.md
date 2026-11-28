@@ -15,6 +15,7 @@ Read them before you start. One design change since the plan replaces four of it
 Filled in at launch.
 
 ## The design: answers since the plan
+- **The mechanics doc** (0481): `systems/mechanics/spawned_objects.md`. The mine is a **Deployed object**: not a structure, hidden, with a trigger and an effect, and removed when destroyed. The Twister's mines are the doc's **stock and purchase**, which queues up to the free stock.
 Read `factions/gdo/units/twister.md > Mines` and `> Placeholder stats` as they stand.
 - **0426 (Q0160):** read `artifacts/designer/changes/0426-twister-mines.md`. Each part replaces a placeholder of D35:
   1. **A mine is "closer to a permanently deployed unit".** It is not a structure, so it doesn't count for the Defeat Condition, and its owner can select it. Enemies can select it only once they see it, which needs detection (not designed yet).

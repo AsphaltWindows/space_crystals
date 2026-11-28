@@ -16,6 +16,7 @@ The plan's GS was split in two: M6-GS1 built the supply loop, and this slice add
 Filled in at launch.
 
 ## The design: answers since the plan
+- **The landing doc** (0473): `systems/mechanics/aircraft_landing.md` gives the landing archetypes and the shared landed rules. The Chopper's doc names the archetype it lands by to load and unload.
 - **The mechanics doc comes first** (0471): `systems/mechanics/carrying.md` defines Carrying Units once, with its archetypes, and the unit doc gives only its parameters and exceptions. The Supply Chopper is the **Landing carrier**: it lands to load and unload, takes off by itself, uses a targeted Unload All, and has an optional Load input. Build it as that archetype of the one carry module (`crates/sim/src/carry.rs`), shaped by the def, not by the unit's kind. A refactor phase before you may shape the module by archetype first; its handoff will say so.
 Read `factions/gdo/units/supply_chopper.md` as it stands: `> Cargo`, `> Unit Transport` and `> ObjectInterfaceState[SupplyChopper]`.
 - **0442** is the whole slice (above). Its two refusals:

@@ -17,6 +17,7 @@ Read both before you start. Two design changes since the plan **replace its way 
 Filled in at launch.
 
 ## The design: answers since the plan
+- **The mechanics docs** (0475, 0476, 0477): `systems/mechanics/garrisoning.md` makes the Bunker a **Garrison structure**, a parameter set of the one garrisoning module the Cults Garrison uses. **0477: when a Bunker is destroyed, its occupants all come out at once inside its former 2x2 footprint,** spread over it, and units that overlap ignore each other until they separate. This replaces "around its footprint". `systems/mechanics/hp_restoration.md` makes the First Aid Tent a **Healing area**.
 Read `factions/gdo/units/field_engineer.md > Building` (new since the plan), `factions/gdo/structures/bunker.md` and `factions/gdo/structures/first_aid_tent.md` as they stand.
 - **0429 (Q0163): the Field Engineer builds inside the site, alone, like an Agent.** Read `artifacts/designer/changes/0429-field-engineer-builds-inside.md`. This **replaces** D37 and T99's building ("as a Recruit does: from outside, shared, `shares_builds: true`"). The flow, `field_engineer.md > Building`:
   1. **The order** is paid when it's given, and needs the Space Crystals then. It's refunded in full if the order ends before construction starts: another order, or the Engineer killed.

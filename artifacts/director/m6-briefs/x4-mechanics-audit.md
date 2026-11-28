@@ -14,10 +14,15 @@ The user wants units to be compositions of shared mechanics: "most unit addition
   The systems read those parts.
 - **The design** (`artifacts/designer/design/`, read-only) is one file per unit or structure under `factions/<faction>/{units,structures}/`, plus `systems/` and `core/`.
 - **The newest mechanics,** each built inside its first unit's slice: the glider landing approach (`crates/sim/src/movement/approach.rs`, the Dragonfly), the carrier (`crates/sim/src/carry.rs`, the Subterranean Transport), the Supply Chopper's cargo and its landing on an object (`Cargo`, `Landing.at`), and the unfold after a launch (`Mover::unfold`, the Prism).
-- **The design now defines shared mechanics once,** in `artifacts/designer/design/systems/mechanics/` (0471, answering Q0193). Each doc defines a mechanic and its **archetypes**, and the unit docs name the archetype they use, with their parameters:
-  - `carrying.md`: the Ground carrier (the Subterranean Transport, built), the Landing carrier (the Supply Chopper, slice GS2), the Docked carrier and Paradrop (the Pilgrim, slice CP);
-  - `modes.md` (0472): Deploy (the Artillery Rig, built; the Laser Battery, the Transport's Burrow and Surface, the Prospector) and Toggle (the Riot Shield and Weapon Conversion, built). The Drone's Beacon deploy is neither.
-  - **Coming, one doc at a time:** aircraft landing and rearming with runways, garrisoning, channelling, energy pools, heals and auras, hidden deployed objects, tanks and toggles.
+- **The design now defines shared mechanics once,** in `artifacts/designer/design/systems/mechanics/` (0471–0483, answering Q0193): ten docs of 3–6 KB, 47 KB in all. Each doc defines a mechanic and its **archetypes**, and the unit docs name the archetype they use, with their parameters. Read all ten; they are short. The upcoming M6 users (the briefed slices):
+  - `carrying.md`: the Ground carrier (the Subterranean Transport, built), the Landing carrier (the Supply Chopper, GS2), the Docked carrier and Paradrop (the Pilgrim, CP);
+  - `modes.md`: Deploy (the Artillery Rig, built; the Laser Battery SL, Burrow and Surface ST2, the Prospector GP) and Toggle (the Riot Shield and Weapon Conversion, built);
+  - `aircraft_landing.md`: Vertical, Runway and Field landing; the Assigned base (the Airfield, built) and Network base (the Specter, SA) rearming; the shared landed rules, among them "destroyed with the structure it is landed on", now for any structure (0474);
+  - `garrisoning.md`: the Garrison structure (the Cults Garrison, built; the GDO Bunker, GB, whose occupants now come out inside its footprint, 0477);
+  - `hp_restoration.md`: Repair, the Healing area (the First Aid Tent, GB; the Chopper on its Tower, built in GS1), Regeneration;
+  - `spawned_objects.md`: stocks; the Piloted object (the drone, built), the Deployed object (the mine, GM), the Copy (the illusions, built);
+  - `energy_and_effects.md`: energy pools, casts, timed effects, the Drain toggle (the Shadebringer's shared tank, SC: 0468) and Ground fields (sludge, built; smoke, SC);
+  - `production.md`, `construction.md`, `gathering.md`: mostly built; no M6 slice changes them.
   The design asks for **one module per mechanic, with its archetypes as parameters**.
 
 ## What to find
@@ -42,7 +47,7 @@ The user wants units to be compositions of shared mechanics: "most unit addition
 3. **The same mechanic built twice:** for example two landing paths, two deploy models, two heal or aura implementations, two stock or ammo systems, or two "hold units inside" models (buildings' holding, the Tunnel Network, the carrier).
 4. **Abilities:** for each `Ability` variant, whether any unit could carry it through its def, or whether it is tied to one unit.
 
-5. **The mechanics docs against the code.** For `carrying.md` and `modes.md`, and for each coming mechanic above:
+5. **The mechanics docs against the code.** In depth for the seven with M6 users above, and in one line each for `production.md`, `construction.md`, `gathering.md`, and the energy pools, casts and timed effects:
    - which modules implement it now;
    - whether it is one module or several, shaped per unit;
    - what refactor would make it one module, with the archetype and its parameters in the defs;
@@ -56,8 +61,13 @@ The user wants units to be compositions of shared mechanics: "most unit addition
 
    Agents read these files whole: a slice read about 40–60k characters from each, much of it comments. Say which of them a new order, ability or unit must edit, and why (a central `match`, a list, a registration). Propose how a new mechanic could register in one place instead, for example one module per order kind behind a trait or a table, with a size and a risk.
 
+7. **For the Designer: what is built** (the Designer asked the Director to report these, so give facts, not proposals):
+   - **0484** (the user confirmed 0482's open point): Recruits follow the workers' job rules in `gathering.md` (Last load of a patch, Interrupted mining, Other orders keep the load, Who sees the load, Gather while carrying a load, the Drop Off order, When a Gather ends), keeping their own parameters (shared patches, normal collision, the nearest Storage). For each rule, say whether the Recruits already follow it as the Drones and Agents do. Where they don't, say how they differ, and which files and functions a phase would change. This becomes that phase's brief.
+   - **0483:** are the sludge patches shown to every player over the tiles Visible to them, as `energy_and_effects.md > Ground fields` now says for every field? Or otherwise, and how?
+   - **0474:** which structures aircraft land on today, and whether "destroyed with the structure it is landed on" is applied by structure type (the Airfield only) or generically.
+
 ## How to work
-- **Budget:** 200 tool calls. If you reach it, report what you have, and list what you didn't get to.
+- **Budget:** 250 tool calls. If you reach it, report what you have, and list what you didn't get to.
 - **Keep your context lean:** aim to stay under about 150k tokens.
   - Use `grep -n`, `grep -c` and `wc` to find things, then read only the lines you need (`sed -n 'A,Bp'`). Most modules start with a `//!` doc that says what they do: read those first.
   - Never read a whole large file, `ARCHITECTURE.md` (712 KB), or a log.
@@ -65,10 +75,11 @@ The user wants units to be compositions of shared mechanics: "most unit addition
 - Keep to what the code does now. Where you're unsure whether something is per-unit, say so rather than guessing.
 
 ## Report
-At most 110 lines:
+At most 130 lines:
 1. **Summary** (5 lines): how much of the sim is per-unit and how much data-driven, with numbers.
 1b. **Mechanics docs against the code** (item 5), a table: the mechanic, its archetypes, the modules now, the refactor, its size, the slice that needs it first.
 1c. **Hubs** (item 6): what a new mechanic must edit today, and the proposal.
+1d. **For the Designer** (item 7): the three answers, with the files that show them.
 2. **Refactor candidates,** a table with these columns:
    - the mechanic;
    - where it lives (files);

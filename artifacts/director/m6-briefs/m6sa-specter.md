@@ -16,6 +16,7 @@ Read them before you start. **This slice has a Fable flag:** if the door approac
 Filled in at launch.
 
 ## The design: answers since the plan
+- **The landing doc** (0473, 0474): `systems/mechanics/aircraft_landing.md`. The Specter lands by the **Vertical** archetype at a Tunnel's air doors, and rearms by the **Network base** archetype: it lands in the nearest own structure of the network and rearms inside through a service, and its orders are wiped on entering. 0474: **a Specter landing through the air door of a Tunnel that is destroyed dies with it.** One still landing counts as landed; one already taking off escapes.
 Read `factions/syndicate/units/specter.md` as it stands, all of it, and `factions/syndicate/structures/vault.md`.
 - **0431 (Q0165): the doors' timing.** A Phantom descends and rises over 16 frames, an air target meanwhile, "as the Specter (24 frames) and every aircraft landing or taking off (0428)". The Specter's 24 frames are in its doc.
 - **0428 (Q0162) part 5: the Dragonfly lands "as the Specter at an air door":** it approaches at IdleSpeed, stops over its spot while it descends, and lifts straight up, leaving at IdleSpeed. M6-GL built that for the Dragonfly. Give the Specter the same approach to the entry door, citing 0428 part 5. This was D46's placeholder.
