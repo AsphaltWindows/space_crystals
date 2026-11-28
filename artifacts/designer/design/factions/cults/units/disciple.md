@@ -35,7 +35,7 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 (Named by the user, 2026-11-27.)
 (user, 2026-11-27) An **instant** spell: the Disciple creates **4 illusions** of itself.
 - **Where**: one on each side of the Disciple, **north, east, south and west**; the Disciple stays where it is. A blocked spot puts that illusion at the **nearest free spot**.
-- **Health**: each illusion starts with the Disciple's **current HP**, and has its MaxHP and speed (augmentations included; designer's default, confirmed by the user). Illusions can't be augmented at the Altar themselves.
+- **Health**: each illusion starts with the Disciple's **current HP**, and has its MaxHP and speed (augmentations included; designer's default, confirmed by the user). Illusions can't be augmented at the Altar themselves. **Buffs are copied** (user, 2026-11-27; Q0188): each timed buff the parent has at the cast (e.g. Inspire, a Shrine's regeneration) is copied to every illusion **for the time it has left**, so they keep matching it.
 - **Double damage**: illusions take **double damage from all sources** (Shroud releases included).
 - **Seen by enemies**: exactly like a Disciple, on the map and when selected; enemies can't tell them apart.
 - **Energy shown** (user, 2026-11-27; Q0185): an illusion's energy bar and InfoPanel always show its **parent's current energy**, live (it drains when the parent channels, regenerates with it). Illusions have no energy of their own.
@@ -48,6 +48,7 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 - **Other effects**: the Shrine's health regeneration works on them (they are own Cults infantry).
 - **How illusions end**: an illusion lasts until it **dies**, its **parent dies**, or the parent **casts Mirage again** (the old set vanishes and a new set of 4 appears; a Disciple never has more than one set). An illusion inside a Garrison when it ends simply vanishes.
 - **Casting it cancels Shroud**: casting Mirage ends the Disciple's channel (the cloud then lingers as usual).
+- **Shift-queueing** (user, 2026-11-27; Q0188): **Shift+F** adds Mirage to the order queue as a step, e.g. a Move then a Shift-queued Mirage casts on arrival. When its turn comes it casts if there is enough energy, else it is dropped with the usual refusal feedback. Behind a Shroud channel it would wait for the channel to end, which only happens by running out of energy (a Shift-queued order doesn't end it), so in practice it is cast from Shroud with plain F.
 
 Numbers: see Placeholder stats below.
 

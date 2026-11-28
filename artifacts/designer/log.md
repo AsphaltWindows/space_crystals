@@ -2432,3 +2432,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0186: mixed selection: units that can't hit follow with group; alone: invalid target (0461).
 - 2026-11-27: Pilgrim (Cults paratrooper glider) designed with user; name chosen over Ark (Ark kept for airship). Cost 2 Recruits (user). 0462.
 - Q0187: Null Chamber sight bonus vision-only (behaviour unchanged by buffs); finished turn always buffs (0463).
+- Q0188: illusions copy parent's timed buffs (remaining time); Shift+F queues Mirage as a step (0464).
