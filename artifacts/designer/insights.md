@@ -28,15 +28,20 @@
 
 ## Open Director Questions
 
+- Q0190: sight from centre, scans from edge, and full tanks.
+- Q0191: Transport unload crowded; pips moving.
+- Q0192: Dragonfly launch cone and landing approach.
+- Q0193: shared mechanics in systems docs.
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
+- **Cults heavy vehicle IN PROGRESS (2026-11-28)**: "Garrison on treads": tracked, Chop Shop; no gun of its own (only occupants fire, as Garrison); occupants protected; on destruction they come out alive. Open: capacity, fire on the move, Garrison rules carried over (Recruits as Militants, +1 range, Disciples no fire), stats, name. Not yet written to docs.
 - **Notification system** (pinned by the user, 2026-11-27): only the off-screen damage alert exists (hud.md > Alerts). Waiting on it: exit stays blocked (Q0177, user wants it), production waiting for capacity, refinery input full, Agents' empty station. Open: form (ping colour, text line?), trigger delay, throttle, Space jump.
 - **Real in-game menu / game creation screen**: the F10 playtest menu (0414) and command-line flags (computer players, starting exploration 0416) are temporary.
 - **Supplies**: only 6 GDO units cost Supplies (0435); buildings/research Supply costs still open. Starting Supplies 1.
 - **Attack Move for units that can't stop (gliders)**: what it should mean is open (user, 2026-11-27, Q0148): today its 6 GU leash drops a looping Sparrow's target.
 - **Computer players**: a playtest tool for now (Q0147); write a real design when they become a feature.
 - **Economy**: automated testing closed (Q0146); targets are playtest reference. Open for playtests: Cults One Hall ~0.85 of GDO/Colonists at 2:48.
-- **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); thin, short-range anti-air and no Cults AA building; detection later; Mystical branch has only the Disciple as a new unit (user: fine).
+- **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); anti-air: user notes the Garrison shoots air (2026-11-28), so less thin than noted; detection later; Mystical branch has only the Disciple as a new unit (user: fine).
 - **Next Cults work**: Scrap Hangar airship (Pilgrim paratrooper plane done 0462; "Ark" kept in mind for the airship), maybe more vehicles. Then Colonists units (incl. salvo concept for Lancer/Skylance).
 - **Placeholder passes done** for Cults (0319), GDO (0366), Syndicate (0367); rules confirmed in 0368/0369.
 - **Placeholder review** (after all units + techs): every 'placeholder' number across factions, incl. Disciple having no weapon (0319).
