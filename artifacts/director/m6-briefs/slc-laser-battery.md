@@ -1,13 +1,19 @@
 # Task SLc: The Laser Battery, its panel, drawing, golden and QA (phase 3 of M6-SL, the entity phase)
 
-Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is an entity phase, and your budget is 120 tool calls, a hard limit.** The mechanics are built: you assemble the unit from them.
+Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is an entity phase, and your budget is 130 tool calls, a hard limit.** The mechanics are built: you assemble the unit from them.
 
 ## Where things stand
 - **The defs exist,** both kinds, with the designer's placeholder numbers: `crates/sim/src/defs/syndicate/units/laser_battery.rs`. Their comments say "nothing makes one yet": make them true.
 - **The Vehicle Assembly's E** is written but unused: `LASER_BATTERY_RECIPE` in `crates/sim/src/defs/syndicate/structures/vehicle_assembly.rs`, marked `expect(dead_code, reason = "slice M6-SL: ...")`.
 - **`SK_KINDS`** (`crates/sim/src/defs/syndicate/tests.rs`, near 131) lists the kinds no player makes yet, the Battery's two among them.
 - **The deploy model** (M6-GA): `crates/sim/src/vehicle_deploy.rs` and `orders/vehicle_deploy.rs`. A unit's two types and its switch times are data on its def; the Artillery Rig is the built example.
-- **SLa** built the battery and the surge attack. Its handoff: FILLED IN AT LAUNCH.
+- **SLa** (`d5e7231e`) built the battery and the surge attack, as sim mechanics. From its handoff:
+  - **The battery** is each kind's `EnergyDef`: 100, starting full, charging 5 a second. `energy::step` charges it in every mode, through the change of kind and inside the network. Read it with `sc_sim::energy::of(o)`: (charge, max) in points.
+  - **The surge:** `SurgeDef { draw, constant }`, as `AttackAttrs::surge` (`defs/units/attack.rs`), and `crate::surge` (`surge.rs`): `has`, `used`, `damage`.
+  - **The cadence:** one aim of 8 frames when it engages, then a surge every 16 frames while the beam holds (`Shooter::beam_on` in `combat/phases.rs`; Q0201 asks the Designer, and three placeholders wait on it).
+  - **Amplify:** `Command::Ability(Ability::Amplify)`. It isn't queueable and keeps the orders. The gate refuses it to a unit without a surge (`Reject::LacksAbility`). The mark is `Object::amplified`, cleared by the next surge.
+  - **A surge's hit** lands in `combat/phases.rs` `end()` (Firing, then `effects::fire` and `Shooter::spend_surge`). Its charge is spent in `combat/step.rs` (`surge::spend`).
+  - **Left for you:** the scenario tests, the surge consistency check and the docs (Goal 6 and the Tests).
 - **SLb** fixed the deploy model's queued switch. Its handoff: FILLED IN AT LAUNCH.
 
 ## The design
@@ -31,6 +37,7 @@ Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea9
 6. **Docs:**
    - regenerate the controls doc: `UPDATE_DOCS=1 cargo test -p space_crystals --test game playtest_docs::controls`;
    - add the Battery to the docs that list units (`grep -rln 'Prism' docs` shows where).
+   - the surge attack, a short paragraph in `docs/architecture/combat.md`, and Amplify in `docs/architecture/commands-events-replays.md` (SLa left them).
 7. **QA screenshots** into `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/m6sl/`. Look at each yourself:
    - the Vehicle Assembly's panel with E live;
    - a mobile Battery firing at a ground target, with its charge in the info panel;
@@ -45,6 +52,8 @@ In a new `crates/sim/tests/laser_battery/`, with the real unit:
 - **domains:** mobile, it can't target a Sparrow; deployed, it targets only air;
 - **deploying,** as GA's tests do for the Rig, held orders included, and the battery charges while it switches;
 - **the queued switch** on this pair, as SLb's handoff says;
+- **Amplify** neither fires nor drops the unit's orders, and the gate refuses it to a unit without a surge;
+- **a consistency check** in `defs_are_consistent` for every def with a surge: a FullyConnected single-target attack, an energy pool, and 0 < draw ≤ the pool's maximum;
 - client tests of the panel, Amplify included.
 
 ## Don't
