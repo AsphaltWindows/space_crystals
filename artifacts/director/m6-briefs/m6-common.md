@@ -2,7 +2,7 @@
 
 These rules apply to every M6 slice. Each slice runs in its own git worktree, and the Director reviews and merges it. Your slice brief adds the current status and anything specific to you.
 
-**Start from M5's rules:** read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m5-common.md`. Every rule there applies to M6 too, except where this file says otherwise. That includes:
+**Start from M5's rules:** read the sections "Rules", "Done means" and "Report" of `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m5-common.md`, **not its "Read first"**, which this file replaces entirely. Every rule there applies to M6 too, except where this file says otherwise. That includes:
 - the shared files;
 - the tests and test programs;
 - perf;
@@ -20,22 +20,17 @@ This section overrides m5-common and the rest of this file where they differ.
   - sometimes a refactor that comes first.
 
   Do your phase only. The Director merges it, then starts the next phase with a fresh agent. Slices run one at a time, so master won't move under you unless the Director says so.
-- **Read lean.** Read the core `ARCHITECTURE.md` in full. From `docs/architecture/`, read only the docs your phase touches: the core's index says which. In code, find what you need with `grep -n`, then read just those lines (`sed -n 'A,Bp'`). Never read a whole large file or a log.
+- **Read lean.** Read only what your brief names ("Read first", below). In code, find what you need with `grep -n`, then read just those lines (`sed -n 'A,Bp'`). Never read a whole large file, a planning document or a log.
 - **Tests.** While you work, run the tests for the code you touch, such as `cargo test -p sc_sim --lib <module>::` or `cargo test -p sc_sim --test sim <file>::`, and write unit tests for each new module. At the end, run each of these once: fmt, clippy (`-D warnings`), `cargo test --workspace` and the seed sweep (about 6 s). Don't run ai_games, the soaks or perf A/Bs: the Director runs them between milestones.
 - **Comments.** Cite the design section by its full path, and mark placeholders `Placeholder (QNNNN point N)` or `Placeholder (not in the design: why)`. Don't quote the design beyond a few words, and don't record history (which slice or design change did what). Don't rewrite existing comments.
 - **Budget.** Your brief gives your phase a budget of tool calls, usually 250. If you reach it, stop at a green, committed point and hand off what is left. Context is the cost: every call carries everything you have read so far, so read only what you need.
 - **Handoff.** End your report with **Handoff**, at most 8 lines: what the next phase needs to know, such as the types, functions and files it builds on, and anything left undone.
 
-## Read first (instead of m5-common's "Read first" 2 and 4)
-1. **`ARCHITECTURE.md`**, the core, in full, and the docs in `docs/architecture/` that your phase touches.
-2. **The M6 spec, `artifacts/director/m6-plan.md`:**
-   - **The adoption note at its top,** with "Answered since adoption": each answered question, and which slice builds it.
-   - **Your slice in §B.** Implement it as written, unless your brief says otherwise.
-   - **§C, the waves and the shared-registries table.** Your "don't touch" list is every other slice's files.
-   - **§D, the technical decisions T84–T101.** The Director has accepted them, unless your brief overrides one.
-   - **§A,** for what is in scope.
-3. **The design questions for M6:** Q0153–Q0169 and Q0174–Q0179, in `artifacts/director/questions/`. `artifacts/director/plan.md`'s Questions table gives each one's status. Placeholders cite them as in M5: `Placeholder (Q0158 point 2)`, or `Placeholder (not in the design: why)`.
-4. **The design sections and change entries** your brief names: 0366–0369 for the content, plus each answer's entry.
+## Read first (this replaces m5-common's "Read first" entirely)
+Every call you make carries everything you have read so far, so read only what your phase needs. Your brief names it: the design sections and change entries, the code (files, types, functions), and the tests. Find each with `grep -n`, then read just the lines you need.
+1. **The architecture.** Until slice X3 splits `ARCHITECTURE.md` (now 712 KB, about 180k tokens), don't read it whole. Read the sections your brief names: `grep -n '^## ' ARCHITECTURE.md`, then their line ranges. Once X3 has split it, read the core (at most 30 KB) in full, and the docs in `docs/architecture/` that your brief names.
+2. **Planning documents:** `artifacts/director/m6-plan.md`, `plan.md`, the earlier milestones' plans and the questions. Read only the parts your brief names, found with grep, and never read them whole.
+3. **The design sections and change entries** your brief names, and a section they cite when you need it.
 
 ## M6 in the ruleset's form (T101): your checklist
 M5-X1 made every number the sim reads part of one `Ruleset`, and M5-X2 exports it as JSON data files that the game reloads live. Write M6 in that form from the start:

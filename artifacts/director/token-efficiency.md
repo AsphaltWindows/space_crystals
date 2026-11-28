@@ -49,6 +49,7 @@ The Director proposed this, based on measurements of this session's transcripts.
 - **Hub files.** Of 257 slice commits, about 20 central files were edited by 17–37 slices each: `invariants.rs`, `defs.rs`, the panel templates, `sim.rs`, `phase.rs`, `orders/run.rs`, `resolution.rs`, `events.rs`, `feedback.rs`, `gate/orders.rs`, and others. Each is 300–600 lines of long, comment-heavy lines, and every slice reads them whole.
   - That is how a 300k-line project ends up costing more per mechanic than a 30k-line one: a new mechanic is wired through the same central matches and lists.
   - **X4 now also proposes** how a mechanic can register in one place (one module per order kind or ability, behind a trait or a table). The design side matches it: `systems/mechanics/` has one doc per mechanic, with archetypes (0471, 0472).
+- **The cause of the large starts** (found 2026-11-28): m6-common replaced only two items of m5-common's "Read first". So every M6 agent was still told to read all of `ARCHITECTURE.md` ("It is binding"), parts of the M5 plan, and the M3 and M4 plans' technical decisions. With `m6-plan.md`'s §A, §C and §D and about 23 question files on top, that is over 200k tokens before the first line of code, which matches the measured starts. **m6-common's "Read first" now replaces all of it:** read what your brief names, found by grep.
 - **Levers, in order:**
   1. lean starts: precise briefs naming the exact functions, and no reading lists;
   2. the hub refactor (from X4);
