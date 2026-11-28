@@ -35,6 +35,7 @@
   - The other ignored suites (ai_games, the soaks) and perf A/B runs are for milestone boundaries. Run them only when your brief says so.
 
 ## How
+- **Budget:** 250 tool calls. If you reach it, stop at a green, committed point and report what is left.
 - Do the move with a script that splits the file at its headings. Read only what you rewrite (the core's sections, roughly the first 160 lines and the last 350), not the whole file.
 - `CLAUDE.md` names `ARCHITECTURE.md` as the architecture and coding rules. That stays true, so leave it alone.
 - Never edit anything under `artifacts/`.

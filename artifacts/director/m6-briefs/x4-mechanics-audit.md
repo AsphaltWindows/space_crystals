@@ -37,6 +37,7 @@ The user wants units to be compositions of shared mechanics: "most unit addition
 4. **Abilities:** for each `Ability` variant, whether any unit could carry it through its def, or whether it is tied to one unit.
 
 ## How to work
+- **Budget:** 150 tool calls. If you reach it, report what you have, and list what you didn't get to.
 - **Keep your context lean:** aim to stay under about 150k tokens.
   - Use `grep -n`, `grep -c` and `wc` to find things, then read only the lines you need (`sed -n 'A,Bp'`). Most modules start with a `//!` doc that says what they do: read those first.
   - Never read a whole large file, `ARCHITECTURE.md` (712 KB), or a log.

@@ -23,6 +23,7 @@ This section overrides m5-common and the rest of this file where they differ.
 - **Read lean.** Read the core `ARCHITECTURE.md` in full. From `docs/architecture/`, read only the docs your phase touches: the core's index says which. In code, find what you need with `grep -n`, then read just those lines (`sed -n 'A,Bp'`). Never read a whole large file or a log.
 - **Tests.** While you work, run the tests for the code you touch, such as `cargo test -p sc_sim --lib <module>::` or `cargo test -p sc_sim --test sim <file>::`, and write unit tests for each new module. At the end, run each of these once: fmt, clippy (`-D warnings`), `cargo test --workspace` and the seed sweep (about 6 s). Don't run ai_games, the soaks or perf A/Bs: the Director runs them between milestones.
 - **Comments.** Cite the design section by its full path, and mark placeholders `Placeholder (QNNNN point N)` or `Placeholder (not in the design: why)`. Don't quote the design beyond a few words, and don't record history (which slice or design change did what). Don't rewrite existing comments.
+- **Budget.** Your brief gives your phase a budget of tool calls, usually 250. If you reach it, stop at a green, committed point and hand off what is left. Context is the cost: every call carries everything you have read so far, so read only what you need.
 - **Handoff.** End your report with **Handoff**, at most 8 lines: what the next phase needs to know, such as the types, functions and files it builds on, and anything left undone.
 
 ## Read first (instead of m5-common's "Read first" 2 and 4)
