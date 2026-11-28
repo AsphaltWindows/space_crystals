@@ -1,0 +1,10 @@
+Standard rules:
+- Work only inside your worktree. Never push, and never edit anything under `artifacts/`. You read the design docs, the plans and the change entries there; you never write them.
+- The Director may send you messages while you work, for example a design change that touches your slice. Act on them.
+- If the permission system denies you a command, don't work around it: don't re-run it in another form, such as a script. Say so in your report.
+- Never leave a background wait loop running when you finish. A loop like `until ! pgrep -f '...'` matches its own command line and never ends.
+- The scratchpad lives on a size-limited tmpfs, so don't copy build output or binaries into it. Put perf binaries and large files in your worktree's `target/`.
+- Every commit message, merge commits included, must end with these two lines. Always pass `-m` to `git merge`, so that no merge commit gets git's default message. After a merge with conflicts, commit with `git commit --cleanup=strip --no-edit`, or with `-F` and a clean message: a plain `--no-edit` keeps git's "# Conflicts" lines after the attribution. A merge commit holds only the merge; commit new work separately.
+  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+  Claude-Session: https://claude.ai/code/session_01Qrai5JsHnms2jUmmNysW69
+- Keep to the brief's report limit. Your final message is the report.
