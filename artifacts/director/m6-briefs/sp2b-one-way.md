@@ -4,7 +4,9 @@ Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea9
 
 ## Where things stand
 - **SP phase 1** (`971ba38a`) put the Prism into production. Its def carries `one_way`, but nothing reads it yet.
-- **SP2a** added the thrust charges. Its handoff: FILLED IN AT LAUNCH.
+- **SP2a** (`a112ace7`) added the thrust charges, `crate::thrust`, keyed by `UnitDef::thrust`. It did not touch `one_way`. From its handoff:
+  - it added `Reject::NoCharges` ("every charge is spent") in `crates/sim/src/sim/gate/reject.rs`, beside `Reject::LacksAbility`;
+  - `crates/sim/tests/prism/` exists: `main.rs`, `thrust.rs`, `launch.rs` and `saves.rs`. Add your tests in a new file there.
 
 ## The architecture
 Read the core, then only the Tunnel Network's paragraphs: `grep -n -i 'network\|transit' docs/architecture/object-model-holding.md`.

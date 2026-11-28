@@ -4,7 +4,12 @@ Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea9
 
 ## Where things stand
 - **SP phase 1** (`971ba38a`): the Prism is in production, and it launches (rise, then unfold) with its orders held.
-- **SP2a:** the thrust charges (`OrderKind::Thrust`), a sim mechanic. Its handoff: FILLED IN AT LAUNCH.
+- **SP2a** (`a112ace7`): the thrust charges (`OrderKind::Thrust`, `crate::thrust`), a sim mechanic. From its handoff:
+  - **The texts:** `Reject::NoCharges` is "every charge is spent", and `Reject::LacksAbility` is "none of the units has the ability". The client has no text for `NoCharges` yet: it falls through to `CANNOT_DO_TEXT` in `feedback.rs`.
+  - **Greying R:** the panel's probe calls `sc_sim::thrust::charges_left(o) == 0`, or checks for the gate's `Err(NoCharges)`. `thrust::thrusts(o)` says whether a unit has the ability at all.
+  - **Drawing:** `Object::thrust.burst` is `Some` while a burst runs, and `Burst::step` gives its direction.
+  - **Its client placeholders, for you to replace:** no indicator for a Thrust (`command_ui/indicators.rs`, two matches), and the Move pointer (`command_ui/resolution/pointer.rs`).
+  - **Q0200 (open):** an order given during a burst doesn't stop it, and a thrust at the Prism's own position goes along its facing. Both are placeholders in `crates/sim/src/thrust.rs`.
 - **SP2b:** the one-way rule, a sim mechanic. Its handoff: FILLED IN AT LAUNCH.
 
 ## The design

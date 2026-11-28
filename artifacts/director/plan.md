@@ -2809,6 +2809,14 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **The cause:** the checker. `overlaps::overlapped_before` listed only the units alive at the end of the tick. It now also counts the units that died in it (`SimEvent::Died`), at the shapes it saw a tick earlier.
   - **The test:** `an_idle_drone_moves_off_one_that_dies_in_the_same_tick` (`crates/sim/tests/movement_separate.rs`).
   - **The AI games** now play all 192 games without a violation. But one outcome check fails: in the GDO mirror on playtest.json, player 1's standard doesn't beat a passive player 2 within 15 minutes (B2, Running). Its table is `scratchpad/b1_ai_games.txt`.
+- **SP2a The thrust charges, as a sim mechanic** (Opus, 147 calls against a budget of 110, 24.5M input tokens; brief `scratchpad/briefs/sp2a-thrust.md`; merged as `a112ace7`):
+  - **The mechanic:** `crate::thrust` (`crates/sim/src/thrust.rs`), `Thrust { used, burst }` on `Object::thrust`, keyed only by `UnitDef::thrust`. It is created in `new_object`, filled in on load, and kept through a change of kind. It is hashed and saved only while present (Object tag 17).
+  - **The order:** `OrderKind::Thrust(Vec2)` (tag 24) and `Behaviour::Thrust { fired }` (tag 17). A thrust spends its charge as it starts, moves the full 3 GU toward the point, and waits out its burst. The gate refuses `LacksAbility` and the new `NoCharges`.
+  - **The burst** is added in `movement::step` after the HoverCraft clamp, never into velocity or momentum. I3 and I5/I7 allow for it (`thrust::burst_moved`).
+  - **Placeholders:** Q0198 (a queued thrust with no charge left ends at once); Q0200 (an order given during a burst doesn't stop it, and a thrust at the Prism's own position goes along its facing). A burst also ends if its unit enters the network.
+  - **The client** got only the arms its exhaustive `OrderKind` matches need: no indicator, and the Move pointer, which SP2c replaces.
+  - **Tests:** 5 unit tests, 7 in `crates/sim/tests/prism/`, and the X1/X2 tests. 3271 tests pass, 67 ignored. No golden moved.
+  - **The overrun** (34% over the budget) led to the budget watcher: see `token-efficiency.md`.
 
 ## In progress
 - **A token-efficient way of working is adopted** (`artifacts/director/token-efficiency.md`; the user, 2026-11-28: "just implement whatever proposal you write up"). New agents were paused until then. GS1 and SP were asked to wrap up at a green, committed point and hand off what is left, and X4 was stopped as it started.
@@ -2829,12 +2837,12 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **B2, the GDO's waves stall on playtest.json after the scan change** (Opus, budget 100 calls; brief `scratchpad/briefs/b2-waves-stall-after-scans.md`), on master after `49e13845`.
     - Before A2, player 1's standard beat a passive player 2 at 7:41. Now it sends 11 waves and has no winner at 20:00. The GDO's rush as player 2 fails the same way. Most other mirrors against a passive player take longer, the Cults' standard on playtest.json 14:26 of its 15 minutes.
     - B2 finds what the waves do, and which of three it is: a sim bug, the computer player's orders not fitting the new reach (it fixes those), or a design effect for the Designer, such as Q0196's band.
-  - **SP2a, the thrust charges** (Opus, budget 110 calls; brief `scratchpad/briefs/sp2a-thrust.md`), on master after `49e13845`, beside B2: they share no files. B2 owns the scans and `crates/ai`.
-- **M6-SP is split in phases.** Phase 1 merged as `971ba38a` (Built). Phase 2 is now three: **SP2a** the thrust charges (Running), **SP2b** the one-way rule, and **SP2c** the Prism's panel, drawing, docs and QA (briefs `scratchpad/briefs/sp2a-thrust.md`, `sp2b-one-way.md` and `sp2c-prism-panel-qa.md`).
+  - **SP2b, the one-way rule** (Opus, budget 60 calls, watched at 48; brief `scratchpad/briefs/sp2b-one-way.md`), on master after `a112ace7`, beside B2: they share no files.
+- **M6-SP is split in phases.** Phase 1 merged as `971ba38a` (Built). Phase 2 is now three: **SP2a** the thrust charges (Built, `a112ace7`), **SP2b** the one-way rule (Running), and **SP2c** the Prism's panel, drawing, docs and QA (briefs `scratchpad/briefs/sp2a-thrust.md`, `sp2b-one-way.md` and `sp2c-prism-panel-qa.md`).
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
 - **Next:** one phase at a time, each refactor just before the first slice that builds on it. The refactors' shapes and sizes are in `artifacts/director/x4-mechanics-audit.md` §5.
   1. The design answers: **A1**, **A2–A2c** and **A3** are built.
-  2. **SP2a**, the thrust (a mechanic, Opus, 110 calls; Running); **SP2b**, the one-way rule (a mechanic, Opus, 60 calls); **SP2c**, the Prism's panel, drawing, docs and QA (an entity phase, Sonnet, 120 calls). The old SP2a was split, to fit the 120-call limit. No refactor is needed.
+  2. **SP2a**, the thrust, is built; **SP2b**, the one-way rule (a mechanic, Opus, 60 calls), is running; **SP2c**, the Prism's panel, drawing, docs and QA (an entity phase, Sonnet, 120 calls). The old SP2a was split, to fit the 120-call limit. No refactor is needed.
   3. **R1a**, one landing state and one landing part in the aircraft's def, with one take-off, and then **R1b**, one landing step for any spot, the landed rules for any unit, and Field landing at a point. Then **R2**, the carrier archetypes (Ground, Landing, Docked; Paradrop; an Unload All with a point). Then **GS2**, the Chopper's passengers.
   4. **R3**, CP's mechanics: the runway landing, the Docked carrier with Paradrop, and one predicate for orders held during a process. Then **CP**, the Pilgrim.
   5. **SL → SR**: rows on the existing Deploy.
@@ -3330,6 +3338,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0197 | Hold Position's target scan: SightRange from the unit's centre (0467; BaseAutoTargeting's "same target scanning as idle"), or weapon range (`command_behaviors.md > HoldingPosition` step 3, as built)? The two differ for the Gunner, the Rocketman and the Twister (their half width), and for artillery on hold firing at enemies that others spot | no: proceeding on (a), weapon range, as built | open |
 | Q0198 | A Shift-queued thrust that starts with no charge left: (a) queue freely, and it ends without moving; or (b) the gate counts the thrusts already queued, and R greys out once every charge is spoken for | no: proceeding on (a) (SP2a) | open |
 | Q0199 | A loaded Recruit's right-click on an unfinished own Storage: (a) assists, as built, since no unfinished drop-off takes a delivery (as 0116 and 0234 rule for the Egress Node and the Tunnel); or (b) delivers, as 0487's Verification 4 and the Recruit's table read. Raised by A3 | no: proceeding on (a), marked `Placeholder (Q0199)` in A3's test | open |
+| Q0200 | The Prism's thrust: (1) does an order given during a burst stop it? As built, no: orders steer the drift only, and a new thrust waits for the burst to end. (2) A thrust at the Prism's own position: as built, along its facing; or refused. Raised by SP2a | no: proceeding on (a) for both, as built | open |
 
 ## Design change entries
 Last triaged: 0464.
