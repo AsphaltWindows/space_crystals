@@ -2457,3 +2457,6 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Purifier (Syndicate heavy infantry, Hideout, Forge, flamethrower) started; user thinking about the attack (friendly fire). Not in docs yet.
 - Q0194: empty worker right-click: own rules decide (repair default on damaged own building) (0487).
 - Q0195: automatic return drops queued orders (0488). Q0194 confirmed by user.
+
+## Session end (2026-11-28)
+Done this session: Mirage + Shroud linger; Garrison no-fire for Disciples; rally parking; Metabolism/Inspire %; mines; Hornet AoE; Bike MinRange; reposition-to-aim; Pilgrim; Bastion (+ Machine Shop); Shadebringer single tank; Tech Gates; mechanics migration (systems/mechanics/, 10 docs, 0471–0483); Q0176–Q0195 answered (0449–0488). Purifier shelved. Next: Colonists units.
