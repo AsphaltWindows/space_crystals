@@ -34,6 +34,7 @@ Read `factions/cults/units/pilgrim.md` (all of it), `factions/cults/structures/a
 - **The designer's placeholder numbers** are in `pilgrim.md > Placeholder stats`: the Silhouette, HP, armour, sight and SeparationRadius; GliderMovement; the cost; the drop's 2 frames, the fall's 48 and the landing's 32; the panel (Q Move, X Stop, E HoldPosition, R Drop, F Unload All). Register them as they are.
 - **The unload side:** the runway's long side to the left of the take-off direction, at the nearest free spots if it is crowded (a placeholder).
 - **After a drop** it doesn't come back by itself: it circles where it is, as a glider's Stop does.
+- **Recruits' right-click on a damaged landed Pilgrim:** Enter while it has room, and Repair once it is full, as for every unit holder (`recruit.md > Right-Click Resolution`: "Damaged own building or vehicle (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins [...] **Except when it is full**"). D: Repair always repairs.
 - **Anything the docs don't settle:** a placeholder, cited as m6-common says, and a line in your report. The Director files the question.
 
 ## Code
@@ -45,8 +46,10 @@ Filled in when ST1, GL and GS2 have merged. What is known now:
   - W is greyed without a Scrap Hangar, the TechPrerequisite rule every producer uses.
 - **The landing:** GH2's `landing.rs` lands aircraft on slots, and GL added the glider's arm. A runway landing (lining up along it) is a third arm. A landed Pilgrim is a ground target through `combat::object_domain`.
 - **The carrier:** ST1's `UnitDef::carries` and `Place::Carrier`, with GS2's loading onto a landed aircraft. Loading only while landed on an Airstrip, Unload All only while landed, and everyone dies with the carrier.
+  - **ST1's note:** the Pilgrim (16 places) loads while landed with no extra rule (`carry::loads` is true for a landed aircraft), but "out along the runway's side" needs its own spots in place of `carry::ring_spots`.
+  - **Q0191 is open** (a crowded unload, who sees the passenger pips). Build as ST1 did.
 - **The fall** is new: a dropped passenger is an air target (through `combat::object_domain`) that can't act for 48 frames, then is put on the map below its jump point, or at the nearest walkable spot (`sim/spot_work.rs::free_spot` or GS2's landing-spot search).
-- **Recruits' repair** (M5): let its target filter accept a landed Pilgrim.
+- **Recruits' repair** (M5): let its target filter accept a landed Pilgrim, and the right-click resolution weigh Enter against Repair by room, as it does for buildings.
 - **Hash tags** (`artifacts/director/hash-tags.md`): new `Object` state hashes and saves only while present, under **Object tag 35**; the Drop order hashes as **`OrderKind` tag 43**; **Behaviour tag 32** and **Mover tag 18** (the runway landing and the fall), if needed. A sub-tag inside `AircraftState` (Object tag 14) takes the next free one after GH2's 1, GL's and SA's.
 - **The ruleset (X1):** the new def fields are structure, and the numbers are def numbers, by m6-common's checklist.
 - **The controls doc:** regenerate it.

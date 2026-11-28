@@ -33,6 +33,10 @@ Read `factions/syndicate/units/subterranean_transport.md` as it stands, from `> 
 Follow `m6-plan.md > ST2`'s Code list. Since the plan:
 - **The pair** is data on M6-GA's `vehicle_deploy`, as SL's Battery is. GA made T44 data-driven for you. Read GA's and ST1's Built entries in `artifacts/director/plan.md`, and their notes for you.
 - **The domain:** ST1's accessor puts the surfaced kind on Ground (`UnitDef::domain`). The Burrowed kind keeps its base's Underground.
+- **ST1's notes for you:**
+  - Burrow and Surface are a `vehicle_deploy` pair between the two types. Until you build it, R shows `Planned::Burrow`/`Surface`.
+  - Passengers are keyed by the carrier's id, which a kind change keeps, so they stay aboard through both.
+  - `carry::loads` is false underground: boarding a burrowed Transport is refused (`NotATunnel`), and so is its F (`NothingInside` when empty). Its passengers' deaths underground are already covered.
 - **Nav:** the drillable class grid, on Z2's lazy grids.
 - **Collision:** `Domain::hard_collision` is false for Underground. This closes gap G14.
 - **Hiding:** an underground unit's arm in `Hiding::of`. GM built the mine's arm; add the unit's beside it.

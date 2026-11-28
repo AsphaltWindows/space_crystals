@@ -7,7 +7,7 @@ def strip(line):
         toks = toks[:-3]
     return " ".join(toks)
 path = sys.argv[1]
-base_path = sys.argv[2] if len(sys.argv) > 2 else "/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/dry/base_rows.txt"
+base_path = sys.argv[2] if len(sys.argv) > 2 else "/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/tools/base_rows.txt"
 rows = sorted(strip(l) for l in open(path) if l.startswith(("--map", "--scenario")))
 base = sorted(" ".join(l.split()) for l in open(base_path))
 print(len(rows), "rows;", len(base), "base;", "identical" if rows == base else "DIFFER")
