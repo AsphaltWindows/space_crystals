@@ -26,7 +26,7 @@ A **garrison** is an object that infantry enter and **fire out of**. Unlike a ca
 ## Archetypes
 
 ### Garrison structure
-A building. **Destroyed**: occupants appear at once **inside its former footprint** (Cults Evacuation on Destruction, factions/cults/economy.md; for the Bunker its doc says "around its footprint", see the Bunker's doc). Panel: **A: Eject All**.
+A building. **Destroyed**: occupants appear all at once **inside its former footprint**, unharmed, spread over it; overlapping units ignore each other until separated (user, 2026-11-28, for every garrison structure; as the Cults Evacuation on Destruction, factions/cults/economy.md). Panel: **A: Eject All**.
 
 ### Garrison vehicle
 A vehicle whose occupants fire out (to be defined with the first one: the Cults heavy vehicle, in design). Open: firing on the move, range from its Silhouette's edge, where occupants appear when it is destroyed.

@@ -2443,3 +2443,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0193 migration: systems/mechanics/aircraft_landing.md (Vertical/Runway/Field; Assigned/Network base) (0473). Flag: destroyed-with-structure now general (Pilgrim on Airstrip) — to confirm.
 - Q0193 migration: systems/mechanics/garrisoning.md (0475). Flag: Bunker evacuation 'around' vs Garrison 'inside' footprint.
 - Q0193 migration: systems/mechanics/hp_restoration.md (0476).
+- Bunker evacuation inside former footprint (user) (0477).
