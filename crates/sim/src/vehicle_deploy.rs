@@ -36,13 +36,17 @@
 //!   unit takes an order its type can carry out ([`can_take`]), which adds to the gate's own rules that a unit whose
 //!   type can't move ignores an order that would take it somewhere ([`moves`], [`immobile`]: "one it can't carry out
 //!   (e.g. **Move**, since a deployed unit can't move)").
+//!   An order given with Shift to a unit that doesn't deploy now is judged against the type the unit will be when it
+//!   runs, after the deploys queued before it ([`kind_then`], [`can_take_queued`]; `systems/mechanics/modes.md >
+//!   Archetype: Deploy (an order)`): a Move Shift-queued behind an Undeploy is taken, a Deploy behind a Deploy isn't.
 //! - **Completion** (the step right after the Modes step, before phase 5a, `Sim::step_vehicle_deploys`; T44): the
 //!   frame that is the deploy's last done, the unit becomes a unit of type `into` (`Sim::change_kind`: the same object,
 //!   its orders and its move kept, its attack the new type's, a `SimEvent::KindChanged`, which moves it to its new
 //!   SelectionGroup on the client, "with separate SelectionGroups"), its deploy order ends, and each order of its queue
 //!   is checked against the new type ([`can_take`], the gate's rule): one it can't carry out is dropped, with a
 //!   `SimEvent::OrderDropped`, which the client says as "the usual unavailable-command feedback". The unit acts as its
-//!   new type from that tick's first phase on, its held order first.
+//!   new type from that tick's first phase on, its held order first. The orders queued behind a later deploy it keeps
+//!   are checked as that one completes, against the type it makes.
 //! - **Timing** (as `docs/architecture/economy.md > Economy > Recipe timing` counts frames): a deploy of N frames given in tick `t`
 //!   to a unit with nothing before it starts in phase 5a of `t`; the unit deploys in ticks `t` to `t + N - 1` as its old
 //!   type, and is its new type from tick `t + N` on, whose step completes the deploy.
@@ -193,6 +197,44 @@ pub fn can_take(o: &Object, kind: OrderKind, target: Option<Domain>, research: R
         return Err(Reject::DroneOut);
     }
     Ok(())
+}
+
+/// The type `o` will be once the vehicle deploys among its orders are done, the one under way and those queued
+/// (`systems/mechanics/modes.md > Archetype: Deploy (an order)`: "**Queueable**", each order then "checked against the
+/// new type"): what an order Shift-queued now is judged against ([`can_take_queued`]). Each deploy in turn makes the
+/// type
+/// it names if the type before it deploys into that one; one that doesn't changes nothing, dropped as the deploy before
+/// it completes (`Sim::step_vehicle_deploys`). Driven by the defs' pairs (`UnitDef::vehicle_deploy`): its type now for
+/// a
+/// unit with no deploy among its orders.
+pub fn kind_then(o: &Object) -> ObjectKind {
+    let Some(orders) = &o.orders else {
+        return o.kind;
+    };
+    let current = orders.current.iter().map(|active| active.order.kind);
+    let queued = orders.queue.iter().map(|order| order.kind);
+    current.chain(queued).fold(o.kind, |kind, order| match order {
+        OrderKind::VehicleDeploy { into } if deploys_into(kind, into) => into,
+        _ => kind,
+    })
+}
+
+/// [`can_take`] for an order of `kind` given with Shift to `o`, which doesn't deploy now: why the unit it will be when
+/// the order runs can't carry it out, if it can't. That unit is `o` of the type [`kind_then`] makes, with no deploy
+/// under way (those before the order done), as `Sim::change_kind` leaves it: the same object, of the new type. The
+/// gate's (`Sim::check_order`); an order it takes is checked again, against the type the deploy right before it makes,
+/// as that one completes (`Sim::step_vehicle_deploys`).
+pub fn can_take_queued(o: &Object, kind: OrderKind, target: Option<Domain>, research: Research) -> Result<(), Reject> {
+    let then = kind_then(o);
+    if then == o.kind {
+        return can_take(o, kind, target, research);
+    }
+    let mut later = o.clone();
+    later.kind = then;
+    if let Some(orders) = &mut later.orders {
+        orders.current = None;
+    }
+    can_take(&later, kind, target, research)
 }
 
 /// The state a deploy of a `kind` unit starts with, as its order starts in phase 5a (`orders::vehicle_deploy`): none of

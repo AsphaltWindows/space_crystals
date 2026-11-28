@@ -57,10 +57,16 @@ impl Sim {
             };
             self.known_domain(owner?, target).ok()
         };
-        let dropped: Vec<usize> = (orders.queue.iter().enumerate())
-            .filter(|(_, order)| vehicle_deploy::can_take(o, order.kind, domain(order.kind), research).is_err())
-            .map(|(i, _)| i)
-            .collect();
+        // Up to the next deploy it keeps: an order behind that one runs as the type it makes, as the gate judged it
+        // (`vehicle_deploy::can_take_queued`), and is checked as that one completes.
+        let mut dropped = Vec::new();
+        for (i, order) in orders.queue.iter().enumerate() {
+            if vehicle_deploy::can_take(o, order.kind, domain(order.kind), research).is_err() {
+                dropped.push(i);
+            } else if matches!(order.kind, OrderKind::VehicleDeploy { .. }) {
+                break;
+            }
+        }
         if dropped.is_empty() {
             return;
         }

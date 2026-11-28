@@ -9,7 +9,9 @@
 //!   `SimEvent::OrderDropped`, an Attack on an aircraft too, an Attack on a ground unit runs;
 //! - `gate`: a second deploy refused while one is under way (`Reject::Deploying`), a deploy to a type that doesn't
 //!   deploy into the type it names, and the orders that would move a unit whose type can't move (`Reject::CannotMove`);
-//! - `queue`: a Move, then a Shift-Deploy, deploys where the move ends;
+//! - `queue`: a Move, then a Shift-Deploy, deploys where the move ends; an order Shift-queued behind a queued deploy
+//!   is judged against the type that deploy makes (a Move behind an Undeploy taken and run, a second Deploy behind a
+//!   Deploy refused, an Attack on an aircraft behind a Deploy refused), and two deploys queued run in turn;
 //! - `obstacle`: deploying and deployed, it never yields: a friendly unit goes round it, and nothing pushes it.
 //!
 //! Auto-targeting is off (`TestSim::without_auto_targeting`), so that only orders fight.
