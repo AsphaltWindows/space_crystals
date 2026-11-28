@@ -44,6 +44,7 @@ Index of the design docs. Paths are relative to this folder.
 | `systems/mechanics/production.md` | Unit production: common queue rules (paid when queued, capacity reserved at start, blocked exit, destroyed refunds); Queue producer, Pool producer |
 | `systems/mechanics/construction.md` | Construction: payment and refunds; Builders outside, Builder inside, Placed by a constructor |
 | `systems/mechanics/spawned_objects.md` | Stocks and purchase; spawned objects: Piloted object, Deployed object, Copy |
+| `systems/mechanics/gathering.md` | Gathering: Worker round trip (job rules), Stationary extractor |
 | `systems/mechanics/carrying.md` | Carrying units: Ground, Landing and Docked carriers, Paradrop; loading, unloading, passengers, carrier destroyed |
 
 ## factions/ — one folder per faction

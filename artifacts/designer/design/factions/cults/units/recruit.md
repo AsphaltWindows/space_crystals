@@ -36,7 +36,7 @@ The Recruit is the Cults' basic worker unit, automatically produced by Recruitme
 
 ## Gathering
 
-Recruits gather Space Crystals and deliver them to Storage.
+Recruits gather Space Crystals and deliver them to Storage (**Gathering, Worker round trip**: systems/mechanics/gathering.md).
 
 - CarryCapacity: 2 Space Crystals per load
 - MiningDuration: 8 frames
