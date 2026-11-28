@@ -32,7 +32,7 @@ The core, then the Airfield paragraphs of `docs/architecture/production.md` only
      - an aircraft on its slot holds fire (`crates/sim/src/aircraft.rs` near line 81, `crates/sim/src/landing.rs` near 48);
      - a landed aircraft is out of the air separation (`landing.rs` near 20);
      - a new aircraft with no free slot waits inside (find its mark);
-     - the queued orders (`air_base.rs` near 12, `sim/aircraft.rs` near 41), which now follow 0466.
+     - the queued orders behind a Return to Base (`air_base.rs` near 12), which now follow 0466. The automatic return's mark (`sim/aircraft.rs` near 41: the orders queued behind the one the aircraft ran out in) stays, as `Placeholder (Q0195)`: 0466 doesn't settle it. (Corrected at A1's question.)
    - **The slots' layout keeps its mark** (`landing.rs` near 9): it is still a placeholder, now the designer's (`airfield.md > Landing slots`). Cite that section.
    - **From 0469:** where each passenger comes out, and that those with no free spot stay aboard (`crates/sim/src/carry.rs` near 40); who sees the pips; and F on the move. Find their marks with `grep -rn 'Placeholder (not in the design' crates | grep -i 'pip\|unload\|aboard\|move'`.
    - Leave every other mark as it is.

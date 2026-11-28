@@ -3292,6 +3292,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0192 | The Dragonfly: must it face its target exactly to launch its homing missile (from off its heading it can go a long time without firing at a circling Sparrow), or does a homing missile get a launch cone? And its landing approach's placeholders (from M6-GL) | no | answered by 0470 |
 | Q0193 | The design's organization: define each shared mechanic (vehicle deploy, carrying units, aircraft landing and runways, channelling, heals and auras, ...) once in its own `systems/` doc, and have unit docs compose them, to match mechanic-first implementation (raised at the user's request) | no | answered by 0471 (option a: `systems/mechanics/`), with migrations one entry at a time (0472 Unit Modes) |
 | Q0194 | An empty Recruit's right-click on a damaged or unfinished own Storage: Repair or Assist (the Recruit's table, as built), or a plain Move (the gathering doc's rule for empty workers)? Found by X4 for 0484 | no: proceeding on the Recruit's table, as built; A3 tests the undamaged case only | open |
+| Q0195 | The automatic return and the orders queued behind the one the aircraft ran out in: dropped (as built, like the Specter's), run on landing (0466's rule), or run after a full rearm? Raised by A1; Q0189 and 0466 cover only orders queued behind a return | no: proceeding on dropped, as built; A1 marks it `Placeholder (Q0195)` | open |
 
 ## Design change entries
 Last triaged: 0464.
