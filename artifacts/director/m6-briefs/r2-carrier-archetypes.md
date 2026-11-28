@@ -1,6 +1,6 @@
 # Task R2: The carrier archetypes, with the Supply Chopper as the first Landing carrier (a mechanic phase before GS2)
 
-Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, and your budget is 250 tool calls.**
+Read `/tmp/claude-1000/-home-iv-dev-space-crystals/0fe17aed-7223-49e6-819d-e4ea988641e6/scratchpad/briefs/m6-common.md`, section "How you work" only. Its rules on phases, reading, tests, comments, budget and handoff apply. **This is a mechanic phase, and your budget is 120 tool calls.**
 
 ## Why
 The design defines carrying once, in `systems/mechanics/carrying.md`, with three archetypes. The code's carrier (ST1's, for the Subterranean Transport) is shaped for the Ground carrier only:
@@ -11,7 +11,7 @@ The design defines carrying once, in `systems/mechanics/carrying.md`, with three
 The Supply Chopper (GS2) is a Landing carrier, and the Pilgrim (CP) a Docked carrier with Paradrop. This phase shapes the carrier by archetype, in its def, and makes the Chopper the first Landing carrier in the sim.
 
 ## Where things stand
-- **R1** made landing one capability, with Field landing at a point. Its handoff: FILLED IN AT LAUNCH. Land the carrier through it.
+- **R1a and R1b** made landing one capability, with Field landing at a point. R1b's handoff: FILLED IN AT LAUNCH. Land the carrier through it.
 - **The mechanics audit,** `artifacts/director/x4-mechanics-audit.md` §2 "Carrying" and §5 "The carrier archetypes". Read those parts only.
 - **The carrier now:**
   - `crates/sim/src/carry.rs`;

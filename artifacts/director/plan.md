@@ -2804,7 +2804,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
      - **A2**: 0467, target scans agree with the unit's own sight; most goldens move.
      - **A3** (Sonnet, tests only, after A2): the tests of three answers that match the build: 0484, the Recruits' job rules; 0487, an empty worker's right-click; 0488, the automatic return.
   2. **SP2a**, the thrust and one-way mechanics, and **SP2b**, the Prism's panel and QA. No refactor is needed.
-  3. **R1**, the landing capability: one `Object::landing` with the aircraft's own `LandingDef`, and one step for the claims, the approach, the descent and the take-off. Then **R2**, the carrier archetypes (Ground, Landing, Docked; Paradrop; an Unload All with a point). Then **GS2**, the Chopper's passengers.
+  3. **R1a**, one landing state and one landing part in the aircraft's def, with one take-off, and then **R1b**, one landing step for any spot, the landed rules for any unit, and Field landing at a point. Then **R2**, the carrier archetypes (Ground, Landing, Docked; Paradrop; an Unload All with a point). Then **GS2**, the Chopper's passengers.
   4. **R3**, CP's mechanics: the runway landing, the Docked carrier with Paradrop, and one predicate for orders held during a process. Then **CP**, the Pilgrim.
   5. **SL → SR**: rows on the existing Deploy.
   6. **R4**, the stock's purchase rule (queue up to the free stock), then **GM**, the mines, then **ST2** (rows).
