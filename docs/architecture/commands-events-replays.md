@@ -60,8 +60,8 @@ Read this when you add a `Command`, a `SimEvent` or a gate check, or touch how c
   client picks one, design change 0125), with a site allowed as far as the player knows, its pending sites reserved
   (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). `Enter(target)` (slice M4-C,
   `systems/controls/commands.md > Enter`, `Sim::check_enter`) names the structure being entered (design change 0319),
-  the player's own (`NotOwned`): a Tunnel in operation, and goes to the units its tier lets in (`network::admits`;
-  `NoTransit` if none), or a building that holds units, not a site (`UnderConstruction`; slice M5-F1), and goes to
+  the player's own (`NotOwned`): a Tunnel in operation, and goes to the units its tier lets in (`network::lets_in`: never to a unit whose type is one way, `OneWay` if all
+  are; `NoTransit` if none), or a building that holds units, not a site (`UnderConstruction`; slice M5-F1), and goes to
   the units of the kinds it takes in (`NotAccepted` if none); anything else is `NotATunnel`. Any unit of the target's
   owner may enter, whatever its type's faction. `Build { kind, origin, orientation }` (slice
   M4-E, `Sim::check_build`) goes to the one unit among them that builds `kind` (`NoWorkers`, `SeveralConstructors`),

@@ -315,3 +315,49 @@ fn a_72_by_48_vehicle_comes_out_of_side_a_facing_out_its_box_turned_with_it() {
         );
     }
 }
+
+/// `factions/syndicate/units/prism.md > One way only`, by the def (`UnitDef::one_way`, [`network::lets_in`]): a Tier 3
+/// Tunnel lets the Prism out ([`network::admits`]) but not in ([`NoTransit::OneWay`]), and a Peacekeeper on a Hover
+/// Craft base and a Guard made one way on their way in, the one flying to the air entry door and the other walking to
+/// the entry path, have their Enter end where they are (`SimEvent::EnterFailed`), on the map.
+#[test]
+fn a_one_way_unit_is_let_out_and_not_in() {
+    let _flyer = TestDef::unit(ObjectKind::Peacekeeper, |unit| unit.base = UnitBase::HoverCraft);
+    let mut t = base().start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P1, Vec2::new(866.0, 400.0)) // 2: the flyer
+        .spawn_unit_at(1, ObjectKind::Guard, P1, Vec2::new(700.0, 400.0)); // 3
+    t.debug_at(1, DebugCommand::SetTier { id: TUNNEL, tier: 3 });
+    t.run_until(1);
+    let tunnel = t.sim().object(TUNNEL).unwrap();
+    assert_eq!(network::lets_in(tunnel, ObjectKind::Prism), Err(NoTransit::OneWay));
+    assert_eq!(network::admits(tunnel, ObjectKind::Prism), Ok(()), "the way out");
+    assert_eq!(network::lets_in(tunnel, ObjectKind::Specter), Ok(()));
+    let (flyer, guard) = (ObjectId(2), ObjectId(3));
+    let enter = Command::Order {
+        units: vec![flyer, guard],
+        kind: OrderKind::Enter(TUNNEL),
+        queue: false,
+    };
+    t.at(2, P1, enter);
+    t.run_until(3);
+    let one_way =
+        [ObjectKind::Peacekeeper, ObjectKind::Guard].map(|kind| TestDef::unit(kind, |unit| unit.one_way = true));
+    t.run_until(4);
+    drop(one_way);
+    let failed: Vec<ObjectId> = (t.events().iter())
+        .filter_map(|(_, e)| match *e {
+            SimEvent::EnterFailed {
+                unit,
+                target: TUNNEL,
+                full: false,
+            } => Some(unit),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(failed, [flyer, guard]);
+    assert!(
+        t.sim().object(flyer).is_some() && t.sim().object(guard).is_some(),
+        "on the map"
+    );
+}

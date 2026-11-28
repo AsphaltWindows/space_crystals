@@ -62,7 +62,7 @@ Read this when you work on units off the map (the held store), sites, buildings 
   `accepts` the kinds let in. The Armory is the one so far (B in, C out, 10, Recruits). The units inside are in the
   held store at `Place::Building(building)` (`Sim::held_in`: longest inside first, by `Held::since` then id), so
   everything the store does for a Tunnel's (references, the hash, the saves, a defeat) holds for them too.
-  - **In**: M4-C's Enter order, generalized, not forked. `network::admits(target, kind)` asks `holding::admits` of a
+  - **In**: M4-C's Enter order, generalized, not forked. The ways in ask `network::lets_in`: `network::admits`, and at a Tunnel no unit whose type is one way (`UnitDef::one_way`, the Prism; `NoTransit::OneWay`, and `Reject::OneWay` when all of an Enter are; `factions/syndicate/units/prism.md > One way only`); the way out asks `network::admits` alone. `network::admits(target, kind)` asks `holding::admits` of a
     building that holds units (placed, owned, `Object::is_operational`: a site refuses, `Reject::UnderConstruction`
     at the gate; design change 0347 point 4: "a building under construction **can't be entered**; a right-click on
     it Assists", *Economy > Cults construction*; `accepts` names the kind, else `NoTransit::NotAccepted`,

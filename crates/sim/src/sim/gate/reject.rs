@@ -322,6 +322,9 @@ pub enum Reject {
     /// Every unit of a Thrust that thrusts has spent all its charges (`crate::thrust`;
     /// `factions/syndicate/units/prism.md > Movement`: "**Charges never come back**"): what greys a Prism's R.
     NoCharges,
+    /// Every unit of an Enter on the Tunnel is of a type that never goes back into the Tunnel Network
+    /// (`crate::network::one_way`; `factions/syndicate/units/prism.md > One way only`).
+    OneWay(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -423,6 +426,13 @@ impl fmt::Display for Reject {
             Reject::TowerTaken(id) => write!(f, "Supply Tower {} has another chopper attached", id.0),
             Reject::NoChopperAttached => write!(f, "none of the Supply Towers has a chopper attached"),
             Reject::NoCharges => write!(f, "every charge is spent"),
+            Reject::OneWay(tunnel) => {
+                write!(
+                    f,
+                    "none of the units can get back into the Tunnel Network (Tunnel {})",
+                    tunnel.0
+                )
+            }
         }
     }
 }

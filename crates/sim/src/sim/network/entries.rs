@@ -41,14 +41,16 @@ impl Sim {
     /// ([`Reject::NotOwned`]), and a Tunnel in operation ([`Reject::NotATunnel`]: "any Syndicate unit, when the target
     /// Tunnel's tier is sufficient for the unit's base category"), or a building that holds units and isn't under
     /// construction ([`Reject::UnderConstruction`]; design change 0347 point 4: "a building under construction
-    /// **can't be entered**"; slice M5-F1). The units it lets in take the order ([`network::admits`]), the others
+    /// **can't be entered**"; slice M5-F1). The units it lets in take the order ([`network::lets_in`]), the others
     /// ignore it; none is [`Reject::NoTransit`] at a Tunnel and [`Reject::NotAccepted`] at a building. A building's
     /// room is judged as a unit gets there, not here (0347 point 2). Any unit of the target's owner may enter, whatever
     /// faction its type belongs to: only a debug game has others. (M6-CM) An illusion doesn't go into a building that
     /// augments (`mirage::admitted`: "Illusions can't be augmented at the Altar themselves"). (M6-ST1) Or the target is
     /// a carrier that loads now ([`Reject::NotATunnel`] otherwise: `carry::loads`, the Subterranean Transport above
     /// ground, "it must be above ground"), which the units of a base it takes board, the carrier itself ignoring it;
-    /// none is [`Reject::NotAccepted`]. Its room is judged as a unit gets to it, as a building's is.
+    /// none is [`Reject::NotAccepted`]. Its room is judged as a unit gets to it, as a building's is. A unit whose type
+    /// is one way ignores it at a Tunnel (`network::one_way`; `factions/syndicate/units/prism.md > One way only`), and
+    /// an order whose units are all one way is [`Reject::OneWay`] there.
     pub(in crate::sim) fn check_enter(
         &self,
         player: PlayerId,
@@ -66,14 +68,17 @@ impl Sim {
         }
         let lets_in = |id: &ObjectId| {
             (self.objects.get(id)).is_some_and(|o| {
-                o.id != target && network::admits(object, o.kind).is_ok() && mirage::admitted(object, o)
+                o.id != target && network::lets_in(object, o.kind).is_ok() && mirage::admitted(object, o)
             })
         };
+        let one_way = |id: &ObjectId| (self.objects.get(id)).is_some_and(|o| network::one_way(o.kind));
+        let all_one_way = !units.is_empty() && units.iter().all(one_way);
         let admitted: Vec<ObjectId> = units.into_iter().filter(lets_in).collect();
         if admitted.is_empty() {
-            return Err(match building || carrier {
-                true => Reject::NotAccepted(target),
-                false => Reject::NoTransit {
+            return Err(match (building || carrier, all_one_way) {
+                (true, _) => Reject::NotAccepted(target),
+                (false, true) => Reject::OneWay(target),
+                (false, false) => Reject::NoTransit {
                     tunnel: target,
                     kind: None,
                 },
@@ -114,7 +119,7 @@ impl Sim {
 
     /// (M6-SD) Unit `unit`, an air unit (`network::uses_air_doors`), is on an Enter order to `target` in `state`
     /// (module docs, `orders::enter`):
-    /// - **The target doesn't suit it** (it stands, is its owner's and lets the unit in, [`network::admits`]: a Tunnel
+    /// - **The target doesn't suit it** (it stands, is its owner's and lets the unit in, [`network::lets_in`]: a Tunnel
     ///   in operation at Tier 3, the tier it had before an upgrade under way): "the Enter order ends and the unit
     ///   idles" (`SimEvent::EnterFailed`), where it is, descending or not.
     /// - **It descends**: one more tick of its descent; the descent over, it goes into the network
@@ -130,7 +135,7 @@ impl Sim {
             return;
         };
         let suits = self.objects.get(&target).filter(|target| {
-            target.owner.is_some() && target.owner == o.owner && network::admits(target, o.kind).is_ok()
+            target.owner.is_some() && target.owner == o.owner && network::lets_in(target, o.kind).is_ok()
         });
         let (Some(paths), Some(tunnel)) = (
             suits.and_then(Paths::of_object),
@@ -183,7 +188,7 @@ impl Sim {
     }
 
     /// Unit `unit` is on an Enter order to `target`, its walk over or not (`walked`).
-    /// - **The target suits it** (it stands, is its owner's and lets the unit in, [`network::admits`]) **and the unit
+    /// - **The target suits it** (it stands, is its owner's and lets the unit in, [`network::lets_in`]) **and the unit
     ///   has walked into the entry path** ([`EntryPath::reached`], (M6-SV) by its box as it lies: a vehicle's
     ///   Silhouette turned with its facing, `Shape::bound_half`): it goes into the network
     ///   (`SimEvent::EnteredNetwork`), or into the building's pool (`SimEvent::EnteredBuilding`) if the pool has room
@@ -202,7 +207,7 @@ impl Sim {
         let suits = self.objects.get(&target).filter(|target| {
             target.owner.is_some()
                 && target.owner == o.owner
-                && network::admits(target, o.kind).is_ok()
+                && network::lets_in(target, o.kind).is_ok()
                 && mirage::admitted(target, o)
         });
         let half = o.def().silhouette().map(|_| Shape::of(o).bound_half());
@@ -224,7 +229,7 @@ impl Sim {
 
     /// (M6-ST1) Unit `unit` is on an Enter order to `carrier`, a carrier on the map (`crate::carry`, plan decision
     /// T94), its walk over or not (`walked`; `orders::enter`):
-    /// - **The carrier suits it** (it is its owner's, loads now and takes the unit's base, [`network::admits`]) **and
+    /// - **The carrier suits it** (it is its owner's, loads now and takes the unit's base, [`network::lets_in`]) **and
     ///   the unit is within Proximity of it** (`Orders::proximity_su`, the gap between their shapes as they lie, edge
     ///   to edge, from any side): it boards (`SimEvent::Boarded`), off the map at the carrier
     ///   (`network::Place::Carrier`), if the carrier has room for it ([`Sim::room`]: as many places free as it takes,
@@ -240,7 +245,7 @@ impl Sim {
             return;
         };
         let suits =
-            c.owner.is_some() && c.owner == o.owner && network::admits(c, o.kind).is_ok() && mirage::admitted(c, o);
+            c.owner.is_some() && c.owner == o.owner && network::lets_in(c, o.kind).is_ok() && mirage::admitted(c, o);
         let places = carry::def_of(c).and_then(|def| carry::places(def, o.kind));
         let near = Shape::of(o).gap(&Shape::of(c)) <= rules().tuning.orders.proximity_su;
         match (suits, near) {

@@ -678,3 +678,19 @@ fn thrusts_are_structure_and_their_numbers_live() {
         change("Phantom", "thrust")
     );
 }
+
+/// One way only (`network::lets_in`): `UnitDef::one_way` is in a ruleset's data, the Prism's `true`, and reads back
+/// from it; it is structure, the Prism's as another type's.
+#[test]
+fn one_way_is_data_and_structure() {
+    let builtin = Ruleset::builtin();
+    let change = |entry, field| Some(RuleField { entry, field });
+    let mut json = serde_json::to_value(&builtin).unwrap();
+    assert_eq!(json["defs"]["Prism"]["unit"]["one_way"], true);
+    json["defs"]["Specter"]["unit"]["one_way"] = true.into();
+    let back: Ruleset = serde_json::from_value(json).unwrap();
+    assert_eq!(builtin.structural_diff(&back), change("Specter", "one_way"));
+    let mut rules = Ruleset::builtin();
+    rules.defs.get_mut(ObjectKind::Prism).unit.as_mut().unwrap().one_way = false;
+    assert_eq!(builtin.structural_diff(&rules), change("Prism", "one_way"));
+}

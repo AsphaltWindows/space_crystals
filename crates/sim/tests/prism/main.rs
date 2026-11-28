@@ -5,12 +5,16 @@
 //!   as it refuses a unit without thrusts (`Reject::LacksAbility`); Shift-queued thrusts run one after another, and
 //!   one that starts with no charge left ends without moving (Placeholder (Q0198));
 //! - `launch`: a thrust given while the Prism launches out of the air exit door is held, and runs once it has unfolded;
+//! - `one_way`: the Prism is never let back into the network (`Reject::OneWay`), its right-click on a Tunnel a Move
+//!   to it, and ordered in with a Guard it ignores the order; trained with a Null Chamber, it takes no turn and leaves
+//!   unbuffed;
 //! - `saves`: a game goes on alike after a save mid-burst, and the thrusts are in the save and the hash only while a
 //!   unit has them.
 //!
 //! Every test runs under the invariants of `TestSim`, I3 and I5/I7 with their allowance for a burst among them.
 
 mod launch;
+mod one_way;
 mod saves;
 mod thrust;
 

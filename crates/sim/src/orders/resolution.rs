@@ -22,7 +22,9 @@
 //!   Syndicate unit, when the target Tunnel's tier is sufficient for the unit's base category";
 //!   `factions/syndicate/units/agent.md > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter";
 //!   slice M4-C, `crate::network`), after a worker's Drop Off there ("Own Tunnel (carrying resources) → Drop off
-//!   resources"). So does **an own building that holds units** of the unit's kind, in operation (slice M5-F1,
+//!   resources"), but to a unit whose type is one way (`network::one_way`;
+//!   `factions/syndicate/units/prism.md > One way only`: it "can't get back into the Tunnel Network"), which Moves to it
+//!   as to any other object. So does **an own building that holds units** of the unit's kind, in operation (slice M5-F1,
 //!   `crate::holding`; `factions/cults/units/recruit.md > Right-Click Resolution`: "Own Armory → Enter Armory";
 //!   `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only"), whether or not its pool has
 //!   room, which the unit finds out as it gets there (design change 0347 point 2,
@@ -306,7 +308,10 @@ impl Rule {
                 // (M6-ST1) A carrier is boarded as a building is entered (`crate::carry`).
                 let boards = target.carrier.is_some_and(|def| carry::takes(def, unit.kind));
                 let pool = (target.accepts.contains(&unit.kind) || boards) && !repairs_instead && !refused;
-                (network::passes(target.transit, unit.transit) || pool).then_some(OrderKind::Enter(id))
+                // Its type never going back into the Tunnel Network (`network::lets_in`), a one-way unit resolves on
+                // a Tunnel as one its tier doesn't let through.
+                let transit = network::passes(target.transit, unit.transit) && !network::one_way(unit.kind);
+                (transit || pool).then_some(OrderKind::Enter(id))
             }
             Rule::Assist => (target.site.is_some_and(|kind| assists(unit.kind, kind))).then_some(OrderKind::Assist(id)),
             Rule::Repair => {

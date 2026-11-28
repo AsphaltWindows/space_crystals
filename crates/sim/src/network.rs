@@ -161,6 +161,9 @@ pub enum NoTransit {
     /// `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only"); (M6-ST1) a carrier, whose
     /// type carries no unit of the kind's base (`CarrierDef::places`: the Transport "carries **infantry only**").
     NotAccepted,
+    /// A Tunnel, on the way in ([`lets_in`]), to a unit whose type never goes back into the Tunnel Network
+    /// ([`one_way`]).
+    OneWay,
 }
 
 /// Whether `target` lets a unit of `kind` in: (M6-ST1) a carrier by its own rule (`carry::admits`, plan decision T94),
@@ -189,6 +192,25 @@ pub fn admits(target: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
     } else {
         Err(NoTransit::Tier)
     }
+}
+
+/// Whether `target` lets a unit of `kind` in, on a way in (the gate's Enter and the entries' step; the default command
+/// by the same rule, `orders::resolution`): [`admits`], and a Tunnel takes no unit whose type is one way ([`one_way`],
+/// [`NoTransit::OneWay`]). The way out is [`admits`] alone, so that a one-way unit produced inside leaves. A building
+/// that holds units and a carrier let in by their own rules.
+pub fn lets_in(target: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
+    admits(target, kind)?;
+    let tunnel = crate::carry::def_of(target).is_none() && crate::holding::holds(target).is_none();
+    match tunnel && one_way(kind) {
+        true => Err(NoTransit::OneWay),
+        false => Ok(()),
+    }
+}
+
+/// Whether a unit of `kind` never goes back into the Tunnel Network once out of it (`UnitDef::one_way`;
+/// `factions/syndicate/units/prism.md > One way only`: "can't get back into the Tunnel Network").
+pub fn one_way(kind: ObjectKind) -> bool {
+    kind.def().unit.as_ref().is_some_and(|unit| unit.one_way)
 }
 
 /// Whether a Tunnel whose tier's Transit is `transit` lets a unit of `class` through: the tier lists the class. The one
