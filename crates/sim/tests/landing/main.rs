@@ -1,7 +1,6 @@
 //! (M6-GH2) Landing and rearming at the Airfield (`sc_sim::landing`, plan decision T88;
-//! `factions/gdo/structures/airfield.md > Aircraft Support`, `factions/gdo/structures/airfield.md > Returning and
-//! rearming`; design changes 0428 and 0423), and the Hornet's burst (design change 0458), through the gate. One test
-//! binary:
+//! `factions/gdo/structures/airfield.md > Aircraft Support`, `systems/mechanics/aircraft_landing.md > Assigned base`;
+//! design changes 0428 and 0423), and the Hornet's burst (design change 0458), through the gate. One test binary:
 //! - `slots`: four Hornets out of ammo land on the Airfield's 4 slots, each in 16 frames, holding still, and rearm
 //!   there; F from anywhere, or a right-click on its own Airfield, flies one home to land and rearm; one landed there
 //!   already stays; a right-click on another own Airfield reassigns it, and it lands there;

@@ -1,9 +1,9 @@
-//! (M6-GL) A Glider's landing approach and its hold in the air — `factions/gdo/structures/airfield.md > Returning and
-//! rearming` (design change 0428 point 5, answering Q0162): "**The Dragonfly** (a Glider) lands and takes off
-//! **vertically**, as the Specter at an air door: it approaches its slot at IdleSpeed, stops over it while it lands (16
-//! frames), and takes off straight up, leaving at IdleSpeed. Landed, it doesn't move"; plan decision T88: "a glider
-//! takes GL's straight approach at IdleSpeed". GliderMovement keeps moving (`super::glider`: "Unit must always maintain
-//! movement to stay airborne"); its landing overrides that here, in the movement step, in place of its flight:
+//! (M6-GL) A Glider's landing approach and its hold in the air — `systems/mechanics/aircraft_landing.md > Vertical`
+//! (design change 0428 point 5, answering Q0162): "**The Dragonfly** (a Glider) lands and takes off **vertically**, as
+//! the Specter at an air door: it approaches its slot at IdleSpeed, stops over it while it lands (16 frames), and takes
+//! off straight up, leaving at IdleSpeed. Landed, it doesn't move"; plan decision T88: "a glider takes GL's straight
+//! approach at IdleSpeed". GliderMovement keeps moving (`super::glider`: "Unit must always maintain movement to stay
+//! airborne"); its landing overrides that here, in the movement step, in place of its flight:
 //!
 //! - **The approach** ([`fly`]; `Mover::approach_to`, `Approach::Flying`): it flies at its goal's point as a Glider
 //!   flies at any goal, at MaxSpeed while the point is ahead of it (within 90° of its heading), farther than

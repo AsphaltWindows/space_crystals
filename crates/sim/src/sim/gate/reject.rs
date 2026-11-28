@@ -277,8 +277,8 @@ pub enum Reject {
     AirfieldFull,
     /// (M6-GH1) A Rebase's target isn't an Airfield of the player's in operation (`crate::aircraft::is_airfield`).
     NotAnAirfield(ObjectId),
-    /// (M6-GH1) None of the aircraft of a Return to Base has a base (`factions/gdo/structures/airfield.md > Returning
-    /// and rearming`: "An unassigned aircraft has no base [...] Return to Base is unavailable until it is reassigned").
+    /// (M6-GH1) None of the aircraft of a Return to Base has a base (`systems/mechanics/aircraft_landing.md > Assigned
+    /// base`: "An unassigned aircraft has no base [...] Return to Base is unavailable until it is reassigned").
     NoBase,
     /// (M6-GH1) None of the units of an Attack or an Attack Ground that would take it has ammo left (`crate::aircraft`;
     /// `factions/gdo/units/hornet.md > AttackAttributes`: "Ammo: **5 missiles**, then it must reload at its assigned

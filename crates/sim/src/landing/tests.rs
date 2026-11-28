@@ -252,8 +252,8 @@ fn any_order_but_its_flight_home_lifts_it_off() {
     assert!(!take_off(OrderKind::Stop, &mut flying, &mut rise) && rise.is_none());
 }
 
-/// "Rearming an aircraft takes RearmTimePerAmmo × missing ammo" (`factions/gdo/structures/airfield.md > Returning and
-/// rearming`; "**RearmTimePerAmmo 32 frames**", `factions/gdo/units/hornet.md`), from the frame it is down, at its
+/// "Rearming an aircraft takes RearmTimePerAmmo × missing ammo" (`systems/mechanics/aircraft_landing.md > Assigned
+/// base`; "**RearmTimePerAmmo 32 frames**", `factions/gdo/units/hornet.md`), from the frame it is down, at its
 /// Airfield's speed (design change 0423: "Each frame, these timers advance by the speed ratio (generated ÷ consumed,
 /// capped at 100%)"): at full Power a round every 32 frames, 3 rounds in 96; at 30 of 51 a full rearm of 5 in 272
 /// frames, about 17 s (its Verification), what a frame has left over going on to the next round. Full, it rearms no

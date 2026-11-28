@@ -1,7 +1,7 @@
 //! `factions/gdo/economy.md > SupplyTower > Landing and Attachment`, and the chopper's landing as an aircraft's
-//! (`factions/gdo/units/supply_chopper.md > Unit Transport`, `factions/gdo/structures/airfield.md > Returning and
-//! rearming`): eviction, a command breaking the attachment, the domains while landing and down, and the free repair on
-//! its Tower, at the speed of Power (`factions/gdo/overview.md > Power`).
+//! (`factions/gdo/units/supply_chopper.md > Unit Transport`, `systems/mechanics/aircraft_landing.md > Landed aircraft
+//! (every archetype)`): eviction, a command breaking the attachment, the domains while landing and down, and the free
+//! repair on its Tower, at the speed of Power (`factions/gdo/overview.md > Power`).
 
 use sc_sim::{ProductionCommand, Sim, Target, TickInputs};
 

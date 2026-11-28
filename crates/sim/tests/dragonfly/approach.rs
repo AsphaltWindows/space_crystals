@@ -1,11 +1,11 @@
-//! The Dragonfly's landing (design change 0428 point 5; `factions/gdo/structures/airfield.md > Returning and
-//! rearming`): "**The Dragonfly** (a Glider) lands and takes off **vertically**, as the Specter at an air door: it
-//! approaches its slot at IdleSpeed, stops over it while it lands (16 frames), and takes off straight up, leaving at
-//! IdleSpeed. Landed, it doesn't move" (`movement::approach`); and the plan's acceptance, "It never stops in the air.
-//! It lands from any heading". **Placeholder (Q0192 point 2)**, the designer's
-//! (`systems/mechanics/aircraft_landing.md > Vertical`: "it slows from MaxSpeed to IdleSpeed 4 GU before the spot,
-//! lines up by flying straight on [...] and lands facing the way it came"): it flies the last 4 grid units at
-//! IdleSpeed (`Air::approach_gu`), and its arrival faces the way it came in.
+//! The Dragonfly's landing (design change 0428 point 5; `systems/mechanics/aircraft_landing.md > Vertical`): "**The
+//! Dragonfly** (a Glider) lands and takes off **vertically**, as the Specter at an air door: it approaches its slot at
+//! IdleSpeed, stops over it while it lands (16 frames), and takes off straight up, leaving at IdleSpeed. Landed, it
+//! doesn't move" (`movement::approach`); and the plan's acceptance, "It never stops in the air. It lands from any
+//! heading". **Placeholder (Q0192 point 2)**, the designer's (`systems/mechanics/aircraft_landing.md > Vertical`: "it
+//! slows from MaxSpeed to IdleSpeed 4 GU before the spot, lines up by flying straight on [...] and lands facing the way
+//! it came"): it flies the last 4 grid units at IdleSpeed (`Air::approach_gu`), and its arrival faces the way it came
+//! in.
 
 use super::*;
 

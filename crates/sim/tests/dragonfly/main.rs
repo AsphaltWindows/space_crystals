@@ -360,11 +360,10 @@ fn fly_down(t: &mut TestSim, n: u32, ticks: Tick) -> Vec<Frame> {
     frames
 }
 
-/// The landing that `frames` end with ([`fly_down`]'s), on `slot` (`factions/gdo/structures/airfield.md > Returning
-/// and rearming`: "it approaches its slot at IdleSpeed, stops over it while it lands (16 frames)"): its approach's last
-/// `idle` ticks at IdleSpeed, and its arrival right on the slot at IdleSpeed, where it stops in the air; its landing
-/// begins in the next tick, and it holds still there, with no speed, until it is down, 16 ticks on. Returns the
-/// arrival's frame.
+/// The landing that `frames` end with ([`fly_down`]'s), on `slot` (`systems/mechanics/aircraft_landing.md > Vertical`:
+/// "it approaches its slot at IdleSpeed, stops over it while it lands (16 frames)"): its approach's last `idle` ticks
+/// at IdleSpeed, and its arrival right on the slot at IdleSpeed, where it stops in the air; its landing begins in the
+/// next tick, and it holds still there, with no speed, until it is down, 16 ticks on. Returns the arrival's frame.
 fn lands_on(frames: &[Frame], slot: Vec2, idle: usize) -> Frame {
     let arrival = frames.iter().position(|f| f.over).expect("it stops over its slot");
     let over = frames[arrival];

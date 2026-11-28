@@ -220,10 +220,10 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
     if o.drone.is_some_and(is_gone) {
         o.drone = None;
     }
-    // (M6-GH1) An aircraft whose Airfield has gone is unassigned (`crate::aircraft`; `factions/gdo/structures/airfield.md
-    // > Assignment`: "**Airfield destroyed**: its aircraft become **unassigned** [...] **There is no automatic
-    // reassignment**, even if another Airfield has room"). A Rebase to it ends with it, and a Return to Base where the
-    // unit is, in its next tick (`orders::air_base`).
+    // (M6-GH1) An aircraft whose Airfield has gone is unassigned (`crate::aircraft`;
+    // `systems/mechanics/aircraft_landing.md > Assigned base`: "**Airfield destroyed**: its aircraft become
+    // **unassigned** [...] **There is no automatic reassignment**, even if another Airfield has room"). A Rebase to it
+    // ends with it, and a Return to Base where the unit is, in its next tick (`orders::air_base`).
     if let Some(aircraft) = &mut o.aircraft
         && aircraft.base.is_some_and(is_gone)
     {
