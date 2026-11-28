@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 
-- Q0195: automatic return and queued orders.
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
 - **Syndicate Purifier: SHELVED by the user (2026-11-28, "no purifier for now")**; idea kept: heavy infantry, Hideout, requires Forge; slower, heavier armor (suit); short-range AoE flamethrower-style attack. Open (user thinking, unsure after the friendly-fire point): flame shape (cone / circle at target / line), lingering ground fire, friendly fire. Context: Syndicate AoE is only delayed/dodgeable (Grenadier, Bike, Specter); user agrees it lacks AoE options. Also noted: satellites undesigned; Forge has no unit of its own besides the Transport.

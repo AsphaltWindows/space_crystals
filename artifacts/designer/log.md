@@ -2456,3 +2456,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Bastion requires Machine Shop (user) (0486).
 - Purifier (Syndicate heavy infantry, Hideout, Forge, flamethrower) started; user thinking about the attack (friendly fire). Not in docs yet.
 - Q0194: empty worker right-click: own rules decide (repair default on damaged own building) (0487).
+- Q0195: automatic return drops queued orders (0488). Q0194 confirmed by user.

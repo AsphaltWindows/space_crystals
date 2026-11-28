@@ -35,7 +35,7 @@ For aircraft with **limited ammo**: once out, they must go to a base to rearm. *
 (user, 2026-11-23/26/28) Each aircraft is **assigned** to one base structure and rearms only there.
 - **Assignment**: to the structure that built it. A base holds a set number of assignments (parameter), and as many landing spots. **Reassigning**: right-click another own base with room (its assignments plus its queued aircraft fewer than the maximum); the aircraft is reassigned and flies there. **No manual unassigning.** A base can't queue an aircraft that would exceed its assignments.
 - **Base destroyed**: its aircraft become **unassigned**, with no automatic reassignment; an unassigned aircraft can't rearm or return until reassigned.
-- **Automatic return** when out of ammo: it flies to its base, lands and rearms. Any other order interrupts it (it stays out of ammo).
+- **Automatic return** when out of ammo: it flies to its base, lands and rearms. Any other order interrupts it (it stays out of ammo). **It replaces all the aircraft's orders** (user, 2026-11-28; Q0195): orders queued behind the one it ran out in are **dropped**, as for the Network base; it rearms fully and stays landed until given new orders.
 - **Return to Base** (hotkey F, placeholder; or right-click its own base): fly there, land and rearm.
 - **Shift-queued orders run as soon as it has landed** (user, 2026-11-28; Q0189): taking off with the ammo rearmed so far.
 - **An order during rearming** (user, 2026-11-26; Q0162): takes off at once with the ammo rearmed so far.
