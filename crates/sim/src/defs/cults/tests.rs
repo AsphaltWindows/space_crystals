@@ -236,12 +236,24 @@ fn the_cults_kinds_are_every_designed_one() {
         designed_structures(),
         "the Tech Tree Overview's"
     );
-    assert_eq!(
-        named(Category::Unit),
-        designed_units(),
-        "the units of factions/cults/units/"
-    );
+    let mut designed = designed_units();
+    for (name, slice) in AWAITING_THEIR_SLICE {
+        assert!(
+            designed.remove(name),
+            "{name} ({slice}) is no longer in factions/cults/units/"
+        );
+        assert!(
+            !named(Category::Unit).contains(name),
+            "{name} has its kind: {slice} removes its line from AWAITING_THEIR_SLICE"
+        );
+    }
+    assert_eq!(named(Category::Unit), designed, "the units of factions/cults/units/");
 }
+
+/// The units of `factions/cults/units/` that have no kind yet, each with the slice that registers it. The list is the
+/// Director's: a new unit's design file fails `the_cults_kinds_are_every_designed_one` until its design change is
+/// triaged to a slice, and that slice removes the unit's line when it registers the kind.
+const AWAITING_THEIR_SLICE: [(&str, &str); 1] = [("Pilgrim", "M6-CP, design change 0462")];
 
 /// The design folder of the Cults, from this crate.
 const CULTS_DESIGN: &str = concat!(
