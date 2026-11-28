@@ -10,7 +10,7 @@ Size, armor and other stats: see Placeholder stats below. Space Crystals cost an
 
 ## Unlocks
 Advanced aircraft at the Airstrip (TechPrerequisite on each), not yet designed:
-- A large paratrooper plane (carries infantry and drops them — transport/paradrop behavior TBD)
+- The **Pilgrim**, a large paratrooper plane (factions/cults/units/pilgrim.md; user, 2026-11-27)
 - An airship/zeppelin
 
 **Placeholder stats** (designer, 2026-11-26, at the user's request: provisional numbers so the Director can implement; tune in the numbers pass):

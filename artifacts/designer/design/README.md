@@ -115,6 +115,7 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/cults/units/hand_of_heaven.md` | Long-range shoot-and-scoot missile vehicle, tracked, area damage (Chop Shop, 3 Recruits) |
 | `factions/cults/units/prayer_mobile.md` | Wheeled caster vehicle with a megaphone, Inspire and Suppress (Chop Shop, 2 Recruits, Temple) |
 | `factions/cults/units/sparrow.md` | Small glider, 45° MG turret, air+ground, never lands (Airstrip, 1 Recruit) |
+| `factions/cults/units/pilgrim.md` | Paratrooper glider: loads 16 infantry landed on an Airstrip, parachute drop (Airstrip, 2 Recruits, Scrap Hangar) |
 | `factions/colonists/overview.md` | Colonists identity and resources (Space Crystals, Alloys, Essence, Flux, Beacon Capacity) |
 | `factions/colonists/economy.md` | Beacon Deployment, Beacon, Warp In, Starting Conditions, Egress Node, refining (Alloy Furnace, Essence Refinery, Flux Reactor) |
 | `factions/colonists/structures/README.md` | Tech Model, Portals (upgrade line, exits); index of Colonists structures |

@@ -28,6 +28,8 @@
 
 ## Open Director Questions
 
+- Q0187 (non-blocking): Null Chamber exit buff: SightRange outside vision; leaving with no chamber left.
+- Q0188 (non-blocking): Mirage: illusions copy parent's buffs? does Shift+F queue?
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
 - **Notification system** (pinned by the user, 2026-11-27): only the off-screen damage alert exists (hud.md > Alerts). Waiting on it: exit stays blocked (Q0177, user wants it), production waiting for capacity, refinery input full, Agents' empty station. Open: form (ping colour, text line?), trigger delay, throttle, Space jump.
@@ -37,10 +39,10 @@ Order of work (placeholder passes done, 0366/0367): finish Cults units → Colon
 - **Computer players**: a playtest tool for now (Q0147); write a real design when they become a feature.
 - **Economy**: automated testing closed (Q0146); targets are playtest reference. Open for playtests: Cults One Hall ~0.85 of GDO/Colonists at 2:48.
 - **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); thin, short-range anti-air and no Cults AA building; detection later; Mystical branch has only the Disciple as a new unit (user: fine).
-- **Next Cults work**: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units (incl. salvo concept for Lancer/Skylance).
+- **Next Cults work**: Scrap Hangar airship (Pilgrim paratrooper plane done 0462; "Ark" kept in mind for the airship), maybe more vehicles. Then Colonists units (incl. salvo concept for Lancer/Skylance).
 - **Placeholder passes done** for Cults (0319), GDO (0366), Syndicate (0367); rules confirmed in 0368/0369.
 - **Placeholder review** (after all units + techs): every 'placeholder' number across factions, incl. Disciple having no weapon (0319).
-- **Cults roster IN PROGRESS (2026-11-27)**: Armory: Militant, Gunner (TailDisjointed, Firing 4 f). Cathedral: Disciple (Shroud, Ungroupable). Chop Shop: **Seeker** (ex-Jackal), **Hand of Heaven** (tracked shoot-and-scoot missile, 3 Recruits), **Prayer-mobile** (wheeled caster, Inspire/Suppress, 2 Recruits, Temple). Airstrip: Sparrow. TODO: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units.
+- **Cults roster IN PROGRESS (2026-11-27)**: Armory: Militant, Gunner (TailDisjointed, Firing 4 f). Cathedral: Disciple (Shroud, Mirage, Ungroupable). Chop Shop: **Seeker** (ex-Jackal), **Hand of Heaven** (tracked shoot-and-scoot missile, 3 Recruits), **Prayer-mobile** (wheeled caster, Inspire/Suppress, 2 Recruits, Temple). Airstrip: Sparrow, **Pilgrim** (paratrooper glider, 16 infantry, 2 Recruits). TODO: Scrap Hangar airship, maybe more vehicles. Then Colonists units.
 - **Map view modes with toggles** (user, 2026-11-26, 'later'): e.g. show all own Tunnel Areas; maybe other overlays.
 - **Syndicate identity check (raised 2026-11-25, unanswered)**: (1) no healing outside Tunnels (only 1%/s inside) — intended loop? (2) before the Optics Lab: only Agents, no turret — early vulnerability intended? (3) anti-armor: deferred to the numbers pass (user); (4) no durable frontline/tank beyond the Guard — the Syndicate fights by hiding, mobility, smoke? Then the other factions' rosters (GDO placeholder numbers only if the Director needs them).
 - **Notifications system** not designed: needed for empty Supply station (0256), blocked production queue, etc.
