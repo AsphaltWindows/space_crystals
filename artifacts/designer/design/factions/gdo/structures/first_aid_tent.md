@@ -7,7 +7,7 @@ GDO support structure set up by a Field Engineer. Heals nearby infantry.
 ## BuildRadiusExtension - 0 (does not extend the GDO build area)
 
 ## Healing
-Heals **nearby infantry** (no need to enter). **Permanent** — it stays until destroyed.
+Heals **nearby infantry** (no need to enter). **Permanent** — it stays until destroyed. Uses **Restoring HP, Healing area** (systems/mechanics/hp_restoration.md); parameters in Placeholder stats.
 
 ## Placement
 Can be placed on **any Buildable terrain**, like the Bunker (Worker-Built Structures rules).
