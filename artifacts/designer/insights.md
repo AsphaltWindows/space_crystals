@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 
-- Q0187 (non-blocking): Null Chamber exit buff: SightRange outside vision; leaving with no chamber left.
 - Q0188 (non-blocking): Mirage: illusions copy parent's buffs? does Shift+F queue?
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
@@ -115,6 +114,7 @@ New standing decisions worth remembering: Drones Groupable + lingering build gho
 - **Colonists faction — econ loop plus first combat units now defined**: Drone, Beacon, Warp In mechanic, Egress Node, Roboport, Bioport, Starting Conditions, and the first two combat units (Sabre Legionnaire, Rifle Legionnaire) are all fully stated (see colonists_objects.md summary in TOC above). Still open: Beacon's own ObjectInterfaceState (should expose Warp In as a command — never formalized which panel button/flow triggers it), Roboport's and Bioport's full ObjectInterfaceState (which panel button queues a unit into BuildQueue, how RallyPoint is set via panel — explicitly deferred by user across multiple sessions, not yet resumed), and Shield regen upgrades (still a placeholder noted in combat.md, "discuss later"). Colonists now have combat capability but still only one unit line (two forms of the same Legionnaire) — no Vehicle/Mech/Air combat units yet, unlike the analogous gaps already tracked for GDO/Syndicate. If/when new Colonists buildings are added, remember to also add their row to the Constructs List table in the Warp In section (colonists_objects.md) — cost/time is easy to forget since it lives in a separate section from the building's own stat block.
 
 ## Insights
+- User: buffs must not change unit behaviour (e.g. extra sight widens vision, not target scans), since that may be undesirable (Q0187).
 - Never `cd` out of artifacts/designer in a chained command before `git commit -- .`; a wrong cwd once committed a stray artifacts/log.md (fixed). Use absolute paths.
 - **Minimal UI feedback** (2026-11-26): the user prefers minimal alerts (minimap ping, no text/sound) and wants playtest conveniences (restart menu, explored start, full screen) as temporary tools.
 - **The user tests economy/build orders by playtesting** (2026-11-27, Q0146): don't ask the Director for more scripted economy comparisons.

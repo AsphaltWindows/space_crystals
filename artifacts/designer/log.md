@@ -2431,3 +2431,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0184: Bike MinRange 1 GU; Attack Ground repositions / MinRange back-off (0460).
 - Q0186: mixed selection: units that can't hit follow with group; alone: invalid target (0461).
 - 2026-11-27: Pilgrim (Cults paratrooper glider) designed with user; name chosen over Ark (Ark kept for airship). Cost 2 Recruits (user). 0462.
+- Q0187: Null Chamber sight bonus vision-only (behaviour unchanged by buffs); finished turn always buffs (0463).

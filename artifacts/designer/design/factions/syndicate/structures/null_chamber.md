@@ -11,7 +11,7 @@ While the player owns at least one Null Chamber anywhere in the Tunnel Network, 
 - **Manned units**: all Syndicate units except satellites (infantry, vehicles, and crewed aircraft).
 - **Effects**:
   - **Detection** (stealth/detection mechanic not yet designed — see loose ends)
-  - **Increased SightRange**
+  - **Increased SightRange**: **vision only** (user, 2026-11-27; Q0187): the unit and its owner see farther, but its target scans (idle auto-targeting, AttackMove, Patrol) keep the **unbuffed** SightRange, so a buff never changes how the unit behaves. Together with **detection** (above), the buff is about awareness.
   - **Percentage damage-taken reduction**, applied **before armor**: damage taken = Attack Damage × (1 − reduction) − armor
 - **Refresh**: exiting the Tunnel Network again instantly resets the buff to full duration (no cooldown, for now).
 - **Lore**: occupants consume crystals inside the Null Chamber, shielded from imprinting; the effect fades once they are on the surface.
@@ -24,4 +24,4 @@ Placeholders below for: duration; SightRange bonus; damage-reduction percentage;
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Size 2x2; MaxHP 400; PointArmor 6, FullArmor 24 (underground expansion, n = 6); Cost 200 Space Crystals; Build Time 480 frames (30 seconds).
-- Exit buff: duration **20 s**; **+2 grid units SightRange**; **20%** damage-taken reduction; ends abruptly; no research needed. Throughput: each Null Chamber buffs **4 units at a time**, each buff taking **2 s** inside before the unit can leave buffed; a unit that leaves before its turn leaves unbuffed. **Services run side by side** (user, 2026-11-26; Q0158): a unit's turns at a Vault and at a Null Chamber (and any repair) progress **at the same time**, in separate queues; e.g. a Specter is re-armed and buffed in 10 s, an empty Shadebringer in 20 s.
+- Exit buff: duration **20 s**; **+2 grid units SightRange**; **20%** damage-taken reduction; ends abruptly; no research needed. Throughput: each Null Chamber buffs **4 units at a time**, each buff taking **2 s** inside before the unit can leave buffed; a unit that leaves before its turn leaves unbuffed. **A finished turn always buffs** (user, 2026-11-27; Q0187): a unit whose turn is done leaves buffed even if no Null Chamber is left by then. **Services run side by side** (user, 2026-11-26; Q0158): a unit's turns at a Vault and at a Null Chamber (and any repair) progress **at the same time**, in separate queues; e.g. a Specter is re-armed and buffed in 10 s, an empty Shadebringer in 20 s.
