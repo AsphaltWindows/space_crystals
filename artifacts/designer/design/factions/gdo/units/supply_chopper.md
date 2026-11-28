@@ -11,7 +11,7 @@ A Supply Chopper carries one of the following at a time:
 
 ## Unit Transport
 (user, 2026-11-26: "it lands to load and unload and loads and unloads instantly like the Subterranean Transport")
-Uses **Carrying, Landing carrier** (systems/mechanics/carrying.md), with:
+Uses **Carrying, Landing carrier** (systems/mechanics/carrying.md) with **Field landing** (systems/mechanics/aircraft_landing.md), with:
 - **Capacity**: as above (4 infantry, or any one vehicle; not while carrying Supplies).
 - **Inputs**: **Enter** (right-click the Chopper with own infantry or a vehicle selected) and **Load** (with the Chopper selected, right-click an own infantry unit or vehicle).
 - **F: Unload All**, targeted.

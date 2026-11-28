@@ -4,6 +4,7 @@
 ## Entity Type - Unit
 ## Faction - TheSyndicate
 ## UnitBase - Glider (with vertical lift-off and landing at the Tunnel air doors)
+## Uses - **Aircraft Landing and Rearming** (systems/mechanics/aircraft_landing.md): **Vertical** landing at a Tier 3 Tunnel's air doors; **Network base** rearming (structures it lands in: own Tier 3 Tunnels, not one mid-upgrade; service: a Vault anywhere in the network). The rules below are its parameters and examples.
 ## Produced at - Aerospace Assembly
 ## TechPrerequisite - player owns at least one **Vault** and at least one **Chemical Plant** (user, 2026-11-25)
 

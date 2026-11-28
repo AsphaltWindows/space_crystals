@@ -1,5 +1,5 @@
 # Hornet
-GDO air-to-ground attack aircraft produced at the Airfield. A HoverCraft (a chopper) that fires **air-to-ground missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures/airfield.md > Aircraft Support).
+GDO air-to-ground attack aircraft produced at the Airfield. A HoverCraft (a chopper) that fires **air-to-ground missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures/airfield.md > Aircraft Support; systems/mechanics/aircraft_landing.md).
 
 ## Entity Type - Unit
 ## Faction - GlobalDefenseOrganization

@@ -3,7 +3,7 @@
 
 ## Entity Type - Unit
 ## Faction - TheSyndicate
-## UnitBase - HoverCraft (enters and exits only through Tier 3 Tunnels' air doors)
+## UnitBase - HoverCraft (enters and exits only through Tier 3 Tunnels' air doors) (Vertical landing archetype, systems/mechanics/aircraft_landing.md)
 ## Produced at - Aerospace Assembly
 ## TechPrerequisite - player owns at least one **Optics Lab** (user, 2026-11-25)
 ## Groupable - true (confirmed, Q0071)

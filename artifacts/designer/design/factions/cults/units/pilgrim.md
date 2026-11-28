@@ -12,6 +12,7 @@
 ## AttackAttributes - None (unarmed)
 
 ## On the runway
+Uses **Aircraft Landing and Rearming, Runway** archetype (systems/mechanics/aircraft_landing.md) on an own Airstrip (no rearming: it is unarmed). Its parameters and exceptions:
 - **A new Pilgrim appears landed on the runway** (user, 2026-11-27) and **stays there until it is given an order**. Unlike the Sparrow, it doesn't take off by itself. While it is landed, the Airstrip's production is blocked (below).
 - **Takeoff**: **any order** (a Move, a Drop, etc.) makes it **take off along the runway** toward its C end, as the Sparrow does, and then carry the order out. It is an air target during the run (as the Sparrow).
 - **Landing** (user, 2026-11-27): **right-click an own Airstrip** with the Pilgrim selected: it flies to **that** Airstrip and lands on its runway (lining up and touching down along it, toward C; about **2 s**, 32 frames, placeholder; an air target meanwhile). There is no general Land command: the player picks the Airstrip, since with several Airstrips it matters where it will be loaded and repaired. It **never lands anywhere else**. An Airstrip holds **one landed Pilgrim** at a time; a Pilgrim sent to an occupied runway circles over it until the runway is free (designer's reading).

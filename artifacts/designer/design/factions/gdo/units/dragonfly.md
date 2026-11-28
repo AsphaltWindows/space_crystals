@@ -1,11 +1,11 @@
 # Dragonfly
-GDO air-to-air fighter produced at the Airfield once the player owns Propulsion Labs. Fires **air-to-air missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures/airfield.md > Aircraft Support).
+GDO air-to-air fighter produced at the Airfield once the player owns Propulsion Labs. Fires **air-to-air missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures/airfield.md > Aircraft Support; systems/mechanics/aircraft_landing.md).
 
 ## Entity Type - Unit
 ## Faction - GlobalDefenseOrganization
 ## Produced at - Airfield
 ## TechPrerequisite - player owns at least one Propulsion Labs (see core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites)
-## UnitBase - Glider (must keep moving; circles when idle; wider turns at higher speed; with **vertical landing and take-off at the Airfield**, Q0162: factions/gdo/structures/airfield.md > Returning and rearming)
+## UnitBase - Glider (must keep moving; circles when idle; wider turns at higher speed; with **vertical landing and take-off at the Airfield**, Q0162: systems/mechanics/aircraft_landing.md > Vertical)
 
 ## AttackAttributes:
 - Weapon: air-to-air missiles
